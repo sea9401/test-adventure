@@ -1,3 +1,5 @@
+import { SANCTUARY_SAVE_KEY, SANCTUARY_DAILY_ATTEMPTS, parseSanctuaryState, canEnterSanctuary } from "@/adventure/data/v2/sanctuaryDungeon";
+import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import type { AdventureActivityView } from "@/adventure/v2/adventureDashboard";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
@@ -50,6 +52,7 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [MINING_AUTO_KEY]: {},
   [MASTERY_TOWER_SAVE_KEY]: {},
   [STORM_EXPEDITION_SAVE_KEY]: {},
+  [SANCTUARY_SAVE_KEY]: {},
   [CHARACTER_STATE_KEY]: {},
   [ARENA_STATE_KEY]: {},
   [ARENA_HISTORY_KEY]: {},
@@ -71,6 +74,7 @@ export const ADVENTURE_ACTIVITY_IDS = [
   "mining_ready",
   "mastery_tower_daily",
   "storm_expedition_daily",
+  "sanctuary_daily",
   "arena_daily",
 ] as const;
 
@@ -163,6 +167,8 @@ export function resolveAdventureActivities(
     Math.floor(Number(character?.frontierDepth) || 2),
   );
   const expeditionUnlocked = frontierDepth >= STORM_EXPEDITION_UNLOCK_DEPTH;
+  const sanctuary = parseSanctuaryState(saves[SANCTUARY_SAVE_KEY], stormExpeditionDateKey(now));
+  const sanctuaryUnlocked = V2_UNEXPLORED && canEnterSanctuary(character ?? {});
   const arena = parseArenaState(saves[ARENA_STATE_KEY]);
   const arenaCount = arenaDailyMatchCount(arena, now);
   const fishCodex = parseFishCodex(saves[FISHING_CODEX_KEY]);
@@ -288,7 +294,7 @@ export function resolveAdventureActivities(
       id: "storm_expedition_daily",
       group: "daily",
       tab: "battle",
-      title: "원정",
+      title: "폭풍 원정",
       detail: expedition.active
         ? "진행 중인 원정 계속하기"
         : `${expedition.attemptsUsed} / ${STORM_EXPEDITION_DAILY_ATTEMPTS}`,
@@ -301,6 +307,18 @@ export function resolveAdventureActivities(
           : "completed",
       current: expedition.attemptsUsed,
       target: STORM_EXPEDITION_DAILY_ATTEMPTS,
+      defaultEnabled: true,
+    },
+    {
+      id: "sanctuary_daily",
+      group: "daily",
+      tab: "battle",
+      title: "태초의 성소",
+      detail: sanctuary.active ? "진행 중인 던전 계속하기" : `${sanctuary.attemptsUsed} / ${SANCTUARY_DAILY_ATTEMPTS}`,
+      href: "/battle/sanctuary",
+      state: !sanctuaryUnlocked ? "unavailable" : sanctuary.active || sanctuary.attemptsUsed < SANCTUARY_DAILY_ATTEMPTS ? "actionable" : "completed",
+      current: sanctuary.attemptsUsed,
+      target: SANCTUARY_DAILY_ATTEMPTS,
       defaultEnabled: true,
     },
     {

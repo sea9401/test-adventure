@@ -90,21 +90,25 @@ export type TripleWardDamageResult = {
 
 /**
  * 한 행동의 같은 피해 유형 타격 배열을 처리한다. 0 피해는 유효 타격으로 보지 않으며,
- * 첫 양수 타격 하나만 결계로 줄여 다단 공격의 나머지 타격은 원래 피해를 유지한다.
+ * 모든 양수 타격을 줄이고 결계는 한 번 소비한다. 타격을 순서대로 처리하는 엔진은
+ * 스킬 시전마다 새 actionReductions를 만들어 전달한다. 이 Map은 첫 소비 시 갱신되며,
+ * 마지막 충전을 소모해도 같은 스킬의 후속 타격에 감소율을 유지한다.
  */
 export function resolveTripleWardDamage(
   state: TripleWardState,
   kind: TripleWardDamageKind,
   mode: TripleWardCombatMode,
   rawDamages: readonly number[],
+  actionReductions?: Map<TripleWardDamageKind, number>,
 ): TripleWardDamageResult {
   const damages = rawDamages.map((damage) => Math.max(0, Math.floor(damage)));
   const remainingBefore = state[kind];
-  const hitIndex = remainingBefore > 0
+  const activeReductionPct = actionReductions?.get(kind) ?? 0;
+  const hitIndex = remainingBefore > 0 || activeReductionPct > 0
     ? damages.findIndex((damage) => damage > 0)
     : -1;
   const reductionPct = hitIndex >= 0
-    ? tripleWardReductionPct(state.rank, mode)
+    ? activeReductionPct || tripleWardReductionPct(state.rank, mode)
     : 0;
 
   if (hitIndex < 0 || reductionPct <= 0) {
@@ -118,21 +122,21 @@ export function resolveTripleWardDamage(
     };
   }
 
-  damages[hitIndex] = Math.max(
-    1,
-    Math.floor(damages[hitIndex] * (1 - reductionPct / 100)),
-  );
-  const consumedState = grantStability({
-    ...state,
-    [kind]: remainingBefore - 1,
-  });
+  const reducedDamages = damages.map((damage) => damage > 0
+    ? Math.max(1, Math.floor(damage * (1 - reductionPct / 100)))
+    : 0);
+  const consumed = activeReductionPct <= 0;
+  const nextState = consumed
+    ? grantStability({ ...state, [kind]: remainingBefore - 1 })
+    : state;
+  if (consumed) actionReductions?.set(kind, reductionPct);
   return {
-    state: consumedState,
-    damages,
-    totalDamage: damages.reduce((sum, damage) => sum + damage, 0),
-    consumed: true,
+    state: nextState,
+    damages: reducedDamages,
+    totalDamage: reducedDamages.reduce((sum, damage) => sum + damage, 0),
+    consumed,
     reductionPct,
-    remaining: remainingBefore - 1,
+    remaining: nextState[kind],
   };
 }
 

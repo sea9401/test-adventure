@@ -1,3 +1,4 @@
+import { readCoopPreferences } from "@/lib/server/coopPreferences";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
     );
   }
   const kind = COOP_BOSSES[kindId];
+  const requestedFreeSupport = body.allowFreeSupport;
   let summonerName = "모험가";
   let result: { status: number; body: Record<string, unknown> };
   try {
@@ -94,13 +96,15 @@ export async function POST(req: Request) {
         null,
       );
       summonerName = profile?.name?.trim() || "모험가";
+      const allowFreeSupport = requestedFreeSupport ??
+        (await readCoopPreferences(tx, userId)).autoFreeSupport;
       const created = await createCoopBossSession(tx, {
         kindId,
         userId,
         summonerName,
         now,
         visibility: COOP_INITIAL_VISIBILITY,
-        allowFreeSupport: body.allowFreeSupport === true,
+        allowFreeSupport,
       });
       if (!created.ok) {
         return {

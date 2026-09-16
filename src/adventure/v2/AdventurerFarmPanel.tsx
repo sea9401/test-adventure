@@ -1,5 +1,7 @@
 "use client";
 
+import { farmingSeedReturnChancePct } from "./lifeLevelBonuses";
+
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -291,7 +293,7 @@ export function AdventurerFarmPanel({
           result.rareItemName
             ? ` 희귀 수확: ${result.rareItemName} ${result.rareQuantity}개.`
             : ""
-        } 농사 XP +${result.farmingXpGained}.`,
+        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}.`,
       };
     }
     if (notice.kind === "shop") {
@@ -350,6 +352,7 @@ export function AdventurerFarmPanel({
           null,
           undefined,
           notice.farmingXpGained,
+          notice.seedsReturned,
         ),
       };
     }
@@ -745,6 +748,8 @@ function FarmHome({
           </h2>
           <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
             씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.
+            {" "}현재 씨앗 반환 확률 {farmingSeedReturnChancePct(farmingLevelForState(farm)).toFixed(1)}%.
+            농사 레벨에 따라 30%에서 최대 55%까지 증가하며, 반환 성공 시 해당 씨앗을 1개 돌려받습니다.
           </p>
         </div>
         <button

@@ -28,6 +28,7 @@ import {
   type CoopBossKindId,
   coopAttackCooldownMs,
   canAccessCoopBoss,
+  parseCoopVisibility,
   parseCoopMechanicState,
   coopBossCurrentMp,
   coopBossMaxMp,
@@ -79,7 +80,7 @@ import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConsta
 //      세션 검증을 통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
 // 일반 공격의 처치 확정자는 소액 막타 보상을 즉시 받는다. 무료 지원은 비용·기여·막타 보상 없이
 // 동일 쿨다운으로 공유 HP를 깎으며, 소환자의 허용을 잠금 전후 검증한다. tx 후 coop_kill 피드를
-// 발행한다. 기여 보상은 별도 claim(본인 세이브만 — 교차 유저 락 0 원칙).
+// 전체 공개 보스에만 발행한다. 기여 보상은 별도 claim(본인 세이브만 — 교차 유저 락 0 원칙).
 
 type CharSave = {
   stamina?: unknown;
@@ -716,6 +717,7 @@ export async function POST(req: Request) {
 
     return {
       status: 200,
+      publishKillFeed: parseCoopVisibility(s.visibility) === "public",
       body: {
         ok: true as const,
         stamina: afterStamina,
@@ -817,7 +819,7 @@ export async function POST(req: Request) {
         },
       });
     }
-    if (isStandardReward) {
+    if (isStandardReward && result.publishKillFeed) {
       await insertFeedEntry(userId, "coop_kill", {
         kind: defeatedKind,
         sessionId,

@@ -1,3 +1,4 @@
+import { applyEmblemLevelGrowth } from "@/lib/server/emblemLevelGrowth";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
@@ -28,6 +29,7 @@ export function applyLevelTargetGrant(
     level?: unknown;
     exp?: unknown;
     specChoice?: unknown;
+    emblems?: unknown;
   },
   proficiencyRaw: unknown,
   targetLevel: number,
@@ -52,8 +54,15 @@ export function applyLevelTargetGrant(
   const grownBefore = proficiency.grown;
   let grown = grownBefore;
 
+  let emblemHp = 0;
+  let emblemMp = 0;
   for (let index = 0; index < levelsGained; index += 1) {
     grown = rollLevelGrowth(grown, playerClass, proficiency, rand);
+    const emblem = applyEmblemLevelGrowth({ proficiency: setGrown(proficiency, grown), emblems: charSave.emblems, levelsGained: 1, rng: rand });
+    proficiency = emblem.proficiency;
+    grown = proficiency.grown;
+    emblemHp += emblem.gained.hp;
+    emblemMp += emblem.gained.mp;
   }
   if (levelsGained > 0) proficiency = setGrown(proficiency, grown);
   let hpGain = 0;
@@ -89,6 +98,8 @@ export function applyLevelTargetGrant(
     mpGain = legacy.mp;
   }
 
+  hpGain += emblemHp;
+  mpGain += emblemMp;
   return {
     level,
     exp: level >= normalizedTarget ? 0 : Math.max(0, Number(charSave.exp) || 0),

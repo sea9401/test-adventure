@@ -35,6 +35,7 @@ import {
 import { initialInvincibleFortressState } from "@/adventure/v2/combat/invincibleFortressMechanic";
 import { initialImmortalBerserkerState } from "@/adventure/v2/combat/immortalBerserkerMechanic";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { readCoopPreferences } from "@/lib/server/coopPreferences";
 
 type TxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -203,6 +204,7 @@ async function spawnFishingCoopBoss(
   const sessionId = randomUUID();
   const expiresAt = new Date(args.now.getTime() + coopBossDurationMs(kind));
   const summonerGuildId = await getGuildId(ex, args.userId);
+  const { autoFreeSupport } = await readCoopPreferences(ex, args.userId);
   await ex.insert(coopBossSessions).values({
     id: sessionId,
     regionId: kindId,
@@ -217,6 +219,7 @@ async function spawnFishingCoopBoss(
     summonerId: args.userId,
     summonerGuildId,
     visibility: COOP_INITIAL_VISIBILITY,
+    allowFreeSupport: autoFreeSupport,
   });
   return {
     ok: true,

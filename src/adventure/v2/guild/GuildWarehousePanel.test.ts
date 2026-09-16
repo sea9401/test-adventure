@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -221,5 +221,53 @@ describe("길드 창고 장비 선택 표시", () => {
     expect(html).toContain("추가 회피도");
     expect(html).toContain("속도");
     expect(html).toContain("잠금");
+  });
+});
+
+
+describe("보관 장비 상세·비교", () => {
+  it.each([true, false])("입출고 권한 없이 상세를 열고 착용 여부(%s)에 따라 비교한다", async (hasEquipped) => {
+    const equipped = {
+      ...TRANSFERABLE_EQUIPMENT,
+      iid: "equipped-boots",
+      bound: true,
+      locked: true,
+      roll: { power: 20, weight: 0, options: {} },
+    };
+    const requests: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      requests.push(url);
+      if (url.endsWith("power-preview")) {
+        return Response.json({ ok: true, currentPower: 100, candidatePower: 128, delta: 28 });
+      }
+      return Response.json({
+        ok: true, level: 1, capacity: 3, used: 1,
+        canTransfer: false, canManagePermissions: false,
+        personalEquipment: [], equippedIids: hasEquipped ? [equipped.iid] : [],
+        equippedEquipment: [
+          { iid: "equipped-weapon", id: "v2_iron_sword" },
+          ...(hasEquipped ? [equipped] : []),
+        ],
+        warehouse: {}, equipment: [TRANSFERABLE_EQUIPMENT], members: [], activity: [],
+      });
+    });
+    render(createElement(GuildWarehousePanel));
+    fireEvent.click(await screen.findByRole("button", { name: "기폭 사냥화 상세·비교" }));
+    const detail = screen.getByRole("dialog", { name: "기폭 사냥화 정보" });
+    expect(within(detail).getByText("추가 회피도")).toBeTruthy();
+    if (hasEquipped) {
+      fireEvent.click(within(detail).getByRole("button", { name: /비교/ }));
+      const comparison = screen.getByRole("dialog", { name: "기폭 사냥화 비교" });
+      expect(within(comparison).getByText("현재 장착 중")).toBeTruthy();
+      expect(within(comparison).getByText("+20")).toBeTruthy();
+      expect(within(comparison).getByText("▲+28")).toBeTruthy();
+      expect(within(comparison).queryByRole("button", { name: "장착하기" })).toBeNull();
+      await within(comparison).findByText(/100/);
+    } else {
+      expect(within(detail).queryByRole("button", { name: /비교/ })).toBeNull();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(requests.filter((url) => !url.endsWith("power-preview"))).toEqual(["/api/v2/guild/warehouse"]);
   });
 });

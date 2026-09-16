@@ -250,3 +250,40 @@ describe("결계 소진 패턴 PvP", () => {
     } finally { random.mockRestore(); }
   });
 });
+
+describe("연타 전체 결계 보호", () => {
+  it.each([
+    ["v2c_martial_combo", "physical", 5],
+    ["v2c_mage_barrage", "magic", 3],
+  ] as const)("%s의 마지막 결계 1회가 전체 타격을 보호한다", (skillId, kind, count) => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      const start = initialBattleStatePvP(
+        combatant({ spd: 100, strStat: 100, intStat: 100 }), combatant({ spd: 1 }),
+        "공격자", "수호자", { learned: [skillId], equipped: [skillId] }, LAWGUARDIAN,
+      );
+      // 영역 안정은 이미 최대치로 고정하여 결계 40%만 비교한다.
+      const warded = { ...start, p2: { ...start.p2, stacks: { ...start.p2.stacks,
+        tripleWard: { ...start.p2.stacks.tripleWard, [kind]: 1, stabilityStacks: 3 },
+      } } };
+      const unwarded = { ...warded, p2: { ...warded.p2, stacks: { ...warded.p2.stacks,
+        tripleWard: { ...warded.p2.stacks.tripleWard, [kind]: 0 },
+      } } };
+      const plain = castV2SkillOnAttackerTurnPvP(unwarded, "p1").state;
+      const after = castV2SkillOnAttackerTurnPvP(warded, "p1").state;
+      const hits = plain.log
+        .filter(entry => entry.kind === "player_attack" && entry.side === "p1")
+        .map(entry => Number(entry.text.match(/(\d+) 피해를 입혔다/)?.[1]));
+      expect(hits).toHaveLength(count);
+      expect(hits.every(hit => hit > 0)).toBe(true);
+      expect(start.p2.hp - after.p2.hp).toBe(
+        hits.reduce((sum, hit) => sum + Math.max(1, Math.floor(hit * 0.6)), 0),
+      );
+      expect(after.p2.stacks.tripleWard[kind]).toBe(0);
+      expect(after.p2.stacks.tripleWard.stabilityStacks).toBe(3);
+      expect(after.log.filter(entry => entry.text.includes(kind === "magic" ? "[봉마결계]" : "[금강결계]"))).toHaveLength(1);
+      const next = castV2SkillOnAttackerTurnPvP({ ...after, p1: start.p1 }, "p1").state;
+      expect(after.p2.hp - next.p2.hp).toBe(start.p2.hp - plain.p2.hp);
+    } finally { random.mockRestore(); }
+  });
+});

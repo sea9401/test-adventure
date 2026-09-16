@@ -5,8 +5,9 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { CoopFreeSupportOption } from "./CoopFreeSupportOption";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { CoopManagementPanel } from "./CoopManagementPanel";
+import { useCoopManagement } from "./useCoopManagement";
+import { SURFACE_CARD, SURFACE_ACCENT } from "@/components/ui/surfaces";
 import { useEffect, useState } from "react";
 import { CaretDown, CaretRight, CaretUp } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -277,14 +278,16 @@ export function V2CoopBossListView({
     scrolls,
     sessions,
     claimables,
-    busy,
+    busy: listBusy,
     loaded,
     notice,
     lastReward,
     summon,
     claim,
+    refresh,
   } = useCoopListState();
-  const [allowFreeSupport, setAllowFreeSupport] = useState(false);
+  const management = useCoopManagement({ sessions, refresh, busy: listBusy });
+  const busy = listBusy || management.busy;
   const [now, setNow] = useState(() => Date.now());
   // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — UI 그룹 단위 토글.
   const [infoOpen, setInfoOpen] = useState<string | null>(null);
@@ -306,7 +309,8 @@ export function V2CoopBossListView({
 
   // 소환 후에도 목록에 머문다 — 여러 마리 연속 소환 흐름(이동은 보스 카드 클릭으로).
   const handleSummon = async (kind: CoopBossKindId) => {
-    await summon(kind, allowFreeSupport);
+    if (busy || !management.ready) return;
+    await summon(kind);
   };
 
   return (
@@ -321,7 +325,7 @@ export function V2CoopBossListView({
       <V2CoopTabs active="bosses" onOpenShop={onOpenShop} />
 
       {notice && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-zinc-950 dark:text-amber-300">
+        <div className={`${SURFACE_ACCENT} px-3 py-2 text-sm text-amber-800 dark:text-amber-300`}>
           {notice}
         </div>
       )}
@@ -371,7 +375,7 @@ export function V2CoopBossListView({
       )}
 
       {lastReward && (
-        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-zinc-950">
+        <div className={`${SURFACE_CARD} px-4 py-3`}>
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
             {lastReward.rewardMode === "unexplored_personal"
               ? "개인 토벌 보상 획득!"
@@ -421,6 +425,8 @@ export function V2CoopBossListView({
           </ul>
         </div>
       )}
+
+      <CoopManagementPanel management={management} sessions={sessions} busy={busy} loaded={loaded} />
 
       {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
       <div className="space-y-3">
@@ -478,14 +484,6 @@ export function V2CoopBossListView({
           </p>
         )}
       </div>
-
-      <Card padding="md">
-        <CoopFreeSupportOption
-          checked={allowFreeSupport}
-          disabled={busy}
-          onChange={setAllowFreeSupport}
-        />
-      </Card>
 
       {/* 소환하기 — 보스별 카드, 난이도 변형은 카드 안에서 선택 */}
       <div className="space-y-2">
@@ -548,7 +546,7 @@ export function V2CoopBossListView({
                 </button>
                 <button
                   type="button"
-                  disabled={busy || !loaded || capped || short}
+                  disabled={busy || !loaded || !management.ready || capped || short}
                   onClick={() => void handleSummon(selectedKind)}
                   className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
                 >

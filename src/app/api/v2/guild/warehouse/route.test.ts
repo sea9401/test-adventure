@@ -17,6 +17,7 @@ const tx = {};
 
 vi.mock("@/db", () => ({
   db: {
+    select: vi.fn(),
     transaction: vi.fn(async (callback: (value: typeof tx) => unknown) =>
       callback(tx),
     ),
@@ -69,13 +70,15 @@ import { isGuildAdmin } from "@/lib/server/guildAdmin";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import {
   hasGuildWarehousePermission,
+  readGuildWarehouse,
   lockGuildWarehouse,
   upsertGuildWarehouse,
 } from "@/lib/server/guildWarehouse";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { readSave, lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { POST } from "./route";
+import { db } from "@/db";
+import { GET, POST } from "./route";
 
 const MATERIAL_ID = ENHANCE_STONE_MATERIAL_ID.red;
 const SECOND_MATERIAL_ID = ENHANCE_STONE_MATERIAL_ID.blue;
@@ -472,5 +475,27 @@ describe("길드 창고 입출고", () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("bad_request");
     expect(lockGuildSettlementBuilding).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("창고 조회의 착용 장비 비교 정보", () => {
+  it("귀속·잠금 착용 장비를 입고 후보와 분리해서 제공한다", async () => {
+    const equipped = { ...EQUIPMENT, iid: "equipped", bound: true, locked: true };
+    vi.mocked(readSave).mockResolvedValue({ owned: [EQUIPMENT, equipped], equipped: { weapon: equipped.iid } });
+    vi.mocked(readGuildWarehouse).mockResolvedValue({ materials: {}, equipment: [] });
+    const results = [[{ guildId: 7 }], [], []];
+    vi.mocked(db.select).mockImplementation(() => {
+      const rows = results.shift() ?? [];
+      const query = Object.assign(Promise.resolve(rows), {
+        from: () => query, where: () => query, limit: () => query, orderBy: () => query,
+      });
+      return query as never;
+    });
+    const response = await GET();
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.personalEquipment.map((item: { iid: string }) => item.iid)).toEqual([EQUIPMENT.iid]);
+    expect(body.equippedEquipment).toEqual([equipped]);
   });
 });

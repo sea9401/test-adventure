@@ -13,6 +13,9 @@ export default function CharacterPage() {
     <V2CharacterMenu
       onAction={(a: CharacterAction) => {
         switch (a.kind) {
+          case "open-emblems":
+            router.push("/character/emblems");
+            break;
           case "open-info":
             router.push("/character/info");
             break;

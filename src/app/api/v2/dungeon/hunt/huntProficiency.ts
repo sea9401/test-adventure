@@ -1,3 +1,4 @@
+import { applyEmblemLevelGrowth } from "@/lib/server/emblemLevelGrowth";
 // 사냥 승리/레벨업의 숙련도·성장 적립 — runOneHunt 에서 추출한 순수 헬퍼(DB 미접촉).
 // 적립(숙달 포인트·직업 숙련도)과 레벨업 랜덤 스탯 성장을 한 번에 계산하고,
 // 쓰기(proficiency.v2 upsert)는 라우트가 반환값(nextProficiency)으로 수행한다.
@@ -127,8 +128,15 @@ export function applyHuntProficiency(params: {
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;
+      let emblemHp = 0;
+      let emblemMp = 0;
       for (let i = 0; i < levelsGained; i++) {
         grown = rollLevelGrowth(grown, playerClass, prof, rng);
+        const emblem = applyEmblemLevelGrowth({ proficiency: setGrown(prof, grown), emblems: charSave.emblems, levelsGained: 1, rng });
+        prof = emblem.proficiency;
+        grown = prof.grown;
+        emblemHp += emblem.gained.hp;
+        emblemMp += emblem.gained.mp;
       }
       prof = setGrown(prof, grown);
       // grown 1포인트 = 해당 스탯 +1. 레벨업 전후 delta 가 곧 오른 스탯.
@@ -160,6 +168,8 @@ export function applyHuntProficiency(params: {
         hpGain = legacy.hp;
         mpGain = legacy.mp;
       }
+      hpGain += emblemHp;
+      mpGain += emblemMp;
       if (params.liberationGrowth) {
         const liberationGrowth = applyLiberationLevelGrowth({
           proficiency: prof,

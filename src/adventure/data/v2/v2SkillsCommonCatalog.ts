@@ -11,6 +11,7 @@
 //
 // 학습/장착 게이팅(어느 직군이 무엇을)은 learn 라우트 = elementalSkillsForClass(V2_SKILLS_BY_JOB).
 
+import { multiHitDamage } from "./multiHitDamage";
 import { TEMPLAR_LINEAGE_JOB_IDS } from "./lineagePassives";
 
 import type {
@@ -349,22 +350,6 @@ export type V2CommonSkillId =
   | "v2c_primordialsage_optimization"
   | "v2c_primordialsage_completeformula";
 
-// 다단 — 동일 damage effect N개.
-const hits = (
-  n: number,
-  statCoef: number,
-  baseFlat: number,
-  scaling?: V2DamageScaling,
-  primaryStatCoef?: number,
-): V2SkillEffect[] =>
-  Array.from({ length: n }, () => ({
-    kind: "damage" as const,
-    statCoef,
-    baseFlat,
-    ...(scaling ? { scaling } : {}),
-    ...(primaryStatCoef != null ? { primaryStatCoef } : {}),
-  }));
-
 const dmg = (
   statCoef: number,
   baseFlat: number,
@@ -404,7 +389,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_beastkin_clawflurry", name: "연속 할퀴기", stat: "str", category: "attack", tier: 1,
     description: "세 번 연달아 할퀴고 깊은 출혈을 남긴다.", mpCost: 32, cooldown: 0, procChance: 38,
     effects: [
-      ...hits(3, 0.36, 42),
+      ...multiHitDamage({ hitCount: 3, totalStatCoef: 1.08, totalBaseFlat: 126 }),
       { kind: "dot", ...V2_DOT_PRESETS.출혈, stacks: 2 },
     ],
   },
@@ -515,7 +500,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_warrior_flurry: {
     id: "v2c_warrior_flurry", name: "난격", stat: "str", category: "attack", tier: 1,
     description: "빠르게 세 번 후려친다.", mpCost: 26, cooldown: 0, procChance: 40,
-    effects: hits(3, 0.4, 40),
+    effects: multiHitDamage({ hitCount: 3, totalStatCoef: 1.2, totalBaseFlat: 120 }),
   },
   v2c_warrior_sunder: {
     id: "v2c_warrior_sunder", name: "파쇄", stat: "str", category: "attack", tier: 2,
@@ -532,7 +517,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_martial_combo: {
     id: "v2c_martial_combo", name: "연환 난타", stat: "str", category: "attack", tier: 1,
     description: "다섯 번 연속으로 두들긴다.", mpCost: 24, cooldown: 0, procChance: 40,
-    effects: hits(5, 0.25, 36),
+    effects: multiHitDamage({ hitCount: 5, totalStatCoef: 1.25, totalBaseFlat: 180 }),
   },
   v2c_martial_chi: {
     id: "v2c_martial_chi", name: "기공 순환", stat: "vit", category: "heal", tier: 2,
@@ -549,7 +534,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_mage_barrage: {
     id: "v2c_mage_barrage", name: "마력 탄막", stat: "int", category: "attack", tier: 1,
     description: "마력탄을 세 발 쏜다.", mpCost: 32, fixedMpCost: 70, cooldown: 0, procChance: 40,
-    effects: hits(3, 0.45, 55, "magic"),
+    effects: multiHitDamage({ hitCount: 3, totalStatCoef: 1.35, totalBaseFlat: 165, scaling: "magic" }),
   },
   v2c_mage_shield: {
     id: "v2c_mage_shield", name: "마나 보호막", stat: "int", category: "buff", tier: 2,
@@ -703,7 +688,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_boxer_combo: {
     id: "v2c_boxer_combo", name: "연권", stat: "str", category: "attack", tier: 2,
     description: "주먹을 네 번 연달아 내지른다.", mpCost: 28, cooldown: 0, procChance: 40,
-    effects: hits(4, 0.4, 42),
+    effects: multiHitDamage({ hitCount: 4, totalStatCoef: 1.6, totalBaseFlat: 168 }),
   },
   v2c_monk_palm: {
     // 수도승 = 순수 탱(무인 재설계 2026-06-22) — 옛 선풍각(회피 버프)에서 철포(받피감 버프)로 교체.
@@ -1121,7 +1106,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   계열 정체성을 통일한다. 취약은 낮게 짧게, 다음 연격/파티 딜을 살리는 정도.
     id: "v2c_brawler_combo", name: "벽력연권", stat: "str", category: "attack", tier: 3,
     description: "벼락처럼 이어지는 연권으로 적의 빈틈을 연다.", mpCost: 36, cooldown: 0, procChance: 35,
-    effects: [...hits(3, 0.42, 105), { kind: "enemyVuln", pct: 10, turns: 2 }],
+    effects: [...multiHitDamage({ hitCount: 3, totalStatCoef: 1.26, totalBaseFlat: 315 }), { kind: "enemyVuln", pct: 10, turns: 2 }],
   },
   v2c_magus_bolt: {
     // 마도사 = 마법사(마탄) 위 갈래 — 마탄→마력 작렬 리스킨(id 유지·같은 "마탄" 이름 중복 해소).
@@ -1134,7 +1119,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   세 번 연달아 쏘는 다단(dex 비례). DEX 원시스탯이 커서 hit당 계수 작게. PvE/PvP 공용.
     id: "v2c_ranger_ambush", name: "연사", stat: "dex", category: "attack", tier: 3,
     description: "활시위를 빠르게 세 번 당겨 연달아 쏘아붙인다.", mpCost: 38, cooldown: 0, procChance: 30,
-    effects: hits(3, 0.1, 75, "dex"),
+    effects: multiHitDamage({ hitCount: 3, totalStatCoef: 0.3, totalBaseFlat: 225, scaling: "dex" }),
   },
 
   // ── 고차 4직업 III티어 패시브(% 가산 — 직군 축, tier-2 II 위 단계) ──
@@ -1203,7 +1188,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   추정치 — vit 원시값이 atk≫ 라 계수 작게. **sim/오너 승인 필요**(미검증 밸런스 수치).
     id: "v2c_warmonk_kick", name: "연환각", stat: "vit", category: "attack", tier: 3,
     description: "물 흐르듯 네 번 연달아 차낸다.", mpCost: 32, cooldown: 0, procChance: 40,
-    effects: hits(4, 0.4, 50, "vit"),
+    effects: multiHitDamage({ hitCount: 4, totalStatCoef: 1.6, totalBaseFlat: 200, scaling: "vit" }),
   },
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
@@ -1530,7 +1515,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_sensei_combo", name: "권룡연파", stat: "str", category: "attack", tier: 3,
     description: "용이 휘감듯 연속으로 파고들어 적의 방어와 자세를 무너뜨린다.", mpCost: 46, cooldown: 0, procChance: 30,
     effects: [
-      ...hits(3, 0.48, 120),
+      ...multiHitDamage({ hitCount: 3, totalStatCoef: 1.44, totalBaseFlat: 360 }),
       { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
       { kind: "enemyVuln", pct: 12, turns: 3 },
     ],
@@ -2755,9 +2740,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_lawguardian_inviolable", name: "만법불침", stat: "int", category: "buff", tier: 3,
     description: "전투당 한 번, 모든 결계를 다시 세우고 강한 보호막과 피해 저항을 3행동 동안 얻는다.",
     detail: {
-      mechanics: ["물리·마법·정화 결계를 각각 별도 충전으로 관리하고, 물리·마법 피해의 첫 유효 타격은 줄이며 새 상태이상은 막은 뒤 해당 결계를 1회 소비한다."],
+      mechanics: ["물리·마법·정화 결계를 각각 별도 충전으로 관리하고, 물리·마법 피해는 한 스킬의 모든 유효 타격을 줄이며 새 상태이상은 막은 뒤 해당 결계를 1회 소비한다."],
       synergies: ["만법수호영역을 장착한 상태에서만 세 결계를 각각 3회로 갱신한다. 이미 쌓인 영역 안정은 유지되며, 만법불침의 3행동 받는 피해 감소와 별도로 함께 적용된다."],
-      limitations: ["한 행동의 여러 타격 중 같은 종류의 결계는 첫 유효 타격에서 한 번만 소비된다."],
+      limitations: ["한 스킬의 같은 종류 피해는 모든 타격에 감소가 적용되며, 결계는 첫 유효 타격에서 한 번만 소비된다."],
       pvp: ["물리·마법 결계의 피해 감소율은 PvP에서 만법수호영역 미장착 시 30% · 장착 시 40%로 적용된다."],
     },
     mpCost: 84, fixedMpCost: 210, cooldown: 0, procChance: 100, learnCost: 12000,
@@ -2915,7 +2900,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
     mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000, spCostDiscount: 4,
     effects: [
-      ...hits(5, 0.36, 150, undefined, 1.2),
+      ...multiHitDamage({ hitCount: 5, totalStatCoef: 1.80, totalBaseFlat: 750, totalPrimaryStatCoef: 6.0 }),
       { kind: "enemyVuln", pct: 20, turns: 3 },
       { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
       { kind: "enemyDelay", pct: 40 },
@@ -3106,7 +3091,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       pvp: ["PvP에서는 직접 피해에 전용 보정 계수를 적용한다."],
     },
     mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 12, spCostDiscount: 1,
-    effects: hits(5, 0.446, 149, "luk"),
+    effects: multiHitDamage({ hitCount: 5, totalStatCoef: 2.230, totalBaseFlat: 745, scaling: "luk" }),
     tier7Mechanic: { kind: "shadowRefine", refinePctPoints: 15, hastePct: 20, pvpDirectDamagePct: 92.2 },
   },
   v2c_shadowblade_swordshadow: {
@@ -3175,29 +3160,32 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_skyascendant_fallingstar", name: "낙성", stat: "dex", category: "attack", tier: 3,
     description: "별처럼 떨어지는 화살로 적을 꿰뚫는다. 체술 뒤 사용하면 포획이 발동해 피해·명중·관통이 강화된다.",
     detail: {
-      mechanics: ["원거리 계열 단일 공격으로, 교차를 장착하고 직전 체술 계열 공격이 적중했다면 포획을 발동한다."],
+      mechanics: ["자체 관통 35%를 갖는 원거리 계열 단일 공격이다. 교차를 장착하고 체술 계열 기술 다음에 적중하면 포획을 발동한다."],
       synergies: ["포획은 최종 피해 20%, 적중 25%, 관통 45%를 더하고 적중 뒤 다음 행동을 15% 앞당긴다."],
-      limitations: ["같은 원거리 계열을 연속 사용하거나 직전 체술 공격이 빗나가면 포획이 발동하지 않는다."],
+      limitations: ["같은 원거리 계열을 연속 사용하면 포획이 발동하지 않는다. 직전 체술 기술은 시전만 하면 되며 적중 여부는 무관하다."],
       pvp: ["PvP 포획은 최종 피해 12%, 관통 10%, 행동 가속 10%로 조정된다."],
     },
-    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 13, spCostDiscount: 3,
-    effects: [dmg(1.93, 437, "dex", 30)],
+    // 관통·연계 정체성을 유지하며 기본 계수를 소폭 보완한다.
+    // 두 액티브와 교차를 함께 장착하는 부담을 반영해 액티브별 최종 비용은 11 SP.
+    mpCost: 65, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 13, spCostDiscount: 6,
+    effects: [dmg(2.16, 437, "dex", 35)],
     accuracyBonusPct: 25, skillCritChancePct: 15,
     tier7Mechanic: { kind: "crossStrike", family: "ranged" },
   },
   v2c_skyascendant_voidbreak: {
     id: "v2c_skyascendant_voidbreak", name: "파공", stat: "dex", category: "attack", tier: 3,
-    description: "세 번의 연타 뒤 두 배 위력의 마지막 타격으로 허공을 깨뜨린다. 원거리 기술 뒤 사용하면 추격이 발동한다.",
+    description: "세 번의 연타 뒤 강력한 마지막 타격으로 허공을 깨뜨리고 적의 다음 행동을 늦춘다. 원거리 기술 뒤 사용하면 추격이 발동한다.",
     detail: {
-      mechanics: ["체술 계열 네 번 공격으로, 마지막 타격은 앞선 각 타격의 두 배 계수를 사용한다. 교차를 장착하고 직전 원거리 계열 공격이 적중했다면 추격을 발동한다."],
+      mechanics: ["체술 계열 네 번 공격으로, 마지막 타격의 민첩 계수는 앞선 각 타격의 2.5배다. 적의 다음 행동을 10% 늦추며, 교차를 장착하고 원거리 계열 기술 다음에 적중하면 추격을 발동한다."],
       synergies: ["추격은 추가 피해 40%와 적 행동 지연 20%를 적용하고 적중 뒤 다음 행동을 15% 앞당긴다."],
-      limitations: ["같은 체술 계열을 연속 사용하거나 직전 원거리 공격이 빗나가면 추격이 발동하지 않는다."],
+      limitations: ["같은 체술 계열을 연속 사용하면 추격이 발동하지 않는다. 직전 원거리 기술은 시전만 하면 되며 적중 여부는 무관하다."],
       pvp: ["PvP 추격은 추가 피해 25%, 적 행동 지연 10%, 행동 가속 10%로 조정된다."],
     },
-    mpCost: 65, cooldown: 0, procChance: 50, learnCost: 20000, spCost: 13,
+    mpCost: 65, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 13, spCostDiscount: 2,
     effects: [
-      dmg(0.376, 150, "dex"), dmg(0.376, 150, "dex"),
-      dmg(0.376, 150, "dex"), dmg(0.752, 300, "dex"),
+      dmg(0.412, 150, "dex"), dmg(0.412, 150, "dex"),
+      dmg(0.412, 150, "dex"), dmg(1.03, 300, "dex"),
+      { kind: "enemyDelay", pct: 10 },
     ],
     tier7Mechanic: { kind: "crossStrike", family: "martial" },
   },

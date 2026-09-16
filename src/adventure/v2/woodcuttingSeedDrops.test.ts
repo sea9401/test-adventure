@@ -5,6 +5,8 @@ import {
   rollWoodcuttingSeedDrop,
 } from "./woodcuttingSeedDrops";
 
+import { woodcuttingPost50Bonuses } from "./lifeLevelBonuses";
+
 describe("woodcuttingSeedDrops", () => {
   it("성공 1회당 전체 씨앗 발견률을 약 1.5%로 제한한다", () => {
     expect(WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION).toBe(14_950);
@@ -40,7 +42,7 @@ describe("woodcuttingSeedDrops", () => {
     expect(rollWoodcuttingSeedDrop(() => 0.99)).toBeNull();
   });
 
-  it("60레벨 보너스는 기존 분포 뒤에 씨앗 확률 0.5%p를 더한다", () => {
+  it("추가 확률은 기존 씨앗 분포를 유지한다", () => {
     expect(rollWoodcuttingSeedDrop(() => 0.01495)).toBeNull();
     expect(rollWoodcuttingSeedDrop(() => 0.01495, 0.5)).toEqual({
       cropId: "wheat",
@@ -48,4 +50,10 @@ describe("woodcuttingSeedDrops", () => {
       quantity: 1,
     });
   });
+});
+
+it("100레벨은 성공당 5% 경계까지 씨앗 1개를 발견한다", () => {
+  const bonus = woodcuttingPost50Bonuses(100).seedChancePct;
+  expect(rollWoodcuttingSeedDrop(() => 0.049999, bonus)?.quantity).toBe(1);
+  expect(rollWoodcuttingSeedDrop(() => 0.05, bonus)).toBeNull();
 });

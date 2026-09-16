@@ -17,7 +17,7 @@ export default function BattlePage() {
         else if (a.kind === "open-mastery-tower")
           router.push("/battle/mastery-tower");
         else if (a.kind === "open-storm-expedition")
-          router.push("/battle/storm-expedition");
+          router.push("/battle/dungeons");
       }}
     />
   );

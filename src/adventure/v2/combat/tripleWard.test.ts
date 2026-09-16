@@ -7,6 +7,7 @@ import {
   resolveTripleWardDamage,
   tripleWardResourceSnapshot,
   tripleWardStabilityReductionPct,
+  type TripleWardDamageKind,
 } from "./tripleWard";
 
 describe("삼중 결계", () => {
@@ -32,7 +33,7 @@ describe("삼중 결계", () => {
     });
   });
 
-  it("직접 피해의 첫 유효 타격만 감소시키고 해당 결계를 1회 소비한다", () => {
+  it("직접 피해의 모든 유효 타격을 감소시키고 해당 결계를 1회 소비한다", () => {
     const result = resolveTripleWardDamage(
       initialTripleWardState(1),
       "physical",
@@ -41,8 +42,8 @@ describe("삼중 결계", () => {
     );
 
     expect(result).toMatchObject({
-      damages: [55, 100, 100],
-      totalDamage: 255,
+      damages: [55, 55, 55],
+      totalDamage: 165,
       consumed: true,
       reductionPct: 45,
       remaining: 0,
@@ -59,7 +60,7 @@ describe("삼중 결계", () => {
       [0, 80, 20],
     );
 
-    expect(result.damages).toEqual([0, 44, 20]);
+    expect(result.damages).toEqual([0, 44, 11]);
     expect(result.state.magic).toBe(0);
   });
 
@@ -124,4 +125,32 @@ describe("삼중 결계", () => {
       ),
     ).toMatchObject({ arcaneOverload: 75, physicalWard: 1 });
   });
+});
+
+it("마지막 결계도 5연타 전체를 줄이며 0 피해만 있으면 소비하지 않는다", () => {
+  const state = { ...initialTripleWardState(2), physical: 1 };
+  const empty = resolveTripleWardDamage(state, "physical", "pvp", [0, 0]);
+  expect(empty.state).toEqual(state);
+  expect(empty.consumed).toBe(false);
+  const result = resolveTripleWardDamage(state, "physical", "pvp", [100, 100, 100, 100, 100]);
+  expect(result.damages).toEqual([60, 60, 60, 60, 60]);
+  expect(result.totalDamage).toBe(300);
+  expect(result.state).toMatchObject({ physical: 0, stabilityStacks: 1 });
+});
+
+it("순차 타격에서도 유형별 결계를 한 번만 소비하고 다음 스킬로 보호를 넘기지 않는다", () => {
+  const action = new Map<TripleWardDamageKind, number>();
+  const start = initialTripleWardState(1);
+  const zero = resolveTripleWardDamage(start, "physical", "pvp", [0], action);
+  expect(zero.consumed).toBe(false);
+  expect(action.size).toBe(0);
+  const physical = resolveTripleWardDamage(start, "physical", "pvp", [100], action);
+  const magic = resolveTripleWardDamage(physical.state, "magic", "pvp", [100], action);
+  const followup = resolveTripleWardDamage(magic.state, "physical", "pvp", [100], action);
+  expect(physical.totalDamage).toBe(70);
+  expect(magic.totalDamage).toBe(70);
+  expect(followup.totalDamage).toBe(70);
+  expect(followup.consumed).toBe(false);
+  expect(followup.state).toMatchObject({ physical: 0, magic: 0 });
+  expect(resolveTripleWardDamage(followup.state, "physical", "pvp", [100], new Map()).totalDamage).toBe(100);
 });

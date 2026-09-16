@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getGuildId } = vi.hoisted(() => ({
+const { getGuildId, preferences } = vi.hoisted(() => ({
   getGuildId: vi.fn(async () => 7),
+  preferences: { autoFreeSupport: false },
 }));
 
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({ getGuildId }));
+vi.mock("@/lib/server/savesKv", () => ({
+  readSave: async () => preferences,
+}));
 
 import {
   createCoopBossSession,
@@ -135,6 +139,7 @@ describe("개인 보스 세션 상태", () => {
 describe("낚시 협동 보스 출현", () => {
   beforeEach(() => {
     getGuildId.mockClear();
+    preferences.autoFreeSupport = false;
   });
 
   it("심연어룡은 발견한 사람만 볼 수 있는 상태로 생성한다", async () => {
@@ -184,6 +189,18 @@ describe("낚시 협동 보스 출현", () => {
       boss: { kind: "abyssal_tyrant", name: "심연어룡" },
     });
     expect(inserted).toHaveLength(1);
+  });
+
+  it.each(["bait", "fishing"])("%s 소환에도 계정의 자동 무료 지원을 적용한다", async (method) => {
+    preferences.autoFreeSupport = true;
+    const inserted: Record<string, unknown>[] = [];
+    const tx = fakeTx([], inserted);
+    const args = { userId: "angler-1", summonerName: "낚시꾼", now: new Date(), rng: () => 0 };
+    if (method === "bait") await summonFishingCoopBoss(tx as never, args);
+    else await trySpawnFishingCoopBoss(tx as never, args);
+    expect(inserted[0]).toMatchObject({
+      allowFreeSupport: true, visibility: "summoner_only",
+    });
   });
 
   it("본인이 소환한 심연어룡이 활성 상태면 중복 소환하지 않는다", async () => {

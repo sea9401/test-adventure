@@ -41,6 +41,8 @@ import {
   tradeSuspensionMessage,
 } from "@/lib/tradeSuspension";
 
+import { WarehouseEquipmentInspectButton } from "./WarehouseEquipmentInspectButton";
+
 type WarehouseAction = "deposit" | "withdraw";
 type WarehouseKind = "material" | "equipment";
 
@@ -78,6 +80,7 @@ type WarehouseResponse = {
   canManagePermissions?: boolean;
   personalEquipment?: V2EquipInstance[];
   equippedIids?: string[];
+  equippedEquipment?: V2EquipInstance[];
   warehouse?: Record<string, number>;
   equipment?: V2EquipInstance[];
   members?: WarehouseMember[];
@@ -540,7 +543,11 @@ export function GuildWarehousePanel() {
                 </h4>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {storedEquipmentRows.map((equipment) => (
-                    <StoredEquipmentCard key={equipment.iid} equipment={equipment} />
+                    <StoredEquipmentCard
+                      key={equipment.iid}
+                      equipment={equipment}
+                      equippedEquipment={data.equippedEquipment ?? []}
+                    />
                   ))}
                 </div>
               </div>
@@ -1085,7 +1092,10 @@ function TransferButton({
   );
 }
 
-function StoredEquipmentCard({ equipment }: { equipment: V2EquipInstance }) {
+function StoredEquipmentCard({ equipment, equippedEquipment }: {
+  equipment: V2EquipInstance;
+  equippedEquipment: V2EquipInstance[];
+}) {
   const item = V2_EQUIPMENT[equipment.id];
   const qualityPct = rollQualityPct(item, equipment.roll);
   const statLine = v2EquipStatRows(
@@ -1138,6 +1148,7 @@ function StoredEquipmentCard({ equipment }: { equipment: V2EquipInstance }) {
           ? ` · 제작 ${equipment.craftedBy.name.trim()}`
           : ""}
       </div>
+      <WarehouseEquipmentInspectButton equipment={equipment} equippedEquipment={equippedEquipment} />
     </div>
   );
 }

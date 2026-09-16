@@ -1,5 +1,8 @@
 "use client";
 
+import { woodcuttingPost50Bonuses } from "./lifeLevelBonuses";
+import { WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION } from "./woodcuttingSeedDrops";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -1189,7 +1192,7 @@ export function WoodcuttingView({
               벌목 Lv {progression.level} / 100
             </div>
             <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 100
+              시간 단축 {timeReductionPct.toFixed(1)}% · 씨앗 발견 {(WOODCUTTING_ANY_SEED_DROP_CHANCE_PER_MILLION / 10_000 + woodcuttingPost50Bonuses(progression.level).seedChancePct).toFixed(2)}% · 최대 Lv 100
             </div>
           </div>
           <span className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
@@ -1379,7 +1382,7 @@ export function WoodcuttingView({
             성공 시 {selectedMaterial.name} 1개 · XP +{selectedTree.xp}
           </div>
           <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            아주 낮은 확률로 농장 씨앗을 발견하며, 고등급 작물일수록 더 희귀합니다.
+            벌목 레벨에 따라 씨앗 발견 확률이 약 1.5%에서 최대 5%까지 증가합니다. 고등급 작물일수록 더 희귀합니다.
           </div>
         </Card>
       )}

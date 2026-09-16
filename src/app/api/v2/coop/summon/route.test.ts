@@ -6,12 +6,14 @@ const {
   createCoopBossSession,
   insertFeedEntry,
   upsertSave,
+  preferences,
 } = vi.hoisted(() => ({
   insertedSessions: [] as Record<string, unknown>[],
   broadcastCoopNotice: vi.fn(async () => undefined),
   createCoopBossSession: vi.fn(),
   insertFeedEntry: vi.fn(async () => undefined),
   upsertSave: vi.fn(async () => undefined),
+  preferences: { autoFreeSupport: false },
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -21,7 +23,8 @@ vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async () => ({
     materials: { v2_boss_summon_scroll: 99 },
   })),
-  readSave: vi.fn(async () => ({ name: "산길잡이" })),
+  readSave: vi.fn(async (_tx, _userId, key) =>
+    key === "coop-preferences.v2" ? preferences : { name: "산길잡이" }),
   upsertSave,
 }));
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
@@ -73,6 +76,7 @@ describe("POST /api/v2/coop/summon", () => {
     });
     insertFeedEntry.mockClear();
     upsertSave.mockClear();
+    preferences.autoFreeSupport = false;
   });
 
   it("클라이언트 공개 설정과 무관하게 새 보스를 개인 상태로 소환하고 알리지 않는다", async () => {
@@ -110,6 +114,18 @@ describe("POST /api/v2/coop/summon", () => {
     }));
     expect(response.status).toBe(400);
     expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, false, true])("자동 지원 설정을 사용하되 명시값 %s를 우선한다", async (allowFreeSupport) => {
+    preferences.autoFreeSupport = true;
+    const response = await POST(new Request("http://test/api/v2/coop/summon", {
+      method: "POST", body: JSON.stringify({ kind: "mountain_chief", allowFreeSupport }),
+    }));
+    expect(response.status).toBe(200);
+    expect(insertedSessions[0]).toMatchObject({
+      allowFreeSupport: allowFreeSupport ?? true,
+      visibility: "summoner_only",
+    });
   });
 
   it("신규 HARD 6T 보스는 소환서 30장과 24시간 세션을 사용한다", async () => {

@@ -1,3 +1,4 @@
+import { woodcuttingXpForLevel } from "@/adventure/v2/woodcuttingProgression";
 // 자동 벌목 start/chop/status route 통합 테스트 — savesKv/db 경계만 in-memory/mock 처리.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -644,8 +645,9 @@ describe("woodcutting routes", () => {
     );
   });
 
-  it("chop — 성공 시 매우 낮은 확률로 농장 씨앗 1개를 지급한다", async () => {
-    vi.mocked(Math.random).mockReturnValueOnce(0.99).mockReturnValueOnce(0);
+  it.each([[1, 0], [100, 0.015]])("chop — %i레벨의 씨앗 발견 보너스를 적용하고 저장한다", async (level, roll) => {
+    store.set(WOODCUTTING_LOG_KEY, { levelCurveVersion: 2, xp: woodcuttingXpForLevel(level), cuts: 0 });
+    vi.mocked(Math.random).mockReturnValueOnce(0.99).mockReturnValueOnce(roll);
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
     store.set(WOODCUTTING_SESSION_KEY, {
       sessionId: "cut-with-seed",

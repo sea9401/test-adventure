@@ -220,6 +220,7 @@ export function townMenuItemsForViewer(
 export const CHARACTER_MENU_ITEMS = [
   { label: "내 정보", href: "/character/info", Icon: UserCircle, color: "text-amber-500" },
   { label: "인벤토리", href: "/character/inventory", Icon: Backpack, color: "text-emerald-600" },
+  { label: "문장", href: "/character/emblems", Icon: Sparkle, color: "text-violet-500" },
   { label: "스킬", href: "/character/skills", Icon: Lightning, color: "text-violet-500" },
   {
     label: "전투 프리셋",
@@ -253,7 +254,7 @@ const TABS: TabDef[] = [
       { label: "아레나", href: "/battle/arena", Icon: Trophy, color: "text-amber-500" },
       { label: "대련장", href: "/battle/sparring", Icon: BoxingGlove, color: "text-sky-500" },
       { label: "숙련의 탑", href: "/battle/mastery-tower", Icon: CastleTurret, color: "text-emerald-500" },
-      { label: "원정", href: "/battle/storm-expedition", Icon: CloudLightning, color: "text-sky-500" },
+      { label: "던전", href: "/battle/dungeons", activityHrefs: ["/battle/storm-expedition", "/battle/sanctuary"], Icon: CloudLightning, color: "text-sky-500" },
     ],
   },
   {

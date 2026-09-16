@@ -324,7 +324,7 @@ export function useCoopListState() {
 
   // 소환 — 성공 시 새 sessionId 반환 + 안내 노티스(목록 잔류 — 연속 소환 가능, 이동 없음).
   const summon = useCallback(
-    async (kind: CoopBossKindId, allowFreeSupport = false): Promise<string | null> => {
+    async (kind: CoopBossKindId, allowFreeSupport?: boolean): Promise<string | null> => {
       if (busy) return null;
       setBusy(true);
       setNotice(null);

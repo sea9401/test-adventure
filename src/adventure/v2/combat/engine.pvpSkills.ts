@@ -368,7 +368,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     reductionPct: number;
     remaining: number;
   }> = [];
-  const skillWardConsumedKinds = new Set<"physical" | "magic">();
+  const skillWardReductionsByKind = new Map<"physical" | "magic", number>();
   let skillShieldAbsorbed = 0;
   let skillMagicBarrierAbsorbed = 0;
   let skillMagicBarrierDurabilitySpent = 0;
@@ -703,20 +703,16 @@ export function castV2SkillOnAttackerTurnPvPBody(
             ["magic", magicDamage],
           ] as const) {
             if (part <= 0) continue;
-            if (skillWardConsumedKinds.has(kind)) {
-              wardedDamage += part;
-              continue;
-            }
             const ward = resolveTripleWardDamage(
               nextOppTripleWard,
               kind,
               "pvp",
               [part],
+              skillWardReductionsByKind,
             );
             nextOppTripleWard = ward.state;
             wardedDamage += ward.totalDamage;
             if (ward.consumed) {
-              skillWardConsumedKinds.add(kind);
               skillWardReductions.push({
                 kind,
                 reductionPct: ward.reductionPct,
@@ -1027,6 +1023,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
             "magic",
             "pvp",
             [afterStability],
+            skillWardReductionsByKind,
           );
           nextOppTripleWard = ward.state;
           if (ward.consumed) {

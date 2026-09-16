@@ -18,7 +18,7 @@ import {
   extendedLifeXpThreshold,
   normalizeLifeXp,
 } from "./lifeLevelProgression";
-import { farmingPost50Bonuses } from "./lifeLevelBonuses";
+import { farmingPost50Bonuses, farmingSeedReturnChancePct } from "./lifeLevelBonuses";
 
 export const FARM_SAVE_KEY = "farm.v2";
 
@@ -329,6 +329,7 @@ export type FarmState = {
 };
 
 export type FarmHarvestResult = {
+  seedReturned: number;
   plotId: string;
   cropId: FarmCropId;
   itemId: FarmItemId;
@@ -1660,6 +1661,10 @@ export function harvestPlot(
   const pityReady = state.stats.rareMissStreak >= FARM_RARE_PITY_HARVESTS - 1;
   const gotRare = pityReady || rng() < rareChance;
   const rareQuantity = gotRare ? 1 : 0;
+  const seedReturned =
+    rng() < farmingSeedReturnChancePct(farmingLevelForState(state)) / 100 ? 1 : 0;
+  const seeds = { ...state.seeds };
+  if (seedReturned) seeds[crop.id] = (seeds[crop.id] ?? 0) + seedReturned;
   const inventory = { ...state.inventory };
   inventory[crop.itemId] = (inventory[crop.itemId] ?? 0) + quantity;
   if (gotRare) {
@@ -1682,6 +1687,7 @@ export function harvestPlot(
           : p,
       ),
       inventory,
+      seeds,
       stats: {
         ...state.stats,
         harvests: state.stats.harvests + 1,
@@ -1700,6 +1706,7 @@ export function harvestPlot(
       rareItemId: gotRare ? crop.rareItemId : null,
       rareItemName: gotRare ? crop.rareItemName : null,
       rareQuantity,
+      seedReturned,
       farmingXpGained,
       farmingXp,
       farmingLevel,

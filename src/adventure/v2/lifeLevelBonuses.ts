@@ -10,6 +10,11 @@ function roundHundredth(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** 수확 전 농사 레벨에 따라 밭당 씨앗 1개를 반환할 확률(%). */
+export function farmingSeedReturnChancePct(level: number): number {
+  return 30 + ((safeLifeLevel(level) - 1) / 99) * 25;
+}
+
 export function farmingPost50Bonuses(level: number): {
   yieldBonusPct: number;
   rareChancePct: number;
@@ -39,7 +44,8 @@ export function woodcuttingPost50Bonuses(level: number): {
   const safeLevel = safeLifeLevel(level);
   return {
     bonusLogChancePct: roundHundredth(post50Levels(safeLevel) * 0.1),
-    seedChancePct: safeLevel >= 60 ? 0.5 : 0,
+    // 기본 1.495%에 더해 100레벨에서 총 5%가 된다.
+    seedChancePct: ((safeLevel - 1) / 99) * 3.505,
     rareResultChancePct: safeLevel >= 90 ? 1 : 0,
   };
 }

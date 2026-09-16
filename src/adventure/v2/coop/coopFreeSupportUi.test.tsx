@@ -49,7 +49,7 @@ function showDetail() {
   );
 }
 describe("무료 토벌 지원 UI", () => {
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
   beforeEach(() => {
     vi.clearAllMocks();
     h.detail = {
@@ -132,16 +132,24 @@ describe("무료 토벌 지원 UI", () => {
       screen.queryByRole("checkbox", { name: "무료 토벌 지원 허용" }),
     ).toBeNull();
   });
-  it("소환 옵션은 기본 꺼짐이고 선택값을 소환 요청에 전달한다", async () => {
+  it("자동 지원 설정을 저장한 뒤 서버의 기본 설정으로 소환한다", async () => {
+    let saved = false;
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") saved = JSON.parse(String(init.body)).autoFreeSupport;
+      return Response.json({ ok: true, autoFreeSupport: saved });
+    });
     render(<V2CoopBossListView onBack={() => {}} onOpenSession={() => {}} />);
     const option = screen.getByRole("checkbox", {
       name: "무료 토벌 지원 허용",
     });
     expect((option as HTMLInputElement).checked).toBe(false);
+    await waitFor(() => expect((option as HTMLInputElement).disabled).toBe(false));
     fireEvent.click(option);
+    await waitFor(() => expect((option as HTMLInputElement).checked).toBe(true));
+    expect(saved).toBe(true);
     fireEvent.click(screen.getAllByRole("button", { name: "소환" })[0]);
     await waitFor(() =>
-      expect(h.summon).toHaveBeenCalledWith("mountain_chief", true),
+      expect(h.summon).toHaveBeenCalledWith("mountain_chief"),
     );
   });
 });

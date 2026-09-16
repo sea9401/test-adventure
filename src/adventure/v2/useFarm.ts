@@ -139,6 +139,7 @@ export type FarmNotice =
       kind: "batchHarvest";
       count: number;
       farmingXpGained: number;
+      seedsReturned: number;
     }
   | { id: number; kind: "batchFertilizer"; count: number }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
@@ -437,6 +438,7 @@ export function useFarm(): FarmClientState {
           result.error,
           cropName,
           result.farmingXpGained,
+          result.seedsReturned,
         );
         if (result.error) {
           const message =
@@ -458,6 +460,7 @@ export function useFarm(): FarmClientState {
             kind: "batchHarvest",
             count: result.completed,
             farmingXpGained: result.farmingXpGained,
+            seedsReturned: result.seedsReturned,
           });
         } else {
           setNotice({

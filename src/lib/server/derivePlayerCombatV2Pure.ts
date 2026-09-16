@@ -177,6 +177,7 @@ export type DerivePlayerCombatV2PureInput = {
   liberationEffects?: EquippedLiberationEffects;
   /** 현재 재전직 주기에 이미 영구 누적된 해방 최대 HP·MP 성장. */
   liberationCycleGrowth?: LiberationCycleGrowth;
+  emblemCycleGrowth?: LiberationCycleGrowth;
   /** 최대 HP % 패시브(체력) — 장비 HP를 제외한 캐릭터 HP에 적용. */
   maxHpPct?: number;
   /** 최대 MP % 패시브(마나) — 합산 후 maxMp 에 1회 적용. 미지정 = 무적용. */
@@ -391,6 +392,7 @@ export function derivePlayerCombatV2Pure(
     totalStats.str * HP_PER_STR +
     totalStats.vit * HP_PER_VIT +
     (input.liberationCycleGrowth?.hp ?? 0) +
+    (input.emblemCycleGrowth?.hp ?? 0) +
     (liberation?.flat.maxHp ?? 0);
   const maxHp = Math.floor(
     characterHp *
@@ -415,6 +417,7 @@ export function derivePlayerCombatV2Pure(
     (intrinsicMp +
       trainedMp +
       (input.liberationCycleGrowth?.mp ?? 0) +
+      (input.emblemCycleGrowth?.mp ?? 0) +
       (liberation?.flat.maxMp ?? 0) +
       equipAcc.mp) *
       (1 + (input.maxMpPct ?? 0) / 100),

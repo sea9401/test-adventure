@@ -27,6 +27,9 @@ describe("무료 지원 API 요청", () => {
     await act(async () => {
       await list.result.current.summon("mountain_chief", true);
     });
+    await act(async () => {
+      await list.result.current.summon("mountain_chief");
+    });
     const detail = renderHook(() =>
       useCoopSessionState({ sessionId: "boss", setStamina: () => {} }),
     );
@@ -41,6 +44,10 @@ describe("무료 지원 API 요청", () => {
       {
         url: "/api/v2/coop/summon",
         body: { kind: "mountain_chief", allowFreeSupport: true },
+      },
+      {
+        url: "/api/v2/coop/summon",
+        body: { kind: "mountain_chief" },
       },
       {
         url: "/api/v2/coop/attack",

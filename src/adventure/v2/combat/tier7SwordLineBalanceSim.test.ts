@@ -15,6 +15,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 
 import { runTier7SwordLineBalance } from "../../../../scripts/sim-v2-tier7-sword-line";
 import legacyBaseline from "../../../../scripts/fixtures/tier7-sword-line-legacy-baseline.json";
+import skyBaseline from "../../../../scripts/fixtures/skyascendant-pre-feedback-balance.json";
 
 describe("검성 계열 7차 결정적 밸런스 시뮬레이션", () => {
   it(
@@ -56,7 +57,7 @@ describe("검성 계열 7차 결정적 밸런스 시뮬레이션", () => {
   );
 
   it(
-    "7차 고유 패키지는 일반 PvE와 PvP에서도 검성보다 명확히 강하다",
+    "7차 패키지의 PvE·PvP 피해 범위와 과도한 상향을 검증한다",
     () => {
       const report = runTier7SwordLineBalance({
         seeds: 200,
@@ -100,22 +101,22 @@ describe("검성 계열 7차 결정적 밸런스 시뮬레이션", () => {
       expect(ruinPvpRatio).toBeGreaterThanOrEqual(1.05);
       expect(ruinPvpRatio).toBeLessThanOrEqual(1.1);
 
-      const skyPrerequisiteLong = Math.max(
-        byId["heavenlybow-core"].pveLong.mean,
-        byId["celestialdragon-core"].pveLong.mean,
-      );
-      const skyPrerequisitePvp = Math.max(
-        byId["heavenlybow-core"].pvp.mean,
-        byId["celestialdragon-core"].pvp.mean,
-      );
-      const skyLongRatio =
-        byId["skyascendant-core"].pveLong.mean / skyPrerequisiteLong;
-      const skyPvpRatio =
-        byId["skyascendant-core"].pvp.mean / skyPrerequisitePvp;
-      expect(skyLongRatio).toBeGreaterThanOrEqual(1.1);
-      expect(skyLongRatio).toBeLessThanOrEqual(1.15);
-      expect(skyPvpRatio).toBeGreaterThanOrEqual(1.05);
-      expect(skyPvpRatio).toBeLessThanOrEqual(1.1);
+      // #681: 천룡난무와 기본 계수를 맞추지 않는다. 최초 수정 전 비천무신을
+      // 같은 시드로 비교해 관통·막타·연계 보완의 총 피해 상승을 30% 이내로 제한한다.
+      expect(report.seedBase).toBe(skyBaseline.seedBase);
+      expect(report.seeds).toBe(skyBaseline.seeds);
+      for (const [id, baseline] of Object.entries(skyBaseline.cases)) {
+        const current = byId[id];
+        const pveRatio = current.pveLong.mean / baseline.pveLong;
+        const pvpRatio = current.pvp.mean / baseline.pvp;
+        expect(pveRatio, `${id}: PvE`).toBeGreaterThan(1);
+        expect(pveRatio, `${id}: PvE`).toBeLessThanOrEqual(1.3);
+        expect(pvpRatio, `${id}: PvP`).toBeGreaterThan(1);
+        expect(pvpRatio, `${id}: PvP`).toBeLessThanOrEqual(1.3);
+        expect(current.pvp.firstActionKoRate).toBeLessThanOrEqual(
+          baseline.firstActionKoRate + 0.02,
+        );
+      }
 
       const ruinLowToNormal =
         byId["ruinblade-core"].pveLow.mean /

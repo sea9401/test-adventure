@@ -42,7 +42,7 @@ describe("runFarmPlotBatch", () => {
       },
     ]);
     expect(farmVersions).toEqual([1, 2, 3]);
-    expect(result).toEqual({ completed: 3, error: null, farmingXpGained: 0 });
+    expect(result).toEqual({ completed: 3, error: null, seedsReturned: 0, farmingXpGained: 0 });
   });
 
   it("중간 요청이 실패하면 이후 밭을 처리하지 않는다", async () => {
@@ -71,7 +71,7 @@ describe("runFarmPlotBatch", () => {
     expect(result).toEqual({
       completed: 1,
       error: "no_seed",
-      farmingXpGained: 0,
+      seedsReturned: 0, farmingXpGained: 0,
     });
   });
 
@@ -81,7 +81,7 @@ describe("runFarmPlotBatch", () => {
       const body = JSON.parse(String(init?.body)) as { plotId: keyof typeof xpByPlot };
       return Response.json({
         ok: true,
-        result: { farmingXpGained: xpByPlot[body.plotId] },
+        result: { farmingXpGained: xpByPlot[body.plotId], seedReturned: 1 },
       });
     });
 
@@ -96,6 +96,7 @@ describe("runFarmPlotBatch", () => {
       completed: 3,
       error: null,
       farmingXpGained: 135,
+      seedsReturned: 3,
     });
   });
 });
@@ -124,4 +125,8 @@ describe("farmBatchOutcomeText", () => {
       "no_seed",
     );
   });
+});
+
+it("일괄 수확 알림에 반환한 씨앗 합계를 표시한다", () => {
+  expect(farmBatchOutcomeText("harvest", 3, null, undefined, 135, 2)).toContain("씨앗 2개 반환");
 });

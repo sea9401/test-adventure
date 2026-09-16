@@ -1,3 +1,4 @@
+import { applyEmblemLevelGrowth } from "@/lib/server/emblemLevelGrowth";
 import { applyExpGain } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -37,6 +38,7 @@ export function applyExpTomeGrant(
     level?: number;
     exp?: number;
     specChoice?: unknown;
+    emblems?: unknown;
   },
   proficiencyRaw: unknown,
   grant: number = EXP_TOME_GRANT,
@@ -61,8 +63,15 @@ export function applyExpTomeGrant(
     // 레벨업 수만큼 랜덤 스탯 성장 굴림 — 무직 포함 모든 직군 적용(hunt 와 동일).
     const grownBefore = prof.grown;
     let grown = grownBefore;
+    let emblemHp = 0;
+    let emblemMp = 0;
     for (let i = 0; i < expResult.levelsGained; i++) {
       grown = rollLevelGrowth(grown, playerClass, prof, rand);
+      const emblem = applyEmblemLevelGrowth({ proficiency: setGrown(prof, grown), emblems: charSave.emblems, levelsGained: 1, rng: rand });
+      prof = emblem.proficiency;
+      grown = prof.grown;
+      emblemHp += emblem.gained.hp;
+      emblemMp += emblem.gained.mp;
     }
     prof = setGrown(prof, grown);
     if (prof.lifeResourceGrowth) {
@@ -92,6 +101,8 @@ export function applyExpTomeGrant(
       hpGain = legacy.hp;
       mpGain = legacy.mp;
     }
+    hpGain += emblemHp;
+    mpGain += emblemMp;
   }
 
   return {

@@ -3,7 +3,7 @@ export type FarmBatchAction = "plant" | "harvest" | "fertilize";
 type FarmBatchResponse = {
   ok: boolean;
   error?: string;
-  result?: { farmingXpGained?: number };
+  result?: { farmingXpGained?: number; seedReturned?: number };
 };
 
 const FARM_BATCH_ENDPOINT: Record<FarmBatchAction, string> = {
@@ -18,6 +18,7 @@ export function farmBatchOutcomeText(
   error: string | null,
   cropName?: string,
   farmingXpGained = 0,
+  seedsReturned = 0,
 ): string {
   if (error) {
     return completed > 0
@@ -25,7 +26,7 @@ export function farmBatchOutcomeText(
       : error;
   }
   if (action === "harvest") {
-    const base = `${completed}칸을 모두 수확했습니다.`;
+    const base = `${completed}칸을 모두 수확했습니다.${seedsReturned > 0 ? ` 씨앗 ${seedsReturned}개 반환.` : ""}`;
     return farmingXpGained > 0
       ? `${base} 농사 XP +${farmingXpGained.toLocaleString("ko-KR")}.`
       : base;
@@ -52,8 +53,10 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
   completed: number;
   error: string | null;
   farmingXpGained: number;
+  seedsReturned: number;
 }> {
   let completed = 0;
+  let seedsReturned = 0;
   let farmingXpGained = 0;
 
   for (const plotId of plotIds) {
@@ -72,10 +75,12 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           completed,
           error: data.error ?? "request_failed",
           farmingXpGained,
+          seedsReturned,
         };
       }
       onSuccess(data);
       if (action === "harvest") {
+        seedsReturned += Math.max(0, Math.floor(Number(data.result?.seedReturned) || 0));
         farmingXpGained += Math.max(
           0,
           Math.floor(Number(data.result?.farmingXpGained) || 0),
@@ -87,9 +92,10 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           completed,
           error: error instanceof Error ? error.message : "request_failed",
           farmingXpGained,
+          seedsReturned,
         };
     }
   }
 
-  return { completed, error: null, farmingXpGained };
+  return { completed, error: null, farmingXpGained, seedsReturned };
 }

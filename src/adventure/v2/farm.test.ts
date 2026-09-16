@@ -404,6 +404,35 @@ describe("adventurer farm", () => {
     ).toThrow("already_ready");
   });
 
+  it.each([
+    [1, 0.299999, 1], [1, 0.30, 0],
+    [100, 0.549999, 1], [100, 0.55, 0],
+    [50, 0.42, 1], [50, 0.43, 0],
+  ])("농사 %i레벨은 수확당 해당 씨앗을 최대 1개 반환한다 (%f)", (level, roll, returned) => {
+    const initial = emptyFarmState();
+    initial.seeds = { wheat: 2, herb: 3 };
+    initial.stats.farmingXp = farmingLevelXpThreshold(level);
+    const planted = plantCrop(initial, "plot-1", "wheat", 1000);
+    const rolls = [0.99, 0.99, roll];
+    const { state, result } = harvestPlot(planted, "plot-1", 1000 + FARM_CROPS.wheat.growMs, () => rolls.shift()!);
+    expect(result.seedReturned).toBe(returned);
+    expect(state.seeds).toEqual({ wheat: 1 + returned, herb: 3 });
+    expect(result.quantity).toBeGreaterThanOrEqual(5);
+    expect(result.rareQuantity).toBe(0);
+    expect(planted.seeds).toEqual({ wheat: 1, herb: 3 });
+    expect(() => harvestPlot(state, "plot-1", Date.now())).toThrow("plot_empty");
+  });
+
+  it("수확으로 레벨이 올라도 반환 판정에는 수확 전 레벨을 쓴다", () => {
+    const initial = emptyFarmState();
+    initial.stats.farmingXp = farmingLevelXpThreshold(2) - 1;
+    const planted = plantCrop(initial, "plot-1", "wheat", 1000);
+    const rolls = [0.99, 0.99, 0.301];
+    const { result } = harvestPlot(planted, "plot-1", 1000 + FARM_CROPS.wheat.growMs, () => rolls.shift()!);
+    expect(result.farmingLevel).toBeGreaterThan(1);
+    expect(result.seedReturned).toBe(0);
+  });
+
   it("harvests yield, rare crop, and clears the plot", () => {
     const planted = plantCrop(
       { ...emptyFarmState(), seeds: { corn: 1 } },

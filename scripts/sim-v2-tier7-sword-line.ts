@@ -214,7 +214,8 @@ const BUILDS: readonly BuildDefinition[] = [
     id: "celestialdragon-core",
     label: "천룡권성 고유 29 SP",
     jobId: "celestialdragon",
-    main: "dex",
+    // 천룡난무는 힘 기반이다. 민첩 빌드로 비교하면 비천무신의 상대 성능을 과대평가한다.
+    main: "str",
     skills: V2_SKILLS_BY_JOB.celestialdragon,
   },
   {
@@ -229,14 +230,14 @@ const BUILDS: readonly BuildDefinition[] = [
   },
   {
     id: "skyascendant-core",
-    label: "비천무신 고유 46 SP",
+    label: "비천무신 고유 42 SP",
     jobId: "skyascendant",
     main: "dex",
     skills: V2_SKILLS_BY_JOB.skyascendant,
   },
   {
     id: "skyascendant-inherited",
-    label: "비천무신 계승 75 SP",
+    label: "비천무신 계승 71 SP",
     jobId: "skyascendant",
     main: "dex",
     skills: [
@@ -246,7 +247,7 @@ const BUILDS: readonly BuildDefinition[] = [
   },
   {
     id: "skyascendant-full",
-    label: "비천무신 전체 계승 99 SP",
+    label: "비천무신 전체 계승 95 SP",
     jobId: "skyascendant",
     main: "dex",
     skills: [

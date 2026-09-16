@@ -1,0 +1,22 @@
+{
+  "baselineCommit": "72721ed63",
+  "seedBase": 20260829,
+  "seeds": 200,
+  "cases": {
+    "skyascendant-core": {
+      "pveLong": 50408.285,
+      "pvp": 45798.58,
+      "firstActionKoRate": 0
+    },
+    "skyascendant-inherited": {
+      "pveLong": 90397.81,
+      "pvp": 80528.4,
+      "firstActionKoRate": 0
+    },
+    "skyascendant-full": {
+      "pveLong": 116727.18,
+      "pvp": 102248.03,
+      "firstActionKoRate": 0
+    }
+  }
+}

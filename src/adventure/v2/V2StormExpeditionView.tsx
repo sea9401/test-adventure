@@ -559,7 +559,7 @@ export function V2StormExpeditionView() {
     <main className="mx-auto max-w-[900px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader
         title={<><CloudLightning size={21} weight="duotone" className="text-sky-500" />폭풍 원정</>}
-        onBack={() => router.push("/battle")}
+        onBack={() => router.push("/battle/dungeons")}
       />
 
       {loadError && <LoadErrorBanner onRetry={refresh} />}

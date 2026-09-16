@@ -90,6 +90,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   const derived = derivePlayerCombatV2Pure({
     level: character.level ?? 1,
     lifeResourceGrowth: prof.lifeResourceGrowth,
+    emblemCycleGrowth: prof.emblemCycleGrowth,
     allocatedStats: prof.grown,
     statCaps: prof.caps,
     statFloors: computeStatFloors(prof),

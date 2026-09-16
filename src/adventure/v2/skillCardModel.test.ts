@@ -5,10 +5,10 @@ import { buildSkillCardModel } from "./skillCardModel";
 describe("skill card summary", () => {
   it("파공 자원은 노출하고 연속 타격 계수는 상세에 묶는다", () => {
     const model = buildSkillCardModel("v2c_skyascendant_voidbreak")!;
-    expect(model.resources).toEqual(["발동 50%", "MP 119"]);
+    expect(model.resources).toEqual(["발동 60%", "MP 119"]);
     expect(model.meta).toEqual(["체술", "4회 공격"]);
-    expect(model.details).toContain("1~3타 · 피해 공격력×0.3 + 민첩×0.43");
-    expect(model.details).toContain("4타 · 피해 공격력×0.3 + 민첩×0.86");
+    expect(model.details).toContain("1~3타 · 피해 공격력×0.3 + 민첩×0.47");
+    expect(model.details).toContain("4타 · 피해 공격력×0.3 + 민첩×1.18");
     expect(model.synergy?.condition).toBe("교차 장착 + 원거리→체술 교대 공격 적중 시");
     expect(model.synergy?.effects).toContain("추가 피해 40%");
     expect(model.synergy?.pvp).toContain("추가 피해 25%");

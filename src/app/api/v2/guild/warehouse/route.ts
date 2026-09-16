@@ -204,6 +204,9 @@ export async function GET() {
     ...access,
     personalEquipment: depositablePersonalEquipment,
     equippedIids: [...equippedIids],
+    equippedEquipment: personalEquipment.owned.filter((equipment) =>
+      equippedIids.has(equipment.iid),
+    ),
     warehouse: warehouse.materials,
     equipment: warehouse.equipment,
     members: memberRows.map((row) => ({

@@ -100,6 +100,22 @@ describe("POST /api/v2/farm/harvest", () => {
     vi.restoreAllMocks();
   });
 
+  it("반환된 씨앗을 농장에 저장하고 수확 결과로 전달한다", async () => {
+    vi.mocked(Math.random).mockReturnValue(0);
+    const initial = emptyFarmState(NOW);
+    initial.seeds = { wheat: 1, herb: 2 };
+    store.set(FARM_SAVE_KEY, plantCrop(initial, "plot-1", "wheat", NOW - FARM_CROPS.wheat.growMs - 1));
+    store.set("character.v2", {});
+    store.set("skills.v2", {});
+    const response = await POST(new Request("http://test.local/api/v2/farm/harvest", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ plotId: "plot-1" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ result: { seedReturned: 1 } });
+    expect(store.get(FARM_SAVE_KEY)).toMatchObject({ seeds: { wheat: 1, herb: 2 } });
+  });
+
   it("구 초과 XP를 한 번 환산한 뒤 이번 수확 XP를 저장한다", async () => {
     const planted = plantCrop(
       emptyFarmState(NOW),

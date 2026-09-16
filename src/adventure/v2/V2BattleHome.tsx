@@ -68,7 +68,7 @@ export function V2BattleHome({ onAction }: {
           icon={
             <CloudLightning size={28} weight="duotone" className="text-sky-500" />
           }
-          title="원정"
+          title="던전"
           onClick={() => onAction({ kind: "open-storm-expedition" })}
         />
       </div>

@@ -11,7 +11,7 @@ export type WoodcuttingSeedDropRate = {
   chancePerMillion: number;
 };
 
-// 벌목은 무한 반복이 가능하므로, 성공 1회당 전체 씨앗 발견률을 약 1.5%로 제한한다.
+// 벌목은 무한 반복이 가능하므로, 성공 1회당 기본 씨앗 발견률은 1.495%이며 레벨 보너스로 최대 5%가 된다.
 // 작물 등급이 오를수록 절대 확률을 급격히 낮추며, 한 번에 씨앗은 최대 1개만 나온다.
 export const WOODCUTTING_SEED_DROP_RATES: readonly WoodcuttingSeedDropRate[] = [
   { cropId: "wheat", grade: 1, chancePerMillion: 4_500 }, // 0.45%

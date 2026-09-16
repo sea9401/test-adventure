@@ -2,6 +2,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   cookingPost50Bonuses,
   farmingPost50Bonuses,
+  farmingSeedReturnChancePct,
   fishingPost50Bonuses,
   miningPost50Bonuses,
   woodcuttingPost50Bonuses,
@@ -17,7 +18,7 @@ export type LifeMilestoneActivity =
 const MILESTONE_LEVELS = [60, 75, 90, 100] as const;
 
 function formatPercent(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(value);
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
 }
 
 function milestoneEffects(
@@ -27,6 +28,7 @@ function milestoneEffects(
   if (activity === "farming") {
     const bonus = farmingPost50Bonuses(level);
     return [
+      `씨앗 반환 ${formatPercent(farmingSeedReturnChancePct(level))}%`,
       `수확량 +${formatPercent(bonus.yieldBonusPct)}%`,
       `희귀 수확 +${formatPercent(bonus.rareChancePct)}%p`,
     ];
@@ -36,7 +38,7 @@ function milestoneEffects(
     return [
       `추가 원목 +${formatPercent(bonus.bonusLogChancePct)}%`,
       ...(bonus.seedChancePct > 0
-        ? [`묘목 발견 +${formatPercent(bonus.seedChancePct)}%p`]
+        ? [`씨앗 발견 +${formatPercent(bonus.seedChancePct)}%p`]
         : []),
       ...(bonus.rareResultChancePct > 0
         ? [`희귀 결과 +${formatPercent(bonus.rareResultChancePct)}%p`]

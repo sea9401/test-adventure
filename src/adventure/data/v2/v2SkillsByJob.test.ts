@@ -95,7 +95,7 @@ describe("7차 전투 패키지", () => {
       expect(skillsForJob(jobId)).toEqual(ids);
       const defs = ids.map((id) => V2_SKILLS[id]);
       expect(defs.map(spCostOf).reduce((sum, cost) => sum + cost, 0)).toBe(
-        jobId === "primordialsage" ? 42 : 46,
+        jobId === "primordialsage" || jobId === "skyascendant" ? 42 : 46,
       );
       expect(() =>
         validateTier7Package(
@@ -143,14 +143,16 @@ describe("7차 전투 패키지", () => {
       pvpDirectDamagePct: 100,
     });
 
-    expect(directCoef("v2c_skyascendant_fallingstar")).toBe(1.93);
-    expect(directCoef("v2c_skyascendant_voidbreak")).toBeCloseTo(1.88, 6);
-
     // 태초현자의 승인된 기준은 이번 물리 7차 조정과 무관하다.
     expect(directCoef("v2c_primordialsage_greatorb")).toBeCloseTo(
       directCoef("v2c_archmage_collapse") * 0.85,
       2,
     );
+  });
+
+  it("비천무신은 두 액티브의 연계 장착 부담을 각각 11 SP로 줄인다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_skyascendant_fallingstar)).toBe(11);
+    expect(spCostOf(V2_SKILLS.v2c_skyascendant_voidbreak)).toBe(11);
   });
 
   it("aggregates the approved tier 7 ordinary passive stats", () => {

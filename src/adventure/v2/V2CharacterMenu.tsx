@@ -20,6 +20,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 // 장비 장착/해제는 인벤토리 안에서 처리. 모험의 서는 도감(우선 재료) — 맨 아래에 둔다.
 
 export type CharacterAction =
+  | { kind: "open-emblems" }
   | { kind: "open-info" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
@@ -54,6 +55,12 @@ export function V2CharacterMenu({
           }
           title="인벤토리"
           onClick={() => onAction({ kind: "open-inventory" })}
+        />
+        <EntryCard
+          icon={<Sparkle size={28} weight="duotone" className="text-violet-500" />}
+          title="문장"
+          description="문장 장착과 합성 · 레벨업 추가 성장"
+          onClick={() => onAction({ kind: "open-emblems" })}
         />
         <EntryCard
           icon={

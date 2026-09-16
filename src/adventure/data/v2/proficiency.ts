@@ -51,6 +51,8 @@ export type V2ProficiencyState = {
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
   /** 현재 재전직 주기에 장비 해방으로 영구 누적한 최대 HP·MP. 재전직 시 0으로 초기화한다. */
   liberationCycleGrowth: LiberationCycleGrowth;
+  /** 문장으로 얻은 현재 생애의 HP·MP. 장착 해제 시 유지하며 재전직 시 초기화. */
+  emblemCycleGrowth?: LiberationCycleGrowth;
   // 폐기된 수행 재분배 저장 필드. 과거 저장 형식 호환을 위해 0으로만 유지한다.
   growthRespecPoints?: number;
   // 직업별 숙련도 — 특정 직업(예: 기사·사제)으로 쌓은 승리 수. groups(직군 숙련도)와 별개.
@@ -325,6 +327,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps?: unknown;
     grown?: unknown;
     liberationCycleGrowth?: unknown;
+    emblemCycleGrowth?: unknown;
     growthRespecPoints?: unknown;
     jobCumLevel?: unknown;
     jobHistory?: unknown;
@@ -475,6 +478,8 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     !Array.isArray(obj.liberationCycleGrowth)
       ? (obj.liberationCycleGrowth as Record<string, unknown>)
       : {};
+  const rawEmblemGrowth = obj.emblemCycleGrowth && typeof obj.emblemCycleGrowth === "object" && !Array.isArray(obj.emblemCycleGrowth)
+    ? obj.emblemCycleGrowth as Record<string, unknown> : null;
   const parsed: V2ProficiencyState = {
     points: pointsTotal,
     groups,
@@ -485,6 +490,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       hp: posInt(rawLiberationGrowth.hp),
       mp: posInt(rawLiberationGrowth.mp),
     },
+    ...(rawEmblemGrowth ? { emblemCycleGrowth: { hp: posInt(rawEmblemGrowth.hp), mp: posInt(rawEmblemGrowth.mp) } } : {}),
     growthRespecPoints: 0,
     jobCumLevel,
     jobHistory,
@@ -536,6 +542,7 @@ export function resetLevelGrowth(p: V2ProficiencyState): V2ProficiencyState {
   return {
     ...p,
     lifeStartStats: masteryStartingStats(p),
+    ...(p.emblemCycleGrowth ? { emblemCycleGrowth: { hp: 0, mp: 0 } } : {}),
     grown: {},
     growthRespecPoints: 0,
     ...(p.lifeResourceGrowth

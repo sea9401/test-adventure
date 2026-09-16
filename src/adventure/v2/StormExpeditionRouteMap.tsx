@@ -10,8 +10,11 @@ import {
 } from "./stormExpeditionMobileMap";
 import type { StormExpeditionAutoplayPlan } from "./stormExpeditionAutoplayPolicy";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 type Props = {
+  layout?: "branching" | "linear";
+  label?: string;
   nodes: readonly StormExpeditionMapNode[];
   currentNodeId: StormExpeditionMapNodeId | null;
   visitedNodeIds: readonly StormExpeditionMapNodeId[];
@@ -46,6 +49,8 @@ type NodeStateProps = Pick<
 };
 
 export function StormExpeditionRouteMap({
+  layout = "branching",
+  label = "원정 진행 경로",
   nodes,
   currentNodeId,
   visitedNodeIds,
@@ -75,8 +80,24 @@ export function StormExpeditionRouteMap({
   useEffect(() => {
     if (!currentNodeId) return;
     const current = scrollRef.current?.querySelector<HTMLElement>(`[data-node-id="${currentNodeId}"]`);
-    current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    current?.scrollIntoView?.({ behavior: "smooth", block: "nearest", inline: "center" });
   }, [currentNodeId]);
+
+  if (layout === "linear") {
+    const width = Math.max(120, nodes.length * 120);
+    const linearNodes = nodes.map((node, index) => ({ node, x: 60 + index * 120, y: 80 }));
+    return (
+      <div ref={scrollRef} role="region" aria-label={label} tabIndex={0}
+        className="w-full min-w-0 overflow-x-auto pb-2">
+        <div className={`${SURFACE_INSET} relative h-40`} style={{ width }}>
+          <MapEdges nodes={linearNodes} viewBoxWidth={width} viewBoxHeight={160} />
+          {linearNodes.map(({ node, x, y }) => (
+            <MapNodeButton key={node.id} node={node} position={{ left: x, top: y }} {...nodeStateProps} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

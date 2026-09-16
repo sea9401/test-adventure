@@ -9,7 +9,10 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { EMBLEM_LABELS, type Emblem } from "@/adventure/data/v2/emblems";
-import { SANCTUARY_NAME, SANCTUARY_NODES, sanctuaryNode, sanctuaryChoices, type SanctuaryState } from "@/adventure/data/v2/sanctuaryDungeon";
+import { SANCTUARY_NAME, SANCTUARY_NODES, sanctuaryNode, sanctuaryChoices, sanctuaryEnemy, type SanctuaryState } from "@/adventure/data/v2/sanctuaryDungeon";
+import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
+import { StormExpeditionRouteMap } from "./StormExpeditionRouteMap";
+import { StormExpeditionNodeDialog, type StormExpeditionNodeDialogModel } from "./StormExpeditionNodeDialog";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 
@@ -35,6 +38,8 @@ export function V2SanctuaryDungeonView() {
   const [busy, setBusy] = useState(false);
   const [withdraw, setWithdraw] = useState(false);
   const [reload, setReload] = useState(0);
+  const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
+  const [skipReplay, setSkipReplay] = useState(false);
   const inFlight = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -54,14 +59,31 @@ export function V2SanctuaryDungeonView() {
       const data = await response.json();
       if (data.state) setStatus(data);
       if (!response.ok || !data.ok) throw new Error(ERRORS[data.error] ?? "요청을 처리하지 못했습니다. 다시 시도해 주세요.");
-      setResult(data); setWithdraw(false);
+      setResult(data); setWithdraw(false); setOpenNodeId(null);
       if (data.gainedEmblems?.length) await refreshGameState();
     } catch (err) {
       setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.");
     } finally { inFlight.current = false; setBusy(false); }
   }
   const active = status?.state.active;
-  const node = active ? sanctuaryNode(active) : null;
+  const selectedNode = SANCTUARY_NODES.find((entry) => entry.id === openNodeId);
+  let dialog: StormExpeditionNodeDialogModel | null = null;
+  if (status && selectedNode) {
+    if (active?.completedNodeIds.includes(selectedNode.id)) {
+      dialog = { kind: "completed", node: selectedNode, summary: ["이미 완료한 지점입니다."] };
+    } else if (active?.currentNodeId === selectedNode.id) {
+      const node = sanctuaryNode(active);
+      dialog = node.kind === "battle"
+        ? { kind: "battle", node, encounterIndex: active.encounterIndex, encounterCount: node.encounterCount ?? 1,
+            enemyName: sanctuaryEnemy(active).name, rewardLines: [node.encounterKind === "final_boss" ? "문장 1개 확정" : "획득 문장은 귀환할 때 정산됩니다."], skipReplay }
+        : { kind: "choice", node, choiceKind: node.kind, hp: active.hp, maxHp: active.maxHp, mp: active.mp, maxMp: active.maxMp, choices: sanctuaryChoices(active) };
+    } else if (!active && selectedNode.id === SANCTUARY_NODES[0].id) {
+      dialog = { kind: "move", node: selectedNode, actionLabel: "성소 입장", routeName: "하루 3회 · 입장 후 지점을 차례로 선택하세요.",
+        disabledReason: !status.unlocked ? ERRORS.locked : status.attemptsLeft <= 0 ? ERRORS.no_attempts : null };
+    } else {
+      dialog = { kind: "locked", node: selectedNode, reason: "앞선 지점을 완료한 뒤 진행할 수 있습니다." };
+    }
+  }
   return <PageShell className={SURFACE_CARD}>
     <SubViewHeader title={SANCTUARY_NAME} onBack={() => router.push("/battle/dungeons")} />
     <Card className="space-y-2 text-sm">
@@ -74,19 +96,18 @@ export function V2SanctuaryDungeonView() {
     {!status && !error && <p role="status">던전 정보를 불러오는 중...</p>}
     {status && <>
       <p className="text-sm font-semibold">남은 입장 {status.attemptsLeft} / 3회 · 누적 클리어 {status.state.clears}회</p>
-      {!status.unlocked ? <Card>미개척지를 해금하면 태초의 성소에 입장할 수 있습니다.</Card>
-        : !active ? <Button variant="primary" fullWidth disabled={busy || status.attemptsLeft <= 0} onClick={() => void act("start")}>성소 입장</Button> : null}
-      <ol aria-label="성소 진행 경로" className="space-y-1">
-        {SANCTUARY_NODES.map((step, index) => <li key={step.id} aria-current={active?.currentNodeId === step.id ? "step" : undefined} className={`${SURFACE_INSET} flex items-center gap-2 px-3 py-2 text-sm`}>
-          <span>{index + 1}.</span><span>{step.name}</span>
-          {active?.currentNodeId === step.id ? <strong className="ml-auto text-violet-700 dark:text-violet-300">현재</strong> : active?.completedNodeIds.includes(step.id) ? <span className="ml-auto">완료</span> : null}
-        </li>)}
-      </ol>
-      {active && node && <Card padding="md" className="space-y-3">
-        <h2 className="font-bold">{node.name}{(node.encounterCount ?? 1) > 1 ? ` · ${active.encounterIndex + 1}/${node.encounterCount}전` : ""}</h2>
-        <p className="text-sm">HP {active.hp.toLocaleString()} / {active.maxHp.toLocaleString()} · MP {active.mp.toLocaleString()} / {active.maxMp.toLocaleString()}</p>
-        {node.kind === "battle" ? <Button variant="primary" fullWidth disabled={busy} onClick={() => void act("fight")}>전투 시작</Button>
-          : <div className="grid gap-2">{sanctuaryChoices(active).map((choice) => <Button className="flex-col items-start text-left" key={choice.id} disabled={busy} onClick={() => void act("choose", choice.id)}><span>{choice.name}</span><span className="text-xs font-normal">{choice.description}</span></Button>)}</div>}
+      {!status.unlocked && <Card>미개척지를 해금하면 태초의 성소에 입장할 수 있습니다.</Card>}
+      <Card padding="md" className="min-w-0 space-y-3">
+        <h2 className="font-bold">성소 지도</h2>
+        <p className="text-sm">{active ? "현재 원형 아이콘을 선택해 전투나 정비를 진행하세요." : "성소 외곽 아이콘을 선택해 입장하세요."}</p>
+        {active && <p className="text-sm">HP {active.hp.toLocaleString()} / {active.maxHp.toLocaleString()} · MP {active.mp.toLocaleString()} / {active.maxMp.toLocaleString()} · 완료 {active.completedNodeIds.length} / {SANCTUARY_NODES.length}</p>}
+        <StormExpeditionRouteMap layout="linear" label="성소 진행 경로" nodes={SANCTUARY_NODES}
+          currentNodeId={active?.currentNodeId ?? null} visitedNodeIds={active?.visitedNodeIds ?? []}
+          completedNodeIds={active?.completedNodeIds ?? []}
+          availableNodeIds={!active && status.unlocked && status.attemptsLeft > 0 ? [SANCTUARY_NODES[0].id] : []}
+          plan={null} onNodeOpen={(id) => { if (!busy) setOpenNodeId(id); }} />
+      </Card>
+      {active && <Card padding="md" className="space-y-3">
         <p className="text-sm font-semibold">임시 문장 {status.state.pendingEmblems.length}개</p>
         <EmblemList items={status.state.pendingEmblems} />
         {withdraw ? <div className={`${SURFACE_INSET} space-y-2 p-3`}><p className="text-sm">임시 문장을 받고 이번 탐험을 종료할까요? 사용한 입장 횟수는 돌아오지 않습니다.</p><div className="flex gap-2"><Button disabled={busy} variant="primary" onClick={() => void act("withdraw")}>보상 받고 귀환</Button><Button disabled={busy} onClick={() => setWithdraw(false)}>취소</Button></div></div>
@@ -98,6 +119,14 @@ export function V2SanctuaryDungeonView() {
       {result.failed && <p>이번 탐험의 임시 문장을 잃었습니다.</p>}
       {result.gainedEmblems && result.gainedEmblems.length > 0 ? <><p>문장 {result.gainedEmblems.length}개를 획득했습니다.</p><EmblemList items={result.gainedEmblems} /><Button onClick={() => router.push("/character/emblems")}>문장 확인</Button></> : result.droppedEmblem ? <><p>임시 문장 획득</p><EmblemList items={[result.droppedEmblem]} /></> : null}
     </Card>}
-    {result?.replay && <ReplayBattleScene payload={result.replay} startPlayerHp={result.startPlayerHp} playerName={result.playerName ?? "모험가"} gender={(result.gender ?? "male1") as Gender} exp={0} maxExp={1} playerSubtitle={SANCTUARY_NAME} outcome={result.success ? "win" : "lose"} />}
+    {dialog && <StormExpeditionNodeDialog open model={dialog} busy={busy}
+      onClose={() => setOpenNodeId(null)}
+      onAction={(action) => {
+        if (action.kind === "move") void act("start");
+        if (action.kind === "fight") void act("fight");
+        if (action.kind === "choose") void act("choose", action.choiceId);
+        if (action.kind === "skip_replay") setSkipReplay(action.value);
+      }} />}
+    {result?.replay && !skipReplay && <ReplayBattleScene payload={result.replay} startPlayerHp={result.startPlayerHp} playerName={result.playerName ?? "모험가"} gender={(result.gender ?? "male1") as Gender} exp={0} maxExp={1} playerSubtitle={SANCTUARY_NAME} outcome={result.success ? "win" : "lose"} />}
   </PageShell>;
 }

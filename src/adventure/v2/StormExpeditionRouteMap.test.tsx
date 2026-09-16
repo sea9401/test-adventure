@@ -1,3 +1,4 @@
+import { SANCTUARY_NODES } from "@/adventure/data/v2/sanctuaryDungeon";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -101,5 +102,25 @@ describe("StormExpeditionRouteMap", () => {
 
     expect(html).toContain("완료 경로 · 칼바람 외곽");
     expect(html).toContain("예약 경로 · 외곽 칼바람 · 중층 뇌운 · 수호자 잔해");
+  });
+});
+
+
+describe("linear sanctuary map", () => {
+  it("connects all nine circular nodes on one scrollable row at every viewport", () => {
+    const html = renderToStaticMarkup(<StormExpeditionRouteMap
+      layout="linear" label="성소 진행 경로" nodes={SANCTUARY_NODES}
+      currentNodeId="supply" visitedNodeIds={["wreckage_outer", "supply"]}
+      completedNodeIds={["wreckage_outer"]} availableNodeIds={[]} plan={null}
+      onNodeOpen={() => undefined}
+    />);
+    expect(html).toContain('aria-label="성소 진행 경로"');
+    expect(html.match(/data-node-id=/g)).toHaveLength(9);
+    expect(html.match(/<line /g)).toHaveLength(8);
+    expect(html.match(/y1="80"[^>]*y2="80"/g)).toHaveLength(8);
+    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("rounded-full");
+    expect(html).not.toContain("sm:hidden");
+    expect(html).not.toContain("storm-expedition-mobile-map");
   });
 });

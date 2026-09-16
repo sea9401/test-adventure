@@ -40,6 +40,7 @@ export type StormExpeditionNodeDialogModel =
   | {
       kind: "move";
       node: StormExpeditionMapNode;
+      actionLabel?: string;
       routeName: string | null;
       disabledReason: string | null;
     }
@@ -235,7 +236,7 @@ function MoveBody({
         onClick={() => onAction({ kind: "move" })}
         className="min-h-11 w-full rounded-md bg-sky-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
       >
-        {busy ? "이동 처리 중" : "이 경로로 이동"}
+        {busy ? "이동 처리 중" : model.actionLabel ?? "이 경로로 이동"}
       </button>
     </div>
   );

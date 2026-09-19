@@ -1,3 +1,4 @@
+import { MpGrowthExplanation } from "./mp-growth";
 import {
   CRIT_OVERFLOW_DMG_CAP,
   CRIT_OVERFLOW_DMG_PER_PCT,
@@ -29,9 +30,7 @@ import {
 import { V2_DOT_PRESETS } from "@/adventure/data/v2/statusEffects";
 import {
   V2_BASE_HP,
-  V2_BASE_MP,
   V2_HP_PER_LEVEL,
-  V2_MP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import { BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/v2/combat/engineState";
 import {
@@ -70,7 +69,6 @@ import {
   MIN_DMG_PER_SPI,
   MIN_DMG_PER_STR,
   MIN_DMG_PER_VIT,
-  MP_PER_INT,
   SPD_PER_DEX,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
@@ -150,24 +148,21 @@ export function CombatFormulasContent() {
           더합니다. 따라서 장비의 고정 HP에는 최대 HP 증가율이 다시 곱해지지 않습니다.
         </li>
         <li>
-          <Em>최대 MP 계산 순서</Em> — 기초값과 레벨·지능과 장비 MP를 합친{" "}
-          <Code>{V2_BASE_MP} + (레벨 − 1) × {V2_MP_PER_LEVEL} + INT × {MP_PER_INT} + 장비 MP</Code>에
-          최대 MP 증가율을 곱합니다. HP와 달리 장비 MP도 최대 MP 증가율의 적용을 받습니다.
+          <Em>최대 MP 계산 순서</Em> — 성장 방식에 따른 MP에 해방 등의 추가 MP와 장비 MP를 합친 뒤
+          최대 MP 증가율을 적용하고 내림합니다. HP와 달리 장비 MP도 최대 MP 증가율의 적용을 받습니다.
+          정신의 현재 MP 보너스와 다음 생애 성장 하한은 아래에 구분해 설명합니다.
         </li>
         <li>
           기본 회복 배율은 <Code>1 + VIT × {HEAL_MULT_PER_VIT} + SPI × {HEAL_MULT_PER_SPI}</Code>입니다.
           회복 강화 옵션은 이 값에 다시 곱해집니다.
         </li>
-        <li>
-          <Em>정신은 최대 MP를 직접 올리지 않습니다.</Em> 정신은 마법 공격력·마법
-          방어력·마법 스킬 최소 데미지와 위의 회복 배율에 반영됩니다. 최대 MP의 기본
-          능력치 계수는 지능만 사용합니다.
-        </li>
+
         <li>
           최대 HP 비례 회복 스킬은 보통 <Code>내림((내림(최대 HP × 비율) + 고정 회복량) × 회복 배율)</Code>을
           사용하고, 실제 회복은 최대 HP를 넘지 않습니다.
         </li>
       </UL>
+      <MpGrowthExplanation />
       <H3>생존 능력치 증가율의 점감</H3>
       <UL>
         <li>

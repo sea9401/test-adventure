@@ -163,7 +163,7 @@ export function FarmRanchPanel({
             type="button"
             onClick={() => onFeed("all", 0)}
             disabled={!ranchUnlocked || !canFillFeed || busyFeedSlotId !== null}
-            title="닭장·외양간을 부지 순서대로 보유 사료만큼 채웁니다"
+            title="부지 순서대로 사료를 채우고 돼지우리 빈자리에도 돼지를 데려옵니다"
             className="rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busyFeedSlotId === "all" ? "채우는 중..." : "사료 모두 채우기"}
@@ -181,7 +181,7 @@ export function FarmRanchPanel({
 
       {ranchUnlocked ? (
         <p className={`${SURFACE_CARD} px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300`}>
-          사료 모두 채우기는 닭장·외양간에 부지 순서대로 보유 사료만큼 채웁니다.
+          사료 모두 채우기는 부지 순서대로 닭장·외양간의 사료를 채우고, 돼지우리 빈자리에는 사료 2개당 돼지 1마리를 데려옵니다.
         </p>
       ) : null}
 

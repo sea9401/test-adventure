@@ -64,7 +64,7 @@ function unlockRanch() {
 }
 
 describe("ranch routes", () => {
-  it.each([20, 7, 0])("fills recurring barns in order with %i available feed and never admits pigs", async (owned) => {
+  it.each([20, 10, 9, 7, 0])("fills all barns in order with %i available feed including pigs", async (owned) => {
     const base = emptyFarmState(NOW);
     let ranch = unlockRanchSlot(base.ranch, "slot-2", "cow", 100, NOW).ranch;
     ranch = unlockRanchSlot(ranch, "slot-3", "pig", 100, NOW).ranch;
@@ -73,17 +73,41 @@ describe("ranch routes", () => {
     const response = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ ranchFeedResult: {
-      slotId: "all", amount: Math.min(8, owned), feedRemaining: Math.max(0, owned - 8),
+      slotId: "all", amount: owned >= 10 ? 10 : Math.min(8, owned), feedRemaining: owned >= 10 ? owned - 10 : Math.max(0, owned - 8),
     } });
     const saved = store.get(FARM_SAVE_KEY) as FarmState;
     expect(saved.ranch.slots["slot-1"].feed).toBe(Math.min(6, owned));
     expect(saved.ranch.slots["slot-2"].feed).toBe(Math.min(2, Math.max(0, owned - 6)));
-    expect(saved.ranch.slots["slot-3"].shipmentStartedAt).toEqual(ranch.slots["slot-3"].shipmentStartedAt);
+    expect(saved.ranch.slots["slot-3"].shipmentStartedAt).toEqual(owned >= 10 ? [NOW, NOW] : [NOW]);
     expect(saved.ranch.slots["slot-4"].unlocked).toBe(false);
 
     const again = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
     expect(await again.json()).toMatchObject({ ranchFeedResult: { amount: 0 } });
     expect((store.get(FARM_SAVE_KEY) as FarmState).inventory).toEqual(saved.inventory);
+  });
+
+  it.each([
+    { ready: 0, active: [], owned: 5, started: [NOW, NOW], remaining: 1 },
+    { ready: 1, active: [], owned: 5, started: [NOW], remaining: 3 },
+    { ready: 2, active: [], owned: 5, started: [], remaining: 5 },
+    { ready: 0, active: [NOW - 12 * HOUR], owned: 5, started: [NOW], remaining: 3 },
+    { ready: 0, active: [], owned: 1, started: [], remaining: 1 },
+  ])("fills only available pig positions: %j", async ({ ready, active, owned, started, remaining }) => {
+    const base = emptyFarmState(NOW);
+    let ranch = unlockRanchSlot(base.ranch, "slot-2", "pig", 100, NOW).ranch;
+    ranch = addRanchFeed(ranch, "slot-1", 6, NOW);
+    ranch.slots["slot-2"] = {
+      ...ranch.slots["slot-2"], readyCycles: ready, readyItems: ready * 4,
+      shipmentStartedAt: active,
+    };
+    store.set(FARM_SAVE_KEY, { ...base, ranch, inventory: { compound_feed: owned } });
+
+    const response = await feed(request("/api/v2/farm/ranch/feed", { slotId: "all" }));
+    expect(response.status).toBe(200);
+    const saved = store.get(FARM_SAVE_KEY) as FarmState;
+    expect(saved.ranch.slots["slot-2"].shipmentStartedAt).toEqual(started);
+    expect(saved.ranch.slots["slot-2"].readyCycles).toBe(ready + active.length);
+    expect(saved.inventory.compound_feed).toBe(remaining);
   });
 
   it("settles production before filling and preserves output and partial progress", async () => {

@@ -3,12 +3,14 @@ import { resolveV2SkillCast } from "./combatShared";
 
 type SkillId =
   | "v2c_skyascendant_fallingstar"
-  | "v2c_skyascendant_voidbreak";
+  | "v2c_skyascendant_voidbreak"
+  | "v2c_celestialdragon_combo"
+  | "v2c_heavenlybow_orbit";
 
 function cast(
   skillId: SkillId,
   combatMode: "pve" | "pvp",
-  { def = 0, procRoll = 0 } = {},
+  { def = 0, procRoll = 0, atk = 100, stat = 100 } = {},
 ) {
   return resolveV2SkillCast({
     skills: { learned: [skillId], equipped: [skillId] },
@@ -17,8 +19,9 @@ function cast(
     combatMode,
     attacker: {
       mp: 119,
-      atk: 100,
-      dex: 100,
+      atk,
+      dex: stat,
+      str: stat,
       maxHp: 1_000,
       currentHp: 1_000,
       selfBuffs: {},
@@ -40,10 +43,9 @@ describe.each(["pve", "pvp"] as const)("비천무신 액티브 역할 (%s)", (mo
     const armored = cast("v2c_skyascendant_fallingstar", mode, { def: 10_000 });
     expect(normal.hitDamages).toHaveLength(1);
     expect(armored.enemyDamage).toBeGreaterThanOrEqual(119);
-    // 최초 수정 전 공격력 100·민첩 100·방어 0 기준 443 피해.
-    // 관통·발동률 보완 직후의 460 피해에서 기본 계수도 소폭 보완한다.
-    expect(normal.enemyDamage).toBeGreaterThan(460);
-    expect(normal.enemyDamage).toBeLessThanOrEqual(443 * 1.2);
+    expect(normal.enemyDamage).toBeGreaterThan(
+      cast("v2c_heavenlybow_orbit", mode).enemyDamage,
+    );
     expect(normal.nextMp).toBe(0);
   });
 
@@ -55,10 +57,19 @@ describe.each(["pve", "pvp"] as const)("비천무신 액티브 역할 (%s)", (mo
     expect(third).toBe(first);
     expect(last).toBeGreaterThan(first * 1.8);
     expect(result.enemyDelayToApply).toEqual({ pct: 10 });
-    // 최초 수정 전 같은 표본의 335 피해보다 소폭 강화한다.
-    expect(result.enemyDamage).toBeGreaterThan(357);
-    expect(result.enemyDamage).toBeLessThanOrEqual(335 * 1.2);
+    // 교차가 힘 대신 민첩을 사용하는 상황도 두 능력치가 같으면 동일하다.
+    expect(result.enemyDamage).toBeGreaterThan(
+      cast("v2c_celestialdragon_combo", mode).enemyDamage,
+    );
     expect(result.nextMp).toBe(0);
+  });
+
+  it.each([
+    { atk: 1_000, stat: 300 },
+    { atk: 300, stat: 1_000 },
+  ])("파공이 장비·능력치 성장 표본에서도 천룡난무보다 강하다 (%j)", (stats) => {
+    expect(cast("v2c_skyascendant_voidbreak", mode, stats).enemyDamage)
+      .toBeGreaterThan(cast("v2c_celestialdragon_combo", mode, stats).enemyDamage);
   });
 
   it.each([

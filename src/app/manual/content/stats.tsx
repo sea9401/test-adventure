@@ -1,3 +1,4 @@
+import { MpGrowthExplanation } from "./mp-growth";
 import {
   V2_HP_PER_LEVEL,
   V2_MP_PER_LEVEL,
@@ -7,7 +8,6 @@ import {
   HP_PER_STR,
   HP_PER_VIT,
   MAGIC_ATK_PER_INT,
-  MP_PER_INT,
 } from "@/lib/server/v2CombatCoefficients";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
@@ -27,7 +27,7 @@ export function StatsContent() {
           [<Em key="s2">민첩 DEX</Em>, "도적", "회피도 / 속도 / 적중도"],
           [<Em key="s3">활력 VIT</Em>, "무도가", "최대 HP / 물리 방어 / 회복 / 물리 스킬 최소 데미지"],
           [<Em key="s4">지능 INT</Em>, "마법사", "마법 공격력 / 최대 MP / 마법 스킬 최소 데미지"],
-          [<Em key="s5">정신 SPI</Em>, "(보조)", "마법 방어 / 회복 / 마법 공격 보조 / 마법 스킬 최소 데미지 / 치명타 저항"],
+          [<Em key="s5">정신 SPI</Em>, "(보조)", "마법 방어 / 회복 / 마법 공격 보조 / 마법 스킬 최소 데미지 / 치명타 저항 / 현재 최대 MP 보너스 / 다음 생애 MP 성장 하한"],
           [<Em key="s6">행운 LUK</Em>, "(보조)", "치명타 확률·배수 / 회피도"],
         ]}
         caption="각 스탯은 여러 전투 수치에 함께 반영됩니다."
@@ -55,8 +55,8 @@ export function StatsContent() {
       <UL>
         <li>
           힘 1당 공격력 {ATK_PER_STR}, 힘 1당 최대 HP {HP_PER_STR}, 활력 1당 최대
-          HP {HP_PER_VIT}을 얻습니다. 지능 1당 마법 공격력 {MAGIC_ATK_PER_INT},
-          지능 1당 최대 MP {MP_PER_INT}를 얻습니다.
+          HP {HP_PER_VIT}을 얻습니다. 지능 1당 마법 공격력 {MAGIC_ATK_PER_INT}를 얻으며,
+          최대 MP는 아래 성장 방식에 따라 계산합니다.
         </li>
         <li>
           레벨업마다 <Em>HP와 MP도 각각 독립적으로</Em> 성장량을 굴립니다.
@@ -72,6 +72,8 @@ export function StatsContent() {
         </li>
         <li>MP는 전투 후 잔여분이 유지되고, 부족분은 MP 충전약으로 채웁니다.</li>
       </UL>
+
+      <MpGrowthExplanation />
 
       <H2>스탯은 자동으로 자랍니다</H2>
       <P>

@@ -3165,10 +3165,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       limitations: ["같은 원거리 계열을 연속 사용하면 포획이 발동하지 않는다. 직전 체술 기술은 시전만 하면 되며 적중 여부는 무관하다."],
       pvp: ["PvP 포획은 최종 피해 12%, 관통 10%, 행동 가속 10%로 조정된다."],
     },
-    // 관통·연계 정체성을 유지하며 기본 계수를 소폭 보완한다.
+    // #683: 교차를 공유하는 6차 조합보다 고유 액티브의 직접 피해를 높인다.
     // 두 액티브와 교차를 함께 장착하는 부담을 반영해 액티브별 최종 비용은 11 SP.
     mpCost: 65, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 13, spCostDiscount: 6,
-    effects: [dmg(2.16, 437, "dex", 35)],
+    effects: [dmg(2.2, 437, "dex", 35)],
     accuracyBonusPct: 25, skillCritChancePct: 15,
     tier7Mechanic: { kind: "crossStrike", family: "ranged" },
   },
@@ -3181,10 +3181,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       limitations: ["같은 체술 계열을 연속 사용하면 추격이 발동하지 않는다. 직전 원거리 기술은 시전만 하면 되며 적중 여부는 무관하다."],
       pvp: ["PvP 추격은 추가 피해 25%, 적 행동 지연 10%, 행동 가속 10%로 조정된다."],
     },
-    mpCost: 65, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 13, spCostDiscount: 2,
+    mpCost: 65, cooldown: 0, procChance: 60, learnCost: 20000, spCost: 13, spCostDiscount: 6,
     effects: [
-      dmg(0.412, 150, "dex"), dmg(0.412, 150, "dex"),
-      dmg(0.412, 150, "dex"), dmg(1.03, 300, "dex"),
+      dmg(0.98, 150, "dex"), dmg(0.98, 150, "dex"),
+      dmg(0.98, 150, "dex"), dmg(2.45, 300, "dex"),
       { kind: "enemyDelay", pct: 10 },
     ],
     tier7Mechanic: { kind: "crossStrike", family: "martial" },

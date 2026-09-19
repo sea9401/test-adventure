@@ -8,6 +8,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { EMBLEM_FUSION_CHANCE, EMBLEM_LABELS, emblemGrowthMax, parseEmblemState, type Emblem, type EmblemMutation, type EmblemState } from "@/adventure/data/v2/emblems";
+import { sortEmblemInventory, type EmblemSort } from "./emblemInventory";
 
 const ERRORS: Record<string, string> = {
   stale_state: "문장 상태가 변경되었습니다. 갱신된 목록에서 다시 선택해 주세요.",
@@ -30,6 +31,7 @@ export function V2EmblemView() {
   const [slot, setSlot] = useState(0);
   const [targetIid, setTargetIid] = useState<string | null>(null);
   const [materialIid, setMaterialIid] = useState("");
+  const [sort, setSort] = useState<EmblemSort>("kind");
   const inFlight = useRef(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -76,6 +78,7 @@ export function V2EmblemView() {
   const target = state?.owned.find((item) => item.iid === targetIid);
   const materials = target ? state!.owned.filter((item) => item.iid !== target.iid && item.kind === target.kind && item.grade === target.grade && !state!.slots.includes(item.iid)) : [];
   const material = materials.find((item) => item.iid === materialIid) ?? materials[0];
+  const inventory = sortEmblemInventory(state?.owned ?? [], sort);
 
   return <PageShell className={SURFACE_CARD}>
     <SubViewHeader title="문장" onBack={() => router.push("/character")} />
@@ -117,15 +120,40 @@ export function V2EmblemView() {
         <Button className="ml-2" disabled={busy} onClick={() => setTargetIid(null)}>취소</Button>
       </Card>}
       <section className="space-y-2" aria-label="보유 문장">
-        <h2 className="font-bold">보유 문장 · {state.owned.length}개</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-bold">보유 문장 · {state.owned.length}개</h2>
+          <label className="flex items-center gap-2 text-sm">
+            문장 정렬
+            <select className={`${SURFACE_INSET} min-h-11 p-2`} value={sort} onChange={(event) => setSort(event.target.value as EmblemSort)}>
+              <option value="kind">종류순</option>
+              <option value="grade">등급순</option>
+              <option value="acquired">획득순</option>
+            </select>
+          </label>
+        </div>
+        {sort !== "acquired" && <p className="text-xs text-zinc-600 dark:text-zinc-300">
+          {sort === "kind" ? "같은 종류에서는 높은 등급부터 표시합니다." : "높은 등급부터, 같은 등급에서는 종류별로 표시합니다."}
+        </p>}
         {state.owned.length === 0 && <Card>보유 문장이 없습니다. 태초의 성소에서 문장을 획득해 보세요.</Card>}
-        {state.owned.map((item, index) => <Card key={item.iid} className="flex flex-wrap items-center justify-between gap-3">
-          <div><h3 className="font-semibold">{name(item)}</h3><p className="text-sm">레벨업당 {EMBLEM_LABELS[item.kind]} +0~{emblemGrowthMax(item)} · 거래 불가</p><p className="text-xs text-zinc-600 dark:text-zinc-300">문장 {index + 1}{state.slots.includes(item.iid) ? ` · 슬롯 ${state.slots.indexOf(item.iid) + 1} 장착 중` : ""}</p></div>
-          <div className="flex gap-2">
-            <Button disabled={busy || state.slots[slot] === item.iid} aria-label={`문장 ${index + 1} 장착`} onClick={() => void mutate({ action: "equip", iid: item.iid, slot })}>장착</Button>
-            <Button disabled={busy || item.grade === 5} aria-label={`문장 ${index + 1} 합성 대상 선택`} onClick={() => { setTargetIid(item.iid); setMaterialIid(""); }}>{item.grade === 5 ? "최대 등급" : "합성"}</Button>
-          </div>
-        </Card>)}
+        {inventory.map(({ item, number }) => {
+          const equippedSlot = state.slots.indexOf(item.iid);
+          return <Card key={item.iid} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold">{name(item)}</h3>
+                {equippedSlot >= 0 && <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                  장착 중 · 슬롯 {equippedSlot + 1}
+                </span>}
+              </div>
+              <p className="text-sm">레벨업당 {EMBLEM_LABELS[item.kind]} +0~{emblemGrowthMax(item)} · 거래 불가</p>
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">문장 {number}</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button disabled={busy || state.slots[slot] === item.iid} aria-label={`문장 ${number} 장착`} onClick={() => void mutate({ action: "equip", iid: item.iid, slot })}>장착</Button>
+              <Button disabled={busy || item.grade === 5} aria-label={`문장 ${number} 합성 대상 선택`} onClick={() => { setTargetIid(item.iid); setMaterialIid(""); }}>{item.grade === 5 ? "최대 등급" : "합성"}</Button>
+            </div>
+          </Card>;
+        })}
       </section>
     </>}
   </PageShell>;

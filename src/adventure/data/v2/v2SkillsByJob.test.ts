@@ -104,7 +104,10 @@ describe("7차 전투 패키지", () => {
           // 멸검 3회·24 SP 유지로 패키지 점수 25.34, 효율 약 0.551을 허용한다.
           jobId === "ruinblade"
             ? { maxEfficiency: 0.56, maxScore: 26 }
-            : undefined,
+            // #683: 기본 피해 보완 후 명목 46 SP 기준 점수 19.28, 효율 0.419.
+            : jobId === "skyascendant"
+              ? { maxEfficiency: 0.42, maxScore: 19.3 }
+              : undefined,
         ),
       ).not.toThrow();
     }

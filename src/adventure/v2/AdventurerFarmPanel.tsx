@@ -369,7 +369,7 @@ export function AdventurerFarmPanel({
         tone: "ok",
         text: notice.result.slotId === "all"
           ? notice.result.amount > 0
-            ? `닭장·외양간에 배합 사료 ${notice.result.amount}개를 채웠습니다. 보유 사료 ${notice.result.feedRemaining}개.`
+            ? `축사에 배합 사료 ${notice.result.amount}개를 사용했습니다. 보유 사료 ${notice.result.feedRemaining}개.`
             : "채울 수 있는 사료가 없습니다."
           : `배합 사료 ${notice.result.amount}개를 넣었습니다. 남은 사료 ${notice.result.feedRemaining}개.`,
       };

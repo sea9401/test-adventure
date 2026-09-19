@@ -101,18 +101,12 @@ describe("검성 계열 7차 결정적 밸런스 시뮬레이션", () => {
       expect(ruinPvpRatio).toBeGreaterThanOrEqual(1.05);
       expect(ruinPvpRatio).toBeLessThanOrEqual(1.1);
 
-      // #681: 천룡난무와 기본 계수를 맞추지 않는다. 최초 수정 전 비천무신을
-      // 같은 시드로 비교해 관통·막타·연계 보완의 총 피해 상승을 30% 이내로 제한한다.
+      // #683: 피해 목표는 skyAscendantBalanceSim의 동일 캐릭터·SP 비교로 검증한다.
+      // 전체 계승을 포함한 기존 표본의 첫 행동 전투불능 안전선은 유지한다.
       expect(report.seedBase).toBe(skyBaseline.seedBase);
       expect(report.seeds).toBe(skyBaseline.seeds);
       for (const [id, baseline] of Object.entries(skyBaseline.cases)) {
         const current = byId[id];
-        const pveRatio = current.pveLong.mean / baseline.pveLong;
-        const pvpRatio = current.pvp.mean / baseline.pvp;
-        expect(pveRatio, `${id}: PvE`).toBeGreaterThan(1);
-        expect(pveRatio, `${id}: PvE`).toBeLessThanOrEqual(1.3);
-        expect(pvpRatio, `${id}: PvP`).toBeGreaterThan(1);
-        expect(pvpRatio, `${id}: PvP`).toBeLessThanOrEqual(1.3);
         expect(current.pvp.firstActionKoRate).toBeLessThanOrEqual(
           baseline.firstActionKoRate + 0.02,
         );

@@ -411,7 +411,19 @@ export function ranchFeedPlan(state: RanchState, feedOwned: number, now = Date.n
     const slot = settled.slots[id];
     if (!slot.unlocked || !slot.animalId) continue;
     const animal = RANCH_ANIMAL_DEFINITIONS[slot.animalId];
-    if (animal.mode !== "recurring") continue;
+    if (animal.mode === "shipment") {
+      const available = Math.max(
+        0,
+        (animal.shipmentCapacityCycles ?? 1) - slot.readyCycles - slot.shipmentStartedAt.length,
+      );
+      const count = Math.min(available, Math.floor(remaining / animal.feedPerCycle));
+      // Individual shipment admissions require exactly one animal's feed.
+      for (let i = 0; i < count; i += 1) {
+        plan.push({ slotId: id, amount: animal.feedPerCycle });
+        remaining -= animal.feedPerCycle;
+      }
+      continue;
+    }
     const amount = Math.min(remaining, Math.max(0, animal.feedCapacity - slot.feed));
     if (amount < 1) continue;
     plan.push({ slotId: id, amount });

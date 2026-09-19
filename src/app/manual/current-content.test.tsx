@@ -65,8 +65,14 @@ describe("최신 게임 안내서 내용", () => {
     expect(formulas).toContain("기초값과 레벨·힘·활력");
     expect(formulas).toContain("마지막에 장비의 고정 HP");
     expect(formulas).toContain("최대 MP 계산 순서");
-    expect(formulas).toContain("지능과 장비 MP");
-    expect(formulas).toContain("정신은 최대 MP를 직접 올리지 않습니다");
+    expect(formulas).toContain("추가 MP와 장비 MP");
+    expect(formulas).not.toContain("정신은 최대 MP를 직접 올리지 않습니다");
+    for (const html of [formulas, renderToStaticMarkup(<StatsContent />)]) {
+      expect(html).toContain("기본 SPI − 15");
+      expect(html).toContain("2 + 내림(S × 0.4)");
+      expect(html).toContain("생애 시작 정신이 65");
+      expect(html).toContain("이전 성장 방식");
+    }
     expect(formulas).toContain("회복 배율");
   });
 

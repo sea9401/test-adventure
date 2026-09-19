@@ -50,6 +50,16 @@ describe("farm ranch panel", () => {
     expect(button(renderRanch({ ...stocked, ranch: addRanchFeed(base.ranch, "slot-1", 6, 1_000) }))).toContain('disabled=""');
   });
 
+  it("돼지우리만 빈자리가 있어도 사료 두 개로 모두 채우기를 사용할 수 있다", () => {
+    const base = emptyFarmState(1_000);
+    const ranch = unlockRanchSlot(addRanchFeed(base.ranch, "slot-1", 6, 1_000), "slot-2", "pig", 100, 1_000).ranch;
+    const button = (owned: number) => renderRanch({ ...base, ranch, inventory: { compound_feed: owned } })
+      .match(/<button[^>]*>사료 모두 채우기<\/button>/)?.[0];
+    expect(button(2)).toBeDefined();
+    expect(button(2)).not.toContain('disabled=""');
+    expect(button(1)).toContain('disabled=""');
+  });
+
   it("모바일에서는 목장 설명과 요약 동작을 서로 다른 행에 배치한다", () => {
     const html = renderRanch(emptyFarmState(1_000));
 

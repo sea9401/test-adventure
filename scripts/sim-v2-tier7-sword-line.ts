@@ -12,6 +12,8 @@ import { V2_SKILLS_BY_JOB } from "../src/adventure/data/v2/v2SkillsByJob";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import {
   aggregateEquippedPassives,
+  spCostOf,
+  V2_SKILLS,
   emptyV2SkillsState,
   type V2SkillId,
   type V2SkillsState,
@@ -41,7 +43,8 @@ export type Tier7SwordLineBuildId =
   | "sky-prerequisite"
   | "skyascendant-core"
   | "skyascendant-inherited"
-  | "skyascendant-full";
+  | "skyascendant-full"
+  | "sky-inherited-actives";
 
 export type Tier7SwordLineDistribution = {
   samples: number[];
@@ -449,6 +452,7 @@ function runPve(
   seeds: number,
   seedBase: number,
   scenario: "short" | "long" | "low",
+  targetDef = DUMMY.def,
 ): Tier7SwordLineDistribution {
   const samples: number[] = [];
   const hits: number[] = [];
@@ -459,7 +463,7 @@ function runPve(
     const result = withSeed(
       (seedBase + index + stringHash(`pve:${scenario}`)) >>> 0,
       () =>
-        resolveBattleAtb(player, DUMMY, build.label, {
+        resolveBattleAtb(player, { ...DUMMY, def: targetDef }, build.label, {
           pickAction: () => ({ kind: "attack" }),
           potions: {},
           v2Skills: skillState(build.skills),
@@ -477,6 +481,7 @@ function runPvp(
   build: BuildDefinition,
   seeds: number,
   seedBase: number,
+  targetDef?: number,
 ): Tier7SwordLineDistribution {
   const samples: number[] = [];
   const hits: number[] = [];
@@ -488,6 +493,7 @@ function runPvp(
       hp: DUMMY.hp,
       maxHp: DUMMY.hp,
       atk: 0,
+      ...(targetDef == null ? {} : { def: targetDef }),
       spd: BALANCE_SAMPLE_SPD,
     };
     const result = withSeed(
@@ -583,6 +589,37 @@ export function runTier7SwordLineBalance(options?: {
       ruinMaxSingleHit: byId["ruinblade-core"].pveLow.maxSingleHit,
     },
   };
+}
+
+/** #683: 동일 비천무신·능력치·42 SP 한도에서 액티브 두 개만 교체한다. */
+export function runSkyAscendantActiveComparison(options?: {
+  seeds?: number;
+  seedBase?: number;
+  targetDef?: number;
+}) {
+  if (!V2_ATB_SKILLS || !V2_SKILL_PROC_IN_PATTERN) {
+    throw new Error("비천무신 비교에는 ATB 스킬과 패턴 발동 확률 활성화가 필요합니다.");
+  }
+  const seeds = Math.max(1, Math.floor(options?.seeds ?? DEFAULT_SEEDS));
+  const seedBase = Math.floor(options?.seedBase ?? DEFAULT_SEED_BASE);
+  const core = BUILDS.find((build) => build.id === "skyascendant-core")!;
+  const inherited: BuildDefinition = {
+    ...core,
+    id: "sky-inherited-actives",
+    label: "교차 + 6차 액티브",
+    skills: [
+      "v2c_heavenlybow_orbit",
+      "v2c_celestialdragon_combo",
+      "v2c_skyascendant_crossover",
+    ],
+  };
+  return [inherited, core].map((build) => ({
+    id: build.id,
+    sp: build.skills.reduce((sum, id) => sum + spCostOf(V2_SKILLS[id]), 0),
+    pveShort: runPve(build, seeds, seedBase, "short", options?.targetDef),
+    pveLong: runPve(build, seeds, seedBase, "long", options?.targetDef),
+    pvp: runPvp(build, seeds, seedBase, options?.targetDef),
+  }));
 }
 
 function printReport(report: Tier7SwordLineBalanceReport): void {

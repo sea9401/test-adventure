@@ -17,9 +17,13 @@ import {
 import {
   V2_SKILLS,
   describeV2Skill,
-  effectiveCombatPatternFromEquipped,
+  smartDefaultPatternFromEquipped,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  highestEquippedDeclaration,
+  isDuelistDeclarationId,
+} from "./combat/duelistCombat";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
 import {
   V2_COMBAT_PATTERN_MAX_PRESETS,
@@ -934,12 +938,10 @@ export function V2CombatPatternView({
         );
         setPresets(j?.skills?.presets ?? []);
         const saved = j?.skills?.pattern?.blocks;
-        // 엔진과 동일하게 저장된 조건·순서를 유지하고 미설정 패턴만 기본값으로 보완한다.
+        // 전투용 필터는 하위 선언 블록을 제외하므로 편집에는 적용하지 않는다.
+        // 저장된 블록은 모두 보존하고 미설정·빈 패턴만 기본값으로 보완한다.
         setBlocks(
-          effectiveCombatPatternFromEquipped(
-            eq,
-            saved ? { blocks: saved } : null,
-          ).blocks,
+          saved?.length ? saved : smartDefaultPatternFromEquipped(eq).blocks,
         );
       } catch {}
       setLoading(false);
@@ -947,6 +949,12 @@ export function V2CombatPatternView({
   }, []);
 
   const skillName = (id: string) => V2_SKILLS[id as V2SkillId]?.name ?? id;
+  const highestDeclaration = highestEquippedDeclaration(equipped);
+  const linkedDeclarationIds = new Set(
+    equipped.filter(
+      (id) => isDuelistDeclarationId(id) && id !== highestDeclaration,
+    ),
+  );
   // 패시브 스킬은 캐스트 대상 아님(상시 효과) — 전투패턴 슬롯 후보에서 제외.
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
@@ -1420,6 +1428,14 @@ export function V2CombatPatternView({
                 {b.action.kind === "role" && (
                   <p className="mt-1 pl-10 text-[11px] text-zinc-500 dark:text-zinc-400">
                     현재 장착 기준: {roleCandidate(b.action.role) ? skillName(roleCandidate(b.action.role)!) : "해당 역할 스킬 없음"}
+                  </p>
+                )}
+                {highestDeclaration && actionSkillIds(b.action).some((skillId) =>
+                  linkedDeclarationIds.has(skillId),
+                ) && (
+                  <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+                    상위 선언 연계 중 · 별도 시전 안 함 — 장착한 하위 선언 효과는{" "}
+                    {skillName(highestDeclaration)}에 합쳐지며, 이 블록은 전투에서 건너뜁니다.
                   </p>
                 )}
                 {/* 미장착 스킬 경고 — 저장돼도 전투에서 발동 안 함(평타 폴백). */}

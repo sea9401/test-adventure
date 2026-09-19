@@ -35,6 +35,7 @@ vi.mock("./GameStateProvider", () => ({
 }));
 
 function responseFor(url: string): Response {
+  if (url.includes("/watchlist")) return Response.json({ ok: true, ids: [] });
   if (url.includes("/my-bids")) {
     return Response.json({ ok: true, bids: myBidRows });
   }
@@ -562,7 +563,17 @@ describe("경매장 건의 #658", () => {
   beforeEach(() => {
     localStorage.clear();
     browseListings = [1, 2].map(id => ({ ...marketplacePreview.listings[0], id }));
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => responseFor(String(input))));
+    let watchedIds: number[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/watchlist")) {
+        if (init?.method === "PATCH") {
+          const { action, id } = JSON.parse(String(init.body));
+          watchedIds = action === "add" ? [...watchedIds, id] : watchedIds.filter(value => value !== id);
+        }
+        return Response.json({ ok: true, ids: watchedIds });
+      }
+      return responseFor(String(input));
+    }));
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 
@@ -571,7 +582,9 @@ describe("경매장 건의 #658", () => {
     const first = render(view());
     const name = `${browseListings[0].itemName} 관심 매물 추가`;
     const buttons = await screen.findAllByRole("button", { name });
+    await waitFor(() => expect((buttons[0] as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(buttons[0]);
+    await screen.findByRole("button", { name: /관심 매물 해제/ });
     fireEvent.click(screen.getByRole("button", { name: "관심 매물만 보기" }));
     await waitFor(() => expect(screen.queryAllByRole("button", { name })).toHaveLength(0));
     expect(screen.getAllByRole("button", { name: /관심 매물 해제/ })).toHaveLength(1);

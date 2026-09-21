@@ -53,6 +53,8 @@ export type V2PatternSelfResource =
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
   | { kind: "always" }
+  // 선택한 행동의 스킬이 현재 주문식 주기를 완성하는지 판정한다.
+  | { kind: "formula_completion"; active: boolean }
   // 복합 조건. all = 모든 하위 조건 만족, any = 하나 이상 만족.
   | { kind: "all"; conditions: readonly V2CombatCondition[] }
   | { kind: "any"; conditions: readonly V2CombatCondition[] }
@@ -159,6 +161,7 @@ export type V2PatternCtx = {
   enemyStatDebuffs?: ReadonlySet<StatKey>;
   /** 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
   alternateLastSkillByPair?: Readonly<Record<string, string>>;
+  formulaCompletionSkillIds?: ReadonlySet<string>;
   turn: number; // 1-based 공격 차례
 };
 
@@ -216,14 +219,17 @@ function enemyDebuffActive(
 export function conditionPasses(
   cond: V2CombatCondition,
   ctx: V2PatternCtx,
+  skillId?: string,
 ): boolean {
   switch (cond.kind) {
     case "always":
       return true;
+    case "formula_completion":
+      return (skillId != null && (ctx.formulaCompletionSkillIds?.has(skillId) ?? false)) === cond.active;
     case "all":
-      return cond.conditions.length > 0 && cond.conditions.every((c) => conditionPasses(c, ctx));
+      return cond.conditions.length > 0 && cond.conditions.every((c) => conditionPasses(c, ctx, skillId));
     case "any":
-      return cond.conditions.some((c) => conditionPasses(c, ctx));
+      return cond.conditions.some((c) => conditionPasses(c, ctx, skillId));
     case "self_hp":
       return cond.op === "below"
         ? ctx.selfHpPct <= cond.pct
@@ -307,8 +313,8 @@ export function evaluateCombatPatternCandidates(
 ): V2CombatPatternCandidate[] {
   const out: V2CombatPatternCandidate[] = [];
   for (const block of pattern.blocks) {
-    if (!conditionPasses(block.condition, ctx)) { onConditionRejected?.(block); continue; }
     if (block.action.kind === "basic_attack") {
+      if (!conditionPasses(block.condition, ctx)) { onConditionRejected?.(block); continue; }
       out.push({ kind: "basic_attack" });
       break;
     }
@@ -326,7 +332,9 @@ export function evaluateCombatPatternCandidates(
     } else {
       id = resolveRole?.(block.action.role) ?? null;
     }
-    if (!id || !isUsable(id)) continue;
+    if (!id) continue;
+    if (!conditionPasses(block.condition, ctx, id)) { onConditionRejected?.(block); continue; }
+    if (!isUsable(id)) continue;
     out.push({
       kind: "skill",
       skillId: id,
@@ -548,6 +556,10 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
       if (!op || !isFinitePct(c.pct)) return null;
       return { kind: c.kind, op, pct: Math.max(0, Math.min(100, c.pct)) };
     }
+    case "formula_completion":
+      return typeof c.active === "boolean"
+        ? { kind: "formula_completion", active: c.active }
+        : null;
     case "self_shield": {
       if (typeof c.active === "boolean") {
         return { kind: "self_shield", active: c.active };

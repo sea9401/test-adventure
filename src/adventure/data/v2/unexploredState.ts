@@ -49,12 +49,22 @@ export type UnexploredEquipmentCraftReceipt = {
   craftedAt: number;
 };
 
+export const UNEXPLORED_PRESET_INDEXES = [0, 1, 2] as const;
+export type UnexploredPresetIndex = (typeof UNEXPLORED_PRESET_INDEXES)[number];
+export type UnexploredNodePresets = [UnexploredNodeId[], UnexploredNodeId[], UnexploredNodeId[]];
+
+export function isUnexploredPresetIndex(value: unknown): value is UnexploredPresetIndex {
+  return value === 0 || value === 1 || value === 2;
+}
+
 export type UnexploredSave = {
   explorationXp: number;
   explorationProgressVersion: 2;
   xpPoints: number;
   achievementIds: UnexploredAchievementId[];
   selectedNodeIds: UnexploredNodeId[];
+  activePresetIndex: UnexploredPresetIndex;
+  nodePresets: UnexploredNodePresets;
   traces: UnexploredTraceState;
   craftReceipts: UnexploredCraftReceipt[];
   equipmentCraftReceipts: UnexploredEquipmentCraftReceipt[];
@@ -175,6 +185,8 @@ export function emptyUnexploredSave(): UnexploredSave {
     xpPoints: 0,
     achievementIds: [],
     selectedNodeIds: [],
+    activePresetIndex: 0,
+    nodePresets: [[], [], []],
     traces: {},
     craftReceipts: [],
     equipmentCraftReceipts: [],
@@ -186,6 +198,22 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     return emptyUnexploredSave();
   }
   const source = raw as Record<string, unknown>;
+  const activePresetIndex = isUnexploredPresetIndex(source.activePresetIndex)
+    ? source.activePresetIndex
+    : 0;
+  const rawPresets = Array.isArray(source.nodePresets) ? source.nodePresets : [];
+  const nodePresets: UnexploredNodePresets = [
+    uniqueKnownValues(rawPresets[0], isUnexploredNodeId),
+    uniqueKnownValues(rawPresets[1], isUnexploredNodeId),
+    uniqueKnownValues(rawPresets[2], isUnexploredNodeId),
+  ];
+  // Keep the existing active-allocation field authoritative for hunt/progression
+  // writers, and migrate legacy allocations into the default first slot.
+  const selectedNodeIds = uniqueKnownValues(
+    source.selectedNodeIds ?? nodePresets[activePresetIndex],
+    isUnexploredNodeId,
+  );
+  nodePresets[activePresetIndex] = [...selectedNodeIds];
   const rawExplorationXp = nonNegativeInteger(source.explorationXp);
   const explorationXp =
     source.explorationProgressVersion === EXPLORATION_PROGRESS_VERSION
@@ -196,7 +224,9 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     explorationProgressVersion: EXPLORATION_PROGRESS_VERSION,
     xpPoints: nonNegativeInteger(source.xpPoints, MAX_XP_POINTS),
     achievementIds: uniqueKnownValues(source.achievementIds, isAchievementId),
-    selectedNodeIds: uniqueKnownValues(source.selectedNodeIds, isUnexploredNodeId),
+    selectedNodeIds,
+    activePresetIndex,
+    nodePresets,
     traces: parseUnexploredTraces(source.traces),
     craftReceipts: parseCraftReceipts(source.craftReceipts),
     equipmentCraftReceipts: parseEquipmentCraftReceipts(

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   conditionPasses,
   evaluateCombatPattern,
+  evaluateCombatPatternCandidates,
   defaultPatternFromEquipped,
   parseCombatPattern,
   parseCombatPresets,
@@ -36,6 +37,54 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
 }
 
 describe("conditionPasses", () => {
+  it("완전식 조건에서 제외된 일반 공격과 스킬의 진단 기록을 보존한다", () => {
+    const condition = { kind: "formula_completion", active: true } as const;
+    const pattern: V2CombatPattern = { blocks: [
+      { condition, action: { kind: "basic_attack" } },
+      { condition, action: { kind: "skill", skillId: "builder" } },
+      { condition, action: { kind: "skill", skillId: "finisher" } },
+    ] };
+    const rejected: V2CombatPattern["blocks"][number][] = [];
+    const candidates = evaluateCombatPatternCandidates(
+      pattern,
+      ctx({ formulaCompletionSkillIds: new Set(["finisher"]) }),
+      () => true,
+      undefined,
+      (block) => rejected.push(block),
+    );
+    expect(candidates).toEqual([{ kind: "skill", skillId: "finisher" }]);
+    expect(rejected).toEqual(pattern.blocks.slice(0, 2));
+  });
+
+  it.each(["all", "any"] as const)("완전식 %s 조건은 선택한 스킬별로 판정한다", (kind) => {
+    const context = ctx({ formulaCompletionSkillIds: new Set(["finisher"]) });
+    const pattern: V2CombatPattern = { blocks: [
+      { condition: { kind, conditions: [{ kind: "formula_completion", active: true }] }, action: { kind: "skill", skillId: "builder" } },
+      { condition: { kind, conditions: [{ kind: "formula_completion", active: true }] }, action: { kind: "skill", skillId: "finisher" } },
+    ] };
+    expect(evaluateCombatPattern(pattern, context, () => true)).toBe("finisher");
+    expect(evaluateCombatPattern(pattern, context, (id) => id !== "finisher")).toBeNull();
+  });
+
+  it("완전식은 역할 및 교대의 현재 스킬을 판정한다", () => {
+    const context = ctx({ formulaCompletionSkillIds: new Set(["finisher"]) });
+    const condition = { kind: "formula_completion", active: true } as const;
+    const alternating: V2CombatPattern = { blocks: [{ condition, action: { kind: "alternate", firstSkillId: "builder", secondSkillId: "finisher" } }] };
+    expect(evaluateCombatPattern(alternating, context, () => true)).toBeNull();
+    expect(evaluateCombatPattern(alternating, { ...context, alternateLastSkillByPair: { ["builder\u0000finisher"]: "builder" } }, () => true)).toBe("finisher");
+    const role: V2CombatPattern = { blocks: [{ condition, action: { kind: "role", role: "main_attack" } }] };
+    expect(evaluateCombatPattern(role, context, () => true, () => "finisher")).toBe("finisher");
+    expect(evaluateCombatPattern(role, context, () => true, () => "builder")).toBeNull();
+  });
+
+  it.each([true, false])("일반 공격의 완전식 발동 %s 조건과 우선순위", (active) => {
+    const pattern: V2CombatPattern = { blocks: [
+      { condition: { kind: "formula_completion", active }, action: { kind: "basic_attack" } },
+      { condition: { kind: "always" }, action: { kind: "skill", skillId: "fallback" } },
+    ] };
+    expect(evaluateCombatPattern(pattern, ctx(), () => true)).toBe(active ? "fallback" : null);
+  });
+
   it("always — 항상 참", () => {
     expect(conditionPasses({ kind: "always" }, ctx())).toBe(true);
   });

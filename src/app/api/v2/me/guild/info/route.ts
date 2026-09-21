@@ -11,6 +11,7 @@ import {
   v2GuildResources,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { canClaimGuildLeadership } from "@/adventure/data/guildLeadership";
 import {
   guildLevelUpgradeCost,
   guildMemberCap,
@@ -426,6 +427,9 @@ export async function GET() {
     members,
     isMaster,
     isManager,
+    canClaimLeadership:
+      !isMaster && memberRows.some((m) => m.userId === userId) &&
+      canClaimGuildLeadership(lastSeenByUser.get(guildRow.masterId), Date.now()),
     pendingRequests,
     memberCap,
     hasMetropolis,

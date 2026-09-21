@@ -18,7 +18,7 @@ import {
   type UnexploredNode,
   type UnexploredRefundError,
 } from "@/adventure/data/v2/unexploredTree";
-import type { UnexploredAchievementId } from "@/adventure/data/v2/unexploredState";
+import type { UnexploredAchievementId, UnexploredNodePresets, UnexploredPresetIndex } from "@/adventure/data/v2/unexploredState";
 import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
 import type { UnexploredEffects } from "@/adventure/data/v2/unexploredTree";
 import { buildUnexploredEdgeRoute } from "./unexploredTreeGeometry";
@@ -41,6 +41,8 @@ export type UnexploredClientSnapshot = {
   nextPointCost: number;
   nextPointRemaining: number;
   selectedNodeIds: string[];
+  activePresetIndex: UnexploredPresetIndex;
+  nodePresets: UnexploredNodePresets;
   difficulty: number;
   difficultyIncrease: number;
   encounterShares: UnexploredEncounterShare[];

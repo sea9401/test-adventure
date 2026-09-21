@@ -69,6 +69,7 @@ export const COMBAT_PATTERN_CONDITION_OPTIONS: PatternChoiceOption<CondKind>[] =
   { value: "self_buff", label: "내 능력치 버프", group: "내 상태" },
   { value: "self_buff_pct", label: "내 상태 효과", group: "내 상태" },
   { value: "self_resource", label: "내 전투 자원", group: "내 상태" },
+  { value: "formula_completion", label: "완전식 발동", group: "내 상태", detail: "이 스킬로 주문식 3단계를 완성하는지 확인" },
   { value: "enemy_hp", label: "적 HP", group: "적 상태" },
   { value: "enemy_status", label: "적 상태", group: "적 상태" },
   { value: "enemy_debuff", label: "적 디버프", group: "적 상태" },
@@ -768,6 +769,8 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
       return { kind: "self_buff", stat: "str", active: false };
     case "self_buff_pct":
       return { kind: "self_buff_pct", target: "evasion", active: false };
+    case "formula_completion":
+      return { kind: "formula_completion", active: true };
     case "self_resource":
       return {
         kind: "self_resource",
@@ -1537,6 +1540,23 @@ export function ConditionParams({
             onValueChange={(pct) => onChange({ ...c, pct })}
           />
           <span className="text-zinc-400">%</span>
+        </>
+      );
+    case "formula_completion":
+      return (
+        <>
+          <PatternChoiceButtons
+            value={c.active ? "y" : "n"}
+            options={[
+              { value: "y", label: "발동할 때" },
+              { value: "n", label: "발동하지 않을 때" },
+            ]}
+            label="완전식 발동 여부"
+            onChange={(active) => onChange({ ...c, active: active === "y" })}
+          />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            완전식 장착 중, 이 스킬로 주문식 3단계를 완성하는지 확인합니다. 같은 주기에 사용한 주문은 중복 충전되지 않습니다.
+          </span>
         </>
       );
     case "self_shield": {

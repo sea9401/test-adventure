@@ -68,6 +68,7 @@ export type GuildInfoResponse = {
   }[];
   isMaster?: boolean;
   isManager?: boolean;
+  canClaimLeadership?: boolean;
   pendingRequests?: PendingRequest[];
   // 길드 레벨 + 국가 선포를 반영한 정원·선포 가능 여부.
   memberCap?: number;

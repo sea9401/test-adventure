@@ -85,6 +85,8 @@ function describe(a: GuildActivity): string {
   const actor = a.actorName ?? "누군가";
   const target = a.targetName ?? "길드원";
   switch (a.type) {
+    case "leadership_claim":
+      return `${actor} 님이 장기 미접속 중인 ${target} 님의 길드장 자리를 승계했어요`;
     case "guild_create":
       return `${actor} 님이 길드를 창단했어요`;
     case "member_join":

@@ -544,7 +544,8 @@ export function resolveMasteryTowerAttemptFloor(
         }
       : { ok: false, error: "invalid_start_floor" };
   }
-  const floor = requestedStartFloor ?? 1;
+  // 자정 이후 이어 하기처럼 시작층 없는 새 등반도 보존된 체크포인트를 사용한다.
+  const floor = requestedStartFloor ?? masteryTowerCheckpointStartFloor(state) ?? 1;
   return Number.isInteger(floor) && masteryTowerStartFloors(state).includes(floor)
     ? { ok: true, floor }
     : { ok: false, error: "invalid_start_floor" };

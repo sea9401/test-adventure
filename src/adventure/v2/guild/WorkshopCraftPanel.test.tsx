@@ -243,7 +243,12 @@ describe("guild workshop recipe equipment codex badge", () => {
     );
     expect(html).toContain("부족 재료 입수처");
     expect(html).toContain("필드 사냥 · 심층 동굴~잊힌 성소");
-    expect(html).toContain('href="/battle"');
+    expect(html).toMatch(
+      /<a[^>]*aria-label="미스릴 조각 입수처로 이동"[^>]*href="\/battle\/dungeon\/20"/,
+    );
+    expect(html).toMatch(
+      /<a[^>]*aria-label="태양석 입수처로 이동"[^>]*href="\/battle\/dungeon\/32"/,
+    );
   });
 
   it("제작 재료가 충분하면 입수처 안내를 표시하지 않는다", () => {

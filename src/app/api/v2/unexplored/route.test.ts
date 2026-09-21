@@ -63,6 +63,56 @@ beforeEach(() => {
 });
 
 describe("/api/v2/unexplored", () => {
+  it("persists a free preset switch and rejects a stale reset without changing either allocation", async () => {
+    mocks.saves.set("character.v2", {
+      level: 100, gold: 1_000_000,
+      unexplored: { xpPoints: 3, selectedNodeIds: ["start", "inner-0-0"] },
+    });
+    const response = await POST(request({ action: "switch_preset", presetIndex: 1, expectedPresetIndex: 0 }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      snapshot: {
+        activePresetIndex: 1, gold: 1_000_000,
+        selectedNodeIds: [], nodePresets: [["start", "inner-0-0"], [], []],
+      },
+    });
+    const switched = mocks.saves.get("character.v2");
+    vi.mocked(upsertSave).mockClear();
+    const stale = await POST(request({ action: "reset", expectedPresetIndex: 0 }));
+    expect(stale.status).toBe(409);
+    await expect(stale.json()).resolves.toMatchObject({ error: "preset_changed" });
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(mocks.saves.get("character.v2")).toEqual(switched);
+
+    const edit = await POST(request({ action: "activate", nodeId: "start", expectedPresetIndex: 1 }));
+    expect(edit.status).toBe(200);
+    await expect(edit.json()).resolves.toMatchObject({
+      snapshot: { nodePresets: [["start", "inner-0-0"], ["start"], []] },
+    });
+  });
+
+  it.each([-1, 3, 0.5, "1", null, {}, []].map((index) => ({ index })))("rejects malformed preset indexes: $index", async ({ index }) => {
+    for (const body of [
+      { action: "switch_preset", presetIndex: index },
+      { action: "reset", expectedPresetIndex: index },
+    ]) {
+      expect((await POST(request(body))).status).toBe(400);
+    }
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("does not accept client allocations in a switch request", async () => {
+    const response = await POST(request({
+      action: "switch_preset", presetIndex: 2,
+      selectedNodeIds: ["start", "deep-boss"],
+      nodePresets: [["start"], ["start"], ["start", "deep-boss"]],
+    }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      snapshot: { activePresetIndex: 2, selectedNodeIds: [], nodePresets: [[], [], []] },
+    });
+  });
+
   it("returns 401 without a user and 404 while the feature is off", async () => {
     mocks.userId = null;
     expect((await GET()).status).toBe(401);

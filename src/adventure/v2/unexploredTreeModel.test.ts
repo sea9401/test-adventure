@@ -21,6 +21,8 @@ function snapshot(
     nextPointCost: 100,
     nextPointRemaining: 90,
     selectedNodeIds: ["start", "inner-0-0"],
+    activePresetIndex: 0,
+    nodePresets: [["start", "inner-0-0"], [], []],
     difficulty: 95,
     difficultyIncrease: 0,
     encounterShares: [{ kind: "base", share: 100 }],

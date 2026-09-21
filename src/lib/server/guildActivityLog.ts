@@ -14,6 +14,7 @@ export type GuildActivityType =
   | "member_leave"
   | "member_kick"
   | "leadership_transfer"
+  | "leadership_claim"
   | "role_change"
   | "gold_deposit"
   | "facility_material_donation"

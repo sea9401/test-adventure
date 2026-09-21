@@ -6,6 +6,7 @@ import {
   GUILD_LEVEL_UPGRADE_COSTS,
   GUILD_MAX_LEVEL,
 } from "@/adventure/data/guild";
+import { GUILD_LEADERSHIP_INACTIVE_DAYS } from "@/adventure/data/guildLeadership";
 import {
   GUILD_COMBAT_OPERATIONS_TIER_COSTS,
   GUILD_COMBAT_SUPPLY_DEFS,
@@ -601,7 +602,7 @@ export function GuildContent() {
         caption="제작 기록은 길드 제작소 현황판과 장인 성장 패널에서 확인합니다."
       />
 
-      <H2>탈퇴 · 추방 · 양도 · 해산</H2>
+      <H2>탈퇴 · 추방 · 양도 · 승계 · 해산</H2>
       <UL>
         <li>
           <Em>탈퇴 · 추방</Em> — 길드를 떠나거나(길드원 탭) 내보내면(마스터), 이후{" "}
@@ -610,6 +611,12 @@ export function GuildContent() {
         <li>
           <Em>마스터 양도</Em> — 마스터는 바로 탈퇴할 수 없고, 먼저 다른 길드원에게
           마스터를 넘기거나 해산해야 합니다.
+        </li>
+        <li>
+          <Em>길드장 승계</Em> — 길드장이 마지막 접속 후 {GUILD_LEADERSHIP_INACTIVE_DAYS}일(72시간)
+          이상 미접속이면 길드원 탭에서 누구나 길드장 자리를 승계할 수 있습니다.
+          먼저 승계한 길드원이 새 길드장이 됩니다. 기존 길드장은 일반 길드원으로 남으며,
+          복귀해도 권한이 자동으로 돌아오지 않습니다. 접속 기록이 없으면 승계할 수 없습니다.
         </li>
         <li>
           <Em>해산</Em> — 관리 탭에서 확인하면 길드가 사라집니다. 금고 골드는 모두

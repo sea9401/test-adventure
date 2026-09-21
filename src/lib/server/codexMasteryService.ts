@@ -238,8 +238,24 @@ function normalizeLockedProgressScore(
   const countTier = COUNT_STAGES.filter((stage) =>
     progress.count >= definition.thresholds[stage]
   ).at(-1);
+  const pointUnits = lockedProgressPointUnits(definition, progress);
+  const compatibleWeight = definition.compatibleScoreWeightsMilli?.find((weight) => {
+    const compatibleScoreMilli = pointUnits * weight;
+    return Number.isSafeInteger(compatibleScoreMilli) &&
+      progress.scoreMilli === compatibleScoreMilli;
+  });
+  // The expanded cooking catalog briefly used both different thresholds and a
+  // lower score weight. Let a recognized row catch up through the normal
+  // mutation, which awards missing stages and updates summary counts together.
+  const compatibleCookingPromotion = definition.category === "cooking" &&
+    compatibleWeight !== undefined &&
+    progress.currentTier !== "none" &&
+    countTier !== undefined &&
+    CODEX_MASTERY_STAGES.indexOf(progress.currentTier) <
+      CODEX_MASTERY_STAGES.indexOf(countTier);
   if (
-    (countTier !== undefined && progress.currentTier !== countTier) ||
+    (countTier !== undefined && progress.currentTier !== countTier &&
+      !compatibleCookingPromotion) ||
     (countTier === undefined && progress.count > 0 &&
       progress.currentTier !== "discovered") ||
     (countTier === undefined && progress.count === 0 &&
@@ -248,7 +264,6 @@ function normalizeLockedProgressScore(
     throw new Error("codex mastery locked progress tier/count is inconsistent");
   }
 
-  const pointUnits = lockedProgressPointUnits(definition, progress);
   const expectedScoreMilli = pointUnits * definition.scoreWeightMilli;
   if (!Number.isSafeInteger(expectedScoreMilli)) {
     throw new Error("codex mastery locked progress score is inconsistent");
@@ -257,11 +272,6 @@ function normalizeLockedProgressScore(
     return { progress, scoreCorrectionMilli: 0 };
   }
 
-  const compatibleWeight = definition.compatibleScoreWeightsMilli?.find((weight) => {
-    const compatibleScoreMilli = pointUnits * weight;
-    return Number.isSafeInteger(compatibleScoreMilli) &&
-      progress.scoreMilli === compatibleScoreMilli;
-  });
   if (compatibleWeight === undefined) {
     throw new Error("codex mastery locked progress score is inconsistent");
   }

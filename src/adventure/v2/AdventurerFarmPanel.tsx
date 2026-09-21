@@ -1105,6 +1105,15 @@ export function WeeklyDeliveryBoard({
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
           const previewItemId = firstItemId(delivery.requiredItems);
+          const rareCount = delivery.optionalRareItemId
+            ? (inventory[delivery.optionalRareItemId] ?? 0)
+            : 0;
+          const rareBonus = delivery.optionalRareBonusReputation ?? 0;
+          const bonusText = !claimed && delivery.optionalRareItemId
+            ? `${delivery.optionalRareItemName ?? ITEM_LABELS[delivery.optionalRareItemId]} ${rareCount.toLocaleString("ko-KR")}개 보유 · ${rareCount > 0
+              ? `납품 시 1개 자동 사용 · 증표 +${rareBonus}`
+              : `미보유로 보너스 미적용 · 1개 보유 시 증표 +${rareBonus}`}`
+            : undefined;
           return (
             <DeliveryRequestCard
               key={delivery.id}
@@ -1115,12 +1124,12 @@ export function WeeklyDeliveryBoard({
                 delivery.requiredItems,
                 inventory,
               )}
+              rewardLabel={claimed ? "기본 보상" : "예상 보상"}
               rewardText={formatFarmDeliveryReward(
-                delivery.rewardReputation,
+                delivery.rewardReputation + (!claimed && rareCount > 0 ? rareBonus : 0),
                 delivery.rewardSeeds,
-              ) + (delivery.optionalRareItemId
-                ? ` · 선택 보너스: ${delivery.optionalRareItemName ?? ITEM_LABELS[delivery.optionalRareItemId]} 1개 보유 시 자동 사용, 증표 +${delivery.optionalRareBonusReputation ?? 0}`
-                : "")}
+              )}
+              bonusText={bonusText}
               buttonText={
                 busy
                   ? "납품 중..."
@@ -1147,7 +1156,9 @@ function DeliveryRequestCard({
   title,
   note,
   requirementText,
+  rewardLabel = "보상",
   rewardText,
+  bonusText,
   buttonText,
   disabled,
   onClick,
@@ -1156,7 +1167,9 @@ function DeliveryRequestCard({
   title: string;
   note: string;
   requirementText: string;
+  rewardLabel?: string;
   rewardText: string;
+  bonusText?: string;
   buttonText: string;
   disabled: boolean;
   onClick: () => void;
@@ -1178,7 +1191,7 @@ function DeliveryRequestCard({
       <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
         {note}
       </p>
-      <div className="mt-3 rounded-md bg-zinc-50 px-2.5 py-2 text-xs dark:bg-zinc-900">
+      <div className={`${SURFACE_INSET} mt-3 px-2.5 py-2 text-xs`}>
         <div className="flex justify-between gap-2">
           <span className="text-zinc-500 dark:text-zinc-400">필요</span>
           <span className="text-right font-semibold text-zinc-800 dark:text-zinc-100">
@@ -1186,11 +1199,16 @@ function DeliveryRequestCard({
           </span>
         </div>
         <div className="mt-1 flex justify-between gap-2">
-          <span className="text-zinc-500 dark:text-zinc-400">보상</span>
+          <span className="shrink-0 text-zinc-500 dark:text-zinc-400">{rewardLabel}</span>
           <span className="text-right font-semibold text-emerald-700 dark:text-emerald-300">
             {rewardText}
           </span>
         </div>
+        {bonusText ? (
+          <p className="mt-2 text-zinc-600 dark:text-zinc-300">
+            선택 보너스: {bonusText}
+          </p>
+        ) : null}
       </div>
       <button
         type="button"

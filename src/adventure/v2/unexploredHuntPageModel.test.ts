@@ -13,6 +13,8 @@ describe("미개척지 전투 화면 모델", () => {
       nextPointCost: 500,
       nextPointRemaining: 200,
       selectedNodeIds: ["start"],
+      activePresetIndex: 0,
+      nodePresets: [["start"], [], []],
       difficulty: 105,
       difficultyIncrease: 10,
       encounterShares: [

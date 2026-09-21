@@ -481,6 +481,59 @@ describe("masteryTower", () => {
     });
   });
 
+  it.each(["2026-09-20", "2026-09-21"])(
+    "%s 날짜 정산 후 시작층 없는 이어 하기는 보존된 체크포인트에서 시작한다",
+    (date) => {
+      const { tower } = rolloverMasteryTowerState({
+        date: "2026-09-19",
+        todayBestFloor: 85,
+        runFloor: 85,
+        lifetimeBestFloor: 85,
+        weekStartedAt: "2026-09-14",
+        weekBestFloor: 85,
+        claimed: true,
+        entryStaminaPaid: true,
+      }, date);
+
+      expect(resolveMasteryTowerAttemptFloor(tower)).toEqual({ ok: true, floor: 81 });
+      expect(resolveMasteryTowerAttemptFloor(tower, 1)).toEqual({ ok: true, floor: 1 });
+      expect(masteryTowerClaimPreview(tower).total).toBe(0);
+      expect(masteryTowerEntryStaminaCost(tower)).toBe(200);
+    },
+  );
+
+  it("주간 기록이 초기화된 저장도 시작층을 생략하면 역대 기록으로 입장한다", () => {
+    const tower = parseMasteryTowerState({
+      date: "2026-09-21",
+      lifetimeBestFloor: 85,
+      weekStartedAt: "2026-09-21",
+      weekBestFloor: 0,
+    }, "2026-09-21");
+
+    expect(resolveMasteryTowerAttemptFloor(tower)).toEqual({ ok: true, floor: 81 });
+  });
+
+  it("79층 패배 후 기본 재입장은 기존 80층 체크포인트를 사용한다", () => {
+    const tower = failMasteryTowerRun(parseMasteryTowerState({
+      date: "2026-09-21",
+      todayBestFloor: 78,
+      runFloor: 78,
+      lifetimeBestFloor: 85,
+      weekBestFloor: 78,
+      entryStaminaPaid: true,
+    }, "2026-09-21"), 1_000);
+
+    expect(resolveMasteryTowerAttemptFloor(tower)).toEqual({ ok: true, floor: 81 });
+    expect(tower.todayBestFloor).toBe(78);
+    expect(masteryTowerEntryStaminaCost(tower)).toBe(0);
+  });
+
+  it("체크포인트가 없는 새 등반은 시작층을 생략해도 1층에서 시작한다", () => {
+    const tower = parseMasteryTowerState(null, "2026-09-21");
+
+    expect(resolveMasteryTowerAttemptFloor(tower)).toEqual({ ok: true, floor: 1 });
+  });
+
   it("진행 중인 등반은 시작 층 변경 없이 다음 층만 이어간다", () => {
     const state = parseMasteryTowerState(
       {

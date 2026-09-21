@@ -37,8 +37,8 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
     stages: 0,
     seenSkillIds: [],
   };
-  const formulaOverdraftSkillIds =
-    formulaCoreEquipped && formulaOptimizationEquipped
+  const formulaCompletionSkillIds =
+    formulaCoreEquipped
       ? formulaCompletionOverdraftSkillIds({
           state: formulaState,
           learned: side.v2Skills.learned,
@@ -62,7 +62,8 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
     cooldowns: side.v2SkillCooldowns,
     combatMode: "pvp",
     magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
-    mpOverdraftSkillIds: formulaOverdraftSkillIds,
+    formulaCompletionSkillIds,
+    mpOverdraftSkillIds: formulaOptimizationEquipped ? formulaCompletionSkillIds : [],
     // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
     //   combatRandom() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? combatRandom() * 100 : undefined,

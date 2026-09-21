@@ -874,6 +874,80 @@ describe("recordCodexMastery", () => {
 });
 
 describe("recordCodexMasteryBatch", () => {
+  it("promotes an interim grilled corn record and corrects its score only once", async () => {
+    const discoveredAt = "2026-08-22T18:12:40.254Z";
+    const now = new Date("2026-09-21T00:00:00.000Z");
+    const summary = emptyCodexMasterySummary();
+    summary.totalScoreMilli = 4_545;
+    summary.categoryScoreMilli.cooking = 4_545;
+    summary.scoredCategoryCount = 1;
+    const store = batchStore({
+      summary,
+      progress: [{
+        ...emptyCodexMasteryProgress("cooking", "grilled_corn"),
+        count: 1,
+        currentTier: "discovered",
+        scoreMilli: 4_545,
+        tierAchievedAt: { discovered: discoveredAt },
+      }],
+    });
+    const recorder = createCodexMasteryBatchRecorder(store, CODEX_MASTERY_CATALOG);
+    const input: CodexMasteryRecordInput = {
+      userId: "user-1",
+      category: "cooking",
+      entryId: "grilled_corn",
+      mutation: { amount: 1, discovered: true },
+      source: "cooking.complete",
+    };
+
+    await expect(recorder.recordBatch([input], ENABLED, now)).resolves.toMatchObject([{
+      recorded: true,
+      progress: {
+        count: 2,
+        currentTier: "bronze",
+        scoreMilli: 20_202,
+        tierAchievedAt: { discovered: discoveredAt, bronze: now.toISOString() },
+      },
+      newStages: ["bronze"],
+      scoreDeltaMilli: 10_101,
+    }]);
+    expect(store.summary).toMatchObject({
+      totalScoreMilli: 20_202,
+      categoryScoreMilli: { cooking: 20_202 },
+      stageCounts: { bronze: 1, silver: 0 },
+      scoredCategoryCount: 1,
+    });
+
+    await expect(recorder.recordBatch([input], ENABLED, now)).resolves.toMatchObject([{
+      recorded: true,
+      progress: { count: 3, currentTier: "bronze", scoreMilli: 20_202 },
+      newStages: [],
+      scoreDeltaMilli: 0,
+    }]);
+    expect(store.summary.totalScoreMilli).toBe(20_202);
+    expect(store.summary.stageCounts.bronze).toBe(1);
+  });
+
+  it.each([
+    { currentTier: "discovered" as const, scoreMilli: 10_101, count: 1 },
+    { currentTier: "discovered" as const, scoreMilli: 4_544, count: 1 },
+    { currentTier: "silver" as const, scoreMilli: 18_180, count: 1 },
+  ])("rejects unrecognized cooking tier mismatches: %j", async (progress) => {
+    const store = batchStore({ progress: [{
+      ...emptyCodexMasteryProgress("cooking", "grilled_corn"),
+      ...progress,
+    }] });
+    const recorder = createCodexMasteryBatchRecorder(store, CODEX_MASTERY_CATALOG);
+    await expect(recorder.recordBatch([{
+      userId: "user-1",
+      category: "cooking",
+      entryId: "grilled_corn",
+      mutation: { amount: 1, discovered: true },
+      source: "cooking.complete",
+    }], ENABLED)).rejects.toThrow("inconsistent");
+    expect(store.savedProgress).toEqual([]);
+  });
+
   type MemoryBatchStore = CodexMasteryBatchStore & {
     summary: CodexMasterySummaryState;
     savedProgress: CodexMasteryProgress[];
@@ -912,6 +986,9 @@ describe("recordCodexMasteryBatch", () => {
         store.saveBatchCalls += 1;
         store.summary = input.summary;
         store.savedProgress = [...input.progress];
+        for (const progress of input.progress) {
+          progressByKey.set(`${progress.category}:${progress.entryId}`, progress);
+        }
       },
       async reconcileTrophies() {
         store.reconcileCalls += 1;

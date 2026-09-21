@@ -670,6 +670,8 @@ export type V2SkillCastInput = {
   magicMpCostReductionPct?: number;
   /** MP가 부족해도 현재 MP를 전부 소비하고 시전할 수 있는 스킬 ID. */
   mpOverdraftSkillIds?: readonly V2SkillId[];
+  /** 현재 시전하면 완전식을 완성하는 스킬. 최적화의 MP 부족 허용과 별개다. */
+  formulaCompletionSkillIds?: readonly V2SkillId[];
   /** 광전사–패황 계보의 전투 중 준비/사용 횟수. 미지정이면 기존 호출과 동일하게 동작한다. */
   berserker?: V2BerserkerCastContext;
   attacker: {
@@ -869,6 +871,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
         .map(([stat]) => stat),
     ),
     alternateLastSkillByPair: input.alternateLastSkillByPair,
+    formulaCompletionSkillIds: new Set(input.formulaCompletionSkillIds ?? []),
     turn: input.turn ?? 1,
   };
 }

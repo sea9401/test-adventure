@@ -65,6 +65,8 @@ export type UnexploredAbilityId =
 
 export type UnexploredMonsterDefinition = {
   id: string;
+  /** 해당 몬스터가 독립 확률로 드랍하는 특화 세트 장비. */
+  equipmentId: V2EquipmentId;
   name: string;
   speedBand: UnexploredSpeedBand;
   tags: readonly MonsterTag[];
@@ -114,6 +116,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "armored_shieldman",
+        equipmentId: "v2_unexplored_iron_line_armor",
         name: "철갑 방패병",
         speedBand: "slow",
         tags: ["humanoid"],
@@ -122,6 +125,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "armored_spearman",
+        equipmentId: "v2_unexplored_iron_line_gloves",
         name: "철갑 창병",
         speedBand: "normal",
         tags: ["humanoid"],
@@ -130,6 +134,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "armored_crusher",
+        equipmentId: "v2_unexplored_iron_line_boots",
         name: "철갑 파쇄병",
         speedBand: "slow",
         tags: ["humanoid"],
@@ -148,6 +153,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "barrier_guardian",
+        equipmentId: "v2_unexplored_mana_barrier_armor",
         name: "결계 수호체",
         speedBand: "slow",
         tags: ["golem"],
@@ -156,6 +162,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "rune_executor",
+        equipmentId: "v2_unexplored_mana_barrier_ring",
         name: "룬 집행자",
         speedBand: "normal",
         tags: ["golem"],
@@ -164,6 +171,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "seal_watcher",
+        equipmentId: "v2_unexplored_mana_barrier_necklace",
         name: "봉인 감시체",
         speedBand: "slow",
         tags: ["golem"],
@@ -182,6 +190,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "regenerating_spore",
+        equipmentId: "v2_unexplored_regrowth_colony_armor",
         name: "재생 포자체",
         speedBand: "slow",
         tags: ["slime"],
@@ -190,6 +199,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "devouring_regenerator",
+        equipmentId: "v2_unexplored_regrowth_colony_gloves",
         name: "포식 재생체",
         speedBand: "normal",
         tags: ["beast"],
@@ -198,6 +208,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "proliferating_core",
+        equipmentId: "v2_unexplored_regrowth_colony_necklace",
         name: "증식 핵체",
         speedBand: "slow",
         tags: ["slime"],
@@ -216,6 +227,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "red_berserker",
+        equipmentId: "v2_unexplored_battle_revenge_gloves",
         name: "붉은 광전병",
         speedBand: "normal",
         tags: ["humanoid"],
@@ -224,6 +236,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "blood_duelist",
+        equipmentId: "v2_unexplored_battle_revenge_boots",
         name: "혈전 투사",
         speedBand: "fast",
         tags: ["humanoid"],
@@ -232,6 +245,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "red_executioner",
+        equipmentId: "v2_unexplored_battle_revenge_ring",
         name: "붉은 처형자",
         speedBand: "slow",
         tags: ["humanoid"],
@@ -250,6 +264,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "crystal_mage",
+        equipmentId: "v2_unexplored_crystal_barrage_armor",
         name: "수정 술사",
         speedBand: "normal",
         tags: ["spirit"],
@@ -258,6 +273,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "refraction_artillery",
+        equipmentId: "v2_unexplored_crystal_barrage_gloves",
         name: "굴절 포격체",
         speedBand: "slow",
         tags: ["golem"],
@@ -266,6 +282,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "crystal_sentinel",
+        equipmentId: "v2_unexplored_crystal_barrage_necklace",
         name: "수정 파수체",
         speedBand: "slow",
         tags: ["golem"],
@@ -284,6 +301,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "precision_scout",
+        equipmentId: "v2_unexplored_precision_hunt_boots",
         name: "정밀 척후병",
         speedBand: "fast",
         tags: ["humanoid"],
@@ -292,6 +310,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "lethal_sniper",
+        equipmentId: "v2_unexplored_precision_hunt_ring",
         name: "치명 저격수",
         speedBand: "normal",
         tags: ["humanoid"],
@@ -300,6 +319,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "armor_hunter",
+        equipmentId: "v2_unexplored_precision_hunt_gloves",
         name: "갑옷 사냥꾼",
         speedBand: "normal",
         tags: ["humanoid"],
@@ -317,6 +337,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "rushing_machine",
+        equipmentId: "v2_unexplored_chain_drive_boots",
         name: "질주 기계",
         speedBand: "extreme",
         tags: ["golem"],
@@ -325,6 +346,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "combo_automaton",
+        equipmentId: "v2_unexplored_chain_drive_gloves",
         name: "연격 자동인형",
         speedBand: "fast",
         tags: ["golem"],
@@ -333,6 +355,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "overheated_enforcer",
+        equipmentId: "v2_unexplored_chain_drive_ring",
         name: "과열 집행기",
         speedBand: "fast",
         tags: ["golem"],
@@ -350,6 +373,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "shadow_scout",
+        equipmentId: "v2_unexplored_afterimage_hunt_boots",
         name: "그림자 척후병",
         speedBand: "fast",
         tags: ["humanoid"],
@@ -358,6 +382,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "night_assassin",
+        equipmentId: "v2_unexplored_afterimage_hunt_gloves",
         name: "밤의 암살자",
         speedBand: "fast",
         tags: ["humanoid"],
@@ -366,6 +391,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "phantom_stalker",
+        equipmentId: "v2_unexplored_afterimage_hunt_armor",
         name: "허상 추적귀",
         speedBand: "extreme",
         tags: ["spirit"],
@@ -383,6 +409,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "venom_fang_devourer",
+        equipmentId: "v2_unexplored_triad_decay_gloves",
         name: "독니 포식자",
         speedBand: "normal",
         tags: ["beast"],
@@ -391,6 +418,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "venom_sprayer",
+        equipmentId: "v2_unexplored_triad_decay_ring",
         name: "맹독 살포체",
         speedBand: "fast",
         tags: ["slime"],
@@ -399,6 +427,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "corrosive_colony",
+        equipmentId: "v2_unexplored_triad_decay_armor",
         name: "부식 군체",
         speedBand: "slow",
         tags: ["slime"],
@@ -416,6 +445,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "hooked_dead",
+        equipmentId: "v2_unexplored_unyielding_dead_gloves",
         name: "갈고리 망자",
         speedBand: "normal",
         tags: ["undead"],
@@ -424,6 +454,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "bloodtrail_pursuer",
+        equipmentId: "v2_unexplored_unyielding_dead_boots",
         name: "혈주 추격자",
         speedBand: "fast",
         tags: ["undead"],
@@ -432,6 +463,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "severing_executioner",
+        equipmentId: "v2_unexplored_unyielding_dead_armor",
         name: "절단 집행자",
         speedBand: "slow",
         tags: ["undead"],
@@ -449,6 +481,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "frost_toucher",
+        equipmentId: "v2_unexplored_freezing_lock_gloves",
         name: "서리 접촉자",
         speedBand: "normal",
         tags: ["spirit"],
@@ -457,6 +490,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "freezing_mage",
+        equipmentId: "v2_unexplored_freezing_lock_ring",
         name: "빙결 술사",
         speedBand: "normal",
         tags: ["humanoid"],
@@ -465,6 +499,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "frozen_sentinel",
+        equipmentId: "v2_unexplored_freezing_lock_armor",
         name: "혹한 파수자",
         speedBand: "slow",
         tags: ["golem"],
@@ -482,6 +517,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
     monsters: [
       {
         id: "bedrock_colossus",
+        equipmentId: "v2_unexplored_crushing_pressure_armor",
         name: "암반 거수",
         speedBand: "slow",
         tags: ["golem"],
@@ -490,6 +526,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "ironwall_crusher",
+        equipmentId: "v2_unexplored_crushing_pressure_gloves",
         name: "철벽 분쇄자",
         speedBand: "slow",
         tags: ["golem"],
@@ -498,6 +535,7 @@ export const UNEXPLORED_MONSTER_POOLS = [
       },
       {
         id: "crust_destroyer",
+        equipmentId: "v2_unexplored_crushing_pressure_boots",
         name: "지각 파괴자",
         speedBand: "slow",
         tags: ["golem"],

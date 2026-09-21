@@ -622,7 +622,7 @@ describe("최신 게임 안내서 내용", () => {
     const equipmentGuide = hunting.split("미개척지 특화 사냥")[0];
     expect(equipmentGuide).not.toContain("73~78단계");
     expect(equipmentGuide).not.toContain("79~84단계");
-    expect(hunting).toContain("특화 선택은 79~84단계의 일반 사냥에 적용");
+    expect(hunting).toContain("특화 몬스터군 노드를 활성화하고 미개척지에서 사냥");
     expect(equipment).toContain("난이도와 관계없이 같은 6티어");
     expect(equipment).toContain("천공 균열의 입구·심부·최심부");
     expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");

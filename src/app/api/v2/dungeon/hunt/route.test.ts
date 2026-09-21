@@ -35,6 +35,7 @@ vi.mock("@/adventure/v2/combat/engine", async (importOriginal) => {
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/adventure/data/v2/coreLoopConfig")>(),
   HUNT_COOLDOWN_MODE: false,
+  V2_UNEXPLORED: true,
 }));
 vi.mock("@/db", () => {
   const chain: Record<string, unknown> = {};
@@ -65,6 +66,7 @@ vi.mock("@/lib/server/savesKv", () => {
 import { POST } from "./route";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
+import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 
 const focused = { mode: "focused", poolId: "iron_legion" } as const;
 
@@ -102,6 +104,45 @@ async function hunt(body: Record<string, unknown> = {}) {
 
 beforeEach(() => { seed(); });
 afterEach(() => vi.restoreAllMocks());
+
+describe("미개척지 특화 장비 지급 (#702)", () => {
+  it.each([
+    [1, false, 0.003999], [3, false, 0.003999], [1, true, 0.005999],
+  ] as const)("count=%s focused=%s 사냥에서 특화 장비를 응답과 인벤토리에 보존한다", async (count, isFocused, roll) => {
+    const character = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...character, level: 100,
+      unexplored: { selectedNodeIds: ["start", "pool-iron_legion", ...(isFocused ? ["enh-iron_legion-focus"] : [])] },
+    });
+    store.set("proficiency.v2", {
+      groups: { warrior: { tier: 4, points: 0, cumLevel: 100 } },
+      grown: { str: 50_000, vit: 50_000, dex: 50_000, luk: 50_000 },
+    });
+    // First encounter picks the special pool; later batch encounters pick base monsters.
+    vi.spyOn(Math, "random").mockReturnValue(roll).mockReturnValueOnce(0.9);
+    const response = await hunt({ mode: "unexplored", count });
+    if (count === 1) {
+      expect(response.result).toMatchObject({ won: true, enemyName: "철갑 방패병" });
+      expect(response.result.droppedEquipments).toContain("v2_unexplored_iron_line_armor");
+    } else {
+      expect(response.batch).toMatchObject({ completed: count, wins: count });
+      expect(response.batch.droppedEquipments).toContain("v2_unexplored_iron_line_armor");
+    }
+    const equipment = store.get("equipment.v2") as { owned: V2EquipInstance[] };
+    const dropped = equipment.owned.filter(item => item.id === "v2_unexplored_iron_line_armor");
+    expect(dropped).toHaveLength(1);
+    expect(dropped[0].iid).toBeTruthy();
+    expect(dropped[0].roll).toBeDefined();
+
+    // Owning the item does not deduplicate subsequent drops; mint a distinct instance.
+    vi.mocked(Math.random).mockReturnValueOnce(0.9);
+    await hunt({ mode: "unexplored" });
+    const after = store.get("equipment.v2") as { owned: V2EquipInstance[] };
+    const copies = after.owned.filter(item => item.id === "v2_unexplored_iron_line_armor");
+    expect(copies).toHaveLength(2);
+    expect(new Set(copies.map(item => item.iid)).size).toBe(2);
+  });
+});
 
 describe("별의 무덤 일반 사냥 라우트", () => {
   it("ignores a legacy specialty mode saved on a normal Star Grave hunt", async () => {

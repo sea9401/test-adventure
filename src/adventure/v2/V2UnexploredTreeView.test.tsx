@@ -203,9 +203,11 @@ describe("V2UnexploredTreeView", () => {
     expect(within(rewards).getByText("기본 1% · 집중 1.5%")).toBeTruthy();
     expect(within(rewards).getByText("철성 파쇄검")).toBeTruthy();
     expect(within(rewards).getByText("기본 0.1% · 집중 0.2%")).toBeTruthy();
+    expect(within(rewards).getByText("철갑 전열갑")).toBeTruthy();
+    expect(within(rewards).getByText("철갑 방패병 처치 시 · 기본 0.4% · 집중 0.6%")).toBeTruthy();
   });
 
-  it("전용 장비가 없는 특화 노드는 실제 획득 가능한 재료만 표시한다", () => {
+  it("보스 연결 몬스터군도 재료와 특화 세트 장비를 표시한다", () => {
     const { container } = render(
       <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
     );
@@ -219,7 +221,9 @@ describe("V2UnexploredTreeView", () => {
     });
     expect(within(rewards).getByText("과열 동력핵")).toBeTruthy();
     expect(within(rewards).queryByText("철성 파쇄검")).toBeNull();
-    expect(within(rewards).queryByText("전용 장비")).toBeNull();
+    expect(within(rewards).getByText("과열 추진화")).toBeTruthy();
+    expect(within(rewards).getByText("연격 구동완갑")).toBeTruthy();
+    expect(within(rewards).getByText("폭주 동력환")).toBeTruthy();
   });
 
   it("흔적 보관함에서 획득 해금 조건과 대상 몬스터를 안내한다", () => {

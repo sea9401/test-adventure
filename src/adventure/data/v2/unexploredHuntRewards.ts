@@ -68,6 +68,10 @@ export type UnexploredRewardPlan = {
     id: V2EquipmentId;
     chance: number;
   };
+  specialtyEquipment: null | {
+    id: V2EquipmentId;
+    chance: number;
+  };
   trace: null | {
     poolId: UnexploredPoolId;
     extraChance: number;
@@ -233,6 +237,12 @@ export function buildUnexploredRewardPlan(
     monster.kind === "special" && monster.poolId
       ? UNEXPLORED_POOL_BY_ID[monster.poolId].weaponEquipmentId
       : undefined;
+  const specialtyEquipmentId =
+    monster.kind === "special" && monster.poolId
+      ? UNEXPLORED_POOL_BY_ID[monster.poolId].activeMonsters.find(
+          (entry) => entry.id === monster.monsterId,
+        )?.equipmentId
+      : undefined;
 
   return {
     monsterKind: monster.kind,
@@ -247,6 +257,9 @@ export function buildUnexploredRewardPlan(
     },
     specialMaterialBonusPct,
     rareCopyChance: clampChance(effects.rareCopyChancePct / 100),
+    specialtyEquipment: specialtyEquipmentId
+      ? { id: specialtyEquipmentId, chance: monster.focused ? 0.006 : 0.004 }
+      : null,
     rareWeapon: rareWeaponId
       ? {
           id: rareWeaponId,
@@ -436,6 +449,22 @@ export function rollUnexploredHuntRewards(
       id,
       amount: 1,
       tag: "rare",
+      source: "unexplored_monster_drop",
+    });
+  }
+
+  // 특화 장비는 기존 모든 보상 RNG 뒤의 독립 슬롯이다. 일반 장비/풀 전리품
+  // 배율과 희귀 복사를 적용하지 않고, 실제 처치한 몬스터의 지정 장비만 지급한다.
+  if (
+    plan.specialtyEquipment &&
+    normalizedRoll(rng) < plan.specialtyEquipment.chance
+  ) {
+    droppedEquipments.push(plan.specialtyEquipment.id);
+    grants.push({
+      kind: "equipment",
+      id: plan.specialtyEquipment.id,
+      amount: 1,
+      tag: "special",
       source: "unexplored_monster_drop",
     });
   }

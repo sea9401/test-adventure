@@ -34,8 +34,8 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "form-action 'self' https://kauth.kakao.com",
   // Next hydration과 초기 테마 스크립트 때문에 inline script/style은 현재 허용한다.
-  // 외부 실행 출처는 사람 확인 공급자로 한정한다.
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com",
+  // 사람 확인 공급자와 결제 SDK의 정확한 스크립트 출처만 허용한다.
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://js.hcaptcha.com https://*.hcaptcha.com https://js.tosspayments.com",
   "style-src 'self' 'unsafe-inline' https://*.hcaptcha.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

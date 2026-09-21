@@ -266,12 +266,15 @@ describe("unexplored tree model", () => {
             name: "철성 파쇄검",
             rateText: "기본 0.1% · 집중 0.2%",
           },
+          { id: "v2_unexplored_iron_line_armor", kind: "equipment", name: "철갑 전열갑", rateText: "철갑 방패병 처치 시 · 기본 0.4% · 집중 0.6%" },
+          { id: "v2_unexplored_iron_line_gloves", kind: "equipment", name: "장창 수호완갑", rateText: "철갑 창병 처치 시 · 기본 0.4% · 집중 0.6%" },
+          { id: "v2_unexplored_iron_line_boots", kind: "equipment", name: "파쇄 지주화", rateText: "철갑 파쇄병 처치 시 · 기본 0.4% · 집중 0.6%" },
         ],
       });
     }
   });
 
-  it("does not claim that a boss specialty pool drops pool-exclusive equipment", () => {
+  it("shows specialty drops for a boss-linked pool without adding pioneer weapons or boss gear", () => {
     const model = buildUnexploredTreeModel(snapshot(), "pool-runaway_machines");
 
     expect(model.selectedPoolRewards?.poolName).toBe("폭주 기계");
@@ -282,6 +285,9 @@ describe("unexplored tree model", () => {
         name: "과열 동력핵",
         rateText: "기본 1% · 집중 1.5%",
       },
+      { id: "v2_unexplored_chain_drive_boots", kind: "equipment", name: "과열 추진화", rateText: "질주 기계 처치 시 · 기본 0.4% · 집중 0.6%" },
+      { id: "v2_unexplored_chain_drive_gloves", kind: "equipment", name: "연격 구동완갑", rateText: "연격 자동인형 처치 시 · 기본 0.4% · 집중 0.6%" },
+      { id: "v2_unexplored_chain_drive_ring", kind: "equipment", name: "폭주 동력환", rateText: "과열 집행기 처치 시 · 기본 0.4% · 집중 0.6%" },
     ]);
   });
 

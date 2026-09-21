@@ -147,6 +147,14 @@ function poolRewards(poolId: UnexploredPoolId): UnexploredPoolRewards {
       rateText: "기본 0.1% · 집중 0.2%",
     });
   }
+  for (const monster of pool.activeMonsters) {
+    items.push({
+      id: monster.equipmentId,
+      kind: "equipment",
+      name: V2_EQUIPMENT[monster.equipmentId].name,
+      rateText: `${monster.name} 처치 시 · 기본 0.4% · 집중 0.6%`,
+    });
+  }
   return {
     poolId,
     poolName: pool.name,

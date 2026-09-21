@@ -9,9 +9,11 @@ import {
 } from "@/adventure/data/v2/unexploredTree";
 import {
   canChangeUnexploredNodes,
+  isUnexploredPresetIndex,
   parseUnexploredSave,
   unexploredEarnedPoints,
   type UnexploredSave,
+  type UnexploredPresetIndex,
 } from "@/adventure/data/v2/unexploredState";
 import {
   explorationPointCost,
@@ -30,15 +32,19 @@ export type UnexploredCharacterSave = {
   [key: string]: unknown;
 };
 
-export type UnexploredMutation =
+export type UnexploredMutation = (
   | { action: "activate"; nodeId: string }
   | { action: "activate_path"; nodeId: string }
   | { action: "refund"; nodeId: string }
   | { action: "refund_path"; nodeId: string }
-  | { action: "reset" };
+  | { action: "reset" }
+  | { action: "switch_preset"; presetIndex: UnexploredPresetIndex }
+) & { expectedPresetIndex?: UnexploredPresetIndex };
 
 export type UnexploredMutationError =
   | "level_required"
+  | "invalid_preset"
+  | "preset_changed"
   | "unknown_node"
   | "already_active"
   | "point_limit"
@@ -83,6 +89,8 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     nextPointCost,
     nextPointRemaining: Math.max(0, nextPointCost - save.explorationXp),
     selectedNodeIds: save.selectedNodeIds,
+    activePresetIndex: save.activePresetIndex,
+    nodePresets: save.nodePresets,
     difficulty: effects.difficulty,
     difficultyIncrease: effects.difficultyIncrease,
     encounterShares: unexploredEncounterShares(effects.encounterSelections, {
@@ -127,7 +135,7 @@ function successfulMutation(
   const nextCharacter: UnexploredCharacterSave = {
     ...character,
     ...(wallet ? { gold: wallet.gold, bankedGold: wallet.bankedGold } : {}),
-    unexplored: save,
+    unexplored: parseUnexploredSave(save),
   };
   return {
     ok: true as const,
@@ -149,6 +157,22 @@ export function applyUnexploredMutation(
     return { ok: false, error: "level_required" };
   }
   const save = parseUnexploredSave(character.unexplored);
+
+  // Older clients only know the original first allocation. Never let their
+  // delayed edits or reset requests alter another active preset.
+  if ((mutation.expectedPresetIndex ?? 0) !== save.activePresetIndex) {
+    return { ok: false, error: "preset_changed" };
+  }
+  if (mutation.action === "switch_preset") {
+    if (!isUnexploredPresetIndex(mutation.presetIndex)) {
+      return { ok: false, error: "invalid_preset" };
+    }
+    return successfulMutation(character, {
+      ...save,
+      activePresetIndex: mutation.presetIndex,
+      selectedNodeIds: [...save.nodePresets[mutation.presetIndex]],
+    });
+  }
 
   if (mutation.action === "activate") {
     const error = unexploredActivationError(

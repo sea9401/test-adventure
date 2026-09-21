@@ -114,6 +114,29 @@ export async function deleteReceivedInbox(
   return { ok: true, deletedAt: payload.deletedAt };
 }
 
+export type DeleteCompletedInboxResult = {
+  ok: true;
+  deletedIds: number[];
+};
+
+export async function deleteCompletedInbox(): Promise<DeleteCompletedInboxResult> {
+  const response = await fetch("/api/marketplace/inbox/delete-completed", {
+    method: "POST",
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | (Partial<DeleteCompletedInboxResult> & InboxDeleteErrorPayload)
+    | null;
+  if (
+    !response.ok ||
+    payload?.ok !== true ||
+    !Array.isArray(payload.deletedIds) ||
+    !payload.deletedIds.every((id) => Number.isSafeInteger(id) && id > 0)
+  ) {
+    throw new Error(inboxDeleteErrorLabel(payload, response.status));
+  }
+  return { ok: true, deletedIds: payload.deletedIds };
+}
+
 export type SendMessageResult = { ok: true; recipientName: string };
 
 type InboxActionErrorPayload = {

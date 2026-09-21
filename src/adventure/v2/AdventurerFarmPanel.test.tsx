@@ -15,6 +15,28 @@ import {
 import { FARM_CROPS, getFarmWeeklyDeliveryRequests } from "./farm";
 
 describe("주간 납품 선택 보드", () => {
+  it.each([0, 2])("황금 밀 %i개 보유 시 적용 여부와 예상 보상을 표시한다", (rareCount) => {
+    render(<WeeklyDeliveryBoard
+      deliveries={getFarmWeeklyDeliveryRequests().slice(0, 1)}
+      inventory={{ wheat: 376, golden_wheat: rareCount }}
+      claimedIds={[]} busyDeliveryId={null} onDeliver={vi.fn()}
+    />);
+    expect(screen.getByText(`황금 밀 ${rareCount}개 보유`, { exact: false })).toBeTruthy();
+    expect(screen.getByText(rareCount > 0 ? /1개 자동 사용 · 증표 \+5/ : /미보유로 보너스 미적용/)).toBeTruthy();
+    expect(screen.getByText(`농장 증표 ${rareCount > 0 ? 11 : 6}개 · 밀 씨앗 6개`)).toBeTruthy();
+  });
+
+  it("완료된 주문은 현재 희귀 작물로 과거 보너스 지급 여부를 추정하지 않는다", () => {
+    render(<WeeklyDeliveryBoard
+      deliveries={getFarmWeeklyDeliveryRequests().slice(0, 1)}
+      inventory={{ wheat: 376, golden_wheat: 2 }}
+      claimedIds={["weekly-bakery-crate"]} busyDeliveryId={null} onDeliver={vi.fn()}
+    />);
+    expect(screen.queryByText(/자동 사용/)).toBeNull();
+    expect(screen.queryByText(/미보유로 보너스 미적용/)).toBeNull();
+    expect(screen.getByText("기본 보상")).toBeTruthy();
+  });
+
   it("3건 완료 시 다른 주문은 재료가 있어도 납품할 수 없다", () => {
     const onDeliver = vi.fn();
     render(<WeeklyDeliveryBoard

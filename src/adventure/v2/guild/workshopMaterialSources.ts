@@ -1,4 +1,5 @@
 import {
+  GUILD_WORKSHOP_MATERIAL_DROP_RULES,
   GUILD_WORKSHOP_MATERIAL_SOURCES,
   type GuildWorkshopMaterialId,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
@@ -22,6 +23,8 @@ import {
   WOODCUTTING_SPOTS,
   woodcuttingTreeForSpot,
 } from "@/adventure/data/v2/woodcuttingSpots";
+import { HUNT_MONSTER_CODEX } from "@/adventure/data/v2/dungeon";
+import { normalHuntFloorHref } from "../dungeonNavigation";
 
 export type WorkshopMaterialSource = {
   known: boolean;
@@ -64,10 +67,13 @@ export function workshopMaterialSource(
   ) {
     const source =
       GUILD_WORKSHOP_MATERIAL_SOURCES[materialId as GuildWorkshopMaterialId];
+    const dropRule = GUILD_WORKSHOP_MATERIAL_DROP_RULES.find(
+      (rule) => rule.materialId === materialId,
+    );
     return {
       known: true,
       label: `${source.source} · ${source.depthText}`,
-      href: "/battle",
+      href: dropRule ? normalHuntFloorHref(dropRule.minDepth) : "/battle",
     };
   }
 
@@ -75,10 +81,13 @@ export function workshopMaterialSource(
     (rule) => rule.materialId === materialId,
   );
   if (monsterRule) {
+    const monster = HUNT_MONSTER_CODEX.find(
+      (entry) => entry.name === monsterRule.monsterKey,
+    );
     return {
       known: true,
       label: `${monsterRule.sourceArea} · ${monsterRule.monsterKey}`,
-      href: "/battle",
+      href: monster ? normalHuntFloorHref(monster.firstDepth) : "/battle",
     };
   }
 

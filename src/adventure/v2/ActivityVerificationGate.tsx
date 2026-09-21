@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import {
   activityVerificationGateReducer,
   initialActivityVerificationGateState,
@@ -12,6 +13,8 @@ import type {
   ActivityVerificationSubmission,
 } from "./useActivityVerification";
 
+const WIDGET_WAIT_TIMEOUT_MS = 30_000;
+
 type TurnstileApi = {
   render: (
     container: HTMLElement,
@@ -20,9 +23,14 @@ type TurnstileApi = {
       action: string;
       theme: "auto";
       size: "flexible";
+      retry: "never";
+      "refresh-expired": "manual";
+      "refresh-timeout": "manual";
       callback: (token: string) => void;
       "error-callback": () => void;
       "expired-callback": () => void;
+      "timeout-callback": () => void;
+      "unsupported-callback": () => void;
     },
   ) => string;
   reset: (widgetId: string) => void;
@@ -71,6 +79,19 @@ export function ActivityVerificationGate({
     initialActivityVerificationGateState,
   );
   const { status, widgetGeneration } = gateState;
+  const needsScriptReload =
+    !turnstileReady || Boolean(challenge.captchaSiteKey && !captchaReady);
+
+  useEffect(() => {
+    // Do not limit time spent solving the additional interactive CAPTCHA or
+    // waiting for server verification (which has its own request timeout).
+    if (status !== "ready" || (turnstileToken && captchaReady)) return;
+    const timeout = window.setTimeout(
+      () => dispatchGate({ type: "failure" }),
+      WIDGET_WAIT_TIMEOUT_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [captchaReady, status, turnstileToken, widgetGeneration]);
 
   const removeWidgets = useCallback(() => {
     const turnstileWidget = turnstileWidgetRef.current;
@@ -114,6 +135,9 @@ export function ActivityVerificationGate({
       action: `activity_${challenge.activity}`,
       theme: "auto",
       size: "flexible",
+      retry: "never",
+      "refresh-expired": "manual",
+      "refresh-timeout": "manual",
       callback: (token) => {
         if (challenge.captchaSiteKey) {
           setTurnstileToken(token);
@@ -122,6 +146,8 @@ export function ActivityVerificationGate({
         submit({ turnstileToken: token });
       },
       "error-callback": () => dispatchGate({ type: "failure" }),
+      "timeout-callback": () => dispatchGate({ type: "failure" }),
+      "unsupported-callback": () => dispatchGate({ type: "failure" }),
       "expired-callback": () => {
         setTurnstileToken(null);
         dispatchGate({ type: "failure" });
@@ -170,7 +196,7 @@ export function ActivityVerificationGate({
   }, [captchaReady, renderCaptcha, turnstileToken, widgetGeneration]);
 
   return (
-    <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-center dark:border-amber-800 dark:bg-zinc-900">
+    <div className={`${SURFACE_ACCENT} space-y-3 p-4 text-center`}>
       <Script
         id="activity-turnstile"
         src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
@@ -215,14 +241,31 @@ export function ActivityVerificationGate({
           확인 중…
         </Button>
       ) : status === "error" ? (
-        <div className="space-y-2">
+        <div role="alert" className="space-y-2">
           <p className="text-xs font-medium text-rose-600 dark:text-rose-300">
-            확인 시간이 초과되었거나 인증 정보가 만료되었습니다. 자동으로 다시
-            시도하지 않으니 아래 버튼을 눌러 새 확인을 시작해 주세요.
+            사람 확인이 지연되거나 완료되지 않았습니다. 아래 버튼을 눌러 다시
+            시도해 주세요.
           </p>
-          <Button type="button" size="sm" fullWidth onClick={retry}>
-            사람 확인 다시 시도
-          </Button>
+          <p className="text-xs leading-5 text-amber-800 dark:text-amber-200">
+            인증은 이 화면에서 진행되며 별도 팝업은 필요하지 않습니다. 계속
+            멈춘다면 이 사이트의 콘텐츠 차단 설정을 확인하거나, 최신 Chrome
+            브라우저에서 접속해 주세요. Wi-Fi와 모바일 데이터를 바꿔 시도하는
+            것도 도움이 될 수 있습니다.
+          </p>
+          {needsScriptReload ? (
+            <Button
+              type="button"
+              size="sm"
+              fullWidth
+              onClick={() => window.location.reload()}
+            >
+              페이지 새로고침
+            </Button>
+          ) : (
+            <Button type="button" size="sm" fullWidth onClick={retry}>
+              사람 확인 다시 시도
+            </Button>
+          )}
         </div>
       ) : null}
     </div>

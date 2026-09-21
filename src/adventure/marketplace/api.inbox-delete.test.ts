@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 type InboxDeleteApi = {
+  deleteCompletedInbox: () => Promise<{ ok: true; deletedIds: number[] }>;
   deleteReceivedInbox: (
     id: number,
   ) => Promise<{ ok: true; deletedAt: string }>;
@@ -20,6 +21,43 @@ async function deleteApi(): Promise<InboxDeleteApi> {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("완료 우편 일괄 삭제 API", () => {
+  it("서버가 전체 대상 우편을 판단하도록 ID 목록 없이 POST한다", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ ok: true, deletedIds: [7, 8] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const api = await deleteApi();
+
+    await expect(api.deleteCompletedInbox()).resolves.toEqual({
+      ok: true,
+      deletedIds: [7, 8],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/marketplace/inbox/delete-completed",
+      { method: "POST" },
+    );
+  });
+
+  it("실패 응답이면 삭제 성공으로 처리하지 않는다", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("error", { status: 500 })));
+    const api = await deleteApi();
+    await expect(api.deleteCompletedInbox()).rejects.toThrow("우편 삭제 실패 (500)");
+  });
+
+  it.each([
+    { ok: true },
+    { ok: false, deletedIds: [7] },
+    { ok: true, deletedIds: ["7"] },
+    { ok: true, deletedIds: [0] },
+    { ok: true, deletedIds: [1.5] },
+  ])("잘못된 삭제 응답을 거부한다: %j", async (payload) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(payload)));
+    const api = await deleteApi();
+    await expect(api.deleteCompletedInbox()).rejects.toThrow("우편 삭제 실패");
+  });
 });
 
 describe("받은 우편 삭제 API", () => {

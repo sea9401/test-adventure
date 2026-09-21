@@ -114,6 +114,11 @@ import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { COOKING_SECRET_RECIPE_BY_ID } from "@/lib/server/cooking/recipes";
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { emptyLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
+import { emptyCodexMasteryProgress } from "@/adventure/data/v2/codexMastery";
+import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductionCatalog";
+import { emptyCodexMasterySummary } from "@/lib/server/codexMasteryRepository";
+import { createCodexMasteryBatchRecorder } from "@/lib/server/codexMasteryService";
+import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
@@ -246,6 +251,58 @@ describe("/api/v2/cooking", () => {
       createdAt: NOW,
     }]);
     expect(json.cookingPrepSets).toBe(0);
+  });
+
+  it("과거 발견 등급 기록이 있는 구운 옥수수도 준비 세트를 사용해 완성한다", async () => {
+    const farm = emptyFarmState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { corn: 4 } });
+    mocks.store.set("cooking.v2", {
+      ...emptyCookingState(NOW),
+      kitchenItems: { "pantry:oil": 152 },
+    });
+    const workshop = emptyLifeWorkshopState();
+    mocks.store.set("life-workshop.v1", {
+      ...workshop,
+      crafting: { ...workshop.crafting, balances: { cooking_prep_set: 40 } },
+    });
+    let progress: ReturnType<typeof emptyCodexMasteryProgress> = {
+      ...emptyCodexMasteryProgress("cooking", "grilled_corn"),
+      count: 1,
+      currentTier: "discovered",
+      scoreMilli: 4_545,
+    };
+    let summary = emptyCodexMasterySummary();
+    summary.totalScoreMilli = 4_545;
+    summary.categoryScoreMilli.cooking = 4_545;
+    summary.scoredCategoryCount = 1;
+    const recorder = createCodexMasteryBatchRecorder({
+      async lockBatch() { return { summary, progress: [progress] }; },
+      async saveBatch(next) {
+        summary = next.summary;
+        progress = next.progress[0];
+      },
+    }, CODEX_MASTERY_CATALOG);
+    vi.mocked(recordCodexMasteryGameplayBatch).mockImplementationOnce(
+      async (_tx, userId, events, now) => recorder.recordBatch(events.map((event) => ({
+        userId,
+        category: "cooking" as const,
+        entryId: event.entryId,
+        mutation: { amount: event.amount, discovered: true },
+        source: "cooking.complete" as const,
+      })), { recordingEnabled: true, sealsEnabled: false, trophiesEnabled: false }, now),
+    );
+    vi.spyOn(Math, "random").mockReturnValue(0.05);
+
+    const response = await post({ action: "craft", recipeId: "grilled_corn", quantity: 1, usePrepSet: true });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.cookingFoods["food2:grilled_corn:masterpiece:o0:s0"]).toBe(1);
+    expect(mocks.store.get("farm.v2")).toMatchObject({ inventory: { corn: 2 } });
+    expect(mocks.store.get("cooking.v2")).toMatchObject({ kitchenItems: { "pantry:oil": 151 } });
+    expect(json.cookingPrepSets).toBe(39);
+    expect(progress).toMatchObject({ count: 2, currentTier: "bronze", scoreMilli: 20_202 });
+    expect(summary).toMatchObject({ totalScoreMilli: 20_202, stageCounts: { bronze: 1 } });
   });
 
   it("요리 준비 세트를 선택한 수량만큼 차감하고 걸작 확률을 8%p 높인다", async () => {

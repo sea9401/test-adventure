@@ -21,6 +21,7 @@ import {
   isMuseunShopItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
+  deleteCompletedInbox,
   deleteReceivedInbox,
   fetchInbox,
   fetchInboxSent,
@@ -617,6 +618,44 @@ export function V2InboxView({
     [busy, setMsg],
   );
 
+  const deleteCompletedMail = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const confirmed = await confirmGameAction({
+        title: "완료 우편 일괄 삭제",
+        message:
+          "읽고 수령·처리를 마친 받은 우편을 모두 삭제할까요?\n읽지 않았거나 수령·처리를 마치지 않은 우편은 남겨둡니다.\n삭제한 우편은 받은 우편함에서 다시 확인할 수 없습니다.",
+        confirmLabel: "일괄 삭제",
+        tone: "danger",
+      });
+      if (!confirmed) return;
+
+      setError(null);
+      setMsg(null);
+      const result = await deleteCompletedInbox();
+      const deletedIds = new Set(result.deletedIds);
+      setItems((current) =>
+        current?.filter((item) => !deletedIds.has(item.id)) ?? [],
+      );
+      setSelected((current) =>
+        current && current.direction !== "sent" && deletedIds.has(current.id)
+          ? null
+          : current,
+      );
+      setMsg(
+        deletedIds.size > 0
+          ? `완료 우편 ${deletedIds.size.toLocaleString()}개를 삭제했어요.`
+          : "삭제할 완료 우편이 없어요.",
+      );
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "우편 삭제 실패");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, load, setMsg]);
+
   const displayed = (tab === "inbox" ? items : sent) ?? [];
   const loading = tab === "inbox" ? items === null : sent === null;
   const claimableIds = bulkClaimIds(items ?? []);
@@ -629,8 +668,8 @@ export function V2InboxView({
     <Root
       className={
         embedded
-          ? "space-y-4 text-zinc-900 dark:text-zinc-100"
-          : "mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100"
+          ? `${SURFACE_CARD} space-y-4 p-4 text-zinc-900 dark:text-zinc-100`
+          : `${SURFACE_CARD} mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100`
       }
     >
       {!embedded && (
@@ -677,17 +716,28 @@ export function V2InboxView({
         />
       </div>
 
-      {/* 받은 우편 탭에서만 전체 수령 */}
-      {tab === "inbox" && claimableIds.length > 0 && (
-        <div className="flex justify-end">
+      {/* 완료 우편 일괄 삭제는 화면 밖의 오래된 기록까지 서버에서 처리한다. */}
+      {tab === "inbox" && (
+        <div className="flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            onClick={() => claim(claimableIds)}
-            disabled={busy}
-            className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            onClick={deleteCompletedMail}
+            disabled={busy || loading}
+            className="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950"
           >
-            전체 수령 ({claimableIds.length})
+            <Trash size={15} aria-hidden />
+            완료 우편 일괄 삭제
           </button>
+          {claimableIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => claim(claimableIds)}
+              disabled={busy}
+              className="rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              전체 수령 ({claimableIds.length})
+            </button>
+          )}
         </div>
       )}
 

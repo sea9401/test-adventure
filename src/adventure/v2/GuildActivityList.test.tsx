@@ -2,6 +2,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { GuildActivityList, type GuildActivity } from "./GuildActivityList";
 
+it("미접속 길드장에게서 승계한 사람과 전임자를 표시한다", () => {
+  const html = renderToStaticMarkup(<GuildActivityList activity={[{
+    id: 100, type: "leadership_claim", actorName: "노스페라투", targetName: "전임자",
+    meta: null, createdAt: new Date().toISOString(),
+  }]} />);
+  expect(html).toContain("노스페라투 님이 장기 미접속 중인 전임자 님의 길드장 자리를 승계했어요");
+});
+
 describe("길드 시설 지원 물자 활동 로그", () => {
   it("지원 시설과 통나무·철광석 적용량을 표시한다", () => {
     const activity: GuildActivity = {

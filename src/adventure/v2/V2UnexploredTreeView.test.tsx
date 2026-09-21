@@ -50,6 +50,8 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   nextPointCost: 100,
   nextPointRemaining: 90,
   selectedNodeIds: ["start", "inner-0-0"],
+  activePresetIndex: 0,
+  nodePresets: [["start", "inner-0-0"], [], []],
   difficulty: 95,
   difficultyIncrease: 0,
   encounterShares: [{ kind: "base", share: 100 }],
@@ -86,6 +88,80 @@ function openUnexploredTab(
 }
 
 describe("V2UnexploredTreeView", () => {
+  it("shows three independent presets and applies the server's switched allocation", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, snapshot: {
+      ...SNAPSHOT, activePresetIndex: 1, spentPoints: 0, selectedNodeIds: [],
+    } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+    const presets = screen.getByRole("group", { name: "개척 노드 프리셋" });
+    expect(within(presets).getAllByRole("button")).toHaveLength(3);
+    expect(within(presets).getByRole("button", { name: "프리셋 1" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(within(presets).getByRole("button", { name: "프리셋 1" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(presets).getByRole("button", { name: "프리셋 2" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "프리셋 2" }).getAttribute("aria-pressed")).toBe("true"));
+    expect(screen.getByText("0 / 3")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith("/api/v2/unexplored", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ action: "switch_preset", presetIndex: 1, expectedPresetIndex: 0 }),
+    }));
+    expect(mocks.confirmGameAction).not.toHaveBeenCalled();
+  });
+
+  it("keeps the active allocation on a failed switch and unlocks its controls", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "preset_changed" }, { status: 409 })));
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "프리셋 2" }));
+    await waitFor(() => expect(mocks.notifySystem).toHaveBeenCalledWith(expect.stringContaining("새로고침"), "error"));
+    expect(screen.getByRole("button", { name: "프리셋 1" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("2 / 3")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "프리셋 2" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("locks switching and resetting while the previous mutation is pending", async () => {
+    let resolve!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((done) => { resolve = done; }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "프리셋 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "프리셋 3" }));
+    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mocks.confirmGameAction).not.toHaveBeenCalled();
+    expect((screen.getByRole("button", { name: "프리셋 3" }) as HTMLButtonElement).disabled).toBe(true);
+    resolve(Response.json({ ok: true, snapshot: { ...SNAPSHOT, activePresetIndex: 1, selectedNodeIds: [], spentPoints: 0 } }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "프리셋 3" }) as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it("names the active preset in reset confirmation and prevents switching before confirmation completes", async () => {
+    let resolve!: (confirmed: boolean) => void;
+    mocks.confirmGameAction.mockImplementationOnce(() => new Promise<boolean>((done) => { resolve = done; }));
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, snapshot: {
+      ...SNAPSHOT, activePresetIndex: 2, selectedNodeIds: ["start"], spentPoints: 1,
+    } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2UnexploredTreeView initialSnapshot={{ ...SNAPSHOT, activePresetIndex: 2 }} onBack={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "초기화" }));
+    expect(mocks.confirmGameAction).toHaveBeenCalledWith(expect.objectContaining({ title: "프리셋 3 초기화" }));
+    fireEvent.click(screen.getByRole("button", { name: "프리셋 2" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    resolve(true);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v2/unexplored", expect.objectContaining({
+      body: JSON.stringify({ action: "reset", expectedPresetIndex: 2 }),
+    })));
+  });
+
+  it("blocks preset switching below the required level", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2UnexploredTreeView initialSnapshot={{ ...SNAPSHOT, eligible: false, level: 99 }} onBack={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "프리셋 2" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("초기화 비용과 보유 골드를 확인하고 취소하면 요청하지 않는다", async () => {
     mocks.confirmGameAction.mockResolvedValueOnce(false);
     const fetchMock = vi.fn();
@@ -106,7 +182,7 @@ describe("V2UnexploredTreeView", () => {
     fireEvent.click(screen.getByRole("button", { name: "초기화" }));
 
     await waitFor(() => expect(mocks.confirmGameAction).toHaveBeenCalledWith({
-      title: "탐사망 초기화",
+      title: "프리셋 1 초기화",
       message: [
         "활성 노드 2개를 반환합니다.",
         "초기화 비용 1,000,000G",
@@ -390,7 +466,7 @@ describe("V2UnexploredTreeView", () => {
       "/api/v2/unexplored",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ action: "activate_path", nodeId: "inner-0-1" }),
+        body: JSON.stringify({ action: "activate_path", nodeId: "inner-0-1", expectedPresetIndex: 0 }),
       }),
     );
     await waitFor(() => expect(screen.getByText("3 / 3")).toBeTruthy());
@@ -443,6 +519,7 @@ describe("V2UnexploredTreeView", () => {
         body: JSON.stringify({
           action: "activate_path",
           nodeId: "pool-iron_legion",
+          expectedPresetIndex: 0,
         }),
       }),
     );
@@ -494,6 +571,7 @@ describe("V2UnexploredTreeView", () => {
         body: JSON.stringify({
           action: "refund_path",
           nodeId: "route-a-0",
+          expectedPresetIndex: 0,
         }),
       }),
     );

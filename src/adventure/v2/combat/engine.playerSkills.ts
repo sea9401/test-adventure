@@ -99,8 +99,8 @@ export function applyPlayerV2SkillCast(
     stages: 0,
     seenSkillIds: [],
   };
-  const formulaOverdraftSkillIds =
-    formulaCoreEquipped && formulaOptimizationEquipped
+  const formulaCompletionSkillIds =
+    formulaCoreEquipped
       ? formulaCompletionOverdraftSkillIds({
           state: formulaState,
           learned: state.v2Skills.learned,
@@ -126,7 +126,8 @@ export function applyPlayerV2SkillCast(
     skills: state.v2Skills,
     cooldowns: state.v2SkillCooldowns,
     magicMpCostReductionPct: formulaOptimizationEquipped ? 20 : 0,
-    mpOverdraftSkillIds: formulaOverdraftSkillIds,
+    formulaCompletionSkillIds,
+    mpOverdraftSkillIds: formulaOptimizationEquipped ? formulaCompletionSkillIds : [],
     procRoll: combatRandom() * 100,
     nextProcRoll: () => combatRandom() * 100,
     bleedHuntRoll: needsBleedHuntRoll ? combatRandom() * 100 : undefined,

@@ -3,6 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { UnexploredPresetIndex } from "@/adventure/data/v2/unexploredState";
+import { UnexploredPresetSelector } from "./UnexploredPresetSelector";
 import {
   ArrowClockwise,
   CheckCircle,
@@ -50,6 +52,8 @@ const CRAFTING_LOCKED_TEXT =
   "우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.";
 
 const ERROR_TEXT: Record<string, string> = {
+  invalid_preset: "선택할 수 없는 프리셋입니다.",
+  preset_changed: "다른 화면에서 프리셋이 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
   level_required: "100레벨 달성 후 탐사망을 변경할 수 있습니다.",
   unknown_node: "존재하지 않는 탐사 노드입니다.",
   already_active: "이미 활성화한 노드입니다.",
@@ -137,6 +141,7 @@ export function V2UnexploredTreeView({
   );
   const [loading, setLoading] = useState(initialSnapshot === null);
   const [busy, setBusy] = useState(false);
+  const mutationPending = useRef(false);
   const [activeTab, setActiveTab] = useState<UnexploredTab>("tree");
   const [bossBusy, setBossBusy] = useState<UnexploredBossId | null>(null);
   const [equipmentCraftBusy, setEquipmentCraftBusy] =
@@ -185,16 +190,35 @@ export function V2UnexploredTreeView({
   async function mutate(
     mutation:
       | { action: "activate_path" | "refund_path"; nodeId: string }
-      | { action: "reset" },
+      | { action: "reset" }
+      | { action: "switch_preset"; presetIndex: UnexploredPresetIndex },
     nodeCount = 1,
   ) {
-    if (busy) return;
+    if (!snapshot || mutationPending.current) return;
+    mutationPending.current = true;
     setBusy(true);
     try {
+      if (mutation.action === "reset") {
+        const refundableCount = snapshot.selectedNodeIds.filter((nodeId) => nodeId !== "start").length;
+        const resetGoldCost = refundableCount * snapshot.refundGoldCost;
+        const confirmed = await confirmGameAction({
+          title: `프리셋 ${snapshot.activePresetIndex + 1} 초기화`,
+          message: [
+            `활성 노드 ${refundableCount.toLocaleString()}개를 반환합니다.`,
+            `초기화 비용 ${resetGoldCost.toLocaleString()}G`,
+            `현재 보유 골드 ${(snapshot.gold + snapshot.bankedGold).toLocaleString()}G`,
+            "",
+            "초기화한 노드 구성은 되돌릴 수 없습니다.",
+          ].join("\n"),
+          confirmLabel: `${resetGoldCost.toLocaleString()}G 사용 · 초기화`,
+          tone: "danger",
+        });
+        if (!confirmed) return;
+      }
       const response = await fetch("/api/v2/unexplored", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(mutation),
+        body: JSON.stringify({ ...mutation, expectedPresetIndex: snapshot.activePresetIndex }),
       });
       const body = (await response.json()) as {
         snapshot?: UnexploredClientSnapshot;
@@ -204,46 +228,32 @@ export function V2UnexploredTreeView({
         throw new Error(ERROR_TEXT[body.error ?? ""] ?? body.error ?? "변경 실패");
       }
       setSnapshot(body.snapshot);
+      if (mutation.action === "switch_preset") {
+        setSelectedNodeId(body.snapshot.selectedNodeIds[0] ?? "start");
+      }
       applyResourcePatch({
         gold: body.snapshot.gold,
         bankedGold: body.snapshot.bankedGold,
       });
       notifySystem(
-        mutation.action === "activate_path"
-          ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 활성화했습니다.`
-          : mutation.action === "refund_path"
-            ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 반환했습니다.`
-            : "✓ 탐사망을 초기화했습니다.",
+        mutation.action === "switch_preset"
+          ? `✓ 프리셋 ${body.snapshot.activePresetIndex + 1}로 전환했습니다.`
+          : mutation.action === "activate_path"
+            ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 활성화했습니다.`
+            : mutation.action === "refund_path"
+              ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 반환했습니다.`
+              : "✓ 탐사망을 초기화했습니다.",
         "success",
       );
     } catch (error) {
       notifySystem(`✗ ${(error as Error).message}`, "error");
     } finally {
+      mutationPending.current = false;
       setBusy(false);
     }
   }
 
   async function resetTree() {
-    if (!snapshot || busy) return;
-    const refundableCount = snapshot.selectedNodeIds.filter(
-      (nodeId) => nodeId !== "start",
-    ).length;
-    const resetGoldCost = refundableCount * snapshot.refundGoldCost;
-    const confirmed = await confirmGameAction({
-      title: "탐사망 초기화",
-      message: [
-        `활성 노드 ${refundableCount.toLocaleString()}개를 반환합니다.`,
-        `초기화 비용 ${resetGoldCost.toLocaleString()}G`,
-        `현재 보유 골드 ${(
-          snapshot.gold + snapshot.bankedGold
-        ).toLocaleString()}G`,
-        "",
-        "초기화한 노드 구성은 되돌릴 수 없습니다.",
-      ].join("\n"),
-      confirmLabel: `${resetGoldCost.toLocaleString()}G 사용 · 초기화`,
-      tone: "danger",
-    });
-    if (!confirmed) return;
     await mutate({ action: "reset" });
   }
 
@@ -434,6 +444,8 @@ export function V2UnexploredTreeView({
   const selected = model.selected;
   const completedAchievementIds = new Set(snapshot.achievementIds);
   const spendableGold = snapshot.gold + snapshot.bankedGold;
+  const refundGoldCost = snapshot.refundGoldCost * (model.plan?.nodeIds.length ?? 0);
+  const canAffordRefund = spendableGold >= refundGoldCost;
   const craftCost = snapshot.summonStoneCraftCost;
   return (
     <PageShell className="max-w-[1400px] overflow-x-hidden" spacing="tight">
@@ -450,6 +462,12 @@ export function V2UnexploredTreeView({
             <ArrowClockwise size={15} /> 초기화
           </Button>
         ) : undefined}
+      />
+
+      <UnexploredPresetSelector
+        snapshot={snapshot}
+        busy={busy}
+        onSelect={(presetIndex) => void mutate({ action: "switch_preset", presetIndex })}
       />
 
       <section className={`${SURFACE_ACCENT} grid gap-3 p-4 sm:grid-cols-3`}>
@@ -757,34 +775,28 @@ export function V2UnexploredTreeView({
                     </Button>
                   )}
                   {model.plan?.action === "refund" &&
-                    model.plan.error === null && (() => {
-                      const refundGoldCost =
-                        snapshot.refundGoldCost * model.plan.nodeIds.length;
-                      const canAfford =
-                        snapshot.gold + snapshot.bankedGold >= refundGoldCost;
-                      return (
-                        <div className="space-y-2">
-                          {!canAfford && (
-                            <p className="text-xs leading-5 text-rose-700 dark:text-rose-300">
-                              {ERROR_TEXT.insufficient_gold}
-                            </p>
+                    model.plan.error === null && (
+                      <div className="space-y-2">
+                        {!canAffordRefund && (
+                          <p className="text-xs leading-5 text-rose-700 dark:text-rose-300">
+                            {ERROR_TEXT.insufficient_gold}
+                          </p>
+                        )}
+                        <Button
+                          fullWidth
+                          variant="danger"
+                          loading={busy}
+                          disabled={!snapshot.eligible || !canAffordRefund}
+                          onClick={() => void mutate(
+                            { action: "refund_path", nodeId: selected.id },
+                            model.plan!.nodeIds.length,
                           )}
-                          <Button
-                            fullWidth
-                            variant="danger"
-                            loading={busy}
-                            disabled={!snapshot.eligible || !canAfford}
-                            onClick={() => void mutate(
-                              { action: "refund_path", nodeId: selected.id },
-                              model.plan!.nodeIds.length,
-                            )}
-                          >
-                            {refundGoldCost.toLocaleString()}G로{" "}
-                            {model.plan.nodeIds.length.toLocaleString()}개 반환
-                          </Button>
-                        </div>
-                      );
-                    })()}
+                        >
+                          {refundGoldCost.toLocaleString()}G로{" "}
+                          {model.plan.nodeIds.length.toLocaleString()}개 반환
+                        </Button>
+                      </div>
+                    )}
                   {model.plan?.error && (
                     <div className="space-y-2">
                       <p className="text-xs leading-5 text-amber-700 dark:text-amber-300">

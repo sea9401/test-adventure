@@ -28,6 +28,8 @@ function snapshot(): UnexploredClientSnapshot {
     nextPointCost: 100,
     nextPointRemaining: 100,
     selectedNodeIds: [],
+    activePresetIndex: 0,
+    nodePresets: [[], [], []],
     difficulty: 95,
     difficultyIncrease: 0,
     encounterShares: [{ kind: "base", share: 100 }],

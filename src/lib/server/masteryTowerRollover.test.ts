@@ -14,6 +14,11 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { settleMasteryTowerRollover } from "./masteryTowerRollover";
+import {
+  masteryTowerClaimPreview,
+  masteryTowerEntryStaminaCost,
+  resolveMasteryTowerAttemptFloor,
+} from "@/adventure/data/v2/masteryTower";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -94,6 +99,33 @@ describe("숙련의 탑 날짜 변경 정산", () => {
       weekStartedAt: "2026-08-10",
       weekBestFloor: 37,
     });
+  });
+
+  it("월요일 첫 이어 하기는 전날 보상을 정산하고 81층 체크포인트에서 시작한다", async () => {
+    mocks.saves.set("mastery-tower.v1", {
+      date: "2026-09-20",
+      todayBestFloor: 85,
+      runFloor: 85,
+      claimed: false,
+      lifetimeBestFloor: 85,
+      firstClearRewardsClaimed: [10, 20, 30, 40, 50],
+      weekStartedAt: "2026-09-14",
+      weekBestFloor: 85,
+      entryStaminaPaid: true,
+    });
+    mocks.saves.set("inventory.v2", { masteryCertificates: 60 });
+
+    const first = await settleMasteryTowerRollover({} as never, "u-tower", "2026-09-21");
+    const repeated = await settleMasteryTowerRollover({} as never, "u-tower", "2026-09-21");
+
+    expect(first.autoClaimedReward?.total).toBe(2_400);
+    expect(repeated.autoClaimedReward).toBeNull();
+    expect(mocks.saves.get("inventory.v2")).toEqual({ masteryCertificates: 2_460 });
+    expect(first.tower).toMatchObject({ date: "2026-09-21", runFloor: 0, todayBestFloor: 0 });
+    expect(masteryTowerClaimPreview(first.tower).total).toBe(0);
+    expect(masteryTowerEntryStaminaCost(first.tower)).toBe(200);
+    expect(resolveMasteryTowerAttemptFloor(first.tower)).toEqual({ ok: true, floor: 81 });
+    expect(resolveMasteryTowerAttemptFloor(repeated.tower)).toEqual({ ok: true, floor: 81 });
   });
 
   it("정산을 반복 호출해도 증서를 중복 지급하지 않는다", async () => {

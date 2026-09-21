@@ -17,6 +17,8 @@ function character(selectedNodeIds: string[], level = 100) {
       xpPoints: 10,
       achievementIds: [],
       selectedNodeIds,
+      activePresetIndex: 0,
+      nodePresets: [selectedNodeIds, [], []],
       traces: {},
       craftReceipts: [],
       equipmentCraftReceipts: [],

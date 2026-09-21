@@ -1,4 +1,5 @@
 import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
+import { isUnexploredPresetIndex } from "@/adventure/data/v2/unexploredState";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
@@ -58,7 +59,16 @@ export async function GET() {
 function parseMutation(raw: unknown): UnexploredMutation | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const source = raw as Record<string, unknown>;
-  if (source.action === "reset") return { action: "reset" };
+  if (source.expectedPresetIndex !== undefined && !isUnexploredPresetIndex(source.expectedPresetIndex)) {
+    return null;
+  }
+  const expectedPresetIndex = source.expectedPresetIndex;
+  if (source.action === "switch_preset") {
+    return isUnexploredPresetIndex(source.presetIndex)
+      ? { action: "switch_preset", presetIndex: source.presetIndex, expectedPresetIndex }
+      : null;
+  }
+  if (source.action === "reset") return { action: "reset", expectedPresetIndex };
   if (
     (
       source.action === "activate" ||
@@ -69,7 +79,7 @@ function parseMutation(raw: unknown): UnexploredMutation | null {
     typeof source.nodeId === "string" &&
     source.nodeId.length > 0
   ) {
-    return { action: source.action, nodeId: source.nodeId };
+    return { action: source.action, nodeId: source.nodeId, expectedPresetIndex };
   }
   return null;
 }

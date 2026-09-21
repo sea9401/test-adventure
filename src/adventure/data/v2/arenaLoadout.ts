@@ -126,6 +126,8 @@ export function arenaPatternConditionSummary(
   switch (condition.kind) {
     case "always":
       return "항상";
+    case "formula_completion":
+      return `이 스킬로 완전식 ${condition.active ? "발동" : "미발동"}`;
     case "all":
     case "any": {
       const mode = condition.kind === "all" ? "모두 만족" : "하나 만족";

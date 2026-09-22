@@ -3888,6 +3888,11 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/monster/v2/chuseok-lucky-bag.webp",
+      "sha256": "164d9952c903ec891a6a657d188b55c69e3642d70e90220156164367daeb3afc",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/monster/v2/coldwind-raider-captain.webp",
       "sha256": "63855822bcc1e4fedf2a4fbd78b6229ebccd8934a25b08f2758f57e5f89b536a",
       "source": "operator-cleared-game-art"

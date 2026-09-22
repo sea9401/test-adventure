@@ -1296,6 +1296,13 @@
       "when": 1788690562345,
       "tag": "0184_coop_free_support",
       "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1790075738347,
+      "tag": "0185_chuseok_event",
+      "breakpoints": true
     }
   ]
 }

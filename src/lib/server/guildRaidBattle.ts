@@ -1,4 +1,6 @@
 import "server-only";
+import type { Monster } from "@/adventure/data/monsters/types";
+import { CHUSEOK_LUCKY_BAG } from "@/adventure/data/v2/chuseokEvent";
 
 import {
   COOP_BOSSES,
@@ -38,6 +40,25 @@ export async function simulateGuildRaidBattle({
   bossKind: CoopBossKindId;
   lockForUpdate?: boolean;
 }): Promise<GuildRaidBattleResult | null> {
+  const definition = COOP_BOSSES[bossKind];
+  const bossHp = definition.sharedMaxHp;
+  const { monster } = coopBossForBattle(definition, bossHp, {
+    conditionalEnrageWeakened: false,
+    bossMp: coopBossMaxMp(definition),
+  });
+  return simulateRaidBattle({ tx, userId, monster: { ...monster, hp: bossHp }, lockForUpdate });
+}
+
+export async function simulateChuseokBattle(input: { tx: DbExecutor; userId: string }) {
+  return simulateRaidBattle({ ...input, monster: CHUSEOK_LUCKY_BAG, lockForUpdate: true });
+}
+
+async function simulateRaidBattle({ tx, userId, monster, lockForUpdate }: {
+  tx: DbExecutor;
+  userId: string;
+  monster: Monster;
+  lockForUpdate: boolean;
+}): Promise<GuildRaidBattleResult | null> {
   const charSave = lockForUpdate
     ? await lockSaveForUpdate<Record<string, unknown>>(
         tx,
@@ -66,12 +87,7 @@ export async function simulateGuildRaidBattle({
     null,
   );
   const playerName = profile?.name?.trim() || "모험가";
-  const definition = COOP_BOSSES[bossKind];
-  const bossHp = definition.sharedMaxHp;
-  const { monster } = coopBossForBattle(definition, bossHp, {
-    conditionalEnrageWeakened: false,
-    bossMp: coopBossMaxMp(definition),
-  });
+  const bossHp = monster.hp;
   const bossForBattle = { ...monster, hp: bossHp };
   const playerMaxHp = prepared.player.maxHp;
   const playerMaxMp = prepared.player.player.maxMp ?? 0;

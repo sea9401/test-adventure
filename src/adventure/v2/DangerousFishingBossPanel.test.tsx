@@ -292,7 +292,10 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).not.toContain("현재 행동");
   });
 
-  it("v2 개인 시도는 hold 조작만 노출하고 legacy onAction을 사용하지 않는다", () => {
+  it.each([
+    ["Space", " "],
+    ["Enter", "Enter"],
+  ])("v2 개인 시도는 버튼 클릭 없이 %s로 감고 놓는다", (code, key) => {
     const onAction = vi.fn(async () => true);
     render(
       <DangerousFishingBossPanel
@@ -310,8 +313,11 @@ describe("거대어 비동기 기여 패널", () => {
     );
 
     const hold = screen.getByRole("button", { name: "누르고 감아올리기" });
-    fireEvent.keyDown(hold, { code: "Space", key: " " });
-    fireEvent.keyUp(hold, { code: "Space", key: " " });
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.keyDown(document.body, { code, key });
+    expect(hold.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.keyUp(document.body, { code, key });
+    expect(hold.getAttribute("aria-pressed")).toBe("false");
 
     expect(screen.queryByRole("button", { name: /^감아올리기/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^줄 풀기/ })).toBeNull();

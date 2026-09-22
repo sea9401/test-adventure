@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type {
@@ -242,6 +242,7 @@ export function DangerousFishingRealtimePanel({
   feedback = null,
   embedded = false,
 }: DangerousFishingRealtimePanelProps) {
+  const controlRef = useRef<HTMLDivElement>(null);
   const realtime = useDangerousFishingRealtime({
     encounter,
     serverNow,
@@ -267,6 +268,67 @@ export function DangerousFishingRealtimePanel({
     secured ||
     feedback?.terminal === true ||
     realtime.connection === "verification_required";
+  const { onKeyDown, onKeyUp } = realtime;
+
+  useEffect(() => {
+    if (inputDisabled) return;
+    const pressed = new Set<string>();
+    const reelKey = (event: KeyboardEvent) => {
+      if (event.code === "Space" || event.key === " ") return "Space";
+      if (event.code === "Enter" || event.key === "Enter") return "Enter";
+      return null;
+    };
+    const handleDown = (event: KeyboardEvent) => {
+      const key = reelKey(event);
+      if (
+        !key || event.defaultPrevented || event.isComposing ||
+        event.ctrlKey || event.altKey || event.metaKey || event.shiftKey
+      ) return;
+      if (event.target instanceof Element) {
+        const target = event.target;
+        if (target.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"], dialog',
+        )) return;
+        const interactive = target.closest(
+          'button, a, [role="button"], [role="textbox"], [tabindex]',
+        );
+        if (
+          interactive && interactive !== controlRef.current?.querySelector("button")
+        ) return;
+      }
+      event.preventDefault();
+      if (event.repeat || pressed.has(key)) return;
+      pressed.add(key);
+      if (pressed.size === 1) onKeyDown(event);
+    };
+    const handleUp = (event: KeyboardEvent) => {
+      const key = reelKey(event);
+      if (!key || !pressed.delete(key)) return;
+      // Release even if focus moved to another control while the key was held.
+      event.preventDefault();
+      if (pressed.size === 0) onKeyUp(event);
+    };
+    const release = () => {
+      if (pressed.size === 0) return;
+      pressed.clear();
+      onKeyUp({ key: "Enter", preventDefault() {} });
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") release();
+    };
+    window.addEventListener("keydown", handleDown);
+    window.addEventListener("keyup", handleUp);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("keydown", handleDown);
+      window.removeEventListener("keyup", handleUp);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      release();
+    };
+  }, [inputDisabled, onKeyDown, onKeyUp]);
+
   const controlStatus = realtime.startPending
     ? "잠시 후 시작"
     : !active
@@ -391,6 +453,7 @@ export function DangerousFishingRealtimePanel({
       ) : null}
 
       <div
+        ref={controlRef}
         data-realtime-region="control"
         className={`${SURFACE_CARD} relative sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}
       >
@@ -423,11 +486,13 @@ export function DangerousFishingRealtimePanel({
           onPointerUp={realtime.onPointerUp}
           onPointerCancel={realtime.onPointerUp}
           onLostPointerCapture={realtime.onPointerUp}
-          onKeyDown={realtime.onKeyDown}
-          onKeyUp={realtime.onKeyUp}
+          aria-keyshortcuts="Enter Space"
         >
           {controlText}
         </Button>
+        <p className="mt-2 text-center text-xs text-zinc-600 dark:text-zinc-400">
+          Enter 또는 Space를 누르고 있으면 감아올리고, 떼면 줄을 풉니다.
+        </p>
       </div>
     </section>
   );

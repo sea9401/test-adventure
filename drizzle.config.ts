@@ -11,6 +11,7 @@ export default defineConfig({
     "./src/db/schema.ts",
     "./src/db/lotterySchema.ts",
     "./src/db/cookingSchema.ts",
+    "./src/db/chuseokSchema.ts",
   ],
   out: "./drizzle",
   dialect: "postgresql",

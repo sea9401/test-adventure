@@ -14,11 +14,13 @@ export default async function EventsPage({
 }) {
   const params = await searchParams;
   const initialTab =
-    params.tab === "coupon"
-      ? "coupon"
-      : params.tab === "promotion"
-        ? "promotion"
-        : "attendance";
+    params.tab === "chuseok"
+      ? "chuseok"
+      : params.tab === "coupon"
+        ? "coupon"
+        : params.tab === "promotion"
+          ? "promotion"
+          : "attendance";
 
   return <V2EventsView initialTab={initialTab} />;
 }

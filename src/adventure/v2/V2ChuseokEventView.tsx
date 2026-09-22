@@ -103,7 +103,7 @@ export function ChuseokEventContent({ state, busy, onAttend, onAttack, raidResul
         <p className="text-xs text-zinc-600 dark:text-zinc-300">1단계 1억 → 2단계 5억 → 3단계 10억 → 이후 5억씩 증가</p>
       </div>
       <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-300">길드와 관계없이 모든 모험가가 같은 복주머니를 공격합니다. 공격력과 방어력이 낮아 부담 없이 참여할 수 있습니다. 스태미나와 현재 HP·MP는 소모하지 않습니다.</p>
-      <div className={`${SURFACE_ACCENT} rounded-xl p-3 text-sm leading-6`}>한 번 공격하면 참여자로 등록됩니다. 참여 이후 복주머니를 하나 처치할 때마다 참여자 전원에게 회복약 <strong>{CHUSEOK_CLEAR_REWARD}개</strong>를 우편으로 드립니다. 참여 전 처치 보상은 지급되지 않습니다.</div>
+      <div className={`${SURFACE_ACCENT} rounded-xl p-3 text-sm leading-6`}>한 번 공격하면 참여자로 등록됩니다. 참여 전에 처치된 단계도 포함해, 복주머니를 하나 처치할 때마다 참여자 전원에게 회복약 <strong>{CHUSEOK_CLEAR_REWARD}개</strong>를 우편으로 드립니다. 처음 참여하면 이전 단계 보상도 한 번에 받을 수 있습니다.</div>
       <div className="flex flex-wrap justify-between gap-2 text-sm"><span>참여자 {number(raid.participantCount)}명</span><span>내 누적 피해 {number(raid.myDamage)}</span></div>
       <Button variant="primary" fullWidth disabled={!active || raid.attacksRemaining === 0 || busy !== null} loading={busy === "attack"} onClick={onAttack}>
         {raid.attacksRemaining === 0 ? "오늘 공격 완료" : `복주머니 공격 · 오늘 ${raid.attacksRemaining}/${CHUSEOK_DAILY_ATTACKS}회 남음`}

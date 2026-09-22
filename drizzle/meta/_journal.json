@@ -1303,6 +1303,13 @@
       "when": 1790075738347,
       "tag": "0185_chuseok_event",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1790095406445,
+      "tag": "0186_chuseok_retroactive_rewards",
+      "breakpoints": true
     }
   ]
 }

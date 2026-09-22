@@ -124,6 +124,17 @@ export function createChuseokEventService({
         dayKey: committedDay, dailyAttackCount: committedUsed + 1,
       }).where(participantWhere(userId));
       await tx.update(chuseokEvents).set({ stage: applied.stage, hp: applied.hp, maxHp: applied.maxHp }).where(eventWhere);
+      if (mine.attackCount === 0 && progress.stage > 1) {
+        // Use the locked progress before this attack, excluding new clears below.
+        // The participant update, mail and request record commit together, so retries
+        // and simultaneous first attacks cannot grant this catch-up reward twice.
+        const amount = (progress.stage - 1) * CHUSEOK_CLEAR_REWARD;
+        await tx.insert(marketplaceInbox).values(inboxValues({
+          userId,
+          message: `추석 복주머니 참여 전 1~${progress.stage - 1}단계 보상: 스태미나 회복약 ${amount}개`,
+          payload: { kind: "admin_gift", gold: 0, materials: [], items: [], staminaPotions: amount, museunCoins: 0, cashItems: [], adventureSupportDays: 0 },
+        }));
+      }
       if (applied.stagesCleared > 0) {
         // No recipient save locks: rewards use the existing claimable inbox transaction.
         const recipients = await tx.select({ userId: chuseokParticipants.userId }).from(chuseokParticipants).where(and(eq(chuseokParticipants.eventId, CHUSEOK_EVENT_ID), gt(chuseokParticipants.attackCount, 0)));

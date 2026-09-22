@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
+import { readFile } from "node:fs/promises";
 import { createChuseokEventService } from "./chuseokEvent";
 import { lockSaveForUpdate } from "./savesKv";
 import type { GuildRaidBattleResult } from "./guildRaidBattle";
@@ -40,11 +41,15 @@ describe.skipIf(!url)("추석 이벤트 PostgreSQL 트랜잭션", () => {
     now = Date.parse("2026-09-23T00:00:00+09:00");
     expect(await service.attend("chuseok-a")).toMatchObject({ ok: true, reward: 5 });
   });
-  it("길드 없는 두 유저의 동시 공격을 합치고 처치 참여자에게만 우편을 보낸다", async () => {
+  it.each([
+    { attackDamage: 60_000_000, remainingHp: 480_000_000 },
+    { attackDamage: 100_000_000, remainingHp: 400_000_000 },
+  ])("동시 첫 공격 $attackDamage 피해를 합치고 출석만 한 사용자를 제외한 참여자 모두에게 보상한다", async ({ attackDamage, remainingHp }) => {
+    damage = attackDamage;
     await service.attend("chuseok-c");
     const results = await Promise.all([service.attack("chuseok-a", "request-a"), service.attack("chuseok-b", "request-b")]);
     expect(results.every((r) => r.ok)).toBe(true);
-    expect((await service.read("chuseok-a")).raid).toMatchObject({ stage: 2, hp: 480_000_000, myDamage: 60_000_000, participantCount: 2 });
+    expect((await service.read("chuseok-a")).raid).toMatchObject({ stage: 2, hp: remainingHp, myDamage: attackDamage, participantCount: 2 });
     expect((await pool.query("SELECT user_id, payload->>'staminaPotions' AS count FROM marketplace_inbox ORDER BY user_id")).rows).toEqual([{ user_id: "chuseok-a", count: "15" }, { user_id: "chuseok-b", count: "15" }]);
   });
   it("같은 공격 재시도는 피해·횟수·우편을 중복 반영하지 않는다", async () => {
@@ -55,12 +60,66 @@ describe.skipIf(!url)("추석 이벤트 PostgreSQL 트랜잭션", () => {
     expect((await service.read("chuseok-a")).raid.attacksRemaining).toBe(2);
     expect((await pool.query("SELECT payload->>'staminaPotions' AS count FROM marketplace_inbox")).rows).toEqual([{ count: "30" }]);
   });
-  it("늦게 참여한 유저에게 이전 단계 보상을 소급하지 않고 이후 처치부터 지급한다", async () => {
+  it("늦게 참여한 유저도 이전 단계와 이번 공격으로 처치한 단계 보상을 모두 받는다", async () => {
     damage = 100_000_000;
     await service.attack("chuseok-a", "request-a");
     damage = 500_000_000;
     await service.attack("chuseok-b", "request-b");
-    expect((await pool.query("SELECT user_id, SUM((payload->>'staminaPotions')::int)::int AS count FROM marketplace_inbox GROUP BY user_id ORDER BY user_id")).rows).toEqual([{ user_id: "chuseok-a", count: 30 }, { user_id: "chuseok-b", count: 15 }]);
+    expect((await pool.query("SELECT user_id, SUM((payload->>'staminaPotions')::int)::int AS count FROM marketplace_inbox GROUP BY user_id ORDER BY user_id")).rows).toEqual([{ user_id: "chuseok-a", count: 30 }, { user_id: "chuseok-b", count: 30 }]);
+  });
+  it("새 처치 없는 동시 첫 참여와 재시도에도 이전 두 단계 보상을 한 번만 지급한다", async () => {
+    damage = 600_000_000;
+    await service.attack("chuseok-a", "request-a");
+    await service.attend("chuseok-b");
+    damage = 10;
+    const results = await Promise.all([
+      service.attack("chuseok-b", "request-b"),
+      service.attack("chuseok-c", "request-c"),
+      service.attack("chuseok-b", "request-b"),
+    ]);
+    expect(results.every((r) => r.ok && r.stagesCleared === 0)).toBe(true);
+    expect(results[0]).toEqual(results[2]);
+    await service.attack("chuseok-b", "request-b2");
+    expect((await pool.query("SELECT user_id, payload->>'staminaPotions' AS count FROM marketplace_inbox ORDER BY user_id")).rows).toEqual([
+      { user_id: "chuseok-a", count: "30" }, { user_id: "chuseok-b", count: "30" }, { user_id: "chuseok-c", count: "30" },
+    ]);
+    expect((await service.read("chuseok-b")).raid).toMatchObject({ stage: 3, hp: 999_999_970, myDamage: 20, attacksRemaining: 1 });
+  });
+  it("소급 우편 실패도 첫 참여를 롤백하여 재시도 때 누락분을 지급한다", async () => {
+    damage = 100_000_000;
+    await service.attack("chuseok-a", "request-a");
+    damage = 10;
+    await pool.query("ALTER TABLE marketplace_inbox ADD CONSTRAINT chuseok_test_fail_mail CHECK (user_id <> 'chuseok-b')");
+    try {
+      await expect(service.attack("chuseok-b", "request-b")).rejects.toThrow();
+      expect((await service.read("chuseok-b")).raid).toMatchObject({ stage: 2, hp: 500_000_000, myDamage: 0, attacksRemaining: 3 });
+      expect((await pool.query("SELECT * FROM chuseok_attacks WHERE user_id='chuseok-b'")).rows).toHaveLength(0);
+    } finally {
+      await pool.query("ALTER TABLE marketplace_inbox DROP CONSTRAINT chuseok_test_fail_mail");
+    }
+    expect(await service.attack("chuseok-b", "request-b")).toMatchObject({ ok: true });
+    expect((await pool.query("SELECT payload->>'staminaPotions' AS count FROM marketplace_inbox WHERE user_id='chuseok-b'")).rows).toEqual([{ count: "15" }]);
+  });
+  it("기존 참여자의 참여 전 누락분만 보정하고 수령·삭제 우편이나 출석만 한 사용자에게 중복 지급하지 않는다", async () => {
+    await service.read("chuseok-a");
+    // Old-policy fixture: A cleared stages 1–2, B joined and cleared stage 3.
+    // Timestamps intentionally disagree with attack order: transaction start time is not commit order.
+    await pool.query("UPDATE chuseok_events SET stage=4, hp=1500000000, max_hp=1500000000");
+    await pool.query(`INSERT INTO chuseok_participants(event_id,user_id,attack_count) VALUES
+      ('chuseok-2026','chuseok-a',2), ('chuseok-2026','chuseok-b',2), ('chuseok-2026','chuseok-c',0)`);
+    await pool.query(`INSERT INTO chuseok_attacks(event_id,user_id,request_id,result,created_at) VALUES
+      ('chuseok-2026','chuseok-a','old-a1','{"stage":3,"stagesCleared":2}','2026-09-22 18:00:01'),
+      ('chuseok-2026','chuseok-a','old-a2','{"stage":4,"stagesCleared":0}','2026-09-22 18:00:00'),
+      ('chuseok-2026','chuseok-b','old-b1','{"stage":4,"stagesCleared":1}','2026-09-22 18:00:01'),
+      ('chuseok-2026','chuseok-b','old-b2','{"stage":4,"stagesCleared":0}','2026-09-22 18:00:00')`);
+    await pool.query(`INSERT INTO marketplace_inbox(user_id,kind,payload,claimed_at,recipient_deleted_at) VALUES
+      ('chuseok-a','admin_gift','{"staminaPotions":45}',now(),now()),
+      ('chuseok-b','admin_gift','{"staminaPotions":15}',now(),now())`);
+    await pool.query(await readFile("drizzle/0186_chuseok_retroactive_rewards.sql", "utf8"));
+    expect((await pool.query("SELECT user_id, payload->>'staminaPotions' AS count FROM marketplace_inbox WHERE claimed_at IS NULL ORDER BY user_id")).rows).toEqual([{ user_id: "chuseok-b", count: "30" }]);
+    damage = 10;
+    await service.attack("chuseok-b", "request-b3");
+    expect((await pool.query("SELECT user_id, SUM((payload->>'staminaPotions')::int)::int AS count FROM marketplace_inbox GROUP BY user_id ORDER BY user_id")).rows).toEqual([{ user_id: "chuseok-a", count: 45 }, { user_id: "chuseok-b", count: 45 }]);
   });
   it("하루 3회 제한을 지키고 KST 자정에 공격 횟수를 회복한다", async () => {
     damage = 10;

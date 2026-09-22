@@ -15,7 +15,7 @@ vi.mock("@/adventure/v2/combat/engine", () => ({ resolveBattle }));
 vi.mock("@/adventure/data/v2/replayPayload", () => ({ toReplayPayload }));
 
 import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
-import { simulateGuildRaidBattle } from "./guildRaidBattle";
+import { simulateGuildRaidBattle, simulateChuseokBattle } from "./guildRaidBattle";
 
 describe("길드 토벌전 전투 어댑터", () => {
   beforeEach(() => {
@@ -72,6 +72,17 @@ describe("길드 토벌전 전투 어댑터", () => {
       simulateGuildRaidBattle({ tx: {} as never, userId: "u1", bossKind: "mountain_chief_hard" }),
     ).resolves.toBeNull();
     expect(resolveBattle).not.toHaveBeenCalled();
+  });
+
+  it("복주머니는 강한 보스 기술 없이 약한 공격력·방어력으로 동일한 전투를 계산한다", async () => {
+    const result = await simulateChuseokBattle({ tx: {} as never, userId: "u1" });
+    expect(result?.damageDealt).toBe(1_500_000);
+    const [player, enemy, , context] = resolveBattle.mock.calls[0];
+    expect(player).toMatchObject({ hp: 500, mp: 90 });
+    expect(enemy).toMatchObject({ name: "추석 복주머니", hp: 100_000_000, atk: 1, def: 10, magicDef: 10 });
+    expect(enemy.skill).toBeUndefined();
+    expect(enemy.v2Skills).toBeUndefined();
+    expect(context.damageMeter).toEqual({ continueAfterDefeat: true, refillHp: 100_000_000 });
   });
 
   it("연습 전투는 캐릭터 저장값을 잠금 없이 읽고 전투 준비에도 읽기 전용을 전달한다", async () => {

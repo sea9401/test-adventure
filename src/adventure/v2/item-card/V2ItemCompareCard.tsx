@@ -388,12 +388,12 @@ export function V2ItemCompareCard({
 
   return (
     <>
-      {/* 딤 배경 — 클릭 시 닫힘(비교는 의사결정 화면이라 단일 카드와 달리 살짝 딤). */}
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} aria-hidden />
+      {/* 딤 배경과 비교창은 공지가 포함된 GameChrome 헤더(z-60)보다 위에 둔다. */}
+      <div className="fixed inset-0 z-[90] bg-black/40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-label={`${candidate.item.name} 비교`}
-        className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="fixed left-1/2 top-1/2 z-[100] max-h-[85vh] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">

@@ -357,6 +357,94 @@ describe("위험 해역 실시간 조우 HUD", () => {
     },
   );
 
+  it.each([
+    <input key="input" aria-label="외부 입력" />,
+    <textarea key="textarea" aria-label="외부 입력" />,
+    <select key="select" aria-label="외부 입력"><option>미끼</option></select>,
+    <button key="button" aria-label="외부 입력"><span>다른 버튼</span></button>,
+    <a key="link" href="#chat" aria-label="외부 입력">채팅</a>,
+    <div key="editable" contentEditable suppressContentEditableWarning><span aria-label="외부 입력">편집</span></div>,
+    <div key="dialog" role="dialog"><span aria-label="외부 입력">대화상자</span></div>,
+    <div key="textbox" role="textbox" aria-label="외부 입력" />,
+  ])("다른 입력 요소의 Enter/Space는 가로채지 않는다 (%#)", (external) => {
+    render(<>
+      <DangerousFishingRealtimePanel {...baseProps} encounter={encounterFixture()} />
+      {external}
+    </>);
+    const button = screen.getByRole("button", { name: "누르고 감아올리기" });
+    for (const key of ["Enter", " "]) {
+      const down = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      fireEvent(screen.getByLabelText("외부 입력"), down);
+      expect(down.defaultPrevented).toBe(false);
+      expect(button.getAttribute("aria-pressed")).toBe("false");
+    }
+  });
+
+  it.each([
+    { ctrlKey: true }, { altKey: true }, { metaKey: true },
+    { shiftKey: true }, { isComposing: true },
+  ])("보조 키나 조합 입력은 낚시를 시작하지 않는다 (%j)", (options) => {
+    render(<DangerousFishingRealtimePanel {...baseProps} encounter={encounterFixture()} />);
+    const down = new KeyboardEvent("keydown", {
+      key: "Enter", bubbles: true, cancelable: true, ...options,
+    });
+    fireEvent(document.body, down);
+    expect(down.defaultPrevented).toBe(false);
+    expect(screen.getByRole("button", { name: "누르고 감아올리기" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("두 키를 같이 누르면 마지막 키를 뗄 때 풀고 포커스 이동 후에도 해제한다", () => {
+    render(<>
+      <DangerousFishingRealtimePanel {...baseProps} encounter={encounterFixture()} />
+      <input aria-label="채팅" />
+    </>);
+    const button = screen.getByRole("button", { name: "누르고 감아올리기" });
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    fireEvent.keyDown(document.body, { code: "Space", key: " " });
+    fireEvent.keyUp(document.body, { key: "Enter" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    const chat = screen.getByLabelText("채팅");
+    chat.focus();
+    fireEvent.keyUp(chat, { code: "Space", key: " " });
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("창 포커스를 잃으면 줄을 풀고 돌아온 뒤 새 입력을 받는다", () => {
+    const { unmount } = render(<DangerousFishingRealtimePanel {...baseProps} encounter={encounterFixture()} />);
+    const button = screen.getByRole("button", { name: "누르고 감아올리기" });
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.blur(window);
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.keyDown(document.body, { key: "Enter", repeat: true });
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    unmount();
+    const down = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    fireEvent(document.body, down);
+    expect(down.defaultPrevented).toBe(false);
+  });
+
+  it.each(["pending", "finished", "secured", "verification"] as const)(
+    "%s 상태에는 전역 단축키를 받지 않는다", (state) => {
+      const encounter = encounterFixture(
+        state === "finished" ? { status: "line_broken" } :
+          state === "secured" ? { stamina: 0, distance: 0 } : {},
+      );
+      if (state === "pending") encounter.startedAt = Date.now() + 1_000;
+      render(<DangerousFishingRealtimePanel
+        {...baseProps}
+        encounter={encounter}
+        verification={state === "verification" ? verificationChallenge : null}
+      />);
+      const down = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      fireEvent(document.body, down);
+      expect(down.defaultPrevented).toBe(false);
+      expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe("false");
+    },
+  );
+
   it.each(["pointer", "space"] as const)(
     "%s hold 중 외부 사람 확인이 도착하면 release 기록을 남기고 조작을 비활성화한다",
     (input) => {

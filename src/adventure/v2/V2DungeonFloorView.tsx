@@ -230,7 +230,7 @@ export function UnexploredHuntSummaryPanel({
         <p className="text-zinc-600 dark:text-zinc-400">
           {summary.traceEnabled ? (
             <>
-              흔적 획득 활성 · 우두머리 계열 특화 몬스터 처치 시 1개
+              흔적 획득 활성 · 모든 특화 몬스터 처치 시 1개
               {summary.traceExtraChancePct > 0
                 ? ` · 추가 획득 +${summary.traceExtraChancePct}%p`
                 : ""}

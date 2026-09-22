@@ -679,7 +679,7 @@ const deepSeeds: ReadonlyArray<{
     id: "boss",
     name: "우두머리의 흔적",
     description:
-      "우두머리 계열 특화 몬스터의 흔적 획득과 보관함, 개인 보스 소환석 제작을 개방합니다.",
+      "모든 특화 몬스터의 흔적 획득과 보관함, 개인 보스 소환석 제작을 개방합니다.",
     icon: "boss",
     effect: "boss",
   },

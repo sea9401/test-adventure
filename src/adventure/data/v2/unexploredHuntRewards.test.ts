@@ -7,6 +7,7 @@ import {
 } from "./unexploredHuntRewards";
 import { unexploredMonsterAtDifficulty } from "./unexploredMonsters";
 import { emptyEquippedLiberationEffects } from "./equipmentLiberationEffects";
+import { UNEXPLORED_BOSSES } from "./unexploredBosses";
 
 function sequence(...rolls: number[]): () => number {
   let index = 0;
@@ -23,6 +24,66 @@ function effects(patch: Partial<UnexploredEffects> = {}): UnexploredEffects {
 }
 
 describe("unexplored hunt rewards", () => {
+  it.each(Object.values(UNEXPLORED_BOSSES).flatMap((boss) => [...boss.pools]))(
+    "소환석 제작에 쓰이는 %s 흔적을 우두머리 노드 활성 시 지급한다",
+    (poolId) => {
+      const monster = unexploredMonsterAtDifficulty({
+        source: "special",
+        poolId,
+        focused: false,
+        difficulty: 95,
+      });
+      const enabled = deriveUnexploredEffects(["start", `pool-${poolId}`, "deep-boss"]);
+      const reward = rollUnexploredHuntRewards(
+        buildUnexploredRewardPlan(monster, enabled),
+        () => 0.999999,
+        { existingTraces: { [poolId]: 7 } },
+      );
+
+      expect(reward.traces).toEqual({ [poolId]: 8 });
+      expect(reward.traceGranted).toBe(1);
+      expect(reward.grants).toContainEqual({
+        kind: "trace", id: poolId, amount: 1, tag: "trace",
+        source: "unexplored_monster_drop",
+      });
+
+      const disabled = deriveUnexploredEffects(["start", `pool-${poolId}`]);
+      const withoutBoss = rollUnexploredHuntRewards(
+        buildUnexploredRewardPlan(monster, disabled),
+        () => 0.999999,
+        { existingTraces: { [poolId]: 7 } },
+      );
+      expect(withoutBoss.traces).toEqual({ [poolId]: 7 });
+      expect(withoutBoss.traceGranted).toBe(0);
+    },
+  );
+
+  it.each(["before", "after"])(
+    "우두머리 노드를 새 풀보다 %s 활성화해도 네 풀의 흔적을 모두 지급한다",
+    (order) => {
+      const initialPools = ["pool-runaway_machines", "pool-shadow_stalkers"];
+      const addedPools = ["pool-iron_legion", "pool-mana_barrier"];
+      const selected = order === "before"
+        ? ["start", ...initialPools, "deep-boss", ...addedPools]
+        : ["start", ...initialPools, ...addedPools, "deep-boss"];
+      const activeEffects = deriveUnexploredEffects(selected);
+      let traces = {};
+      for (const poolId of ["runaway_machines", "shadow_stalkers", "iron_legion", "mana_barrier"] as const) {
+        const monster = unexploredMonsterAtDifficulty({
+          source: "special", poolId, focused: false, difficulty: 95,
+        });
+        traces = rollUnexploredHuntRewards(
+          buildUnexploredRewardPlan(monster, activeEffects),
+          () => 0.999999,
+          { existingTraces: traces },
+        ).traces;
+      }
+      expect(traces).toEqual({
+        runaway_machines: 1, shadow_stalkers: 1, iron_legion: 1, mana_barrier: 1,
+      });
+    },
+  );
+
   it("builds the two fixed base-monster rolls with exactly one tag each", () => {
     const monster = unexploredMonsterAtDifficulty({
       source: "base",
@@ -48,6 +109,8 @@ describe("unexplored hunt rewards", () => {
       },
     ]);
     expect(plan.rolls.every((rule) => typeof rule.tag === "string")).toBe(true);
+    expect(buildUnexploredRewardPlan(monster, effects({ traceEnabled: true })).trace)
+      .toBeNull();
   });
 
   it("scales special material chance to 2.15% or focused 3.225%", () => {

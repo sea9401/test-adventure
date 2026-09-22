@@ -15,10 +15,7 @@ import {
   parseUnexploredTraces,
   type UnexploredTraceState,
 } from "./unexploredRewards";
-import {
-  BOSS_UNEXPLORED_POOL_IDS,
-  type UnexploredEffects,
-} from "./unexploredTree";
+import type { UnexploredEffects } from "./unexploredTree";
 import type { V2EquipmentId } from "./v2Equipment";
 import type { LiberationHuntEffects } from "./equipmentLiberationEffects";
 
@@ -128,8 +125,6 @@ const BASE_DROP_RULES: Record<
   ],
 };
 
-const BOSS_POOL_IDS = new Set<UnexploredPoolId>(BOSS_UNEXPLORED_POOL_IDS);
-
 function percentMultiplier(pct: number): number {
   return Math.max(0, 1 + (Number.isFinite(pct) ? pct : 0) / 100);
 }
@@ -226,11 +221,12 @@ export function buildUnexploredRewardPlan(
     ];
   }
 
+  // 모든 특화 풀의 흔적이 소환석 제작에 쓰인다. 탐사망의 앞/뒤 풀 구분은
+  // 강화 노드 배치용이며 흔적 지급 대상을 제한하지 않는다.
   const tracePoolId =
     monster.kind === "special" &&
     monster.poolId &&
-    effects.traceEnabled &&
-    BOSS_POOL_IDS.has(monster.poolId)
+    effects.traceEnabled
       ? monster.poolId
       : null;
   const rareWeaponId =

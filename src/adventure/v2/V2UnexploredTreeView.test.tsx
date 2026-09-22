@@ -308,7 +308,7 @@ describe("V2UnexploredTreeView", () => {
     );
 
     expect(html).toContain("우두머리의 흔적 노드를 활성화한 뒤");
-    expect(html).toContain("우두머리 계열 특화 몬스터를 처치하면 획득합니다.");
+    expect(html).toContain("모든 특화 몬스터를 처치하면 획득합니다.");
   });
 
   it("renders the 160-node graph, point progress and opaque panels", () => {

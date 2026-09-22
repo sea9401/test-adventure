@@ -21,6 +21,7 @@ import {
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useAttendanceReminder } from "./useAttendanceReminder";
+import { useChuseokReminder } from "./useChuseokReminder";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/우편함/거래소/랭킹/전체 소식) + 게임 안내서 +
 // 환경 설정 + 로그아웃. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
@@ -33,6 +34,12 @@ export function V2SettingsMenu() {
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const attendancePending = useAttendanceReminder();
+  const chuseokPending = useChuseokReminder();
+  const eventPending = attendancePending || chuseokPending;
+  const reminderLabel = [
+    attendancePending && "오늘 출석 체크 필요",
+    chuseokPending && "추석 이벤트 참여 가능",
+  ].filter(Boolean).join(", ");
 
   useEffect(() => {
     if (coinShopAccessible) return;
@@ -81,12 +88,12 @@ export function V2SettingsMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         // 광장+설정이 함께 들어있어 "설정"으로만 오인되던 톱니 → 햄버거 "메뉴"로(사용자 피드백).
-        aria-label={attendancePending ? "메뉴, 오늘 출석 체크 필요" : "메뉴"}
-        title={attendancePending ? "메뉴 · 오늘 출석 체크 필요" : "메뉴"}
+        aria-label={eventPending ? `메뉴, ${reminderLabel}` : "메뉴"}
+        title={eventPending ? `메뉴 · ${reminderLabel}` : "메뉴"}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         <List size={20} weight="bold" />
-        {attendancePending && (
+        {eventPending && (
           <span
             aria-hidden
             className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-900"
@@ -142,13 +149,13 @@ export function V2SettingsMenu() {
               >
                 <Gift size={18} weight="duotone" />
                 <span className="flex-1">이벤트</span>
-                {attendancePending && (
+                {eventPending && (
                   <>
                     <span
                       aria-hidden
                       className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500"
                     />
-                    <span className="sr-only">오늘 출석 체크 필요</span>
+                    <span className="sr-only">{reminderLabel}</span>
                   </>
                 )}
               </Link>

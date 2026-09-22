@@ -4,6 +4,7 @@ import type { ChuseokAttackResult, ChuseokState } from "@/adventure/data/v2/chus
 import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
 import { guildRaidPollDelayMs, sharedStateSnapshotKey } from "./sharedStatePolling";
 import { useRefreshGameState } from "./GameStateRefreshContext";
+import { setChuseokReminder } from "./useChuseokReminder";
 
 const API = "/api/v2/events/chuseok";
 const ERRORS: Record<string, string> = {
@@ -29,7 +30,10 @@ export function useChuseokEvent() {
       const response = await fetch(API, { cache: "no-store" });
       const body = await response.json();
       if (!response.ok || !body?.ok) throw new Error("load_failed");
-      if (sequence === loadSequence.current) setState(body as ChuseokState);
+      if (sequence === loadSequence.current) {
+        setState(body as ChuseokState);
+        setChuseokReminder(body as ChuseokState);
+      }
       return sharedStateSnapshotKey(body);
     } catch {
       if (sequence === loadSequence.current) setNotice({ tone: "error", text: "이벤트 정보를 불러오지 못했습니다. 다시 시도해 주세요." });

@@ -47,6 +47,13 @@ export function ChuseokEventContent({ state, busy, onAttend, onAttack, raidResul
   const [tab, setTab] = useState<"attendance" | "lucky-bag">("attendance");
   const { attendance, raid, phase, window } = state;
   const active = phase === "active";
+  const tabs = CHUSEOK_TABS.map((item) => {
+    const pending = active && (item.key === "attendance" ? attendance.canClaim : raid.attacksRemaining > 0);
+    return pending ? {
+      ...item, badge: "!",
+      badgeLabel: item.key === "attendance" ? "추석 출석 보상 받기 가능" : "복주머니 공격 가능",
+    } : item;
+  });
   return <>
     <Card padding="lg" className="space-y-3">
       <div className="flex items-center gap-3"><Gift size={32} weight="duotone" className="text-amber-600 dark:text-amber-400" /><h2 className="text-xl font-bold">풍성한 한가위</h2></div>
@@ -55,7 +62,7 @@ export function ChuseokEventContent({ state, busy, onAttend, onAttack, raidResul
       {phase !== "active" && <StatusBanner tone="info">{phase === "pending" ? "이벤트 시작 전입니다." : "추석 이벤트가 종료되었습니다. 받은 토벌 보상은 우편함에서 확인해 주세요."}</StatusBanner>}
     </Card>
     <Card padding="none" className="px-2 pt-1">
-      <TabBar tabs={CHUSEOK_TABS} active={tab} onChange={setTab} ariaLabel="추석 이벤트 활동" variant="highlight" className="justify-center" />
+      <TabBar tabs={tabs} active={tab} onChange={setTab} ariaLabel="추석 이벤트 활동" variant="highlight" badgeVariant="alert" className="justify-center" />
     </Card>
     <section role="tabpanel" aria-label={tab === "attendance" ? "추석 출석" : "추석 복주머니"} className="space-y-4">
     {tab === "attendance" ? <Card padding="md" className="space-y-4">

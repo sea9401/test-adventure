@@ -962,7 +962,9 @@ export function moveGridDungeonRun(
       const rewardGold = gridDungeonRoomGold(run.routeId, tile);
       pendingGold += rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
-      message = `고대 유물에서 ${rewardGold.toLocaleString()}G와 재료 흔적을 확보했습니다.`;
+      message = Object.values(eventDrops).some((count) => Number(count) > 0)
+        ? `고대 유물에서 ${rewardGold.toLocaleString()}G와 재료를 확보했습니다.`
+        : `고대 유물에서 ${rewardGold.toLocaleString()}G를 확보했습니다.`;
     } else if (tile === "fountain") {
       const healed = Math.min(
         run.maxHp - hp,

@@ -128,6 +128,13 @@ const CodexMasteryPanel = dynamic(() =>
 
 export const SKY_RIFT_CODEX_DROP_SUMMARY =
   "모든 난이도 동일 방어구 풀 · 깊이별 총 0.05~0.10%";
+export function codexBandRegularChance(depthStart: number, deepDepth: number): string {
+  if (depthStart === 79) {
+    return `모든 난이도 동일 방어구 풀 · 79~83단계 ${(bandCommonChanceForDepth(79) * 100).toFixed(2)}~${(bandCommonChanceForDepth(83) * 100).toFixed(2)}% · 84단계 ${(bandCommonChanceForDepth(84) * 100).toFixed(2)}%`;
+  }
+  if (depthStart >= 73) return SKY_RIFT_CODEX_DROP_SUMMARY;
+  return `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`;
+}
 export const SKY_RIFT_WEAPON_DROP_LABEL =
   "천공 균열 최심부 무기 완제품 " +
   (SKY_RIFT_WEAPON_DROP_CHANCE * 100).toFixed(2) +
@@ -987,9 +994,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   )
                 : null;
               const regularChance = bandIds.length > 0
-                ? theme.depthStart >= 73
-                  ? SKY_RIFT_CODEX_DROP_SUMMARY
-                  : `처치당 ${(bandCommonChanceForDepth(deepDepth) * 100).toFixed(3)}% · 무작위 1종`
+                ? codexBandRegularChance(theme.depthStart, deepDepth)
                 : pool
                   ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`
                   : "";

@@ -37,6 +37,7 @@ export type GuildActivityType =
   | "guild_level_upgrade"
   | "combat_supply_upgrade"
   | "combat_supply_funding"
+  | "weekly_supplies_funding"
   | "training_drill_claim"
   | "alchemy_craft"
   | "emblem_change"

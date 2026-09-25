@@ -30,7 +30,7 @@ export type UnexploredDebuffs = {
 
 /** Only display state crosses the replay boundary, never internal action accumulators. */
 export function unexploredResourceSnapshot(
-  runtime: UnexploredSetPvpRuntime | undefined,
+  runtime: UnexploredSetPveRuntime | UnexploredSetPvpRuntime | undefined,
   debuffs: UnexploredDebuffs | undefined,
 ): Record<string, number | string> | undefined {
   const resources: Record<string, number | string> = {};

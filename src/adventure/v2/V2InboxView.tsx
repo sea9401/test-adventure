@@ -85,15 +85,15 @@ function bodyOf(it: InboxItem): string {
     const text = (it.payload as { text?: unknown })?.text;
     return typeof text === "string" && text.length > 0
       ? text
-      : (it.message ?? KIND_LABEL[it.kind]);
+      : (it.message ?? inboxKindLabel(it));
   }
   if (it.kind === "guild_invite") {
     const g = (it.payload as { guild_name?: unknown })?.guild_name;
     return typeof g === "string" && g.length > 0
       ? `${g} 길드에서 초대했어요.`
-      : (it.message ?? KIND_LABEL[it.kind]);
+      : (it.message ?? inboxKindLabel(it));
   }
-  return it.message ?? KIND_LABEL[it.kind];
+  return it.message ?? inboxKindLabel(it);
 }
 
 function asCount(v: unknown): number {
@@ -295,6 +295,12 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   season_reward: "순위 보상",
   admin_gift: "운영자 우편",
 };
+
+function inboxKindLabel(item: InboxItem): string {
+  return item.kind === "admin_gift" && item.payload.source === "guild_weekly_supplies"
+    ? "길드 지원품"
+    : KIND_LABEL[item.kind];
+}
 
 function formatFull(iso: string): string {
   const d = new Date(iso);
@@ -852,7 +858,7 @@ export function InboxMailCard({
         >
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
             <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-              {KIND_LABEL[item.kind]}
+              {inboxKindLabel(item)}
             </span>
             {item.direction === "sent" ? (
               <>
@@ -916,7 +922,7 @@ export function InboxMailCard({
               onDelete(item);
             }}
             disabled={busy}
-            aria-label={`${item.fromName ? `${item.fromName}님의 ` : ""}${KIND_LABEL[item.kind]} 삭제`}
+            aria-label={`${item.fromName ? `${item.fromName}님의 ` : ""}${inboxKindLabel(item)} 삭제`}
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950"
           >
             <Trash size={14} aria-hidden />
@@ -1001,7 +1007,7 @@ export function MailDetailModal({
               className="flex items-center gap-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100"
             >
               <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                {KIND_LABEL[item.kind]}
+                {inboxKindLabel(item)}
               </span>
               {(sent || read) && (
                 <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">

@@ -14,6 +14,7 @@ import {
   type GuildActivity,
 } from "../GuildActivityList";
 import { GuildCombatSupplySummary } from "./GuildCombatSupplyPanel";
+import { GuildWeeklySuppliesPanel } from "./GuildWeeklySuppliesPanel";
 import { GuildEmblemImage } from "./GuildEmblemImage";
 import { GuildContributionPanel } from "./GuildContributionPanel";
 import { GameIcon } from "@/adventure/v2/GameIcon";
@@ -150,6 +151,7 @@ export function GuildInfoPanel({
       </div>
 
       <GuildCombatSupplySummary />
+      <GuildWeeklySuppliesPanel onChanged={onRefresh} />
 
       <GuildContributionPanel
         data={contribution}

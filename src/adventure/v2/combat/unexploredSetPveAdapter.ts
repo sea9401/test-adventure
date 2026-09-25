@@ -24,22 +24,30 @@ export function recordUnexploredEnemyHit(
 ): BattleState {
   const runtime = state.unexploredSetRuntime;
   if (!runtime || hit.fullyEvaded) return state;
+  const ironWallDefBonus = hasUnexploredEffect(player, "iron_wall")
+    ? ironWallDefGain({
+        hpDamage: hit.hpDamage,
+        currentBonus: runtime.ironWallDefBonus,
+        battleStartDef: runtime.battleStartDef,
+      })
+    : runtime.ironWallDefBonus;
+  const ironWallGain = ironWallDefBonus - runtime.ironWallDefBonus;
   return {
     ...state,
     unexploredSetRuntime: {
       ...runtime,
-      ironWallDefBonus: hasUnexploredEffect(player, "iron_wall")
-        ? ironWallDefGain({
-            hpDamage: hit.hpDamage,
-            currentBonus: runtime.ironWallDefBonus,
-            battleStartDef: runtime.battleStartDef,
-          })
-        : runtime.ironWallDefBonus,
+      ironWallDefBonus,
       // Other shields absorb first; this pool is the last portion of the shared shield.
       afterimageShield: Math.min(runtime.afterimageShield, Math.max(0, shieldAfterAbsorption)),
       enemyActionHpDamage: runtime.enemyActionHpDamage + hit.hpDamage,
       evasionReducedThisEnemyAction: runtime.evasionReducedThisEnemyAction + hit.evasionPreventedDamage,
     },
+    log: ironWallGain > 0
+      ? appendLog(state.log, {
+          kind: "info", turn: "enemy",
+          text: `[철벽 누적] 방어 +${ironWallGain} (누적 +${ironWallDefBonus})`,
+        })
+      : state.log,
   };
 }
 

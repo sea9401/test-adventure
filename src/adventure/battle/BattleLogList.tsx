@@ -1508,7 +1508,7 @@ function SignatureResourceChips({
             ? DOMINANT_LABELS[String(value)] ?? value
             : value;
         const displayedText =
-          key === "frostChill"
+          key === "frostChill" || key.startsWith("unexplored")
             ? String(value)
             : `${SIGNATURE_RESOURCE_LABELS[key] ?? key} ${displayedValue}`;
         return (

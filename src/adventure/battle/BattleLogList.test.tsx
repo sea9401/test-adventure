@@ -60,6 +60,18 @@ const ACTION_LOG: BattleLogEntry[] = [
 ];
 
 describe("방어 기제 로그 라벨", () => {
+  it("철갑 전열의 누적 방어를 내부 키 없이 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <BattleLogList entries={[{
+        kind: "hp_bar", text: "", playerHp: 994, playerMaxHp: 1000,
+        enemyHp: 1000, enemyMaxHp: 1000,
+        playerSignatureResources: { unexploredIronWall: "철벽 누적 방어 +6" },
+      }]} />,
+    );
+    expect(html).toContain('aria-label="철벽 누적 방어 +6"');
+    expect(html).not.toContain("unexploredIronWall");
+  });
+
   it("회피·장벽·방어 라벨을 서로 다른 색상으로 구분한다", () => {
     expect(battleLogPillColor("회피 경감 32.5%")).toContain("teal");
     expect(battleLogPillColor("마나 실드")).toContain("violet");

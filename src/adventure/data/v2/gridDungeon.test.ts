@@ -211,6 +211,13 @@ describe("gridDungeon", () => {
     if (!relic.ok) return;
     expect(relic.run.pendingGold).toBe(gridDungeonRoomGold("guardian", "relic"));
     expect(relic.run.pendingDrops).toEqual({ stone: 2 });
+    expect(relic.run.lastMessage).toContain("재료를 확보했습니다");
+    expect(relic.run.lastMessage).not.toContain("흔적");
+
+    const emptyRelic = moveGridDungeonRun(left.run, "left", 300);
+    expect(emptyRelic.ok).toBe(true);
+    if (!emptyRelic.ok) return;
+    expect(emptyRelic.run.lastMessage).not.toContain("재료를 확보");
   });
 
   it("scales traps and fountains from expedition max hp", () => {

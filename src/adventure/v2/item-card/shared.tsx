@@ -358,6 +358,9 @@ export function unexploredSetEffectDescription(effect: UnexploredSetEffect): str
 }
 
 export function unexploredTagSetBonusDescription(setId: string): string | null {
+  if (setId === "unexplored_chain_drive") {
+    return "2세트의 추가 기본 공격 피해 +20%는 다른 장비·스킬이 만든 추가 기본 공격에도 적용됩니다. 2세트만으로 추가 공격이 생기지는 않으며, 3세트를 착용하면 직접 피해 스킬 적중 시 25% 확률로 추가 기본 공격을 만듭니다.";
+  }
   if (setId !== "unexplored_triad_decay") return null;
   return "상태 이상 지속 피해 증가는 착용자가 부여한 중독·출혈·연소의 주기 피해에만 적용합니다. 상태 이상 부여 확률·스택 수와 즉발 피해와 부가 효과에는 적용되지 않으며, 같은 종류의 증가 효과끼리는 합연산합니다.";
 }

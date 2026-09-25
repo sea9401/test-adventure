@@ -160,6 +160,14 @@ describe("MailDetailModal 장문 가독성", () => {
 });
 
 describe("InboxMailCard 상태 표시", () => {
+  it("길드 자금으로 보낸 지원품은 운영자 우편이 아닌 길드 지원품으로 표시한다", () => {
+    const html = renderToStaticMarkup(createElement(InboxMailCard, {
+      ...handlers,
+      item: inboxItem({ kind: "admin_gift", payload: { source: "guild_weekly_supplies", staminaPotions: 3 }, message: "길드 지원품", hasReward: true, claimState: "claimable" }),
+    }));
+    expect(html).toContain("길드 지원품");
+    expect(html).not.toContain("운영자 우편");
+  });
   const handlers = {
     busy: false,
     onOpen: vi.fn(),

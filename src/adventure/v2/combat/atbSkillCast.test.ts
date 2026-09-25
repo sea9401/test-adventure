@@ -11,6 +11,8 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 });
 
 import type { Monster } from "@/adventure/data/monsters";
+import { masteryTowerGuardianForFloor } from "@/adventure/data/v2/masteryTower";
+import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { actionInterval } from "./combatTimeline";
 import {
   applyPlayerV2SkillCast,
@@ -884,6 +886,31 @@ describe("PR-B: V2_ATB_SKILLS on → ATB 스킬 시전", () => {
     expect(countText(res, "철벽 반사 3회")).toBeGreaterThan(0);
     expect(countText(res, "[철벽 반사]")).toBeGreaterThanOrEqual(3);
     expect(countText(res, "충격 3스택 소비")).toBeGreaterThan(0);
+  });
+
+  it.each([9, 10, 25, 40])("숙련의 탑 %i층 공격에서 철벽 반사가 리플레이 로그에 남는다", (floor) => {
+    const guardian = masteryTowerGuardianForFloor(floor);
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const res = resolveBattle(
+      { ...player, hp: 100_000, maxHp: 100_000, atk: 1, def: 1_000, spd: 500 },
+      guardian,
+      "성채기사",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2c_ironknight_guard"],
+          equipped: ["v2c_ironknight_guard"],
+        },
+        maxTurns: 80,
+      } as never,
+    );
+    expect(countText(res, "철벽 반사 3회 준비")).toBeGreaterThan(0);
+    expect(toReplayPayload(res.finalState).log.some(entry =>
+      entry.kind === "player_attack" &&
+      entry.text.includes("[철벽 반사]") &&
+      entry.text.includes("반사 피해"),
+    )).toBe(true);
   });
 
   it("법칙술사는 문장 시전으로 네 각인을 쌓고 다음 행동에 완성 해방한다", () => {

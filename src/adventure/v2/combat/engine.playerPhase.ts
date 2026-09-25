@@ -536,6 +536,7 @@ export function resolvePlayerPhase(
   // Independent equipment/AP damage is outside the direct-body multipliers.
   const totalDmg = totalDamageAfterEvasion - directDamageAfterEvasion + dmg;
   const labels: string[] = [];
+  if (options.embedded && state.unexploredSetRuntime?.chainDriveResolving) labels.push("연쇄 구동");
   if (bonus > 0) labels.push("강공격");
   if (bonus > 0 && crushReduction > 0) labels.push("분쇄");
   if (executionActive) labels.push("처형");

@@ -10,12 +10,8 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { useSystemMessageState } from "./RewardToastProvider";
-import {
-  V2_STAT_KEYS,
-  V2_STAT_LABELS,
-  type V2StatKey,
-} from "@/adventure/data/v2/v2StatKeys";
-import { V2_STAT_CAP_BASE } from "@/adventure/data/v2/proficiency";
+import { type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import { CultivationStatList } from "./CultivationStatList";
 import { parseV2Class, type V2Class } from "@/adventure/data/v2/classes";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
@@ -57,8 +53,7 @@ type StateShape = {
     spec?: string | null;
   };
   codex?: { discovered: number; total: number };
-  // stats.base = cap 클램프 후 현 스탯(직업보정 전 — cap 과 같은 스케일). 표시 "현스탯(cap)".
-  // stats.total = 효과 스탯(장비 포함) — 코어루프 스탯게이트 판정 기준.
+  // stats.base = cap 클램프 후 현 스탯. stats.total = 내 정보와 같은 효과 적용치.
   stats?: {
     base?: Partial<Record<V2StatKey, number>>;
     total?: Partial<Record<V2StatKey, number>>;
@@ -110,6 +105,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [resetConfirming, setResetConfirming] = useState(false);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
+  const [totalStats, setTotalStats] = useState<Partial<Record<V2StatKey, number>>>({});
   // 레거시 직업 그리드용 — 캐릭터 + 직군 요약(도달차수·숙련도) + 현 직업군 전직 가능 여부.
   const [picker, setPicker] = useState<{
     cls: V2Class;
@@ -169,6 +165,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setCultivationResetGoldCost(cur.cultivationResetGoldCost ?? 0);
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
+        setTotalStats(j.stats?.total ?? {});
         if (j.character) {
           setPicker({
             cls: parseV2Class(j.character.class),
@@ -478,42 +475,12 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 직업이 없어 수행할 수 없어요. 먼저 직업을 선택하세요.
               </p>
             ) : profile ? (
-              <ul className="mt-3 space-y-1.5">
-                {V2_STAT_KEYS.map((k) => {
-                  const cap = caps[k] ?? V2_STAT_CAP_BASE;
-                  const cur = stats[k] ?? 0;
-                  const gain = isLifestyleJob ? 0 : (profile[k] ?? 0);
-                  return (
-                    <li
-                      key={k}
-                      className={`${SURFACE_INSET} flex min-h-11 items-center justify-between gap-3 px-3 py-2`}
-                    >
-                      <div className="flex min-w-0 items-baseline gap-2">
-                        <span className="text-sm font-semibold uppercase">
-                          {k.toUpperCase()}
-                        </span>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {V2_STAT_LABELS[k]}
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-2 tabular-nums text-sm">
-                        {/* 현스탯(한계) — 예 200(300). 수행은 한계만 올림. */}
-                        <span className="font-semibold">
-                          {cur}
-                          <span className="font-normal text-zinc-500 dark:text-zinc-400">
-                            ({cap})
-                          </span>
-                        </span>
-                        {gain > 0 && (
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            한계 +{gain}
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <CultivationStatList
+                base={stats}
+                total={totalStats}
+                caps={caps}
+                gains={isLifestyleJob ? {} : profile}
+              />
             ) : null}
 
             {profile && (

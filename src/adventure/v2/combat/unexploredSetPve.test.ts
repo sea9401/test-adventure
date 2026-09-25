@@ -11,6 +11,7 @@ import { applyCounterIfAny, applyEnemyV2SkillCast, applyPlayerV2SkillCast, finis
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { resolveBattleAtb, tickPlayerDotsOnAction } from "./engine.atb";
+import { hpBarEntry } from "./engine.atbLog";
 import { afterimageShield, colonyRegeneration, ironWallDefGain, manaRedeployment, shouldQueueRevenge, unyieldingDamage } from "./unexploredSetEffects";
 import { initialTripleWardState } from "./tripleWard";
 
@@ -170,6 +171,7 @@ describe("PvE unexplored offensive integration", () => {
     const next = cast(initial, player).state;
     expect(initial.enemyHp - next.enemyHp).toBe(130 + extra);
     expect(damageLines(next)).toHaveLength(extra ? 6 : 5);
+    expect(next.log.filter(entry => entry.text.includes("[연쇄 구동]"))).toHaveLength(extra ? 1 : 0);
     expect(next.unexploredSetRuntime?.chainDriveResolving).toBe(false);
     expect(next.turn.completedPlayerTurns).toBe(0);
     expect(random).toHaveBeenCalledTimes(2);
@@ -424,6 +426,19 @@ describe("unexplored defensive resolver boundaries", () => {
 });
 
 describe("PvE unexplored defensive integration", () => {
+  it.each([["ATB", resolveBattleAtb], ["classic", resolveBattle]] as const)("keeps iron wall gain visible in %s replay HP bars", (_name, resolve) => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player = { ...playerWith("iron_wall"), def: 100, hp: 10_000, maxHp: 10_000 };
+    const result = resolve(player, { ...ENEMY, atk: 1_000, spd: 100 }, "용사", {
+      pickAction: () => ({ kind: "attack" }), potions: {}, maxTurns: 4,
+    });
+    expect(result.finalState.log.some(entry => entry.text.startsWith("[철벽 누적] 방어 +"))).toBe(true);
+    expect(result.finalState.log.some(entry =>
+      entry.kind === "hp_bar" &&
+      typeof entry.playerSignatureResources?.unexploredIronWall === "string",
+    )).toBe(true);
+  });
+
   it("adds mana start shield to existing shields and initializes independent battle counters", () => {
     const player = { ...playerWith("mana_redeployment"), bulwarkShield: 25 };
     const state = initialBattleState(player, ENEMY, "용사");
@@ -465,10 +480,15 @@ describe("PvE unexplored defensive integration", () => {
     // 858 HP damage against DEF 100 => floor(858 * .0075) = 6.
     expect(next.playerHp).toBe(9142);
     expect(next.unexploredSetRuntime?.ironWallDefBonus).toBe(6);
+    expect(next.log.some(entry => entry.text === "[철벽 누적] 방어 +6 (누적 +6)")).toBe(true);
+    const hpBar = hpBarEntry(next);
+    if (hpBar.kind !== "hp_bar") throw new Error("expected HP bar");
+    expect(hpBar.playerSignatureResources).toMatchObject({ unexploredIronWall: "철벽 누적 방어 +6" });
     const second = hit({ ...next, phase: "enemy", turn: { ...next.turn, enemyAttacksLeft: 1 } }, player);
     expect(second.playerHp).toBe(8291); // DEF 106 => 851 damage.
     const shielded = hit({ ...state, stacks: { ...state.stacks, playerShield: 2000 } }, player);
     expect(shielded.unexploredSetRuntime?.ironWallDefBonus).toBe(0);
+    expect(shielded.log.some(entry => entry.text.startsWith("[철벽 누적]"))).toBe(false);
     expect(shielded.unexploredSetRuntime?.revengePending).toBe(false);
   });
   it("aggregates revenge over a whole enemy action and resets its damage accumulator", () => {
@@ -550,6 +570,7 @@ describe("PvE unexplored defensive integration", () => {
     expect(state.unexploredSetRuntime?.ironWallDefBonus).toBe(10);
     state = hit({ ...state, phase: "enemy" }, { ...player, def: 100 });
     expect(state.unexploredSetRuntime?.ironWallDefBonus).toBe(10);
+    expect(state.log.filter(entry => entry.text.startsWith("[철벽 누적]"))).toHaveLength(1);
   });
   it("rechecks unyielding for each enemy skill hit while keeping no-set skill logs unchanged", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);

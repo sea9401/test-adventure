@@ -130,7 +130,7 @@ function resolveBattleLegacy(
   const turnMarkerText = (turnNo: number): string => `${turnNo}턴`;
   // 그 시점 HP 스냅샷 — 매 턴 종료 시 + 전투 종료 시 로그 마지막에 박는다.
   const hpBarEntry = (s: BattleState): BattleLogEntry => {
-    const playerResources = playerResourceSnapshot(s.stacks);
+    const playerResources = playerResourceSnapshot(s.stacks, s.unexploredSetRuntime);
     const enemyResources = mergeFrostChillSnapshot(
       undefined,
       s.stacks.enemyFrostChillStacks,

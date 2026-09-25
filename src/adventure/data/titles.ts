@@ -65,7 +65,7 @@ export const TITLE_CATEGORY_ORDER: readonly {
   { id: "guild", label: "길드" },
   { id: "tower", label: "탑" },
   { id: "endgame", label: "별의 옥좌" },
-  { id: "pvp", label: "투기장" },
+  { id: "pvp", label: "아레나" },
   { id: "fishing", label: "낚시" },
   { id: "collection", label: "수집" },
 ];
@@ -1063,8 +1063,8 @@ export const TITLES: Record<TitleId, Title> = {
   },
   ach_arena_conqueror: {
     id: "ach_arena_conqueror",
-    name: "투기장 정복자",
-    description: "수많은 승부를 넘어 투기장에 자신의 이름을 깊이 새긴 사람.",
+    name: "아레나 정복자",
+    description: "수많은 승부를 넘어 아레나에 자신의 이름을 깊이 새긴 사람.",
     condition: "업적 '투기장의 지배자' 보상 수령",
     category: "pvp",
   },

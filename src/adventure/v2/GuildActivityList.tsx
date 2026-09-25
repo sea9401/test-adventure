@@ -158,6 +158,8 @@ function describe(a: GuildActivity): string {
       }`;
     case "combat_supply_funding":
       return `${actor} 님이 주간 전투보급 운용을 Lv ${a.meta?.operationsTier ?? "?"}로 강화했어요 · 길드 자금 -${(a.meta?.goldCost ?? 0).toLocaleString()} G`;
+    case "weekly_supplies_funding":
+      return `${actor} 님이 길드원 ${(a.meta?.recipientCount ?? 0).toLocaleString()}명에게 주간 지원품을 보냈어요 · 길드 자금 -${(a.meta?.goldCost ?? 0).toLocaleString()} G`;
     case "training_drill_claim":
       return `${actor} 님이 ${a.meta?.drillTitle ?? "훈련"}을 완료했어요${
         a.meta?.rewardMastery
@@ -234,6 +236,7 @@ const DOT_CLASS: Record<string, string> = {
   guild_level_upgrade: "bg-sky-500",
   combat_supply_upgrade: "bg-rose-500",
   combat_supply_funding: "bg-amber-500",
+  weekly_supplies_funding: "bg-amber-500",
   training_drill_claim: "bg-emerald-500",
   emblem_change: "bg-fuchsia-500",
   nation_declare: "bg-indigo-500",

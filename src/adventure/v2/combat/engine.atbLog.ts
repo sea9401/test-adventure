@@ -9,7 +9,7 @@ import { TOXIC_BLOOD_MAX_STACKS, TOXIC_RECOVERY_LOCK_ACTIONS } from "./toxicBloo
 import { TRACKING_THREAT_MAX } from "./trackingWeaponMechanic";
 
 export function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
-  const playerResources = playerResourceSnapshot(state.stacks);
+  const playerResources = playerResourceSnapshot(state.stacks, state.unexploredSetRuntime);
   const bossResources: Record<string, number | string> | undefined =
     state.bossMechanic?.kind === "invincible_fortress"
       ? invincibleFortressResourceSnapshot(

@@ -393,6 +393,7 @@ describe.each(["p1", "p2"] as const)("%s unexplored set symmetry", side => {
     const state = battle(side, fighter({ unexploredSetEffects: effects("chain_drive") }), fighter(), ["v2c_martial_combo"]);
     const next = cast(state, side).state;
     expect(damageLines(next)).toHaveLength(hitCount);
+    expect(next.log.filter(entry => entry.text.includes("[연쇄 구동]"))).toHaveLength(hitCount === 6 ? 1 : 0);
     expect(random).toHaveBeenCalledTimes(2);
   });
   it("chain preserves a queued signature bonus without counting or generating another", () => {

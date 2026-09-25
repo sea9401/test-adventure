@@ -8,6 +8,7 @@ import {
   codexEquipmentProgress,
   codexTabFromParam,
   codexThemeDeepDepth,
+  codexBandRegularChance,
   codexUniqueDropSummary,
   SKY_RIFT_CODEX_DROP_SUMMARY,
   SKY_RIFT_WEAPON_DROP_LABEL,
@@ -122,6 +123,13 @@ describe("모험의 서 사냥터 표시", () => {
   it("천공 균열 장비는 난이도별 별도 풀이 아니라 전역 방어구 풀이라고 안내한다", () => {
     expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("모든 난이도 동일 방어구 풀");
     expect(SKY_RIFT_CODEX_DROP_SUMMARY).toContain("깊이별 총 0.05~0.10%");
+    expect(codexBandRegularChance(73, 78)).toBe(SKY_RIFT_CODEX_DROP_SUMMARY);
+  });
+
+  it("별의 무덤은 84단계 방어구 획득률 0.15%를 따로 안내한다", () => {
+    expect(codexBandRegularChance(79, 84)).toBe(
+      "모든 난이도 동일 방어구 풀 · 79~83단계 0.05~0.10% · 84단계 0.15%",
+    );
   });
 
   it("천공 균열 무기 획득처는 내부 단계 번호 대신 지역 단계명으로 표시한다", () => {

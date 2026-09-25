@@ -566,6 +566,7 @@ function advanceTurnPvPBody(
   let damageBeforeSetEffects = 0;
   let damageAfterUnyielding = 0;
   const labels: string[] = [];
+  if (phaseEndOptions.embeddedBasic && attacker.stacks.unexplored?.chainDriveResolving) labels.push("연쇄 구동");
   if (powerBonus > 0) labels.push("강공격");
   if (powerBonus > 0 && crushReduction > 0) labels.push("분쇄");
   if (executionActive) labels.push("처형");

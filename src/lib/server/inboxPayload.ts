@@ -115,13 +115,14 @@ export type InboxPayload =
       // 운영자 대량 우편(이벤트 보상·보정금). claim 시 골드 + 재료/장비/소비템/무슨 코인 지급.
       // 메시지는 message 컬럼. 장비는 길드 의뢰 보상과 동일하게 base 등급으로 지급.
       kind: "admin_gift";
+      source?: "guild_weekly_supplies";
       gold: number;
       materials: GuildQuestRewardMaterial[];
       /** 요리 전용 재료. 누락은 기존 운영자 우편 호환을 위해 빈 배열로 처리한다. */
       cookingIngredients?: AdminGiftCookingIngredient[];
       items: GuildQuestRewardItem[];
       staminaPotions: number;
-      /** 관리자 지급분만 귀속 처리한다. 누락된 레거시·이벤트 보상은 비귀속으로 유지. */
+      /** 명시된 지급분만 귀속 처리한다. 누락된 레거시·이벤트 보상은 비귀속으로 유지. */
       staminaPotionsBound?: boolean;
       museunCoins: number;
       /** 희귀 지도 숙련에 쓰는 inventory.v2 전용 재화. */
@@ -296,6 +297,7 @@ export function parseInboxPayload(
       const items = parseRewardItems(p.items);
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
       const staminaPotionsBound = p.staminaPotionsBound === true;
+      const source = p.source === "guild_weekly_supplies" ? p.source : null;
       const museunCoins = asNonNegInt(p.museunCoins) ?? 0;
       const masteryCertificates = asNonNegInt(p.masteryCertificates) ?? 0;
       const cashItems = parseRewardCashItems(p.cashItems);
@@ -309,6 +311,7 @@ export function parseInboxPayload(
         items,
         staminaPotions,
         ...(staminaPotionsBound ? { staminaPotionsBound: true } : {}),
+        ...(source ? { source } : {}),
         museunCoins,
         ...(masteryCertificates > 0 ? { masteryCertificates } : {}),
         cashItems,

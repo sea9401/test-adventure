@@ -129,7 +129,7 @@ describe("v2Quests 카탈로그 무결성", () => {
   it("장비 도감·투기장·숙련의 탑 종착 업적도 고유 칭호를 지급한다", () => {
     const rewards = [
       ["codex_240", "ach_equipment_archivist", "장비 기록관"],
-      ["arena_win250", "ach_arena_conqueror", "투기장 정복자"],
+      ["arena_win250", "ach_arena_conqueror", "아레나 정복자"],
       ["tower_50", "ach_mastery_tower_peak", "탑 정복자"],
     ] as const;
 

@@ -291,6 +291,19 @@ describe("parseInboxPayload — happy path", () => {
     });
   });
 
+  it("길드 지원품 우편의 출처와 귀속 여부를 수령까지 보존한다", () => {
+    expect(parseInboxPayload("admin_gift", {
+      source: "guild_weekly_supplies",
+      staminaPotions: 3,
+      staminaPotionsBound: true,
+    })).toMatchObject({
+      kind: "admin_gift",
+      source: "guild_weekly_supplies",
+      staminaPotions: 3,
+      staminaPotionsBound: true,
+    });
+  });
+
   it("admin_gift (골드 + 재료 + 장비 + 스태미나 회복약)", () => {
     expect(
       parseInboxPayload("admin_gift", {

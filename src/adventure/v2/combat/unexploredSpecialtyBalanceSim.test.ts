@@ -281,8 +281,8 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     expect(report.ratios).toEqual([
       expect.objectContaining({
         setId: "tracking",
-        stormRoleRatio: expect.closeTo(0.82710037015033120, 8),
-        pioneerRoleRatio: expect.closeTo(1.175840981681551, 8),
+        stormRoleRatio: expect.closeTo(0.884441365694139, 8),
+        pioneerRoleRatio: expect.closeTo(1.0980475380916925, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
@@ -327,7 +327,7 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
       expect(output).toContain(
         "세트 | 폭풍 전환/폭풍 | 개척자 전환/개척자 | 전환/보스 역할 | 전환/보스 생존",
       );
-      expect(output).toContain("tracking | 0.827 | 1.176 | - | -");
+      expect(output).toContain("tracking | 0.884 | 1.098 | - | -");
       expect(output).toContain(
         "세트 | 슬롯 | 특화 장비(위력·옵션) | 보스 고유(위력·옵션)",
       );
@@ -469,7 +469,37 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     );
   }, 120_000);
 
-  it("독립 성장 적용 후 추적 세트의 기준 초과를 숨기지 않고 보고한다", () => {
+  it("개척자 주 역할 비율의 1.08 상한은 허용하고 초과는 실패로 보고한다", () => {
+    const report = buildUnexploredSpecialtyBalanceReport({
+      pveTrials: 1,
+      pvpPairs: 0,
+      seed: 20260831,
+    });
+    const tracking = report.pve.find((entry) => entry.setId === "tracking")!;
+    const baseline = tracking.comparisons
+      .find((entry) => entry.loadout === "pioneer")!
+      .scenarios.find((entry) => entry.scenarioId === "long_dummy")!;
+    const transition = tracking.comparisons
+      .find((entry) => entry.loadout === "pioneerTransition")!
+      .scenarios.find((entry) => entry.scenarioId === "long_dummy")!;
+    baseline.medianDamagePer1000Ticks = 1000;
+    transition.medianDamagePer1000Ticks = 1080;
+
+    expect(unexploredSpecialtyBalanceViolations(report).failures).not.toContainEqual(
+      expect.objectContaining({ code: "PVE_PIONEER_RANGE", setId: "tracking" }),
+    );
+
+    transition.medianDamagePer1000Ticks = 1081;
+    expect(unexploredSpecialtyBalanceViolations(report).failures).toContainEqual(
+      expect.objectContaining({
+        code: "PVE_PIONEER_RANGE",
+        setId: "tracking",
+        message: expect.stringContaining("1.081배"),
+      }),
+    );
+  }, 60_000);
+
+  it("명궁의 안목 분리 후 전체 표본이 기존 밸런스 기준을 충족한다", () => {
     const report = buildUnexploredSpecialtyBalanceReport({
       pveTrials: 20,
       pvpPairs: 40,
@@ -478,13 +508,9 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
 
     expect(unexploredSpecialtyBalanceViolations(report)).toEqual({
       warnings: [],
-      // 성장 표본 변경으로 tracking 비율이 1.114배다. 기존 1.08 상한을
-      // 완화하지 않고 보고서가 이 균형 변화를 계속 검출하도록 고정한다.
-      failures: [expect.objectContaining({
-        code: "PVE_PIONEER_RANGE",
-        setId: "tracking",
-        message: expect.stringContaining("1.114배"),
-      })],
+      // 활의 상시 적중도 전환을 제거하고 명궁의 안목 장착 효과로 분리했다.
+      // 0.97~1.08 판정 범위는 유지하며 실제 장착 구성의 결과를 검증한다.
+      failures: [],
     });
   }, 120_000);
 });

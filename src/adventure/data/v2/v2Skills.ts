@@ -32,7 +32,11 @@ import { FIRE_MAGE_SKILLS, type FireMageSkillId } from "./fireMageSkills";
 import { DRAGON_KNIGHT_SKILLS, type DragonKnightSkillId } from "./dragonKnightSkills";
 import { TIER7_EXPANSION_SKILLS, type Tier7ExpansionSkillId } from "./tier7ExpansionSkills";
 import { passiveForJob, type LineagePassiveBonus } from "./lineagePassives";
-import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
+import {
+  MARKSMAN_INSIGHT_ACCURACY_THRESHOLD,
+  V2_COMMON_SKILLS,
+  type V2CommonSkillId,
+} from "./v2SkillsCommonCatalog";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   parseCombatPattern,
@@ -133,6 +137,8 @@ export type V2PassiveSkillEffect = {
   fortressDefSkillStatCoefPct?: number;
   /** 적중도 +% 증가(정밀) — 스탯·장비 적중도 합계에 적용. */
   accuracyPct?: number;
+  /** 임계치 초과 적중도를 공격력으로 전환하는 계수(명궁의 안목). */
+  accuracyToAtkCoef?: number;
   // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
   /** 회복 +% 가산(치유 강화) — healMult ×(1+합산%/100). 신술 지원 라인 패시브. */
   healPowerPct?: number;
@@ -931,6 +937,9 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     // 적중도는 상대가 회피도에 투자한 경우에만 직접 피해 경감을 완화하고, 보장 회피는
     // 뚫지 못한다. 저회피 상대에서도 항상 작동하는 치명·주스탯과 같은 가격을 매기지 않는다.
     mag += (p.accuracyPct ?? 0) / 30;
+    // 적중도의 공격력 전환은 저회피 상대에게도 작동한다. 계수 0.45는 후반 DEX에서
+    // 약 0.16 ATK/DEX에 해당하고 기본·장비 적중도까지 전환하므로 별도로 평가한다.
+    mag += (p.accuracyToAtkCoef ?? 0) * 5;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
     mag += (p.magicDefPct ?? 0) / 12;
@@ -1670,6 +1679,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   fortressDefSkillStatCoefPct: number;
   lawInscription: boolean;
   accuracyPct: number;
+  accuracyToAtkCoef: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
   statusDamageReductionPct: number;
@@ -1742,6 +1752,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   let fortressDefSkillStatCoefPct = 0;
   let lawInscription = false;
   let accuracyPct = 0;
+  let accuracyToAtkCoef = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
   let statusDamageReductionPct = 0;
@@ -1842,6 +1853,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     fortressDefSkillStatCoefPct += p.fortressDefSkillStatCoefPct ?? 0;
     if (p.lawInscription) lawInscription = true;
     accuracyPct += p.accuracyPct ?? 0;
+    accuracyToAtkCoef += p.accuracyToAtkCoef ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
     statusDamageReductionPct += p.statusDamageReductionPct ?? 0;
@@ -1937,6 +1949,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     fortressDefSkillStatCoefPct,
     lawInscription,
     accuracyPct,
+    accuracyToAtkCoef,
     healPowerPct,
     damageTakenReductionPct,
     statusDamageReductionPct,
@@ -2592,6 +2605,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`추가 광석 확률 ${p.miningBonusOreChancePct}%`);
   if (p.spdToAtkMaxPct)
     chips.push(`속도에 비례해 공격력 증가 (최대 +${p.spdToAtkMaxPct}%에 가까워짐)`);
+  if (p.accuracyToAtkCoef) {
+    chips.push(
+      `적중도 ${MARKSMAN_INSIGHT_ACCURACY_THRESHOLD} 초과분의 ${p.accuracyToAtkCoef * 100}%를 공격력으로 전환`,
+    );
+  }
   if (p.spdPerLukCoef)
     chips.push(`행운 ×${p.spdPerLukCoef}만큼 속도 증가`);
   if (p.atkPerLukCoef)

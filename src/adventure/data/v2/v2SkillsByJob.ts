@@ -1,6 +1,6 @@
 // 직업 시스템 v2 — jobId 별 "학습 가능 시그니처 스킬셋".
 // 직업 킷 재설계(2026-06-17): 시작 스킬(자동 보유)은 공통 베이스로 두고, 직업마다 작은 킷만
-//   추가한다(액티브 1 + 패시브 1). 마법사는 비상용 마나 회복기 1개를 더 배운다.
+//   추가한다(기본적으로 액티브 1 + 패시브 1). 마법사는 비상용 마나 회복기 1개를 더 배운다.
 //   옛 공용 풀(난격·파쇄 등)·계파 스킬은 코어루프 학습 풀에서
 //   은퇴(이미 배운 건 보존). classes.ts:elementalSkillsForClass 가 코어루프에서 이 표를 jobId
 //   로 조회. 차수 게이팅 없음.
@@ -175,7 +175,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"], // 원소군주: 원소 폭주 + 원소 공명
   cryomancer: ["v2c_cryomancer_absolutezero", "v2c_cryomancer_freezingpoint"], // 빙결술사: 절대영도 + 빙점 지배
   inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"], // 각인술사: 각인 해방 + 각인 증폭
-  marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
+  marksman: ["v2c_marksman_shot", "v2c_marksman_aim", "v2c_marksman_insight"], // 명궁: 정밀 사격 + 조준 + 명궁의 안목
   nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak", "v2c_nightshade_weakpoint2"], // 밤그림자: 월식 + 은신 II + 급소 노출 II
   saint: ["v2c_saint_miracle", "v2c_saint_benediction"], // 성자: 기적 + 축복
   grandwarder: ["v2c_grandwarder_eightgate", "v2c_grandwarder_tripleward"], // 대결계사: 팔문금쇄진 + 삼중결계

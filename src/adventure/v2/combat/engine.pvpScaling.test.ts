@@ -17,6 +17,12 @@ describe("PvP 표면 배율", () => {
     expect(scalePvPShield(state, 101)).toBe(65);
   });
 
+  it("별도 회복 배율을 주면 보호막 배율과 독립적으로 적용한다", () => {
+    const state = { healingMultiplier: 0.5, sustainMultiplier: 0.65 };
+    expect(scalePvPHealing(state, 101)).toBe(50);
+    expect(scalePvPShield(state, 101)).toBe(65);
+  });
+
   it("배율이 없거나 값이 양수가 아니면 원래 값을 보존한다", () => {
     expect(scalePvPDamage({}, 100)).toBe(100);
     expect(scalePvPHealing({ sustainMultiplier: 0.5 }, 0)).toBe(0);

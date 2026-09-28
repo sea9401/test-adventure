@@ -29,7 +29,6 @@ describe("희귀 탐사 일반 사냥터 복귀", () => {
       <V2DungeonFloorView
         floorId={10}
         outpostId="outpost-1"
-        outpostName="마른 협곡 거점"
         playerName="모험가"
         playerGender="male"
         stamina={{ current: 100, lastUpdatedAt: 0 }}
@@ -115,7 +114,6 @@ describe("미개척지 사냥 화면", () => {
         huntMode="unexplored"
         unexploredSummary={summary}
         outpostId="outpost-1"
-        outpostName="전용 사냥터"
         playerName="모험가"
         playerGender="male"
         stamina={{ current: 100, lastUpdatedAt: 0 }}
@@ -136,7 +134,6 @@ describe("미개척지 사냥 화면", () => {
 describe("별의 무덤 사냥 화면", () => {
   const baseProps = {
     outpostId: "outpost-1",
-    outpostName: "별의 무덤 거점",
     playerName: "모험가",
     playerGender: "male" as const,
     stamina: { current: 100, lastUpdatedAt: 0 },

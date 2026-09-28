@@ -1109,10 +1109,11 @@ export function WeeklyDeliveryBoard({
             ? (inventory[delivery.optionalRareItemId] ?? 0)
             : 0;
           const rareBonus = delivery.optionalRareBonusReputation ?? 0;
+          const bonusBreakdown = `기본 ${delivery.rewardReputation}개 + 보너스 ${rareBonus}개 = 총 ${delivery.rewardReputation + rareBonus}개`;
           const bonusText = !claimed && delivery.optionalRareItemId
             ? `${delivery.optionalRareItemName ?? ITEM_LABELS[delivery.optionalRareItemId]} ${rareCount.toLocaleString("ko-KR")}개 보유 · ${rareCount > 0
-              ? `납품 시 1개 자동 사용 · 증표 +${rareBonus}`
-              : `미보유로 보너스 미적용 · 1개 보유 시 증표 +${rareBonus}`}`
+              ? `납품 시 1개 자동 사용 · 증표 ${bonusBreakdown}`
+              : `미보유로 보너스 미적용 · 1개 보유 시 증표 ${bonusBreakdown}`}`
             : undefined;
           return (
             <DeliveryRequestCard

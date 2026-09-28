@@ -188,6 +188,7 @@ export function initialBattleStatePvP(
   damageMultiplier?: number,
   sustainMultiplier?: number,
   initiative?: PvPInitiativeActor,
+  healingMultiplier?: number,
 ): PvPBattleState {
   const normalizedDamageMultiplier =
     typeof damageMultiplier === "number" &&
@@ -201,6 +202,12 @@ export function initialBattleStatePvP(
     sustainMultiplier > 0
       ? sustainMultiplier
       : 1;
+  const normalizedHealingMultiplier =
+    typeof healingMultiplier === "number" &&
+    Number.isFinite(healingMultiplier) &&
+    healingMultiplier > 0
+      ? healingMultiplier
+      : undefined;
   const p1Side = buildSide(
     p1Player,
     p1Name,
@@ -280,6 +287,9 @@ export function initialBattleStatePvP(
       : {}),
     ...(normalizedSustainMultiplier !== 1
       ? { sustainMultiplier: normalizedSustainMultiplier }
+      : {}),
+    ...(normalizedHealingMultiplier !== undefined
+      ? { healingMultiplier: normalizedHealingMultiplier }
       : {}),
   };
 }

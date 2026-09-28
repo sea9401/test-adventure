@@ -109,9 +109,6 @@ export const EVA_PER_DEX = 0.5;
 export const ACCURACY_PCT_PER_DEX = 0.35;
 // 레거시 표시용 상한. 실제 전투는 캡 없는 accRating을 사용한다.
 export const ACCURACY_PCT_CAP = 35;
-// 궁사 활 패시브 — 임계치를 넘긴 적중도를 공격력으로 일부 변환한다.
-export const BOW_HIT_THRESHOLD = 50;
-export const BOW_ACCURACY_TO_ATK_COEF = 0.45;
 // 천궁 속도 전환 — 전체 SPD를 공격력으로 환원하되, 이 값에서 최대 보너스의 절반에 도달한다.
 export const SPD_TO_ATK_HALF_SATURATION = 500;
 

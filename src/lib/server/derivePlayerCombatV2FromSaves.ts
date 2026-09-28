@@ -148,6 +148,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.fortressDefSkillStatCoefPct,
     passiveLawInscription: passiveAgg.lawInscription,
     passiveAccuracyPct: passiveAgg.accuracyPct,
+    passiveAccuracyToAtkCoef: passiveAgg.accuracyToAtkCoef,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
     passiveStatusDamageReductionPct: passiveAgg.statusDamageReductionPct,

@@ -76,6 +76,13 @@ describe("최신 게임 안내서 내용", () => {
     expect(formulas).toContain("회복 배율");
   });
 
+  it("PvP 치명타 저항과 회복·보호막의 서로 다른 배율을 안내한다", () => {
+    const text = renderToStaticMarkup(<CombatFormulasContent />).replace(/<[^>]*>/g, "");
+    expect(text).toContain("치명타 저항을 먼저 빼고");
+    expect(text).toContain("원본 치명타 확률의 최대 75%");
+    expect(text).toContain("회복량을 50%로, 새 보호막을 65%로");
+  });
+
   it("협동 보스 공격 비용과 단방향 전체 공개 규칙을 안내한다", () => {
     const html = renderToStaticMarkup(<CoopContent />);
 

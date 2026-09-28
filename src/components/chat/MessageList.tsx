@@ -55,12 +55,18 @@ export function MessageList({
   // 키보드가 열리기 전 최신 메시지를 보고 있었는지 보존한다. 높이가 줄어든 뒤
   // 현재 scrollTop 으로 다시 계산하면 하단에서 멀어진 것으로 오인할 수 있다.
   const pinnedToBottomRef = useRef(true);
+  const lastScrollMetricsRef = useRef<ScrollMetrics | null>(null);
 
   const scrollToBottom = useCallback(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     pinnedToBottomRef.current = true;
+    lastScrollMetricsRef.current = {
+      scrollHeight: el.scrollHeight,
+      scrollTop: el.scrollTop,
+      clientHeight: el.clientHeight,
+    };
   }, []);
 
   // 패널을 처음 열었을 때 한 번은 무조건 맨 아래로 — 최신 메시지부터 보이게.
@@ -134,7 +140,23 @@ export function MessageList({
       onScroll={() => {
         const el = listRef.current;
         if (el) {
-          pinnedToBottomRef.current = isChatMessageListNearBottom(el);
+          const metrics = {
+            scrollHeight: el.scrollHeight,
+            scrollTop: el.scrollTop,
+            clientHeight: el.clientHeight,
+          };
+          const previous = lastScrollMetricsRef.current;
+          const layoutChanged = previous && (
+            metrics.scrollHeight !== previous.scrollHeight ||
+            metrics.clientHeight !== previous.clientHeight
+          );
+          // 높이 변화나 아래 방향 이동은 사용자가 이전 메시지를 보려는 동작이 아니다.
+          // 실제로 위로 올렸을 때만 하단 고정을 해제한다.
+          pinnedToBottomRef.current =
+            isChatMessageListNearBottom(metrics) ||
+            (pinnedToBottomRef.current &&
+              (!previous || layoutChanged || metrics.scrollTop >= previous.scrollTop));
+          lastScrollMetricsRef.current = metrics;
         }
       }}
       className="no-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3"

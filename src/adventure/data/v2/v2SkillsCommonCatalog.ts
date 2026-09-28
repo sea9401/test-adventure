@@ -21,6 +21,9 @@ import type {
 } from "./v2Skills";
 import { V2_DOT_PRESETS, V2_DEBUFF_PRESETS } from "./statusEffects";
 
+export const MARKSMAN_INSIGHT_ACCURACY_THRESHOLD = 50;
+export const MARKSMAN_INSIGHT_ACCURACY_TO_ATK_COEF = 0.45;
+
 // 공용 스킬 id — 직군 prefix(v2c_<job>_<slug>). 예기는 패시브(derive)라 여기 없음.
 export type V2CommonSkillId =
   // 전사
@@ -251,6 +254,7 @@ export type V2CommonSkillId =
   | "v2c_inscriber_amplification" // 각인 증폭 (각인 해방 시너지 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
+  | "v2c_marksman_insight" // 명궁의 안목 (적중도→공격력)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
   | "v2c_nightshade_cloak" // 은신 II (회피 + 치명확률·피해 + 명중)
   | "v2c_nightshade_weakpoint2" // 급소 노출 II (적 물리 방어 -10%)
@@ -2209,6 +2213,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { dex: 18 }, accuracyPct: 24 },
+  },
+  v2c_marksman_insight: {
+    id: "v2c_marksman_insight", name: "명궁의 안목", stat: "dex", category: "passive", tier: 3,
+    description: `적중도 ${MARKSMAN_INSIGHT_ACCURACY_THRESHOLD} 초과분의 ${MARKSMAN_INSIGHT_ACCURACY_TO_ATK_COEF * 100}%를 공격력으로 전환한다.`,
+    // 조준과 분리하면 각각 기본 SP 비용이 붙어 합계가 11이 된다. 합계 10으로 맞춘다.
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCostDiscount: 1,
+    effects: [],
+    passive: { accuracyToAtkCoef: MARKSMAN_INSIGHT_ACCURACY_TO_ATK_COEF },
   },
   v2c_nightshade_eclipse: {
     id: "v2c_nightshade_eclipse", name: "월식", stat: "luk", category: "attack", tier: 3,

@@ -89,6 +89,19 @@ describe("engine.damageHelpers — 인라인 수식 동치", () => {
     });
   });
 
+  it("PvP 저항은 원본 치명타 확률의 75%까지만 차감한다", () => {
+    expect(resolveCriticalChanceAfterResistance(75, 100, 75, 0.75)).toEqual({
+      resistedCritPct: 18.75,
+      effectiveCritPct: 18.75,
+      overflowDamageBonus: 0,
+    });
+    expect(resolveCriticalChanceAfterResistance(150, 50, 75, 0.75)).toEqual({
+      resistedCritPct: 100,
+      effectiveCritPct: 75,
+      overflowDamageBonus: 0.25,
+    });
+  });
+
   it("computeStormBonus = storm-kind ? floor(atk*spdPct/100) : 0", () => {
     expect(computeStormBonus(100, null as never)).toBe(0);
     expect(computeStormBonus(100, undefined as never)).toBe(0);

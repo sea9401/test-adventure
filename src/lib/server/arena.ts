@@ -19,8 +19,10 @@ import type { ArenaSeasonPhase } from "@/lib/server/pvp/arenaTournament";
 export const ARENA_MATCH_COOLDOWN_MS = 10_000;
 // 아레나 한정 최종 피해 배율. 다른 resolveBattlePvP 호출부(전초기지 등)는 기본값 1을 유지한다.
 export const ARENA_DAMAGE_MULTIPLIER = 0.65;
-// 아레나 한정 회복·보호막 생성 배율. 무자원 1회 회복기의 별도 PvP 제한과는 중복 적용하지 않는다.
+// 아레나 한정 보호막 생성 배율.
 export const ARENA_SUSTAIN_MULTIPLIER = 0.65;
+// PvP 회복은 보호막과 분리해 조정한다. 별도 제한 회복기는 추가 배율을 받지 않는다.
+export const ARENA_HEALING_MULTIPLIER = 0.5;
 export const ARENA_STAMINA_MATCHES_PER_STEP = 10;
 export const RECENT_OPPONENT_TRACK = 5;
 // 전투 기록 — 최근 N판의 요약과 별도 저장된 replayId를 보존한다.

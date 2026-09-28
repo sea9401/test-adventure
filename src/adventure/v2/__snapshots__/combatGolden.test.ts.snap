@@ -5,7 +5,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "accRating": 80.925,
   "accuracyPct": 35,
   "allStatTotal": 263,
-  "atk": 83,
+  "atk": 70,
   "attackCount": 1,
   "classTier": undefined,
   "critChancePct": 8.6,
@@ -255,7 +255,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "archer_pen_vs_골렘",
-    "logSha": "332b708e043363a22fa8845d9573163ddc783ba6",
+    "logSha": "0d198ebebcff727a5958c560cf0dde7f9a62029d",
     "outcome": "win",
     "playerHp": 684,
     "playerMp": 227,
@@ -319,9 +319,9 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "ed95be09e6c38c35089ae697c6f556cf1243ccaf",
+    "logSha": "874cf265d0be2e30ee2699ba3500675f28bcbc44",
     "outcome": "p1_win",
-    "turns": 80,
+    "turns": 90,
   },
   {
     "label": "tank_vs_warrior",

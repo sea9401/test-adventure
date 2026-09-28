@@ -288,7 +288,6 @@ export function V2DungeonFloorView({
   huntMode = "normal",
   unexploredSummary = null,
   outpostId,
-  outpostName,
   playerName,
   playerGender,
   currentLevel = 1,
@@ -336,7 +335,6 @@ export function V2DungeonFloorView({
   huntMode?: DungeonHuntMode;
   unexploredSummary?: UnexploredHuntSummary | null;
   outpostId: string;
-  outpostName: string;
   playerName: string;
   playerGender: Gender;
   currentLevel?: number;
@@ -1250,7 +1248,6 @@ export function V2DungeonFloorView({
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <DungeonContextSummary
         displayName={displayName}
-        outpostName={outpostName}
         challenge={isChallenge}
         growthLabel={isUnexplored ? null : growthLabel}
         readiness={

@@ -22,6 +22,7 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
+import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // 결정적 PRNG (mulberry32) — Math.random 대체.
@@ -41,6 +42,7 @@ afterEach(() => vi.restoreAllMocks());
 type DeriveInput = {
   level: number;
   playerClass?: V2Class;
+  jobId?: string;
   allocatedStats?: Partial<Record<V2StatKey, number>>;
   v2Equipped?: Record<string, string>;
 };
@@ -49,6 +51,7 @@ function derive(input: DeriveInput): PlayerCombat {
   return derivePlayerCombatV2Pure({
     level: input.level,
     playerClass: input.playerClass ?? "none",
+    jobPassiveEffect: input.jobId ? jobPassive(input.jobId) : undefined,
     allocatedStats: input.allocatedStats,
     v2Equipped: (input.v2Equipped ?? {}) as never,
   }).player;
@@ -123,6 +126,7 @@ const builds = {
   archer: derive({
     level: 50,
     playerClass: "rogue",
+    jobId: "archer",
     allocatedStats: { dex: 120, luk: 40 },
     v2Equipped: { weapon: "v2_starsong_bow" },
   }),

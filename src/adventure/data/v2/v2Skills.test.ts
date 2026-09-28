@@ -1459,9 +1459,25 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
   it("조건부 대항축인 명중과 속도 전환을 성능에 맞게 SP로 청구한다", () => {
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(30);
     expect(spCostOf(V2_SKILLS.v2c_chief_afterimage)).toBe(3);
-    expect(V2_SKILLS.v2c_marksman_aim.passive?.accuracyPct).toBe(24);
-    expect(V2_SKILLS.v2c_marksman_aim.passive?.spdToAtkMaxPct).toBeUndefined();
-    expect(spCostOf(V2_SKILLS.v2c_marksman_aim)).toBe(5);
+    const aim = V2_SKILLS.v2c_marksman_aim;
+    const insight = V2_SKILLS.v2c_marksman_insight;
+    expect(aim.passive?.accuracyPct).toBe(24);
+    expect(aim.passive?.accuracyToAtkCoef).toBeUndefined();
+    expect(aim.passive?.spdToAtkMaxPct).toBeUndefined();
+    expect(aim.spCost).toBeUndefined();
+    expect(spCostOf(aim)).toBe(5);
+    expect(insight.passive?.accuracyToAtkCoef).toBe(0.45);
+    expect(rubricSpCost(insight)).toBe(6);
+    expect(spCostOf(insight)).toBe(5);
+    expect(spCostOf(aim) + spCostOf(insight)).toBe(10);
+    expect(aggregateEquippedPassives(["v2c_marksman_aim"]).accuracyToAtkCoef).toBe(0);
+    expect(
+      aggregateEquippedPassives(["v2c_marksman_insight"]).accuracyToAtkCoef,
+    ).toBe(0.45);
+    expect(aggregateEquippedPassives([]).accuracyToAtkCoef).toBe(0);
+    expect(describeV2Skill(insight)).toContain(
+      "적중도 50 초과분의 45%를 공격력으로 전환",
+    );
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.accuracyPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.skillCritDmgPct).toBe(30);
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive?.spdToAtkMaxPct).toBe(20);

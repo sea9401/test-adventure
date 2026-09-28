@@ -1000,7 +1000,7 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_cryomancer_freezingpoint",
       ],
       inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"],
-      marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
+      marksman: ["v2c_marksman_shot", "v2c_marksman_aim", "v2c_marksman_insight"],
       nightshade: [
         "v2c_nightshade_eclipse",
         "v2c_nightshade_cloak",
@@ -1907,8 +1907,10 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     ).toBe(0);
   });
 
-  it("효과 패시브 맵(V2_JOB_PASSIVES)은 비어 있음 — 기본은 패시브 스킬로 이관", () => {
-    expect(V2_JOB_PASSIVES).toEqual({});
-    expect(jobPassive("warrior")).toEqual({});
+  it("적중도 공격력 전환은 직업 상시 효과나 기존 조준이 아니라 새 명궁 패시브에 속한다", () => {
+    expect(Object.keys(V2_JOB_PASSIVES)).toHaveLength(0);
+    expect(jobPassive("marksman")).toEqual({});
+    expect(V2_SKILLS.v2c_marksman_aim.passive?.accuracyToAtkCoef).toBeUndefined();
+    expect(V2_SKILLS.v2c_marksman_insight.passive?.accuracyToAtkCoef).toBe(0.45);
   });
 });

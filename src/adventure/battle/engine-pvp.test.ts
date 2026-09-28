@@ -641,6 +641,19 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     expect(s1.log.some((entry) => entry.text.includes("치명타"))).toBe(true);
   });
 
+  it("PvP 평타는 높은 저항에도 원본 확률의 25%를 남긴다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const state = initialBattleStatePvP(
+      makePlayer({ atk: 100, spd: 15, critChancePct: 75, attackCount: 1 }),
+      makePlayer({ hp: 5_000, maxHp: 5_000, def: 0, spd: 5, critResistPct: 100 }),
+      "공격자",
+      "대상",
+    );
+
+    const next = advanceTurnPvP(state);
+    expect(next.log.some((entry) => entry.text.includes("치명타"))).toBe(true);
+  });
+
   it("PvP 확정 평타 치명타는 저항을 무시해 원본 초과 치명 피해를 유지한다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const initial = initialBattleStatePvP(
@@ -1969,7 +1982,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     };
 
     const noCritDamage = castDamage(0, 0);
-    expect(castDamage(100, 100)).toBe(noCritDamage);
+    expect(castDamage(100, 100)).toBeGreaterThan(noCritDamage);
     expect(castDamage(100, 99)).toBeGreaterThan(noCritDamage);
   });
 

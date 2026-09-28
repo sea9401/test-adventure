@@ -432,7 +432,7 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
     expect(arena.p2.hp).toBeGreaterThan(normal.p2.hp);
   });
 
-  it("아레나의 일반 회복 스킬 회복량을 35% 줄인다", () => {
+  it("별도 회복 배율이 없으면 기존 생존 배율을 회복 스킬에 적용한다", () => {
     const skills: V2SkillsState = {
       learned: ["v2c_acolyte_smite"],
       equipped: ["v2c_acolyte_smite"],
@@ -460,6 +460,34 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
 
     expect(normalHealing).toBeGreaterThan(0);
     expect(arenaHealing).toBe(Math.floor(normalHealing * 0.65));
+  });
+
+  it("아레나의 회복만 50%로 낮추고 보호막은 65%를 유지한다", () => {
+    const healSkills: V2SkillsState = {
+      learned: ["v2c_acolyte_smite"],
+      equipped: ["v2c_acolyte_smite"],
+    };
+    const shieldSkills: V2SkillsState = {
+      learned: ["v2c_warder_barrier"],
+      equipped: ["v2c_warder_barrier"],
+    };
+    const makeState = (skills: V2SkillsState, healingMultiplier?: number) =>
+      initialBattleStatePvP(
+        { ...BASE, hp: 100, magicAtk: 120, healMult: 1 },
+        BASE,
+        "P1", "P2", skills, EMPTY_SKILLS,
+        undefined, ARENA_SUSTAIN_MULTIPLIER, undefined, healingMultiplier,
+      );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normalHeal = castV2SkillOnAttackerTurnPvP(makeState(healSkills), "p1").state.p1.hp - 100;
+    const arenaHeal = castV2SkillOnAttackerTurnPvP(makeState(healSkills, 0.5), "p1").state.p1.hp - 100;
+    const regularShield = castV2SkillOnAttackerTurnPvP(makeState(shieldSkills), "p1").state.p1.stacks.playerShield;
+    const arenaShield = castV2SkillOnAttackerTurnPvP(makeState(shieldSkills, 0.5), "p1").state.p1.stacks.playerShield;
+
+    expect(normalHeal).toBe(24);
+    expect(arenaHeal).toBe(19);
+    expect(arenaShield).toBeGreaterThan(0);
+    expect(arenaShield).toBe(regularShield);
   });
 
   it("아레나의 직접 보호막 생성량을 35% 줄인다", () => {
@@ -498,7 +526,7 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
       equipped: ["v2c_survivor_firstaid"],
     };
     const wounded = { ...BASE, hp: 100, healMult: 1 };
-    const makeSkillState = (sustainMultiplier?: number) =>
+    const makeSkillState = (sustainMultiplier?: number, healingMultiplier?: number) =>
       initialBattleStatePvP(
         wounded,
         BASE,
@@ -508,11 +536,13 @@ describe("PvP 호출 표면별 최종 피해 배율", () => {
         EMPTY_SKILLS,
         undefined,
         sustainMultiplier,
+        undefined,
+        healingMultiplier,
       );
     vi.spyOn(Math, "random").mockReturnValue(0);
     const normal = castV2SkillOnAttackerTurnPvP(makeSkillState(), "p1").state;
     const arena = castV2SkillOnAttackerTurnPvP(
-      makeSkillState(ARENA_SUSTAIN_MULTIPLIER),
+      makeSkillState(ARENA_SUSTAIN_MULTIPLIER, 0.5),
       "p1",
     ).state;
 

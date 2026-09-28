@@ -1,7 +1,7 @@
 import { type PvPBattleState } from "./engine.pvpState";
 
 type PvPDamageScaleState = Pick<PvPBattleState, "damageMultiplier">;
-type PvPSustainScaleState = Pick<PvPBattleState, "sustainMultiplier">;
+type PvPSustainScaleState = Pick<PvPBattleState, "sustainMultiplier" | "healingMultiplier">;
 
 export function scalePvPDamage(
   state: PvPDamageScaleState,
@@ -22,7 +22,7 @@ export function scalePvPHealing(
   state: PvPSustainScaleState,
   healing: number,
 ): number {
-  return scalePositivePvPValue(healing, state.sustainMultiplier);
+  return scalePositivePvPValue(healing, state.healingMultiplier ?? state.sustainMultiplier);
 }
 
 export function scalePvPShield(

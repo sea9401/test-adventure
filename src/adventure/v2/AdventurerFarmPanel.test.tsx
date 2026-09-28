@@ -22,8 +22,18 @@ describe("주간 납품 선택 보드", () => {
       claimedIds={[]} busyDeliveryId={null} onDeliver={vi.fn()}
     />);
     expect(screen.getByText(`황금 밀 ${rareCount}개 보유`, { exact: false })).toBeTruthy();
-    expect(screen.getByText(rareCount > 0 ? /1개 자동 사용 · 증표 \+5/ : /미보유로 보너스 미적용/)).toBeTruthy();
+    expect(screen.getByText(rareCount > 0 ? /1개 자동 사용 · 증표 기본 6개 \+ 보너스 5개 = 총 11개/ : /미보유로 보너스 미적용/)).toBeTruthy();
     expect(screen.getByText(`농장 증표 ${rareCount > 0 ? 11 : 6}개 · 밀 씨앗 6개`)).toBeTruthy();
+  });
+
+  it("왕실 카카오 보너스는 카카오 기본 보상에 포함된 총액으로 안내한다", () => {
+    render(<WeeklyDeliveryBoard
+      deliveries={getFarmWeeklyDeliveryRequests().filter(delivery => delivery.id === "weekly-cacao")}
+      inventory={{ cacao: 4, royal_cacao: 2 }}
+      claimedIds={[]} busyDeliveryId={null} onDeliver={vi.fn()}
+    />);
+    expect(screen.getByText("농장 증표 21개 · 카카오 묘목 1개")).toBeTruthy();
+    expect(screen.getByText(/기본 7개 \+ 보너스 14개 = 총 21개/)).toBeTruthy();
   });
 
   it("완료된 주문은 현재 희귀 작물로 과거 보너스 지급 여부를 추정하지 않는다", () => {

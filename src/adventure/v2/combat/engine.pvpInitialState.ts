@@ -2,7 +2,7 @@ import { initialPain } from "./darkPriestAdapters";
 import { aggregateEquippedPassives } from "@/adventure/data/v2/v2Skills";
 import { initialBerserkerCombatState } from "./berserkerCombat";
 import { hasUnexploredEffect } from "./unexploredSetPveAdapter";
-import { scalePositivePvPValue } from "./engine.pvpScaling";
+import { normalizePvPMultiplier, scalePositivePvPValue } from "./engine.pvpScaling";
 import { type PvPBattleState, type PvPPhase, type PvPSide } from "./engine.pvpState";
 import { rollPvPAttackCount } from "./engine.pvpStats";
 import { type BattleLogEntry, type PlayerCombat } from "./engineState";
@@ -190,24 +190,9 @@ export function initialBattleStatePvP(
   initiative?: PvPInitiativeActor,
   healingMultiplier?: number,
 ): PvPBattleState {
-  const normalizedDamageMultiplier =
-    typeof damageMultiplier === "number" &&
-    Number.isFinite(damageMultiplier) &&
-    damageMultiplier > 0
-      ? damageMultiplier
-      : 1;
-  const normalizedSustainMultiplier =
-    typeof sustainMultiplier === "number" &&
-    Number.isFinite(sustainMultiplier) &&
-    sustainMultiplier > 0
-      ? sustainMultiplier
-      : 1;
-  const normalizedHealingMultiplier =
-    typeof healingMultiplier === "number" &&
-    Number.isFinite(healingMultiplier) &&
-    healingMultiplier > 0
-      ? healingMultiplier
-      : undefined;
+  const normalizedDamageMultiplier = normalizePvPMultiplier(damageMultiplier) ?? 1;
+  const normalizedSustainMultiplier = normalizePvPMultiplier(sustainMultiplier) ?? 1;
+  const normalizedHealingMultiplier = normalizePvPMultiplier(healingMultiplier);
   const p1Side = buildSide(
     p1Player,
     p1Name,

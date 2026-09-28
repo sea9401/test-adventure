@@ -1,11 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  normalizePvPMultiplier,
   scalePvPDamage,
   scalePvPHealing,
   scalePvPShield,
 } from "./engine.pvpScaling";
 
 describe("PvP 표면 배율", () => {
+  it.each([
+    [undefined, undefined],
+    [0, undefined],
+    [-1, undefined],
+    [Number.NaN, undefined],
+    [Number.POSITIVE_INFINITY, undefined],
+    [0.5, 0.5],
+    [1, 1],
+    [2, 2],
+  ])("배율 %s의 유효성을 확인해 %s로 정규화한다", (value, expected) => {
+    expect(normalizePvPMultiplier(value)).toBe(expected);
+  });
+
   it("피해 배율을 내림하고 양수 피해는 최소 1로 유지한다", () => {
     expect(scalePvPDamage({ damageMultiplier: 0.65 }, 101)).toBe(65);
     expect(scalePvPDamage({ damageMultiplier: 0.01 }, 1)).toBe(1);

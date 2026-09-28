@@ -3,6 +3,12 @@ import { type PvPBattleState } from "./engine.pvpState";
 type PvPDamageScaleState = Pick<PvPBattleState, "damageMultiplier">;
 type PvPSustainScaleState = Pick<PvPBattleState, "sustainMultiplier" | "healingMultiplier">;
 
+export function normalizePvPMultiplier(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
 export function scalePvPDamage(
   state: PvPDamageScaleState,
   damage: number,

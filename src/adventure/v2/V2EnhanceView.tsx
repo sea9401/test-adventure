@@ -353,6 +353,7 @@ export function V2EnhanceView({
     "red-enhance-stone": 1,
     "rare-map": 1,
   });
+  const [combineMessageKey, setCombineMessageKey] = useState<CombineRecipeKey | null>(null);
   const [stormMats, setStormMats] = useState({
     wreckage: 0,
     gale: 0,
@@ -1006,6 +1007,7 @@ export function V2EnhanceView({
           setSelectedIid(null);
           setFeedIid(null);
           setMsg(null);
+          setCombineMessageKey(null);
           setStormRefineConfirmOpen(false);
         }}
         ariaLabel="대장간 작업"
@@ -1640,14 +1642,14 @@ export function V2EnhanceView({
             const totalGoldCost = r.cost * quantity;
             return (
               <Card key={r.key} padding="sm" className="ui-lift-card">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-start gap-3">
                   <div className="shrink-0 text-2xl" aria-hidden>
                     {r.icon}
                   </div>
                   <div className="min-w-0 shrink-0">
-                    <div className="text-sm font-semibold">{r.output}</div>
+                    <div className="text-base font-semibold leading-snug">{r.output}</div>
                     <div
-                      className={`text-xs ${
+                      className={`mt-0.5 text-sm ${
                         spendable >= totalGoldCost
                           ? "text-zinc-500 dark:text-zinc-400"
                           : "text-red-600 dark:text-red-400"
@@ -1656,7 +1658,7 @@ export function V2EnhanceView({
                       조합비 {totalGoldCost.toLocaleString()} G
                     </div>
                   </div>
-                  <div className="ml-auto space-y-0.5 text-xs tabular-nums">
+                  <div className="w-full space-y-1 border-t border-zinc-200 pt-2 text-sm leading-relaxed tabular-nums dark:border-zinc-700 sm:ml-auto sm:w-auto sm:border-0 sm:pt-0">
                     {r.mats.map((m) => {
                       const totalNeed = m.need * quantity;
                       const ok = m.have >= totalNeed;
@@ -1679,6 +1681,7 @@ export function V2EnhanceView({
                     })}
                   </div>
                 </div>
+                {"extra" in r ? r.extra : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                   <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                     수량
@@ -1740,7 +1743,10 @@ export function V2EnhanceView({
                     최대 {maxQuantity.toLocaleString()}
                   </button>
                   <Button
-                    onClick={() => void r.onCombine(quantity)}
+                    onClick={() => {
+                      setCombineMessageKey(r.key);
+                      void r.onCombine(quantity);
+                    }}
                     disabled={busy || maxQuantity < 1}
                     variant="primary"
                     size="md"
@@ -1749,15 +1755,14 @@ export function V2EnhanceView({
                     {busy ? "…" : `${quantity.toLocaleString()}개 조합 →`}
                   </Button>
                 </div>
-                {"extra" in r ? r.extra : null}
+                {msg && combineMessageKey === r.key && (
+                  <StatusBanner tone={statusToneOf(msg.kind)} className="mt-3" role="status">
+                    {msg.text}
+                  </StatusBanner>
+                )}
               </Card>
             );
           })}
-          {msg && (
-            <StatusBanner tone={statusToneOf(msg.kind)}>
-              {msg.text}
-            </StatusBanner>
-          )}
         </section>
       )}
 

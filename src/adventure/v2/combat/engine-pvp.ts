@@ -93,6 +93,7 @@ function resolveBattlePvPLegacy(
     ctx.damageMultiplier,
     ctx.sustainMultiplier,
     initiative,
+    ctx.healingMultiplier,
   );
   // PR-7a — 옛 spell 시스템 폐기. start-of-battle one-shot 도 제거됐고, v2 스킬 cast hook
   // 이 각 side 의 첫 turn 진입 시 1회 발동 (resolveBattlePvP main loop).

@@ -195,9 +195,11 @@ export type PvPBattleState = {
   // 호출 표면별 최종 피해 배율. 미지정(일반 PvP)은 1, 아레나는 라우트에서 0.65를 주입한다.
   // HP 비용·자해·회복에는 사용하지 않고 상대에게 가하는 피해 경로에서만 읽는다.
   damageMultiplier?: number;
-  // 호출 표면별 회복·보호막 생성 배율. 미지정(일반 PvP)은 1, 아레나는 0.65를 주입한다.
+  // 호출 표면별 보호막 생성 배율. 미지정(일반 PvP)은 1, 아레나는 0.65를 주입한다.
   // 직접 보호막은 이 값을 적용하고, 회복 전환 보호막은 보정된 실제 회복량을 기준으로 계산한다.
   sustainMultiplier?: number;
+  // 회복 전용 배율. 생략하면 기존 sustainMultiplier를 사용한다.
+  healingMultiplier?: number;
 };
 
 // ── 메인 advanceTurn ─────────────────────────────────────────────────────────
@@ -236,8 +238,10 @@ export type PvPResolveContext = {
   openingNote?: string;
   // 상대에게 가하는 최종 피해 배율. 기본 1이며 아레나처럼 특정 호출 표면만 조정할 때 사용한다.
   damageMultiplier?: number;
-  // HP 회복과 새 보호막 생성 배율. 기본 1이며 아레나에서만 별도 조정한다.
+  // 새 보호막 생성 배율. 기본 1이며 아레나에서만 별도 조정한다.
   sustainMultiplier?: number;
+  // HP 회복 배율. 미지정이면 sustainMultiplier와 같게 적용한다.
+  healingMultiplier?: number;
   // 선공 추첨값(0 이상 1 미만). 테스트·재현 경로는 명시하고 실제 전투는 Math.random 1회를 쓴다.
   initiativeRoll?: number;
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped, 양 side 별도. 미지정/빈 배열이면

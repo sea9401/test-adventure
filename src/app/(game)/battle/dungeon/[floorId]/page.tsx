@@ -107,7 +107,6 @@ export default function DungeonFloorPage() {
       }
       floorId={n}
       outpostId={currentOutpost.id}
-      outpostName={currentOutpost.name}
       playerName={viewerName}
       playerGender={viewerGender}
       currentLevel={viewerLevel}

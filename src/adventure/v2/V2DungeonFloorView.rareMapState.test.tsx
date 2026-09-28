@@ -70,7 +70,6 @@ describe("희귀 탐사 지도 전환", () => {
     const props = {
       floorId: 10,
       outpostId: "outpost-1",
-      outpostName: "마른 협곡 거점",
       playerName: "모험가",
       playerGender: "male" as const,
       stamina: { current: 100, lastUpdatedAt: 0 },
@@ -119,7 +118,6 @@ describe("희귀 탐사 지도 전환", () => {
       <V2DungeonFloorView
         floorId={10}
         outpostId="outpost-1"
-        outpostName="마른 협곡 거점"
         playerName="모험가"
         playerGender="male"
         stamina={{ current: 100, lastUpdatedAt: 0 }}
@@ -155,7 +153,6 @@ describe("희귀 탐사 지도 전환", () => {
     const baseProps = {
       floorId: 10,
       outpostId: "outpost-1",
-      outpostName: "마른 협곡 거점",
       playerName: "모험가",
       playerGender: "male" as const,
       stamina: { current: 100, lastUpdatedAt: 0 },

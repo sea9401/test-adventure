@@ -22,6 +22,7 @@ type V2EquipSlot,
 type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { type V2JobPassiveEffect } from "@/adventure/data/v2/v2JobPassives";
+import { MARKSMAN_INSIGHT_ACCURACY_THRESHOLD } from "@/adventure/data/v2/v2SkillsCommonCatalog";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
 V2_BASE_HP,
@@ -47,8 +48,6 @@ ACC_PER_INT,
 ACC_PER_SPI,
 ACC_PER_STR,
 ATK_PER_STR,
-BOW_ACCURACY_TO_ATK_COEF,
-BOW_HIT_THRESHOLD,
 CRIT_DMG_PER_LUK,
 CRIT_DMG_PER_STR,
 CRIT_PER_LUK,
@@ -224,6 +223,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveLawInscription?: boolean;
   /** 적중도 +%(정밀) — 스탯·장비 적중도의 합을 증폭. */
   passiveAccuracyPct?: number;
+  /** 명궁의 안목 장착 시 적중도 50 초과분을 공격력으로 전환하는 계수. */
+  passiveAccuracyToAtkCoef?: number;
   /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
   passiveHealPowerPct?: number;
   /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
@@ -561,9 +562,9 @@ export function derivePlayerCombatV2Pure(
   const accRating =
     baseAccuracyRating * (1 + Math.max(0, accuracyIncreasePct) / 100) +
     (liberation?.flat.accuracy ?? 0);
-  if (weaponTypeOf(v2Equipped.weapon) === "bow") {
-    const excessAccuracy = Math.max(0, accRating - BOW_HIT_THRESHOLD);
-    specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
+  if (input.passiveAccuracyToAtkCoef) {
+    const excessAccuracy = Math.max(0, accRating - MARKSMAN_INSIGHT_ACCURACY_THRESHOLD);
+    specAtk += Math.floor(excessAccuracy * input.passiveAccuracyToAtkCoef);
   }
   // 천궁 속도 전환 — 전체 SPD를 공격력으로 환원하되 SPD 무한에서 상한값으로 점근한다.
   if (input.passiveSpdToAtkMaxPct) {

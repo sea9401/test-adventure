@@ -57,7 +57,6 @@ describe("던전 인라인 결과 연결", () => {
       <V2DungeonFloorView
         floorId={1}
         outpostId="start"
-        outpostName="초원 거점"
         playerName="모험가"
         playerGender="male"
         stamina={{ current: 100, lastUpdatedAt: Date.now() }}
@@ -108,7 +107,6 @@ describe("던전 인라인 결과 연결", () => {
       <V2DungeonFloorView
         floorId={1}
         outpostId="start"
-        outpostName="초원 거점"
         playerName="모험가"
         playerGender="male"
         stamina={{ current: 100, lastUpdatedAt: Date.now() }}

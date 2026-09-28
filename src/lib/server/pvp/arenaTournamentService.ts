@@ -43,6 +43,7 @@ import { readProfileValue } from "@/adventure/profile/profileValue";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
 import {
   ARENA_DAMAGE_MULTIPLIER,
+  ARENA_HEALING_MULTIPLIER,
   ARENA_SUSTAIN_MULTIPLIER,
 } from "@/lib/server/arena";
 import { inboxValues } from "@/lib/server/inboxPayload";
@@ -317,6 +318,7 @@ function fightTournamentMatch(
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
       sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
+      healingMultiplier: ARENA_HEALING_MULTIPLIER,
       v2Skills: { p1: p1.payload.skills, p2: p2.payload.skills },
     },
   );

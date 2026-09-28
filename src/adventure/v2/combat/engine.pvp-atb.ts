@@ -210,6 +210,7 @@ export function resolveBattlePvPAtb(
     ctx.damageMultiplier,
     ctx.sustainMultiplier,
     initiative,
+    ctx.healingMultiplier,
   );
   state = { ...withAtbPlayers(state), usesAtb: true };
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {

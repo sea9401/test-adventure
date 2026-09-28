@@ -43,7 +43,7 @@ describe("희귀 탐사 전투 후 자동 복귀", () => {
     const onRareMapComplete = vi.fn();
     const setHp = vi.fn();
     render(<V2DungeonFloorView
-      floorId={1} outpostId="start" outpostName="초원 거점"
+      floorId={1} outpostId="start"
       playerName="모험가" playerGender="male"
       stamina={{ current: 100, lastUpdatedAt: now }} setStamina={vi.fn()}
       hp={{ hp: 100, maxHp: 100, anchorMs: now }} setHp={setHp}

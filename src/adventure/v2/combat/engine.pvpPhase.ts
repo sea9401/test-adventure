@@ -11,6 +11,7 @@ HEAVEN_DECREE_HP_PCT,
 IMPACT_WAVE_INTERVAL,
 LUCKY_STAR_DAMAGE_MULT,
 POWER_ATTACK_TURN_INTERVAL,
+PVP_CRIT_RESIST_MAX_FRACTION,
 pvpEvasionDamageReductionPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { finishBerserkerCurrentActionGuard } from "./berserkerCombat";
@@ -159,6 +160,7 @@ function computeAttackDamagePvP(
     rawCritPct,
     defender.player.critResistPct ?? 0,
     basicCritCap,
+    PVP_CRIT_RESIST_MAX_FRACTION,
   );
   const effectiveCritPct = critResolution.effectiveCritPct;
   // 연쇄 운명 — 큐가 있으면 강제 크리. 큐는 이번 공격에 소비.
@@ -752,7 +754,8 @@ function advanceTurnPvPBody(
   );
   const newShieldAfterHeal = newShield + (defenderHealShield?.amount ?? 0);
   const sigDefGain = onHitTakenDefGain(defender.player.equipSignatures);
-  const braceGainPct = sigDefGain?.pct ?? 0;
+  const passiveDefGainPct = defender.player.defGainOnHitPct ?? 0;
+  const braceGainPct = passiveDefGainPct + (sigDefGain?.pct ?? 0);
   const prevBraceDefBonus = defender.stacks.braceDefBonus ?? 0;
   const nextBraceDefBonus =
     braceGainPct > 0 && dmgToHp > 0
@@ -868,10 +871,14 @@ function advanceTurnPvPBody(
       text: `[${defenderHealShield.label}] ${defender.name} 보호막 +${defenderHealShield.amount}`,
     });
   }
-  if (sigDefGain && braceDefDelta > 0) {
+  if (braceDefDelta > 0) {
+    const label = [passiveDefGainPct > 0 ? "강체" : null, sigDefGain?.label]
+      .filter(Boolean)
+      .join(" + ");
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigDefGain.label}] ${defender.name} 방어 +${braceDefDelta}`,
+      text: `[${label}] ${defender.name} 방어 +${braceDefDelta}`,
+      side: defKey,
     });
   }
   // 이중 행운 — 첫 크리 발동 순간 활성화.

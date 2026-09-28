@@ -20,6 +20,7 @@ import {
   MAGIC_BARRIER_PVP_MAX_EFFICIENCY_PCT,
   PHYSICAL_DEF_MITIGATION_MAX_PCT,
   PHYSICAL_DEF_MITIGATION_SCALE,
+  PVP_CRIT_RESIST_MAX_FRACTION,
   PLAYER_BLEED_ATK_COEF_PER_STACK,
   POISON_CAP_ATK_COEF,
   POISON_FULL_BUILD_DAMAGE_MULT,
@@ -76,6 +77,7 @@ import {
 } from "@/lib/server/v2CombatCoefficients";
 import {
   ARENA_DAMAGE_MULTIPLIER,
+  ARENA_HEALING_MULTIPLIER,
   ARENA_SUSTAIN_MULTIPLIER,
 } from "@/lib/server/arena";
 import { Code, Em, H2, H3, Note, P, Table, UL } from "./primitives";
@@ -229,8 +231,9 @@ export function CombatFormulasContent() {
       <UL>
         <li>
           기본 치명타 확률은 <Code>LUK × {CRIT_PER_LUK} + 장비 치명타 + 패시브</Code>입니다.
-          일반 상한은 <Em>{CRIT_PCT_CAP}%</Em>이며, PvP에서는 상한을 적용한 뒤 상대의
-          치명타 저항을 뺍니다. 확정 치명타 효과는 이 확률 판정을 건너뜁니다.
+          일반 상한은 <Em>{CRIT_PCT_CAP}%</Em>입니다. PvP에서는 상대의 치명타 저항을 먼저 빼고
+          상한을 적용합니다. 저항은 원본 치명타 확률의 최대 {PVP_CRIT_RESIST_MAX_FRACTION * 100}%까지만
+          확률을 줄입니다. 확정 치명타 효과는 이 확률 판정을 건너뜁니다.
         </li>
         <li>
           평타 치명타 배율의 가산값 B는 기본적으로 <Code>LUK × {CRIT_DMG_PER_LUK} + STR × {CRIT_DMG_PER_STR} + 장비·패시브 보너스</Code>입니다.
@@ -467,9 +470,9 @@ export function CombatFormulasContent() {
         </li>
         <li>
           투기장·친선 대련·챔피언십은 상대에게 주는 최종 피해를
-          <Em>{ARENA_DAMAGE_MULTIPLIER * 100}%</Em>로, 회복량과 새로 생성하는 보호막을
-          <Em>{ARENA_SUSTAIN_MULTIPLIER * 100}%</Em>로 조정합니다. HP 비용과 자해는 이 보정을
-          받지 않습니다.
+          <Em>{ARENA_DAMAGE_MULTIPLIER * 100}%</Em>로 조정합니다. 회복량을 {ARENA_HEALING_MULTIPLIER * 100}%로,
+          새 보호막을 {ARENA_SUSTAIN_MULTIPLIER * 100}%로 조정합니다. 일부 1회 회복기는 별도 PvP 제한이
+          적용됩니다. HP 비용과 자해는 이 보정을 받지 않습니다.
         </li>
       </UL>
 

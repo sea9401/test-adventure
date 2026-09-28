@@ -67,6 +67,7 @@ export function resolveCriticalChanceAfterResistance(
   rawCritPct: number,
   critResistPct: number,
   chanceCap = CRIT_PCT_CAP,
+  maxResistFraction = 1,
 ): {
   resistedCritPct: number;
   effectiveCritPct: number;
@@ -74,7 +75,10 @@ export function resolveCriticalChanceAfterResistance(
 } {
   const resistedCritPct = Math.max(
     0,
-    rawCritPct - Math.max(0, critResistPct),
+    rawCritPct - Math.min(
+      Math.max(0, critResistPct),
+      Math.max(0, rawCritPct) * Math.max(0, Math.min(1, maxResistFraction)),
+    ),
   );
   return {
     resistedCritPct,

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { STAMINA_SHARD_MATERIAL_ID } from "@/adventure/data/v2/staminaPotionCrafting";
 import { V2EnhanceView } from "./V2EnhanceView";
 
 const context = vi.hoisted(() => ({
@@ -87,5 +88,23 @@ describe("파괴 위험 강화 확인", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /^강화 \(성공/ })[0]);
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(confirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("대장간 조합 결과", () => {
+  it("조합한 카드에서 결과를 바로 읽을 수 있다", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url === "/api/v2/me/stamina-potion-combine") return Response.json({ ok: true });
+      if (url === "/api/v2/me/equipment") return Response.json({ owned: [], equipped: {} });
+      if (url === "/api/v2/me/inventory") return Response.json({ materials: { [STAMINA_SHARD_MATERIAL_ID]: 12 } });
+      return Response.json({ character: { gold: 1_000_000, bankedGold: 0 }, rareMaps: [] });
+    }));
+    render(<V2EnhanceView onBack={() => {}} initialMode="combine" />);
+
+    const card = (await screen.findByText("스태미나 회복약")).closest(".ui-game-card");
+    expect(card).not.toBeNull();
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "1개 조합 →" }));
+
+    expect(await within(card as HTMLElement).findByText(/활력의 파편 6개 → 스태미나 회복약 1개/)).toBeTruthy();
   });
 });

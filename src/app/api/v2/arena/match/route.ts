@@ -54,6 +54,7 @@ import {
 import {
   ARENA_INITIAL_RATING,
   ARENA_DAMAGE_MULTIPLIER,
+  ARENA_HEALING_MULTIPLIER,
   ARENA_SUSTAIN_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
   arenaHistorySince,
@@ -527,6 +528,7 @@ export async function POST(req: Request) {
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
       sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
+      healingMultiplier: ARENA_HEALING_MULTIPLIER,
       v2Skills: { p1: mySkills, p2: oppSkills },
     });
 

@@ -9,6 +9,7 @@ import {
 applyEvasionDamageReduction,
 EVASION_DAMAGE_REDUCTION_MAX_PCT,
 MAGIC_VULN_STACK_CAP,
+PVP_CRIT_RESIST_MAX_FRACTION,
 pvpEvasionDamageReductionPct,
 SKILL_CRIT_MULT,
 SPELL_STACK_CAP,
@@ -441,6 +442,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     rawSkillCritPct,
     opp.player.critResistPct ?? 0,
     CRIT_PCT_CAP,
+    PVP_CRIT_RESIST_MAX_FRACTION,
   );
   const effectiveSkillCritPct = skillCritResolution.effectiveCritPct;
   const skillCritAfterEvadeFired =
@@ -801,20 +803,25 @@ export function castV2SkillOnAttackerTurnPvPBody(
   // on_hit_taken 방어 누적은 기본 공격뿐 아니라 직접 피해 스킬에도 동일하게 발동한다.
   // 보호막·마법 장벽을 통과해 실제 HP에 들어간 피해만 사용하고, 지속 피해는 이 경로를 타지 않는다.
   const sigSkillDefGain = onHitTakenDefGain(opp.player.equipSignatures);
+  const passiveSkillDefGainPct = opp.player.defGainOnHitPct ?? 0;
+  const skillDefGainPct = passiveSkillDefGainPct + (sigSkillDefGain?.pct ?? 0);
   const prevOppBraceDefBonus = opp.stacks.braceDefBonus ?? 0;
   const nextOppBraceDefBonus =
-    sigSkillDefGain && skillDamageToHp > 0
+    skillDefGainPct > 0 && skillDamageToHp > 0
       ? Math.min(
           opp.player.def,
           prevOppBraceDefBonus +
-            Math.floor((skillDamageToHp * sigSkillDefGain.pct) / 100),
+            Math.floor((skillDamageToHp * skillDefGainPct) / 100),
         )
       : prevOppBraceDefBonus;
   const skillBraceDefDelta = nextOppBraceDefBonus - prevOppBraceDefBonus;
-  if (sigSkillDefGain && skillBraceDefDelta > 0) {
+  if (skillBraceDefDelta > 0) {
+    const label = [passiveSkillDefGainPct > 0 ? "강체" : null, sigSkillDefGain?.label]
+      .filter(Boolean)
+      .join(" + ");
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigSkillDefGain.label}] ${opp.name} 방어 +${skillBraceDefDelta}`,
+      text: `[${label}] ${opp.name} 방어 +${skillBraceDefDelta}`,
       side: otherKey,
     });
   }

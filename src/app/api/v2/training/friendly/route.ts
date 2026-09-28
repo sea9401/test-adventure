@@ -13,6 +13,7 @@ import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
   ARENA_DAMAGE_MULTIPLIER,
+  ARENA_HEALING_MULTIPLIER,
   ARENA_SUSTAIN_MULTIPLIER,
 } from "@/lib/server/arena";
 
@@ -123,6 +124,7 @@ export async function POST(req: Request) {
       ...autoDuelContext(),
       damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
       sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
+      healingMultiplier: ARENA_HEALING_MULTIPLIER,
       v2Skills: { p1: viewer.skills, p2: opponent.skills },
     },
   );

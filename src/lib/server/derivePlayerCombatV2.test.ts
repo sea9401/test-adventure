@@ -21,8 +21,6 @@ import {
 } from "./derivePlayerCombatV2";
 import {
   ATK_PER_STR,
-  BOW_ACCURACY_TO_ATK_COEF,
-  BOW_HIT_THRESHOLD,
   diminishingExtraAttackChancePct,
   HP_PER_VIT,
   MAGIC_DEF_PER_INT,
@@ -180,24 +178,41 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     );
   });
 
-  it("활은 임계 초과 적중도를 공격력으로 환원해 저회피 상대에서도 명중 투자를 보전한다", () => {
-    const base = derivePlayerCombatV2Pure({
-      level: 50,
-      v2Equipped: { weapon: "v2_storm_gale_bow" },
-    }).player;
-    const aimed = derivePlayerCombatV2Pure({
-      level: 50,
-      v2Equipped: { weapon: "v2_storm_gale_bow" },
-      passiveAccuracyPct: 30,
-    }).player;
-    const bowAttackBonus = (accuracy: number) =>
-      Math.floor(
-        Math.max(0, accuracy - BOW_HIT_THRESHOLD) * BOW_ACCURACY_TO_ATK_COEF,
-      );
-    expect(aimed.atk - base.atk).toBe(
-      bowAttackBonus(aimed.accRating ?? 0) - bowAttackBonus(base.accRating ?? 0),
+  it("명궁의 안목을 장착하면 무기 종류와 무관하게 적중도 공격력 전환이 적용된다", () => {
+    const derive = (
+      weapon: "v2_storm_gale_bow" | "v2_iron_sword",
+      equipped: boolean,
+    ) =>
+      derivePlayerCombatV2Pure({
+        level: 50,
+        allocatedStats: { dex: 300 },
+        v2Equipped: { weapon },
+        passiveAccuracyPct: 30,
+        passiveAccuracyToAtkCoef: equipped ? 0.45 : 0,
+      }).player;
+
+    const bowWithAim = derive("v2_storm_gale_bow", true);
+    const bowWithoutAim = derive("v2_storm_gale_bow", false);
+    const swordWithAim = derive("v2_iron_sword", true);
+    const swordWithoutAim = derive("v2_iron_sword", false);
+    expect(bowWithAim.atk - bowWithoutAim.atk).toBe(
+      Math.floor(Math.max(0, (bowWithAim.accRating ?? 0) - 50) * 0.45),
     );
-    expect(aimed.atk).toBeGreaterThan(base.atk);
+    expect(swordWithAim.atk).toBeGreaterThan(swordWithoutAim.atk);
+    expect(swordWithAim.atk - swordWithoutAim.atk).toBe(
+      Math.floor(Math.max(0, (swordWithAim.accRating ?? 0) - 50) * 0.45),
+    );
+    const belowThreshold = derivePlayerCombatV2Pure({
+      level: 1,
+      v2Equipped: { weapon: "v2_starter_bow" },
+      passiveAccuracyToAtkCoef: 0.45,
+    }).player;
+    const belowThresholdWithoutAim = derivePlayerCombatV2Pure({
+      level: 1,
+      v2Equipped: { weapon: "v2_starter_bow" },
+    }).player;
+    expect(belowThreshold.accRating).toBeLessThanOrEqual(50);
+    expect(belowThreshold.atk).toBe(belowThresholdWithoutAim.atk);
   });
 
   it("속도 비례 공격력 전환은 1,024 아래부터 작동하고 고속에서 점감한다", () => {
@@ -1424,6 +1439,50 @@ describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select �
     selectedStance: null,
     specChoice: null,
   };
+
+  it("명궁의 안목을 장착해야 무기 공통 전환이 적용되고 기존 조준만으로는 발동하지 않는다", () => {
+    const saves = {
+      character: { ...character, class: "rogue", specChoice: "marksman" },
+      equipmentSave: {
+        owned: [{ iid: "bow-1", id: "v2_storm_gale_bow" }],
+        equipped: { weapon: "bow-1" },
+      },
+      proficiencyRaw: { grown: { dex: 300 } },
+      skillsRaw: {
+        learned: ["v2c_marksman_aim", "v2c_marksman_insight"],
+        equipped: ["v2c_marksman_aim", "v2c_marksman_insight"],
+      },
+    };
+    const withInsight = derivePlayerCombatV2FromSaves(saves)!;
+    const aimOnly = derivePlayerCombatV2FromSaves({
+      ...saves,
+      skillsRaw: { ...saves.skillsRaw, equipped: ["v2c_marksman_aim"] },
+    })!;
+    const expectedBonus = Math.floor(
+      Math.max(0, (withInsight.player.accRating ?? 0) - 50) * 0.45,
+    );
+    expect(expectedBonus).toBeGreaterThan(0);
+    expect(withInsight.player.atk - aimOnly.player.atk).toBe(expectedBonus);
+
+    const swordSaves = {
+      ...saves,
+      equipmentSave: {
+        owned: [{ iid: "sword-1", id: "v2_iron_sword" }],
+        equipped: { weapon: "sword-1" },
+      },
+    };
+    const swordWithInsight = derivePlayerCombatV2FromSaves(swordSaves)!;
+    const swordAimOnly = derivePlayerCombatV2FromSaves({
+      ...swordSaves,
+      skillsRaw: { ...saves.skillsRaw, equipped: ["v2c_marksman_aim"] },
+    })!;
+    expect(swordWithInsight.player.atk).toBeGreaterThan(swordAimOnly.player.atk);
+    expect(swordWithInsight.player.atk - swordAimOnly.player.atk).toBe(
+      Math.floor(
+        Math.max(0, (swordWithInsight.player.accRating ?? 0) - 50) * 0.45,
+      ),
+    );
+  });
 
   it("character 없으면 null (래퍼와 동일)", () => {
     expect(

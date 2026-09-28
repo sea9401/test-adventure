@@ -248,7 +248,6 @@ export function jobsV2Section(params: {
       const condition = conditionRevealed
         ? jobUnlockConditionText(job)
         : "선행 직업 해금 후 공개";
-      // 직업 내장 보너스(플랫 스탯) — "이 직업을 고를 이유"로 전직 화면에 표기.
       const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
         .map((k) => `${V2_STAT_LABELS[k]} +${job.jobBonus[k]}`)
         .join(" · ");

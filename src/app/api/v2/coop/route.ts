@@ -195,8 +195,7 @@ export async function GET() {
         inArray(coopBossSessions.regionId, [...COOP_BOSS_KIND_IDS]),
       ),
     )
-    .orderBy(desc(coopBossSessions.defeatedAt))
-    .limit(10);
+    .orderBy(desc(coopBossSessions.defeatedAt));
   const claimables = claimRows
     .map((r) => {
       const kind = parseCoopBossKindId(r.regionId);

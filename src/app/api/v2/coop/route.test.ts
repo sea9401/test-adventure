@@ -252,4 +252,24 @@ describe("GET /api/v2/coop", () => {
       }],
     });
   });
+
+  it("미수령 토벌 보상이 10건을 넘더라도 모두 보여준다", async () => {
+    const claimRows = Array.from({ length: 13 }, (_, index) => ({
+      sessionId: `defeated-${index + 1}`,
+      damage: 100,
+      regionId: "mountain_chief",
+      maxHp: 1_000,
+      defeatedAt: new Date(Date.UTC(2026, 8, 27, 13 - index)),
+    }));
+    mocks.queryRows.push([], [], claimRows);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.claimables).toHaveLength(13);
+    expect(body.claimables.map((row: { sessionId: string }) => row.sessionId)).toEqual(
+      claimRows.map((row) => row.sessionId),
+    );
+  });
 });

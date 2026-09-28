@@ -145,6 +145,7 @@ describe("POST /api/v2/training/friendly", () => {
       expect.objectContaining({
         damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
         sustainMultiplier: ARENA_SUSTAIN_MULTIPLIER,
+        healingMultiplier: 0.5,
         v2Skills: {
           p1: { learned: [], equipped: [] },
           p2: { learned: [], equipped: [] },

@@ -4,14 +4,12 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 export function DungeonContextSummary({
   displayName,
-  outpostName,
   challenge,
   growthLabel,
   readiness,
   onBack,
 }: {
   displayName: string;
-  outpostName: string;
   challenge: boolean;
   growthLabel: string | null;
   readiness: { label: string; tone: "positive" | "warning" | "neutral" };
@@ -31,7 +29,6 @@ export function DungeonContextSummary({
           </>
         }
         onBack={onBack}
-        right={<span className="max-w-24 truncate text-[0.6875rem] text-zinc-500">{outpostName}</span>}
       />
       <Inset className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 py-2 text-[0.6875rem] text-zinc-500 dark:text-zinc-400">
         {growthLabel && <span>{growthLabel}</span>}

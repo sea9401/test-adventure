@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { battleReplays } from "@/db/schema";
 
 export const BATTLE_REPLAY_CLEANUP_BATCH_SIZE = 1_000;
+const BATTLE_REPLAY_CLEANUP_MAX_BATCHES = 6;
+const BATTLE_REPLAY_CLEANUP_BUDGET_MS = 5_000;
 const BATTLE_REPLAY_CLEANUP_LOCK_KEY =
   "adventure-rpg:battle-replay-retention:v1";
 
@@ -59,5 +61,29 @@ export async function deleteExpiredBattleReplayBatch(
     more: deleted >= BATTLE_REPLAY_CLEANUP_BATCH_SIZE,
     batchSize: BATTLE_REPLAY_CLEANUP_BATCH_SIZE,
     skipped: row?.acquired === false,
+  };
+}
+
+/** Keep transactions small while letting the minute cron catch up with expiry. */
+export async function deleteExpiredBattleReplays(
+  executor: CleanupExecutor = defaultExecutor,
+  now = new Date(),
+  clock: () => number = () => performance.now(),
+) {
+  const startedAt = clock();
+  let deleted = 0;
+  for (let batch = 0; batch < BATTLE_REPLAY_CLEANUP_MAX_BATCHES; batch++) {
+    // This bounds starting another batch, not the duration of an in-flight SQL.
+    if (batch > 0 && clock() - startedAt >= BATTLE_REPLAY_CLEANUP_BUDGET_MS) break;
+    const result = await deleteExpiredBattleReplayBatch(executor, now);
+    deleted += result.deleted;
+    if (result.skipped) return { ...result, deleted, more: true };
+    if (!result.more) return { ...result, deleted };
+  }
+  return {
+    deleted,
+    more: true,
+    batchSize: BATTLE_REPLAY_CLEANUP_BATCH_SIZE,
+    skipped: false,
   };
 }

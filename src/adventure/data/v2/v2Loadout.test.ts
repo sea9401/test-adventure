@@ -35,6 +35,17 @@ const PRIMORDIAL = [
 describe("validateLoadout — SP 예산 + 학습", () => {
   const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, SUNDER];
 
+  it("기존 조준 5 SP 프리셋을 유지하고 새 전환 패시브는 별도로 장착한다", () => {
+    const aim = "v2c_marksman_aim" as const;
+    const insight = "v2c_marksman_insight" as const;
+    expect(validateLoadout([aim], [aim], 5).ok).toBe(true);
+    expect(sanitizeLoadout([aim], [aim], 5)).toEqual([aim]);
+    expect(validateLoadout([aim, insight], [aim, insight], 10).ok).toBe(true);
+    expect(validateLoadout([aim, insight], [aim, insight], 9).overBudget).toBe(
+      true,
+    );
+  });
+
   it("전부 학습·예산 내 = ok", () => {
     const budget = cost(STRIKE) + cost(RECOVER) + cost(SUNDER) + 5;
     const r = validateLoadout([STRIKE, RECOVER, SUNDER], learned, budget);

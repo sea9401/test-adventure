@@ -113,7 +113,6 @@ export function V2UnexploredHuntPage() {
       huntMode="unexplored"
       unexploredSummary={summary}
       outpostId="unexplored"
-      outpostName="전용 사냥터"
       playerName={viewerName}
       playerGender={viewerGender}
       currentLevel={viewerLevel}

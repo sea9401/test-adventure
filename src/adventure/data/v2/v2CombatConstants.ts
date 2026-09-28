@@ -13,6 +13,8 @@ export const EVASION_DAMAGE_REDUCTION_MAX_PCT = 85;
 export const EVASION_CONTEST_K = 2.5;
 export const PVP_DODGE_K = 3;
 export const PVE_DODGE_K = 2.5;
+// PvP 치명타 저항은 공격자 원본 확률의 이 비율까지만 차감한다.
+export const PVP_CRIT_RESIST_MAX_FRACTION = 0.75;
 // 마나 실드 패시브의 INT·최대 MP 생존축. 현재 MP를 소모하지 않으며 전투 시작 시
 // 내구도·흡수율·내구도 경감률을 한 번만 결정한다.
 export const MAGIC_BARRIER_BASE_INT = 15;

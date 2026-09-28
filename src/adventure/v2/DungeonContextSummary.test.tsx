@@ -7,7 +7,6 @@ describe("압축 던전 문맥", () => {
     const html = renderToStaticMarkup(
       <DungeonContextSummary
         displayName="심해 폐허 · 입구"
-        outpostName="항구 거점"
         challenge
         growthLabel="성장 구간"
         readiness={{ label: "조금 위험", tone: "warning" }}

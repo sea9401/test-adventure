@@ -1185,7 +1185,7 @@ export function V2CombatPatternView({
       {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
       {equipped.includes("v2c_darkpriest_blessing") && (
         <section className={`${SURFACE_INSET} rounded-lg p-3 text-sm`}>
-          <p className="font-semibold">암흑사제 의식 리워크</p>
+          <p className="font-semibold">암흑사제 스킬 변경</p>
           <p className="mt-1">영혼 수확이 고통의 기도로 변경되었습니다. 피해량 흡혈 대신 고통을 소비합니다. 기존 패턴은 유지되며, 다음 추천을 확인하고 적용할 수 있습니다.</p>
           <ol className="my-2 list-inside list-decimal text-xs">
             {arenaPatternActionSummary({ pattern: darkPriestPattern(equipped) }).map((item) => <li key={item.key}>{item.condition} → {item.name}</li>)}

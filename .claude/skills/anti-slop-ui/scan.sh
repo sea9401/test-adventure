@@ -36,7 +36,7 @@ check() {
 # 1·2. 그라데이션·색
 check "그라데이션(재질/등급 연출인지 확인)" 'bg-(gradient|linear|radial)-to-|\b(from|via)-[a-z]+-\d{2,3}\b|(linear|radial)-gradient\('
 check "글자 그라데이션" 'bg-clip-text|background-clip:\s*text'
-check "보라/네온 계열 색(코스메틱 외 금지)" '\b(bg|text|border|from|via|to|ring|shadow|fill|stroke)-(purple|violet|fuchsia)-|#(8b5cf6|7c3aed|a855f7|9333ea|6d28d9|c084fc|a78bfa|d946ef|ec4899)\b'
+check "보라/네온 계열 색(바이올렛=스킬·문장 의미인지 확인)" '\b(bg|text|border|from|via|to|ring|shadow|fill|stroke)-(purple|violet|fuchsia)-|#(8b5cf6|7c3aed|a855f7|9333ea|6d28d9|c084fc|a78bfa|d946ef|ec4899)\b'
 check "다크 유색 면(darkSurfaceAudit 대상)" 'dark:bg-(amber|orange|yellow|red|rose|violet|purple|indigo|blue|sky|cyan|teal|emerald|green|lime)-(900|950)'
 # 3. 깜박임
 check "반복 애니메이션(행동 유도·로딩 외 금지)" '\banimate-(pulse|ping|bounce)\b|animation:[^;]*infinite'

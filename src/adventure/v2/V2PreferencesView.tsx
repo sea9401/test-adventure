@@ -213,7 +213,7 @@ export function V2PreferencesView() {
         <div>
           <h2 className="text-sm font-bold">화면 테마</h2>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            화면의 기본 명암을 선택합니다. 변경 사항은 이 브라우저에 저장됩니다.
+            변경 사항은 이 브라우저에 저장됩니다.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -342,9 +342,6 @@ export function V2PreferencesView() {
       <Card as="section" padding="md" className="space-y-3">
         <div>
           <h2 className="text-sm font-bold">계정 및 안내</h2>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-            서비스 정책을 확인하거나 계정 탈퇴를 진행할 수 있습니다.
-          </p>
         </div>
         <Link
           href="/privacy"

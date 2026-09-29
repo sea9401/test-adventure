@@ -385,7 +385,7 @@ export function V2GridDungeonView({
           </h1>
           <p className="mt-0.5 text-xs text-zinc-500">
             {activeRoute.name} · 지도 ({GRID_DUNGEON_ENTRANCE.col},{" "}
-            {GRID_DUNGEON_ENTRANCE.row}) 입구에서 진입하는 격자 탐험 던전
+            {GRID_DUNGEON_ENTRANCE.row}) 입구
           </p>
         </div>
         <button

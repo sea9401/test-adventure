@@ -133,7 +133,7 @@ export function UnifiedExchangeView({
         <div className="space-y-1 border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
           <h1 className="text-base font-bold">모든 콘텐츠 상점</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            전용 재화와 구매 제한은 그대로 유지되며, 선택한 상점만 불러옵니다.
+            상점마다 전용 재화와 구매 제한이 따로 적용됩니다.
           </p>
         </div>
 

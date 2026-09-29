@@ -161,9 +161,6 @@ export function V2LifeRecordView({
               <h2 id="life-mastery-heading" className="text-sm font-bold">
                 생활 숙련
               </h2>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                현재 효과와 누적 기록, 다음 성장 목표를 모아봅니다.
-              </p>
             </div>
             {summary.activities.map((activity) => (
               <LifeActivityCard key={activity.id} activity={activity} />

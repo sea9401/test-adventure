@@ -744,7 +744,7 @@ function FarmHome({
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-            아침에 심고, 모험 뒤에 거두는 작은 밭
+            밭과 납품
           </h2>
           <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
             씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.

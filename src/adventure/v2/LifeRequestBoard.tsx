@@ -488,7 +488,7 @@ export function LifeRequestBoard({
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
           <div>
             <h2 className="text-sm font-bold">농장·주방·낚시터 의뢰</h2>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">각 생활 화면에서 진행하는 기존 의뢰 바로가기</p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">각 생활 화면의 의뢰로 바로 이동합니다.</p>
           </div>
           <span className="shrink-0 text-xs font-semibold text-emerald-700 group-open:hidden dark:text-emerald-300">바로가기 보기</span>
           <span className="hidden shrink-0 text-xs font-semibold text-emerald-700 group-open:inline dark:text-emerald-300">접기</span>

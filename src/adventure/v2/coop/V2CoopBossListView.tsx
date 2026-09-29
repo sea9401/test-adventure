@@ -405,19 +405,19 @@ export function V2CoopBossListView({
                     </li>
                   )}
                 {lastReward.equipmentBoxName && (
-                  <li>{lastReward.equipmentBoxName} — 소모품 탭에서 사용</li>
+                  <li>{lastReward.equipmentBoxName} (소모품 탭에서 사용)</li>
                 )}
                 {lastReward.uniqueId && (
                   <li>
                     보스 유니크{" "}
                     <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
-                    — 인벤토리에서 확인
+                    (인벤토리에서 확인)
                   </li>
                 )}
                 {lastReward.spFruitCount > 0 && (
                   <li>
                     {lastReward.spFruitName ?? "SP 열매"} ×
-                    {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
+                    {lastReward.spFruitCount} (소모품 탭에서 사용 시 SP 최대치 ↑)
                   </li>
                 )}
               </>

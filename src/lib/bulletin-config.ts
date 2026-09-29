@@ -28,7 +28,7 @@ export const BULLETIN_CATEGORY_LABELS: Record<
 > = {
   notice: {
     name: "공지사항",
-    description: "운영자가 작성하는 안내 — 점검·업데이트·이벤트 등.",
+    description: "운영자가 작성하는 점검·업데이트·이벤트 안내.",
   },
   free: {
     name: "자유게시판",

@@ -145,7 +145,7 @@ export function FishingLeaderboardView({
                     </div>
                     {entries.length === 0 ? (
                       <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                        아직 기록 없음 — 첫 기록의 주인이 되어 보자.
+                        아직 기록이 없습니다. 첫 기록의 주인이 되어 보세요.
                       </p>
                     ) : (
                       <ul className="mt-1.5 space-y-0.5">

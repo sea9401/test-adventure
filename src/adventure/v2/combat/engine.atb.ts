@@ -172,7 +172,7 @@ export function tickPlayerDotsOnAction(
       flags: { ...next.flags, enduranceTriggered: true },
       log: appendLog(next.log, {
         kind: "info",
-        text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+        text: `[불굴] 마지막 한 숨! HP 1로 버텼다!`,
         turn: "player",
       }),
     };
@@ -365,7 +365,7 @@ function forceAtbLoss(
       log: appendLog(
         appendLog(state.log, {
           kind: "info",
-          text: `${ATB_TICK_CAP}틱 경과 — 적을 쓰러뜨리지 못했다.`,
+          text: `${ATB_TICK_CAP}틱 경과, 적을 쓰러뜨리지 못했다.`,
         }),
         hpBarEntry(state),
       ),
@@ -401,7 +401,7 @@ function continueDamageMeterAfterEnemyDefeat(
     outcome: null,
     log: appendLog(state.log, {
       kind: "info",
-      text: "피해 계측 구간 돌파 — 전투를 계속합니다.",
+      text: "피해 계측 구간 돌파! 전투를 계속합니다.",
       turn,
       t: tick,
     }),
@@ -524,7 +524,7 @@ export function resolveBattleAtb(
     openingExtra.push({
       kind: "info",
       effect: "status",
-      text: `방벽 시험 시작 — ${state.bossMechanic.activeBarrierIndex + 1}/4`,
+      text: `방벽 시험 시작 (${state.bossMechanic.activeBarrierIndex + 1}/4)`,
       turn: "player",
       t: 0,
     });
@@ -633,7 +633,7 @@ export function resolveBattleAtb(
             appendLog(state.log, {
               kind: "info",
               effect: "status",
-              text: `방벽 시험 종료 — 누적 ${barrierDamage.toLocaleString("ko-KR")}`,
+              text: `방벽 시험 종료 (누적 ${barrierDamage.toLocaleString("ko-KR")})`,
               turn: "enemy",
               t: nextTick,
             }),

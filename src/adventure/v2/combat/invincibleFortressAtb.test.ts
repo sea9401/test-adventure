@@ -114,14 +114,14 @@ describe("invincible fortress ATB mechanic", () => {
         entry.text === "방벽 피해 +1,500,000 · 남은 0 / 1,500,000",
     );
     const destroyedIndex = result.finalState.log.findIndex(
-      (entry) => entry.text === "방벽 파괴 — 누적 1,500,000",
+      (entry) => entry.text === "방벽 파괴 (누적 1,500,000)",
     );
     expect(damageIndex).toBeGreaterThanOrEqual(0);
     expect(destroyedIndex).toBeGreaterThan(damageIndex);
     expect(result.finalState.log).toContainEqual(
       expect.objectContaining({
         t: 0,
-        text: "방벽 파괴 — 누적 1,500,000",
+        text: "방벽 파괴 (누적 1,500,000)",
       }),
     );
     expect(result.finalState.log).toContainEqual(
@@ -169,7 +169,7 @@ describe("invincible fortress ATB mechanic", () => {
     expect(result.finalState.log).toContainEqual(
       expect.objectContaining({
         t: 400,
-        text: "방벽 시험 종료 — 누적 400,000",
+        text: "방벽 시험 종료 (누적 400,000)",
       }),
     );
   });
@@ -269,7 +269,7 @@ describe("invincible fortress ATB mechanic", () => {
       enrageTier: 0,
     });
     const barrierStart = result.finalState.log.find(
-      (entry) => entry.text.includes("방벽 시험 시작 — 2/4"),
+      (entry) => entry.text.includes("방벽 시험 시작 (2/4)"),
     );
     expect(barrierStart?.t).toBeGreaterThan(0);
     expect(

@@ -1151,7 +1151,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
   if (sigSkillCritSpdBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigSkill.critSpeed?.label ?? "군림"}] ${side.name} 결정타 — 속도가 솟구친다!`,
+      text: `[${sigSkill.critSpeed?.label ?? "군림"}] ${side.name} 결정타! 속도가 솟구친다!`,
       side: who,
     });
   }
@@ -1260,7 +1260,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     nextOppHp = 1;
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[불굴] ${opp.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+      text: `[불굴] ${opp.name} 마지막 한 숨! HP 1로 버텼다!`,
       side: otherKey,
     });
   }
@@ -1372,7 +1372,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
   if (signatureExtraActions > 0) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${side.name} ${landedSkillHits}회 적중 — 추가 기본 공격 ${signatureExtraActions}회!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${side.name} ${landedSkillHits}회 적중! 추가 기본 공격 ${signatureExtraActions}회!`,
       side: who,
     });
   }

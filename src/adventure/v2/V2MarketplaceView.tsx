@@ -581,7 +581,7 @@ export function V2MarketplaceView({
   );
 
   const cancel = (l: Listing) =>
-    act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물 취소 — 아이템 반환", () => loadBrowse(true));
+    act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물을 취소하고 아이템을 돌려받았습니다", () => loadBrowse(true));
   const createPriceAlert = (
     group: MarketplaceStackGroup,
     targetUnitPrice: number,

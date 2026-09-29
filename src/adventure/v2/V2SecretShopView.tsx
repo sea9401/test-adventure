@@ -163,7 +163,7 @@ export function V2SecretShopView({
       if (j?.ok) {
         if (typeof j.map === "string") setActiveMapIid(j.map);
         setMsg(
-          `✓ ${item.name} 구매${j.mapCompleted ? " — 모든 품목을 구매해 비밀 상점을 완료했다" : ""}`,
+          `✓ ${item.name} 구매${j.mapCompleted ? ". 모든 품목을 구매해 비밀 상점을 완료했습니다" : ""}`,
         );
         if (typeof j.gold === "number") setGold(j.gold);
         if (typeof j.bankedGold === "number") {

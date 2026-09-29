@@ -103,8 +103,8 @@ export async function respawnCoopRegion(
     // 채팅 broadcast — 부수 효과라 실패해도 spawn 자체는 성공.
     // 월드 보스는 만료 시간 대신 "꾸준히 깎아야 잡힌다" 톤으로 안내.
     const broadcastText = def.isWorldBoss
-      ? `${def.monsterName}이(가) 깨어났다 — 모든 모험가의 누적 데미지로만 쓰러뜨릴 수 있다.`
-      : `${def.monsterName}이(가) 나타났다 — 24시간 안에 쓰러뜨려야 한다.`;
+      ? `${def.monsterName}이(가) 깨어났다. 모든 모험가의 누적 데미지로만 쓰러뜨릴 수 있다.`
+      : `${def.monsterName}이(가) 나타났다. 24시간 안에 쓰러뜨려야 한다.`;
     try {
       await ensureSystemUser();
       await db.insert(messages).values({

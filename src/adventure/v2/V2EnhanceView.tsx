@@ -586,7 +586,7 @@ export function V2EnhanceView({
       } else if (json.outcome === "demote") {
         setMsg({
           kind: "fail",
-          text: `강화 실패 — 한 단계 하락… +${json.enhance?.level ?? 0}`,
+          text: `강화 실패, 한 단계 하락… +${json.enhance?.level ?? 0}`,
         });
       } else if (json.outcome === "destroy") {
         setMsg({
@@ -595,12 +595,12 @@ export function V2EnhanceView({
         });
         setSelectedIid(null);
       } else {
-        setMsg({ kind: "fail", text: "강화 실패 — 수치 유지, 재료만 소모" });
+        setMsg({ kind: "fail", text: "강화 실패. 수치는 유지되고 재료만 소모됐습니다" });
       }
       // 강화는 장착 장비의 위력을 바꾸므로 전역 상태(스탯 합계)도 갱신.
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
-      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+      setMsg({ kind: "error", text: "네트워크 오류입니다. 다시 시도해 주세요" });
     } finally {
       setBusy(false);
     }
@@ -672,11 +672,11 @@ export function V2EnhanceView({
       }
       setMsg({
         kind: "success",
-        text: `폭풍 개량 완료 — 위력 ${refineCurrentPower} → ${refinedPower}`,
+        text: `폭풍 개량 완료: 위력 ${refineCurrentPower} → ${refinedPower}`,
       });
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
-      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+      setMsg({ kind: "error", text: "네트워크 오류입니다. 다시 시도해 주세요" });
     } finally {
       setStormRefineConfirmOpen(false);
       setBusy(false);
@@ -727,12 +727,12 @@ export function V2EnhanceView({
           : "유지";
       setMsg({
         kind: json.improved ? "success" : "fail",
-        text: `재련 ${resultLabel} — 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
+        text: `재련 ${resultLabel}: 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
       });
       // 재련은 장착 장비의 옵션(위력)을 바꾸므로 전역 상태(스탯 합계)도 갱신.
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
-      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+      setMsg({ kind: "error", text: "네트워크 오류입니다. 다시 시도해 주세요" });
     } finally {
       setBusy(false);
     }
@@ -768,7 +768,7 @@ export function V2EnhanceView({
       });
       await refresh();
     } catch {
-      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+      setMsg({ kind: "error", text: "네트워크 오류입니다. 다시 시도해 주세요" });
     } finally {
       setBusy(false);
     }
@@ -804,7 +804,7 @@ export function V2EnhanceView({
       });
       await Promise.all([refresh(), refreshGameState()]);
     } catch {
-      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+      setMsg({ kind: "error", text: "네트워크 오류입니다. 다시 시도해 주세요" });
     } finally {
       setBusy(false);
     }
@@ -866,7 +866,7 @@ export function V2EnhanceView({
         });
         await Promise.all([refresh(), refreshGameState()]);
       } catch {
-        setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+        setMsg({ kind: "error", text: "네트워크 오류입니다. 다시 시도해 주세요" });
       } finally {
         setBusy(false);
       }
@@ -1196,7 +1196,7 @@ export function V2EnhanceView({
                         )
                       }
                     />
-                    같은 장비 1개를 재료로 (보유 {feedCandidates.length}개 —
+                    같은 장비 1개를 재료로 (보유 {feedCandidates.length}개,
                     강화석 면제)
                   </label>
                 )}

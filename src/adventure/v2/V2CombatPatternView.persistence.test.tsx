@@ -155,7 +155,7 @@ describe("결투가 패턴 저장과 화면 재진입 (#687)", () => {
     await openEditor();
 
     expect(patternRows()).toHaveLength(4);
-    expect(screen.getAllByText(/미장착 스킬 —/)).toHaveLength(3);
+    expect(screen.getAllByText(/미장착 스킬:/)).toHaveLength(3);
     expect(screen.queryByText(/상위 선언 연계 중/)).toBeNull();
   });
 

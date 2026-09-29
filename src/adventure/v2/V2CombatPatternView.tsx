@@ -1033,7 +1033,7 @@ export function V2CombatPatternView({
       ).length;
       if (emptyCount > 0) {
         setSaveState("error");
-        setMsg(`✗ 스킬을 안 고른 블록이 ${emptyCount}개 있습니다 — 스킬을 고르거나 블록(✕)을 지워주세요`);
+        setMsg(`✗ 스킬을 안 고른 블록이 ${emptyCount}개 있습니다. 스킬을 고르거나 블록(✕)을 지워주세요`);
         return;
       }
       setSaveState("saving");
@@ -1437,7 +1437,7 @@ export function V2CombatPatternView({
                   linkedDeclarationIds.has(skillId),
                 ) && (
                   <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
-                    상위 선언 연계 중 · 별도 시전 안 함 — 장착한 하위 선언 효과는{" "}
+                    상위 선언 연계 중 · 별도 시전 안 함. 장착한 하위 선언 효과는{" "}
                     {skillName(highestDeclaration)}에 합쳐지며, 이 블록은 전투에서 건너뜁니다.
                   </p>
                 )}
@@ -1446,14 +1446,14 @@ export function V2CombatPatternView({
                   (skillId) => skillId && !equipped.includes(skillId),
                 ) && (
                     <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
-                      미장착 스킬 — 해당 차례에는 이 블록이 발동하지 않습니다
+                      미장착 스킬: 해당 차례에는 이 블록이 발동하지 않습니다
                     </p>
                   )}
                 {actionSkillIds(b.action).some((skillId) =>
                   resonanceMaterialIds.has(skillId),
                 ) && (
                     <p className="mt-1 pl-10 text-[11px] font-medium text-violet-700 dark:text-violet-300">
-                      공명 재료 — 상위 원소 스킬에 흡수되어 해당 차례에는 이 블록이 발동하지 않습니다
+                      공명 재료: 상위 원소 스킬에 흡수되어 해당 차례에는 이 블록이 발동하지 않습니다
                     </p>
                   )}
               </li>

@@ -49,7 +49,7 @@ export function appendInvincibleFortressDamageEvents(
       log = appendLog(log, {
         kind: "info",
         effect: "status",
-        text: `방벽 시험 시작 — ${event.barrierIndex + 1}/4`,
+        text: `방벽 시험 시작 (${event.barrierIndex + 1}/4)`,
         turn,
         ...timing,
       });
@@ -73,7 +73,7 @@ export function appendInvincibleFortressDamageEvents(
       appendLog(log, {
         kind: "info",
         effect: "status",
-        text: `방벽 파괴 — 누적 ${event.totalDamage.toLocaleString("ko-KR")}`,
+        text: `방벽 파괴 (누적 ${event.totalDamage.toLocaleString("ko-KR")})`,
         turn,
         ...timing,
       }),

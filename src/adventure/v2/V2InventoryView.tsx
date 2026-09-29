@@ -355,7 +355,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         await refresh();
         await refreshGameState();
         notifySystem(
-          `✓ ${SP_FRUIT[tier].name} 사용 — SP 최대치 +${SP_FRUIT[tier].spPerUse}` +
+          `✓ ${SP_FRUIT[tier].name} 사용, SP 최대치 +${SP_FRUIT[tier].spPerUse}` +
             (typeof j.spBudget === "number" ? ` (현재 ${j.spBudget})` : ""),
         );
       } catch (err) {

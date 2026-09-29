@@ -267,7 +267,7 @@ function entryText(e: FeedEntry): React.ReactNode {
     const jackpot = (p.treasuryGold ?? 0) > 0 && (
       <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
         {" "}
-        — 금고 {p.treasuryGold!.toLocaleString()} G 획득!
+       , 금고 {p.treasuryGold!.toLocaleString()} G 획득!
       </span>
     );
     return p.guildName ? (

@@ -387,12 +387,12 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
       }
       notifySystem(
         data.delivery === "bundle"
-          ? `✓ 구매 완료 — ${data.itemName ?? "패키지"}의 구성품을 지급했습니다.`
+          ? `✓ 구매 완료! ${data.itemName ?? "패키지"}의 구성품을 지급했습니다.`
           : data.delivery === "permanent"
-          ? `✓ 구매 완료 — ${data.itemName ?? "영구 상품"}을 영구 해금했습니다.`
+          ? `✓ 구매 완료! ${data.itemName ?? "영구 상품"}을 영구 해금했습니다.`
           : data.delivery === "entitlement"
-          ? `✓ 구매 완료 — ${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
-          : `✓ 구매 완료 — ${data.itemName ?? "캐시 아이템"} ${(data.quantity ?? quantity).toLocaleString()}개를 가방에 넣었습니다.`,
+          ? `✓ 구매 완료! ${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
+          : `✓ 구매 완료! ${data.itemName ?? "캐시 아이템"} ${(data.quantity ?? quantity).toLocaleString()}개를 가방에 넣었습니다.`,
       );
       setDetailItemId(null);
     } catch {

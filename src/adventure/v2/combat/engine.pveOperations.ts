@@ -660,7 +660,7 @@ export function initialBattleState(
   if (enemy.skill) {
     log.push({
       kind: "info",
-      text: `${enemy.name} — 능력 [${enemy.skill.name}]`,
+      text: `${enemy.name}의 능력 [${enemy.skill.name}]`,
     });
   }
   const bulwarkStart = player.bulwarkShield ?? 0;
@@ -925,7 +925,7 @@ export function applyPotionEffect(
       playerHp: newHp,
       log: appendLog(state.log, {
         kind: "info",
-        text: `${playerName}이(가) ${potion.name}을(를) 마셨다 — HP +${actual} (${state.playerHp} → ${newHp})`,
+        text: `${playerName}이(가) ${potion.name}을(를) 마셨다. HP +${actual} (${state.playerHp} → ${newHp})`,
       }),
     };
   }
@@ -939,7 +939,7 @@ export function applyPotionEffect(
       playerMp: newMp,
       log: appendLog(state.log, {
         kind: "info",
-        text: `${playerName}이(가) ${potion.name}을(를) 마셨다 — MP +${actual} (${state.playerMp} → ${newMp})`,
+        text: `${playerName}이(가) ${potion.name}을(를) 마셨다. MP +${actual} (${state.playerMp} → ${newMp})`,
       }),
     };
   }

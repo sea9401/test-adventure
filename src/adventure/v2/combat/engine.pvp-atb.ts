@@ -127,7 +127,7 @@ function forceAtbTimeout(
       log: appendLog(
         appendLog(state.log, {
           kind: "info",
-          text: `${PVP_ATB_TICK_CAP}틱 경과 — 남은 HP 비율로 승부를 판정했다.`,
+          text: `${PVP_ATB_TICK_CAP}틱 경과, 남은 HP 비율로 승부를 판정했다.`,
         }),
         hpBarEntry(state),
       ),

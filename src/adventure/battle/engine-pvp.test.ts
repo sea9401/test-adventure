@@ -234,7 +234,7 @@ describe("initialBattleStatePvP — 초기 상태", () => {
     ).toBe("p2");
     expect(
       result.finalState.log.some((entry) =>
-        entry.text.includes("속도 가중 추첨 결과 — P2의 선공"),
+        entry.text.includes("속도 가중 추첨 결과, P2의 선공"),
       ),
     ).toBe(true);
   });

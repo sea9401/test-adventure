@@ -542,7 +542,7 @@ export function V2InboxView({
           itemQty + equipV2Qty + materialsV2Qty + (j.instancesAdded?.length ?? 0);
         if (totalItems > 0) parts.push(`+아이템 ${totalItems}개`);
         const text = parts.join(" · ");
-        setMsg(parts.length > 0 ? `✓ 수령 완료 — ${text}` : "✓ 수령 완료");
+        setMsg(parts.length > 0 ? `✓ 수령 완료: ${text}` : "✓ 수령 완료");
         notifyReward("우편 수령 완료", text);
         setSelected(null);
         // 완료 우편도 같은 받은 우편 목록에 남으므로 통합 목록을 다시 불러온다.

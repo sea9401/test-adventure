@@ -445,7 +445,7 @@ function advanceTurnPvPBody(
   if (defender.buffs.enemyAttackBlockedCount > 0) {
     const blockedLog = appendLog(state.log, {
       kind: "info",
-      text: `[잔상] ${defender.name} — ${attacker.name}의 공격이 잔상을 베었다.`,
+      text: `[잔상] ${defender.name}: ${attacker.name}의 공격이 잔상을 베었다.`,
     });
     const nextAttacker: PvPSide = {
       ...attacker,
@@ -856,7 +856,7 @@ function advanceTurnPvPBody(
   if (enduranceFires) {
     log = appendLog(log, {
       kind: "info",
-      text: `[불굴] ${defender.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+      text: `[불굴] ${defender.name} 마지막 한 숨! HP 1로 버텼다!`,
     });
   }
   if (bloodfeastHeal > 0) {
@@ -981,7 +981,7 @@ function advanceTurnPvPBody(
   if (weakpointFires) {
     log = appendLog(log, {
       kind: "info",
-      text: `[약점 적중] 빈틈을 — 한 번 더!`,
+      text: `[약점 적중] 빈틈을 노려 한 번 더!`,
     });
   }
   // 연쇄 운명 — 크리 시 그 턴 1회, 다음 공격 크리 강제 큐.
@@ -992,7 +992,7 @@ function advanceTurnPvPBody(
   if (fatedChainFires) {
     log = appendLog(log, {
       kind: "info",
-      text: `[연쇄 운명] ${attacker.name} — 별빛이 다음 결을 점지했다 (다음 공격 치명타 보장).`,
+      text: `[연쇄 운명] ${attacker.name}: 별빛이 다음 결을 점지했다 (다음 공격 치명타 보장).`,
     });
   }
   const newWeakpointLeft =
@@ -1158,7 +1158,7 @@ function advanceTurnPvPBody(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} ${sigEveryN}회 적중 — 추가 기본 공격!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} ${sigEveryN}회 적중! 추가 기본 공격!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(
@@ -1243,7 +1243,7 @@ function advanceTurnPvPBody(
   if (sigCritSpeedBuff) {
     log = appendLog(log, {
       kind: "info",
-      text: `[${sigCritSpeedBuff.label}] 결정타 — 속도가 솟구친다!`,
+      text: `[${sigCritSpeedBuff.label}] 결정타! 속도가 솟구친다!`,
     });
   }
   if (!blockSigStatus && sigCritChill) {
@@ -1667,7 +1667,7 @@ function advanceTurnPvPBody(
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `[연참] ${attacker.name} 빈틈을 — 한 번 더!`,
+        text: `[연참] ${attacker.name} 빈틈을 노려 한 번 더!`,
       }),
     };
     return setSide(next, atkKey, {

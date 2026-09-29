@@ -350,13 +350,13 @@ export function CoopRewardTable({
       )}
       {fruit && myTier && coopSpFruitMaxAt(myTier) > 0 && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          현재 티어 보상 — 토벌 성공 시 {fruit.name} 최대{" "}
+          현재 티어 보상 (토벌 성공 시 {fruit.name} 최대{" "}
           {coopSpFruitMaxAt(myTier)}개 (각 단계 확률 독립 굴림)
         </p>
       )}
       {fruit ? (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. GOLD 이상 도달 티어를 독립 굴림 —
+          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. GOLD 이상 도달 티어마다 따로 굴리며,
           통과 시 {fruit.name} 1개. LEGEND 달성 시 최대 3개.
         </p>
       ) : (

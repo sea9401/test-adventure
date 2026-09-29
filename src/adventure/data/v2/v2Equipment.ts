@@ -539,9 +539,9 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "on_crit":
       if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
       if (sig.chillSlowPct)
-        return `치명타 시 대상 한기 — 속도 −${sig.chillSlowPct}% (${sig.buffActions ?? 1}행동)`;
+        return `치명타 시 대상 한기: 속도 −${sig.chillSlowPct}% (${sig.buffActions ?? 1}행동)`;
       if (sig.enemyDefDebuffPct)
-        return `치명타 시 대상 표식 — 방어 −${sig.enemyDefDebuffPct}% (${sig.buffActions ?? 1}행동)`;
+        return `치명타 시 대상 표식: 방어 −${sig.enemyDefDebuffPct}% (${sig.buffActions ?? 1}행동)`;
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";
@@ -551,7 +551,7 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.bleedChancePct)
         return `공격 적중 시 ${sig.bleedChancePct}% 확률로 출혈 ${sig.bleedStacks ?? 1}스택`;
       if (sig.shockChancePct)
-        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 다음 행동 1회 불가`;
+        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전(다음 행동 1회 불가)`;
       return "공격 적중 시 발동";
     case "on_hit_taken":
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;

@@ -171,7 +171,7 @@ export function fireSkywardCrystalEyeAtbArtillery(args: {
       log: appendLog(state.log, {
         kind: "info",
         effect: "status",
-        text: "완전 조준 붕괴 — 핵 노출 250틱 · 받는 피해 +25%",
+        text: "완전 조준 붕괴! 핵 노출 250틱 · 받는 피해 +25%",
         turn: "enemy",
         t: args.tick,
       }),

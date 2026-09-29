@@ -68,7 +68,7 @@ export default function HonorShopPanel() {
             applyResourcePatch({ staminaPotions: j.staminaPotions });
           }
           notifySystem(
-            `✓ 구매 완료 — ${j.granted.name} +${j.granted.quantity.toLocaleString()}`,
+            `✓ 구매 완료: ${j.granted.name} +${j.granted.quantity.toLocaleString()}`,
           );
         } else {
           notifySystem(

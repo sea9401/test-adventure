@@ -223,7 +223,7 @@ export function GuildBrowsePanel({
                                 : !g.acceptingRequests
                                   ? "가입 신청을 받지 않습니다"
                                   : hasOtherPending
-                                    ? "다른 길드에 신청 중 — 먼저 취소하세요"
+                                    ? "다른 길드에 신청 중입니다. 먼저 취소하세요"
                                     : undefined
                             }
                             className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"

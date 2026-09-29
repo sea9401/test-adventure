@@ -1244,7 +1244,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               {spSourceRows.map((row) => (
                 <div
                   key={row.label}
-                  className="rounded-md bg-zinc-50 px-3 py-2 dark:bg-zinc-900/70"
+                  className="rounded-md bg-zinc-50 px-3 py-2 dark:bg-zinc-950"
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">

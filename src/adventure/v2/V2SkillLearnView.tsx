@@ -971,7 +971,7 @@ export function V2SkillLearnView({
                   className={[
                     "rounded-md border px-3 py-2",
                     selectedNext
-                      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-800 dark:bg-zinc-950"
+                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-zinc-950"
                       : "border-transparent bg-white dark:bg-zinc-900",
                   ].join(" ")}
                 >

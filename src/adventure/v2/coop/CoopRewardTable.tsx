@@ -281,10 +281,10 @@ export function CoopRewardTable({
             {COOP_TIER_ORDER.map((tier, index) => {
               const mine = myTier === tier;
               const rowClass = mine
-                ? "bg-amber-500/20 text-amber-100"
+                ? "bg-zinc-950 text-amber-100 ring-1 ring-inset ring-amber-700"
                 : index % 2 === 0
                   ? "bg-zinc-900"
-                  : "bg-zinc-800/80";
+                  : "bg-zinc-800";
               return (
                 <tr key={tier} className={rowClass}>
                   {index === 0 && (

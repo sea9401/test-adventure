@@ -289,7 +289,7 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800/70">
+              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800">
                 <div className="flex items-center gap-1 text-xs text-zinc-500">
                   <Trophy size={12} /> 점수
                 </div>
@@ -297,14 +297,14 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
                   {entry.scoreBefore} → {entry.scoreAfter}
                 </div>
               </div>
-              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800/70">
+              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800">
                 <div className="text-xs text-zinc-500">변동</div>
                 <div className={"mt-0.5 font-semibold tabular-nums " + scoreColor(entry.scoreDelta)}>
                   {entry.scoreDelta >= 0 ? "+" : ""}
                   {entry.scoreDelta}
                 </div>
               </div>
-              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800/70">
+              <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-800">
                 <div className="flex items-center gap-1 text-xs text-zinc-500">
                   <Coin size={12} /> 골드
                 </div>

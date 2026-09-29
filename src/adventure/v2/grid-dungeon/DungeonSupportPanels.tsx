@@ -69,7 +69,7 @@ export function MySupportRolePanel({
   onSetRole: (role: GridDungeonSupportRole | null) => void;
 }) {
   return (
-    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs font-semibold text-zinc-200">내 지원 카드</div>
         <SupportRolePill role={role} />
@@ -167,7 +167,7 @@ export function GuildSupportSelector({
     selectedIds.includes(candidate.userId),
   );
   return (
-    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
           <UsersThree size={16} weight="fill" />
@@ -211,7 +211,7 @@ export function GuildSupportSelector({
                 selectedCandidate
                   ? "border-cyan-600 bg-cyan-950/35 text-cyan-100"
                   : unavailable
-                    ? "border-zinc-900 bg-zinc-950/50 text-zinc-600"
+                    ? "border-zinc-900 bg-zinc-950 text-zinc-600"
                     : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
               }`}
             >
@@ -267,7 +267,7 @@ export function GuildSupportSelector({
         })}
       </div>
       {selected.length > 0 && (
-        <div className="rounded border border-zinc-800 bg-black/20 px-2.5 py-2 text-[11px] text-zinc-500">
+        <div className="rounded border border-zinc-800 bg-black px-2.5 py-2 text-[11px] text-zinc-500">
           전열:{" "}
           <button
             type="button"

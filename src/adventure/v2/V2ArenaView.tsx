@@ -319,7 +319,7 @@ function WeeklySeasonRecords({
             return (
               <li
                 key={s.seasonId}
-                className="rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/70"
+                className="rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">{s.seasonId}</span>
@@ -358,7 +358,7 @@ function OpponentRecords({
           {records.map((r) => (
             <li
               key={r.key}
-              className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/70"
+              className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800"
             >
               {r.avatar && (
                 <CosmeticAvatar
@@ -733,7 +733,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 {WEEKLY_REWARDS.map((r) => (
                   <div
                     key={r.rank}
-                    className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/70"
+                    className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800"
                   >
                     <span className="font-medium">{r.rank}</span>
                     <span className="tabular-nums text-amber-700 dark:text-amber-300">

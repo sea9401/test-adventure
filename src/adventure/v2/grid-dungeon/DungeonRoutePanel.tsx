@@ -9,7 +9,7 @@ import {
 // 격자 던전 — 경로 선택 패널(V2GridDungeonView 에서 분리, 2026-07).
 function RouteMetric({ label, value }: { label: string; value: string }) {
   return (
-    <span className="rounded border border-zinc-800 bg-black/20 px-2 py-1">
+    <span className="rounded border border-zinc-800 bg-black px-2 py-1">
       <span className="text-zinc-500">{label}</span>{" "}
       <span className="font-semibold text-zinc-200">{value}</span>
     </span>
@@ -78,7 +78,7 @@ export function RouteSelector({
             className={`min-h-48 rounded-md border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
               active
                 ? "border-emerald-500 bg-emerald-950/45 text-emerald-100"
-                : "border-zinc-800 bg-zinc-950/70 text-zinc-300 hover:border-zinc-600"
+                : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
             }`}
           >
             <span className="flex items-center justify-between gap-2">
@@ -102,7 +102,7 @@ export function RouteSelector({
               >
                 {guidance.label}
               </span>
-              <span className="rounded border border-zinc-800 bg-black/20 px-2 py-1 text-[11px] text-zinc-400">
+              <span className="rounded border border-zinc-800 bg-black px-2 py-1 text-[11px] text-zinc-400">
                 {guidance.detail}
               </span>
             </span>
@@ -110,7 +110,7 @@ export function RouteSelector({
               className={`mt-2 block rounded border px-2 py-1.5 text-[11px] ${
                 route.id === "guardian" && selectedSupporterCount === 0
                   ? "border-red-900/80 bg-red-950/35 text-red-200"
-                  : "border-zinc-800 bg-black/20 text-zinc-400"
+                  : "border-zinc-800 bg-black text-zinc-400"
               }`}
             >
               파티 상태: {guidance.selectedText(selectedSupporterCount)}

@@ -95,7 +95,7 @@ export function RewardQuotaNotice({
       className={`rounded-md border px-3 py-2 text-xs ${
         canClaimMaterials
           ? "border-yellow-800/70 bg-yellow-950/35 text-yellow-200"
-          : "border-zinc-800 bg-zinc-950/70 text-zinc-400"
+          : "border-zinc-800 bg-zinc-950 text-zinc-400"
       }`}
     >
       <div className="font-semibold">
@@ -120,7 +120,7 @@ export function DungeonHistory({
   const history = entries ?? [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
   return (
-    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950 p-3">
       <div className="text-xs font-semibold text-zinc-300">최근 탐험 기록</div>
       {history.length === 0 ? (
         <div className="text-xs text-zinc-500">아직 기록이 없습니다.</div>

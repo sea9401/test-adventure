@@ -624,7 +624,7 @@ export function V2CoopBossDetailView({
                   t.isMe
                     ? "bg-amber-50 font-medium dark:bg-zinc-950 dark:text-amber-200 dark:ring-1 dark:ring-amber-800"
                     : i % 2 === 1
-                      ? "bg-zinc-50 dark:bg-zinc-900/60"
+                      ? "bg-zinc-50 dark:bg-zinc-800"
                       : ""
                 }`}
               >

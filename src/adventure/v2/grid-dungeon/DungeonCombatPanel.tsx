@@ -88,7 +88,7 @@ function PartyHighlight({
   value: number;
 }) {
   return (
-    <div className="rounded border border-zinc-800 bg-zinc-950/70 p-2">
+    <div className="rounded border border-zinc-800 bg-zinc-950 p-2">
       <div className="text-[10px] text-zinc-500">{label}</div>
       <div className="mt-1 flex items-center justify-between gap-2">
         <div className="min-w-0 truncate font-semibold text-zinc-200">
@@ -116,7 +116,7 @@ function PartyMetricChart({
   if (!party || party.length === 0) return null;
   const maxValue = Math.max(1, ...party.map((member) => member[metric]));
   return (
-    <div className="space-y-1.5 rounded border border-zinc-800 bg-zinc-950/70 p-2">
+    <div className="space-y-1.5 rounded border border-zinc-800 bg-zinc-950 p-2">
       <div className="text-[10px] font-semibold text-zinc-400">{label}</div>
       {party.map((member) => {
         const value = member[metric];
@@ -175,7 +175,7 @@ function CombatLogList({
   return (
     <div className="space-y-1.5 border-t border-zinc-800 pt-2 text-[11px]">
       <div className="font-semibold text-zinc-300">최근 전투 상황</div>
-      <div className="grid grid-cols-[42px_1fr] items-center gap-2 rounded border border-zinc-800 bg-zinc-950/70 px-2 py-1.5">
+      <div className="grid grid-cols-[42px_1fr] items-center gap-2 rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5">
         <span
           className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[headlineKind]}`}
         >
@@ -274,7 +274,7 @@ export function DungeonCombatSummary({
   const topHealing = topPartyMember(combat.party, "healingDone");
   const topTaken = topPartyMember(combat.party, "damageTaken");
   return (
-    <div className="space-y-2 rounded-md border border-zinc-800 bg-black/25 p-3 text-xs">
+    <div className="space-y-2 rounded-md border border-zinc-800 bg-black p-3 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0 font-semibold text-zinc-200">
           {combat.enemyName}
@@ -356,7 +356,7 @@ export function DungeonCombatSummary({
               return (
                 <div
                   key={member.id}
-                  className="rounded border border-zinc-800 bg-zinc-950/70 p-2"
+                  className="rounded border border-zinc-800 bg-zinc-950 p-2"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 truncate font-semibold text-zinc-200">

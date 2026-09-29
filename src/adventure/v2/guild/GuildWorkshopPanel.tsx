@@ -1005,7 +1005,7 @@ export function GuildWorkshopPanel({
   }
 
   return (
-    <section className="ui-workshop-card ui-smithy-card space-y-3 rounded-md border border-amber-200 bg-white p-3 text-sm shadow-sm dark:border-amber-900/60 dark:bg-stone-900/95">
+    <section className="ui-workshop-card ui-smithy-card space-y-3 rounded-md border border-amber-200 bg-white p-3 text-sm shadow-sm dark:border-amber-900/60 dark:bg-stone-900">
       <div className="flex items-start gap-3">
         <Hammer
           size={24}

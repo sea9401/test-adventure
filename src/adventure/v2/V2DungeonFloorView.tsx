@@ -169,7 +169,7 @@ export function RareMapProgressNotice({
         serverNow={serverNow}
         onExpire={onExpire}
       />
-      {map.runsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
+      {map.runsLeft === 0 && " (소진됨. 목록으로 돌아가세요)"}
     </DiscoveryNotice>
   );
 }
@@ -719,7 +719,7 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         j.battles > 0
-          ? `오프라인 사냥 정산 — ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}${offlineSettleStopReasonLabel(j.stoppedReason) ? ` · ${offlineSettleStopReasonLabel(j.stoppedReason)}` : ""}`
+          ? `오프라인 사냥 정산: ${j.battles}판 · 경험치 +${j.totalExp.toLocaleString()} · 골드 +${j.totalGold.toLocaleString()}${j.totalProficiency > 0 ? ` · 숙달 포인트 +${j.totalProficiency.toLocaleString()}` : ""}${j.totalMastery > 0 ? ` · 직업 숙련도 +${j.totalMastery.toLocaleString()}` : ""}${offlineSettleStopReasonLabel(j.stoppedReason) ? ` · ${offlineSettleStopReasonLabel(j.stoppedReason)}` : ""}`
           : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
@@ -1297,7 +1297,7 @@ export function V2DungeonFloorView({
           희귀 탐사 진행 중
           {rareMapRunsLeft != null &&
             rareMapSnapshot?.map.iid === rareMapIid &&
-            ` — 남은 ${rareMapRunsLeft}판`}
+            ` · 남은 ${rareMapRunsLeft}판`}
         </DiscoveryNotice>
       ) : null)}
 
@@ -1394,7 +1394,7 @@ export function V2DungeonFloorView({
             }`}
           >
             {coreLoopOn && offlineLocked
-              ? "오프라인 사냥 중 — 정지하면 직접 사냥"
+              ? "오프라인 사냥 중 (정지하면 직접 사냥)"
               : autoHunt
                 ? busy
                   ? "사냥 중… (누르면 멈춤)"
@@ -1444,7 +1444,7 @@ export function V2DungeonFloorView({
             {!coreLoopOn && (
               <div className="space-y-2">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  사냥 횟수 — 고른 만큼 사냥 버튼이 한 번에 처리합니다.
+                  사냥 횟수: 고른 만큼 사냥 버튼이 한 번에 처리합니다.
                 </p>
                 <div className="flex gap-2">
                   {huntCounts.map((n) => {

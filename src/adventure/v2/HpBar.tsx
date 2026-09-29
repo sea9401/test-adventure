@@ -69,7 +69,7 @@ export function HpBar({
       </div>
       {!canHunt && (
         <div className="mt-1.5 text-xs text-rose-600 dark:text-rose-400">
-          체력이 부족해 전투할 수 없습니다 — 회복이 필요합니다.
+          체력이 부족해 전투할 수 없습니다. 먼저 회복하세요.
         </div>
       )}
     </div>

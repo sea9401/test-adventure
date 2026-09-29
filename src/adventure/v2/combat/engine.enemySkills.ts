@@ -692,7 +692,7 @@ export function applyEnemyV2SkillCast(
     nextPlayerHp = 1;
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+      text: `[불굴] 마지막 한 숨! HP 1로 버텼다!`,
       turn: "enemy",
     });
   }

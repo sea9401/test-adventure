@@ -104,7 +104,7 @@ export function CreateCharacterFlow() {
                 ))}
               </select>
             </label>
-            <p className="mt-3 rounded-md bg-zinc-100 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+            <p className="mt-3 rounded-md bg-zinc-100 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
               {V2_CLASS_DEFS[cls].description}
             </p>
             <button

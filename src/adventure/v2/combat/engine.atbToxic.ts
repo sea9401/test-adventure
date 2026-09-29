@@ -96,7 +96,7 @@ export function applyToxicBloodStatusDamage(args: {
       flags: { ...next.flags, enduranceTriggered: true },
       log: appendLog(next.log, {
         kind: "info",
-        text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+        text: `[불굴] 마지막 한 숨! HP 1로 버텼다!`,
         turn: args.turn,
         t: args.tick,
       }),

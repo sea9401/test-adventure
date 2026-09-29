@@ -309,7 +309,7 @@ export function CurrentGoalBanner({
         </p>
         <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
           {claimable
-            ? "완료 — 보상을 받으세요"
+            ? "완료! 보상을 받으세요"
             : hasProgress
               ? `${progress.toLocaleString("ko-KR")} / ${(current.goal ?? 0).toLocaleString("ko-KR")} · ${current.desc}`
               : current.desc}

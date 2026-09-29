@@ -377,7 +377,7 @@ export function V2GridDungeonView({
   }, []);
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-4 text-zinc-200">
+    <main className="mx-auto max-w-2xl space-y-4 bg-zinc-950 p-4 text-zinc-200 sm:rounded-xl">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-base font-bold text-zinc-100">
@@ -385,7 +385,7 @@ export function V2GridDungeonView({
           </h1>
           <p className="mt-0.5 text-xs text-zinc-500">
             {activeRoute.name} · 지도 ({GRID_DUNGEON_ENTRANCE.col},{" "}
-            {GRID_DUNGEON_ENTRANCE.row}) 입구에서 진입하는 격자 탐험 던전
+            {GRID_DUNGEON_ENTRANCE.row}) 입구
           </p>
         </div>
         <button
@@ -398,18 +398,18 @@ export function V2GridDungeonView({
       </header>
 
       {error && (
-        <div className="rounded-md border border-red-800 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+        <div className="rounded-md border border-red-800 bg-red-950 px-3 py-2 text-xs text-red-300">
           {error}
         </div>
       )}
 
       {!state ? (
-        <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-4 text-sm text-zinc-400">
+        <div className="rounded-md border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
           불러오는 중...
         </div>
       ) : !run || run.status === "claimed" || run.status === "failed" ? (
         <>
-          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-4">
+          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950 p-4">
             <div>
               <div className="text-sm font-semibold text-zinc-100">
                 입구 상태
@@ -446,7 +446,7 @@ export function V2GridDungeonView({
               onFrontlineChange={setSelectedFrontlineId}
             />
             {partyWarning && (
-              <div className="rounded-md border border-yellow-800/70 bg-yellow-950/35 px-3 py-2 text-xs text-yellow-200">
+              <div className="rounded-md border border-yellow-800/70 bg-yellow-950 px-3 py-2 text-xs text-yellow-200">
                 {partyWarning}
               </div>
             )}
@@ -472,25 +472,25 @@ export function V2GridDungeonView({
       ) : (
         <>
           <section className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
               <div className="text-zinc-500">체력</div>
               <div className="mt-1 text-base font-bold text-emerald-300">
                 {displayedRunHp.toLocaleString()} / {run.maxHp.toLocaleString()}
               </div>
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
               <div className="text-zinc-500">확보 골드</div>
               <div className="mt-1 text-base font-bold text-yellow-300">
                 {run.pendingGold.toLocaleString()}G
               </div>
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
               <div className="text-zinc-500">상태</div>
               <div className="mt-1 text-base font-bold text-zinc-100">
                 {run.status === "cleared" ? "정산 가능" : "탐험 중"}
               </div>
             </div>
-            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
               <div className="text-zinc-500">경로</div>
               <div className="mt-1 text-base font-bold text-violet-200">
                 {activeRoute.shortName}
@@ -503,7 +503,7 @@ export function V2GridDungeonView({
             pendingDrops={run.pendingDrops as Record<string, number> | undefined}
           />
 
-          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950 p-3">
             <div className="flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
               {[
                 "monster",
@@ -529,7 +529,7 @@ export function V2GridDungeonView({
                 );
               })}
             </div>
-            <div className="grid aspect-square w-full grid-cols-5 grid-rows-5 gap-1 rounded bg-black/40 p-1 ring-1 ring-zinc-900">
+            <div className="grid aspect-square w-full grid-cols-5 grid-rows-5 gap-1 rounded bg-black p-1 ring-1 ring-zinc-900">
               {run.layout.flatMap((row, y) =>
                 row.map((kind, x) => {
                   const key = gridDungeonKey(x, y);
@@ -636,7 +636,7 @@ export function V2GridDungeonView({
             </div>
           </section>
 
-          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
             {run.lastCombat && (
               <DungeonCombatSummary
@@ -689,7 +689,7 @@ export function V2GridDungeonView({
                       className={`flex min-h-14 items-center justify-center gap-2 rounded-md border px-2 py-2 text-xs transition disabled:cursor-not-allowed ${
                         available
                           ? "border-emerald-700/80 bg-emerald-950/35 text-emerald-100 hover:bg-emerald-900/50"
-                          : "border-zinc-800 bg-zinc-950/70 text-zinc-600"
+                          : "border-zinc-800 bg-zinc-950 text-zinc-600"
                       }`}
                     >
                       <Icon size={15} weight="bold" />

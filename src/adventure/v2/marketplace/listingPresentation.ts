@@ -67,7 +67,7 @@ export function consumableStatusLine(
         }
       : payload;
   const instance = parseRareMaps([candidate], nowMs)[0];
-  if (!instance) return { text: "실물 없음 — 입찰 불가", expired: true };
+  if (!instance) return { text: "실물 없음 (입찰 불가)", expired: true };
   const definition = RARE_MAP_KINDS[instance.kind];
   const usage =
     definition?.category === "location"

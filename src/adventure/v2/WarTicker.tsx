@@ -96,7 +96,7 @@ export function warTickerText(
     }
     const subject = p.guildName ? `${p.guildName} 길드` : e.actorName;
     const jackpot = (p.treasuryGold ?? 0) > 0
-      ? ` — 금고 ${p.treasuryGold!.toLocaleString()}G 획득!`
+      ? `, 금고 ${p.treasuryGold!.toLocaleString()}G 획득!`
       : "";
     return `${subject}, ${outpostName(p.outpostId)} 점령!${jackpot}`;
   }

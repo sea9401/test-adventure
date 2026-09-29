@@ -285,7 +285,7 @@ function resolveBattleLegacy(
               flags: { ...state.flags, enduranceTriggered: true },
               log: appendLog(state.log, {
                 kind: "info",
-                text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+                text: `[불굴] 마지막 한 숨! HP 1로 버텼다!`,
                 turn: "player",
               }),
             };
@@ -582,7 +582,7 @@ function resolveBattleLegacy(
           nextPlayerHp = 1;
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+            text: `[불굴] 마지막 한 숨! HP 1로 버텼다!`,
             turn: "enemy",
           });
         }
@@ -893,7 +893,7 @@ function resolveBattleLegacy(
       const timeoutLog = appendLog(
         appendLog(state.log, {
           kind: "info",
-          text: `${BOSS_TURN_CAP}턴 경과 — 보스를 쓰러뜨리지 못했다.`,
+          text: `${BOSS_TURN_CAP}턴 경과, 보스를 쓰러뜨리지 못했다.`,
         }),
         hpBarEntry(state),
       );

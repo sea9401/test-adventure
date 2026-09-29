@@ -144,13 +144,13 @@ export function CombatFormulasContent() {
       <H3>최대 HP·MP와 회복량</H3>
       <UL>
         <li>
-          <Em>최대 HP 계산 순서</Em> — 기초값과 레벨·힘·활력으로{" "}
+          <Em>최대 HP 계산 순서</Em>: 기초값과 레벨·힘·활력으로{" "}
           <Code>{V2_BASE_HP} + (레벨 − 1) × {V2_HP_PER_LEVEL} + STR × {HP_PER_STR} + VIT × {HP_PER_VIT}</Code>을
           구한 뒤 직업 보정과 최대 HP 증가율을 적용하고, 마지막에 장비의 고정 HP를
           더합니다. 따라서 장비의 고정 HP에는 최대 HP 증가율이 다시 곱해지지 않습니다.
         </li>
         <li>
-          <Em>최대 MP 계산 순서</Em> — 성장 방식에 따른 MP에 해방 등의 추가 MP와 장비 MP를 합친 뒤
+          <Em>최대 MP 계산 순서</Em>: 성장 방식에 따른 MP에 해방 등의 추가 MP와 장비 MP를 합친 뒤
           최대 MP 증가율을 적용하고 내림합니다. HP와 달리 장비 MP도 최대 MP 증가율의 적용을 받습니다.
           정신의 현재 MP 보너스와 다음 생애 성장 하한은 아래에 구분해 설명합니다.
         </li>

@@ -459,7 +459,7 @@ export function dealExtraDamage(
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `[불굴] ${defender.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        text: `[불굴] ${defender.name} 마지막 한 숨! HP 1로 버텼다!`,
         side: defKey,
       }),
     };
@@ -1069,7 +1069,7 @@ export function applyOnHitReflect(
       ...st,
       log: appendLog(st.log, {
         kind: "info",
-        text: `[불굴] ${attacker.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        text: `[불굴] ${attacker.name} 마지막 한 숨! HP 1로 버텼다!`,
         side: atkKey,
       }),
     };
@@ -1489,7 +1489,7 @@ export function tickPvPSideDotsOnAction(
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `[불굴] ${target.name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        text: `[불굴] ${target.name} 마지막 한 숨! HP 1로 버텼다!`,
         side: targetKey,
       }),
     };
@@ -1610,7 +1610,7 @@ export function applyPotionTo(
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `${side.name}이(가) ${potion.name}을(를) 마셨다 — HP +${actual} (${side.hp} → ${newHp})`,
+        text: `${side.name}이(가) ${potion.name}을(를) 마셨다. HP +${actual} (${side.hp} → ${newHp})`,
       }),
     };
     if (sigShield) {
@@ -1634,7 +1634,7 @@ export function applyPotionTo(
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `${side.name}이(가) ${potion.name}을(를) 마셨다 — MP +${actual} (${side.mp} → ${newMp})`,
+        text: `${side.name}이(가) ${potion.name}을(를) 마셨다. MP +${actual} (${side.mp} → ${newMp})`,
       }),
     };
     return next;

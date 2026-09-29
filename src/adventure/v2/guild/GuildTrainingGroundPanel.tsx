@@ -223,7 +223,7 @@ export function GuildTrainingGroundPanel({
       </div>
 
       {hasTrainingGround && (
-        <div className="grid gap-2 rounded-md border border-sky-100 bg-sky-50/70 p-3 text-xs dark:border-sky-900/50 dark:bg-slate-900">
+        <div className="grid gap-2 rounded-md border border-sky-100 bg-sky-50 p-3 text-xs dark:border-sky-900/50 dark:bg-slate-900">
           <div className="grid gap-2 sm:grid-cols-4">
             <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -377,7 +377,7 @@ export function GuildTrainingGroundPanel({
                     ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-zinc-800"
                     : drill.available
                       ? "border-sky-200 bg-white dark:border-sky-900/60 dark:bg-slate-900"
-                      : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-slate-900/70"
+                      : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-slate-900"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -446,7 +446,7 @@ export function GuildTrainingGroundPanel({
                   </button>
                 </div>
                 {drill.lockedReason && !drill.claimed && (
-                  <div className="mt-2 rounded border border-zinc-200 bg-white/70 px-2 py-1 text-[11px] text-zinc-500 dark:border-slate-700 dark:bg-slate-950/70 dark:text-zinc-400">
+                  <div className="mt-2 rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-500 dark:border-slate-700 dark:bg-slate-950 dark:text-zinc-400">
                     {drill.lockedReason}
                   </div>
                 )}

@@ -110,7 +110,7 @@ export function settleTrackingAfterPlayerAction(args: {
 
   state = appendTrackingLog(
     state,
-    "추적 완료 — 추적 섬멸 발동 (방어력 50% 관통 · 일반 보호막 무시)",
+    "추적 완료, 추적 섬멸 발동 (방어력 50% 관통 · 일반 보호막 무시)",
     args.tick,
   );
   const enemyHpBeforeCounter = state.enemyHp;

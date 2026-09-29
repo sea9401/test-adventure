@@ -399,15 +399,15 @@ export function FishingShopView({
               <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                 <li>
                   <strong className="text-zinc-800 dark:text-zinc-100">모든 어종 크기</strong>
-                  {" "}— 흔함부터 전설까지 잡히는 모든 물고기에 적용됩니다.
+                  :{" "}흔함부터 전설까지 잡히는 모든 물고기에 적용됩니다.
                 </li>
                 <li>
                   <strong className="text-zinc-800 dark:text-zinc-100">희귀 이상 추가 크기</strong>
-                  {" "}— 희귀·영웅·전설 어종에만 추가로 중첩됩니다.
+                  :{" "}희귀·영웅·전설 어종에만 추가로 중첩됩니다.
                 </li>
                 <li>
                   <strong className="text-zinc-800 dark:text-zinc-100">상위 20% 굴림 추가 크기</strong>
-                  {" "}— 앞선 보정 후 해당 어종의 크기 범위 상위 20%에 들었을 때 추가로 중첩됩니다.
+                  :{" "}앞선 보정 후 해당 어종의 크기 범위 상위 20%에 들었을 때 추가로 중첩됩니다.
                 </li>
               </ul>
               <p className="mt-2 border-t border-zinc-200 pt-2 text-[11px] leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">

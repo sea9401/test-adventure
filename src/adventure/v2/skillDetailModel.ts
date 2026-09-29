@@ -120,7 +120,7 @@ export function buildSkillDetailModel(skillId: string): SkillDetailModel | null 
     ...(skill.elementEffects
       ? Object.entries(skill.elementEffects).map(
           ([element, effects]) =>
-            `${V2_ELEMENT_LABEL[element as V2Element]} — ${effectSummary(skill, effects ?? [])}`,
+            `${V2_ELEMENT_LABEL[element as V2Element]}: ${effectSummary(skill, effects ?? [])}`,
         )
       : []),
     ...(skill.castVariants ?? []).map((variant) => {
@@ -134,14 +134,14 @@ export function buildSkillDetailModel(skillId: string): SkillDetailModel | null 
       ]
         .filter(Boolean)
         .join(" · ");
-      return `${variant.name}${conditions ? ` (${conditions})` : ""} — ${effectSummary(skill, variant.effects)}`;
+      return `${variant.name}${conditions ? ` (${conditions})` : ""}: ${effectSummary(skill, variant.effects)}`;
     }),
   ];
 
   const automaticSynergies = [
     ...(skill.equippedSynergies ?? []).map((synergy) => {
       const ids = equippedSynergyRequirements(synergy);
-      return `장착: ${skillNames(ids)} — ${effectSummary(skill, synergy.effects, [
+      return `장착: ${skillNames(ids)} · ${effectSummary(skill, synergy.effects, [
         ...skill.effects,
         ...impliedEquippedSynergyEffects(skill, ids),
       ])}`;
@@ -149,7 +149,7 @@ export function buildSkillDetailModel(skillId: string): SkillDetailModel | null 
     ...(skill.elementEffectSynergies ?? []).flatMap((synergy) =>
       Object.entries(synergy.elementEffects).map(
         ([element, effects]) =>
-          `장착: ${skillNames([synergy.requiredSkillId])} · ${V2_ELEMENT_LABEL[element as V2Element]} — ${effectSummary(skill, effects ?? [])}`,
+          `장착: ${skillNames([synergy.requiredSkillId])} · ${V2_ELEMENT_LABEL[element as V2Element]}: ${effectSummary(skill, effects ?? [])}`,
       ),
     ),
   ];

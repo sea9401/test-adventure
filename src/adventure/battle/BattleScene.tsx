@@ -586,7 +586,7 @@ export function BattleScene({
           <BattleOutcomeBadge outcome={outcome} size="lg" />
           {outcome === "lose" && (
             <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
-              이번 전투에서 졌습니다 — 보상이 없습니다.
+              이번 전투에서 졌습니다. 보상은 없습니다.
             </p>
           )}
           {outcomeAction && (

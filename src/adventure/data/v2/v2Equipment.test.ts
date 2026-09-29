@@ -1960,7 +1960,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         enemyDefDebuffPct: 18,
         buffActions: 2,
       }),
-    ).toBe("치명타 시 대상 표식 — 방어 −18% (2행동)");
+    ).toBe("치명타 시 대상 표식: 방어 −18% (2행동)");
     expect(
       signatureLabel({
         trigger: "on_hit",
@@ -1983,7 +1983,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         label: "뇌운",
         shockChancePct: 5,
       }),
-    ).toBe("공격 적중 시 5% 확률로 감전 — 다음 행동 1회 불가");
+    ).toBe("공격 적중 시 5% 확률로 감전(다음 행동 1회 불가)");
     expect(
       signatureLabel({
         trigger: "on_hit_taken",

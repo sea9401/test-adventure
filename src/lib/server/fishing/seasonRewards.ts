@@ -63,7 +63,7 @@ export async function grantFishingSeasonRewards(
         inboxValues({
           userId,
           payload: { kind: "season_reward", season: "fishing", coins },
-          message: `낚시 시즌 대회 보상 — ${coins} 낚시 코인`,
+          message: `낚시 시즌 대회 보상 (${coins} 낚시 코인)`,
         }),
       );
       total += coins;

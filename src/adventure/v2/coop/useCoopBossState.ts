@@ -359,7 +359,7 @@ export function useCoopListState() {
         );
         return null;
       } catch {
-        setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+        setNotice("네트워크 오류입니다. 잠시 후 다시 시도하세요.");
         return null;
       } finally {
         await refresh();
@@ -380,7 +380,7 @@ export function useCoopListState() {
         else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
         else if (error) setNotice(claimErrorLabel(error));
       } catch {
-        setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+        setNotice("네트워크 오류입니다. 잠시 후 다시 시도하세요.");
       } finally {
         await refresh();
         setBusy(false);
@@ -548,7 +548,7 @@ export function useCoopSessionState({
       } else {
         setNotice(
           j.error === "cooldown"
-            ? `재공격 대기 중 — ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
+            ? `재공격 대기 중입니다. ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
             : j.error === "support_disabled"
               ? "소환자가 무료 토벌 지원을 허용하지 않았습니다."
               : j.error === "out_of_stamina"
@@ -564,7 +564,7 @@ export function useCoopSessionState({
         return null;
       }
     } catch {
-      setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+      setNotice("네트워크 오류입니다. 잠시 후 다시 시도하세요.");
       return null;
     } finally {
       await refresh();
@@ -582,7 +582,7 @@ export function useCoopSessionState({
       else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
       else if (error) setNotice(claimErrorLabel(error));
     } catch {
-      setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+      setNotice("네트워크 오류입니다. 잠시 후 다시 시도하세요.");
     } finally {
       await refresh();
       setBusy(false);
@@ -610,7 +610,7 @@ export function useCoopSessionState({
         );
       }
     } catch {
-      setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+      setNotice("네트워크 오류입니다. 잠시 후 다시 시도하세요.");
     } finally {
       await refresh();
       setBusy(false);
@@ -642,7 +642,7 @@ export function useCoopSessionState({
           );
         }
       } catch {
-        setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+        setNotice("네트워크 오류입니다. 잠시 후 다시 시도하세요.");
       } finally {
         await refresh();
         setBusy(false);

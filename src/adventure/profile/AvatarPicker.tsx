@@ -133,7 +133,7 @@ function AvatarOption({
           : "border-zinc-300 hover:border-zinc-500 dark:border-zinc-700 dark:hover:border-zinc-400"
       }`}
     >
-      <div className="flex aspect-square w-full items-center justify-center bg-zinc-50 text-zinc-400 dark:bg-zinc-900/50 dark:text-zinc-600">
+      <div className="flex aspect-square w-full items-center justify-center bg-zinc-50 text-zinc-400 dark:bg-zinc-950 dark:text-zinc-600">
         {errored ? (
           <User size={32} weight="duotone" />
         ) : (

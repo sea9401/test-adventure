@@ -273,7 +273,7 @@ export function V2CoopBossDetailView({
                       on
                         ? "border border-rose-400/60 bg-rose-500/15 text-rose-700 dark:text-rose-300"
                         : isNext
-                          ? "animate-pulse border border-amber-400 text-amber-700 dark:text-amber-300"
+                          ? "border border-amber-400 font-semibold text-amber-700 dark:text-amber-300"
                           : "border border-zinc-200 text-zinc-400 dark:border-zinc-700"
                     }`}
                   >
@@ -359,7 +359,7 @@ export function V2CoopBossDetailView({
         )}
         {!session.defeated && ended && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            시간 안에 쓰러뜨리지 못했다 — 보스는 떠났다.
+            시간 안에 쓰러뜨리지 못했다. 보스는 떠났다.
           </p>
         )}
         {claimable && (
@@ -539,7 +539,7 @@ export function V2CoopBossDetailView({
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                기여도 기준 — {def.name}
+                기여도 기준: {def.name}
               </h2>
               <button
                 type="button"
@@ -586,19 +586,19 @@ export function V2CoopBossDetailView({
                     </li>
                   )}
                 {lastReward.equipmentBoxName && (
-                  <li>{lastReward.equipmentBoxName} — 소모품 탭에서 사용</li>
+                  <li>{lastReward.equipmentBoxName} (소모품 탭에서 사용)</li>
                 )}
                 {lastReward.uniqueId && (
                   <li>
                     보스 유니크{" "}
                     <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
-                    — 인벤토리에서 확인
+                    (인벤토리에서 확인)
                   </li>
                 )}
                 {lastReward.spFruitCount > 0 && (
                   <li>
                     {lastReward.spFruitName ?? "SP 열매"} ×
-                    {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
+                    {lastReward.spFruitCount} (소모품 탭에서 사용 시 SP 최대치 ↑)
                   </li>
                 )}
               </>
@@ -624,7 +624,7 @@ export function V2CoopBossDetailView({
                   t.isMe
                     ? "bg-amber-50 font-medium dark:bg-zinc-950 dark:text-amber-200 dark:ring-1 dark:ring-amber-800"
                     : i % 2 === 1
-                      ? "bg-zinc-50 dark:bg-zinc-900/60"
+                      ? "bg-zinc-50 dark:bg-zinc-800"
                       : ""
                 }`}
               >

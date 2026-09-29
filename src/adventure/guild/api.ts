@@ -42,7 +42,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_recipient: "본인의 초대장이 아닙니다.",
   not_accepting: "이 길드는 가입 신청을 받지 않습니다.",
   already_requested:
-    "이미 가입 신청 중인 길드가 있습니다 — 먼저 신청을 취소해 주세요.",
+    "이미 가입 신청 중인 길드가 있습니다. 먼저 신청을 취소해 주세요.",
   request_not_found: "가입 신청을 찾을 수 없습니다.",
   request_not_pending: "이미 처리된 가입 신청입니다.",
   not_requester: "본인의 가입 신청이 아닙니다.",

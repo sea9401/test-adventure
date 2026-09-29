@@ -767,7 +767,7 @@ export function craftResultTone(result: CraftResultView): {
       frame:
         "border-rose-300 bg-white dark:border-rose-800 dark:bg-zinc-900",
       header:
-        "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40",
+        "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-zinc-800",
       title: "text-rose-950 dark:text-rose-100",
     };
   }
@@ -776,7 +776,7 @@ export function craftResultTone(result: CraftResultView): {
       frame:
         "border-amber-300 bg-white dark:border-amber-800 dark:bg-zinc-900",
       header:
-        "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40",
+        "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-zinc-800",
       title: "text-amber-950 dark:text-amber-100",
     };
   }

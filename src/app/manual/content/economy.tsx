@@ -21,7 +21,7 @@ export function EconomyContent() {
       <H3>버는 법</H3>
       <UL>
         <li>
-          <Em>사냥 승리</Em> — 몬스터를 처치할 때 골드를 받습니다. 깊은
+          <Em>사냥 승리</Em>: 몬스터를 처치할 때 골드를 받습니다. 깊은
           사냥터일수록 획득량이 많습니다.
         </li>
         <li>
@@ -104,14 +104,14 @@ export function EconomyContent() {
       <H2>HP 회복</H2>
       <UL>
         <li>
-          <Em>시간 회복</Em> — 최대 HP와 관계없이 약 {HP_RESTORE_MINUTES}분이면
+          <Em>시간 회복</Em>: 최대 HP와 관계없이 약 {HP_RESTORE_MINUTES}분이면
           0에서 최대치까지 회복됩니다.
         </li>
         <li>
-          <Em>치료소</Em> — HP와 MP를 무료로 즉시 회복합니다.
+          <Em>치료소</Em>: HP와 MP를 무료로 즉시 회복합니다.
         </li>
         <li>
-          <Em>HP 충전약</Em> — 1골드당 1충전을 구매합니다. 전투 직후 부족한 HP를
+          <Em>HP 충전약</Em>: 1골드당 1충전을 구매합니다. 전투 직후 부족한 HP를
           자동으로 채웁니다.
         </li>
         <li>

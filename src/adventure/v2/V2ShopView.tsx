@@ -520,7 +520,7 @@ export function V2ShopView({
             <div className="text-sm">
               <div
                 data-testid="shop-buy-header"
-                className={`hidden sm:grid ${BUY_GRID_CLASS} border-b border-zinc-200 bg-zinc-100/60 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400`}
+                className={`hidden sm:grid ${BUY_GRID_CLASS} border-b border-zinc-200 bg-zinc-50 text-[11px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400`}
                 role="row"
               >
                 <SortTh

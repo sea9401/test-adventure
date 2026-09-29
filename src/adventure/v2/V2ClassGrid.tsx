@@ -123,7 +123,7 @@ export function V2ClassGrid({
         return;
       }
       const baseMessage = j.reincarnated
-          ? "✓ 환생 완료 — 1차 Lv1로 돌아왔습니다"
+          ? "✓ 환생 완료! 1차 Lv1로 돌아왔습니다"
           : `✓ ${j.tier ?? activeTier + 1}차 전직 완료`;
       setMsg(
         formatLifeResourceRejobMessage(baseMessage, j.lifeResources),
@@ -164,7 +164,7 @@ export function V2ClassGrid({
               : j?.error === "not_at_apex"
                 ? `직업 변경은 5차 정점(Lv100)에서만 가능 (현재 ${j.haveTier ?? "?"}차 Lv ${j.haveLevel ?? "?"} / 필요 ${j.requiredTier ?? 5}차 Lv ${j.requiredLevel ?? 100})`
               : j?.error === "respec_cooldown"
-                ? `전직 쿨다운 중 — ${
+                ? `전직 쿨다운 중입니다. ${
                     j.cooldownUntil
                       ? new Date(j.cooldownUntil).toLocaleString()
                       : "잠시"
@@ -336,8 +336,8 @@ export function V2ClassGrid({
                     : !isReincarnationReady && !codexOk
                       ? `모험의 서 ${advanceCodexRequired}종 필요`
                       : isReincarnationReady
-                        ? "환생 — 1차 Lv1로 리셋"
-                        : `${Math.min(5, activeTier + 1)}차 전직 — 레벨 1로 리셋`}
+                        ? "환생 (1차 Lv1로 리셋)"
+                        : `${Math.min(5, activeTier + 1)}차 전직 (레벨 1로 리셋)`}
               </button>
             </div>
           ) : (
@@ -375,7 +375,7 @@ export function V2ClassGrid({
                     ? `도달한 ${selReached}차로 복귀`
                     : "1차부터 시작"}
                   {cantAfford
-                    ? ` (보유 ${spendable.toLocaleString()}G — 부족)`
+                    ? ` (보유 ${spendable.toLocaleString()}G, 부족)`
                     : ""}
                 </p>
                 {!canSwitchClass && (

@@ -77,7 +77,7 @@ export async function grantSeasonRewards(
         inboxValues({
           userId,
           payload: { kind: "season_reward", season: "pvp", coins, rank },
-          message: `투기장 시즌 순위 보상 (${rank}위) — ${coins} 코인`,
+          message: `투기장 시즌 순위 보상 (${rank}위, ${coins} 코인)`,
         }),
       );
       granted += 1;

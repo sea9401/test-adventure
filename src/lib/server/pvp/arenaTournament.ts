@@ -499,7 +499,7 @@ export function arenaTournamentMatchNoticeText(
     participantById.get(match.winnerUserId ?? "")?.name ?? "승리자";
   const score = `${p1Name} ${match.p1Wins}:${match.p2Wins} ${p2Name}`;
   if (match.kind === "final") {
-    return `🏆 결승 · ${score} — ${winnerName}님이 챔피언이 되었습니다.`;
+    return `🏆 결승 · ${score}, ${winnerName}님이 챔피언이 되었습니다.`;
   }
   const icon =
     match.kind === "third_place"
@@ -507,7 +507,7 @@ export function arenaTournamentMatchNoticeText(
       : match.roundName === "준결승"
         ? "🔥"
         : "🏟️";
-  return `${icon} ${match.roundName} · ${score} — ${winnerName} 승리`;
+  return `${icon} ${match.roundName} · ${score}, ${winnerName} 승리`;
 }
 
 export function arenaTournamentRewardFor(args: {

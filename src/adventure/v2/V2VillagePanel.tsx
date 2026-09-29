@@ -306,7 +306,7 @@ export function V2VillagePanel({
               <div
                 key={slot}
                 title={building.desc}
-                className={`${base} border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200`}
+                className={`${base} border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-zinc-900 dark:text-emerald-200`}
               >
                 <GameIcon name={building.iconName} size={18} />
                 <span className="mt-0.5 text-[10px]">{building.name}</span>

@@ -542,7 +542,7 @@ async function advanceTournament(
               season: "pvp",
               coins: reward.coins,
             },
-            message: `아레나 토너먼트 ${reward.placement} 보상 — ${reward.coins} 코인`,
+            message: `아레나 토너먼트 ${reward.placement} 보상 (${reward.coins} 코인)`,
           }),
         ),
       );

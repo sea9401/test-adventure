@@ -154,11 +154,7 @@ export function CreateCharacterForm({
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">모험가를 만들어보세요</h1>
-      <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-        이름과 외형을 골라 새로운 모험을 시작합니다.
-      </p>
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             이름

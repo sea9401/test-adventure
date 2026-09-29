@@ -370,7 +370,7 @@ function MonthlyResearchPanel({
       <Card padding="md" data-monthly-research="no-season">
         <h2 className="text-base font-bold">이번 달 월간 연구를 준비하고 있어요</h2>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-          운영 검토를 마친 연구 정의가 예약되면 18개 목표가 한꺼번에 열립니다.
+          월간 연구가 시작되면 18개 목표가 한꺼번에 열립니다.
           일일 과제나 연속 출석은 없습니다.
         </p>
       </Card>

@@ -101,7 +101,7 @@ describe("tracking weapon ATB mechanic", () => {
     ).toBe(true);
     expect(
       result.finalState.log.some((entry) =>
-        entry.text.includes("추적 완료 — 추적 섬멸 발동"),
+        entry.text.includes("추적 완료, 추적 섬멸 발동"),
       ),
     ).toBe(true);
     expect(result.finalState.playerHp).toBeLessThan(basePlayer.maxHp);

@@ -215,7 +215,7 @@ export function initialBattleStatePvP(
     {
       kind: "info",
       text: initiative
-        ? `속도 가중 추첨 결과 — ${initiator}의 선공.`
+        ? `속도 가중 추첨 결과, ${initiator}의 선공.`
         : `${initiator}의 선공.`,
     },
   ];

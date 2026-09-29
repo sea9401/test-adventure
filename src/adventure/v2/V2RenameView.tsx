@@ -89,8 +89,8 @@ export function V2RenameView({
       <SubViewHeader title="개명의 신전" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         {cashItemId
-          ? "새 이름으로 다시 태어납니다 — 개명 허가증은 한 번 쓰면 사라집니다."
-          : "새 이름으로 다시 태어납니다 — 개명을 마치면 이 희귀 장소는 닫힙니다."}
+          ? "새 이름으로 다시 태어납니다. 개명 허가증은 한 번 쓰면 사라집니다."
+          : "새 이름으로 다시 태어납니다. 개명을 마치면 이 희귀 장소는 닫힙니다."}
       </p>
 
       <Card padding="md" className="space-y-3">

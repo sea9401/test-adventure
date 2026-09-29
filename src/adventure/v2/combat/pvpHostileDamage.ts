@@ -100,7 +100,7 @@ export function appendPvPSurvivalLogs(
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `[불굴] ${name} 마지막 한 숨 — HP 1 로 버텼다!`,
+        text: `[불굴] ${name} 마지막 한 숨! HP 1로 버텼다!`,
         side: key,
       }),
     };

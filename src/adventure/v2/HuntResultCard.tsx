@@ -348,13 +348,13 @@ export function HuntResultCard({
                   />
                 </>
               ) : (
-                " — 전투 탭 > 사냥터에서 입장"
+                " 전투 탭 > 사냥터에서 입장하세요"
               )}
             </>
           ) : rareMapDropDef.category === "location" ? (
-            `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " — 전투 탭 > 사냥터에서 입장"}`
+            `희귀 장소 「${rareMapDropDef.name}」 개방!${result.rareMapDropInstance ? "" : " 전투 탭 > 사냥터에서 입장하세요"}`
           ) : (
-            `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`
+            `「${rareMapDropDef.name}」 획득! 가방 소모품에서 사용하세요`
           )}
         </DiscoveryNotice>
       )}

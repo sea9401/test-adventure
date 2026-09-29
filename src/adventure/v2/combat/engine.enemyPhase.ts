@@ -371,7 +371,7 @@ function resolveEnemyPhaseHit(
     const afterChillHp = Math.max(0, state.playerHp - chillDmg);
     let chillLog = appendLog(state.log, {
       kind: "info",
-      text: `[한기] ${chillSkill.name} — 추위가 ${chillDmg} 피해 (스택 ${state.stacks.chillStacks})`,
+      text: `[한기] ${chillSkill.name}: 추위가 ${chillDmg} 피해 (스택 ${state.stacks.chillStacks})`,
     });
     for (const entry of magicBarrierCombatLogEntries(chillBarrier)) {
       chillLog = appendLog(chillLog, entry);
@@ -457,7 +457,7 @@ function resolveEnemyPhaseHit(
       },
       log: appendLog(state.log, {
         kind: "info",
-        text: `[저주] ${curseSkill.name} — 저주가 폭발해 ${curseDmg} 피해 (스택 ${curseStacksBefore}→${curseStacksAfter})`,
+        text: `[저주] ${curseSkill.name}: 저주가 폭발해 ${curseDmg} 피해 (스택 ${curseStacksBefore}→${curseStacksAfter})`,
       }),
     };
     const survival = applyBerserkerHostileDamage(
@@ -1355,7 +1355,7 @@ function resolveEnemyPhaseHit(
   if (enduranceFires) {
     log = appendLog(log, {
       kind: "info",
-      text: `[불굴] 마지막 한 숨 — HP 1 로 버텼다!`,
+      text: `[불굴] 마지막 한 숨! HP 1로 버텼다!`,
     });
   }
   if (bloodfeastHeal > 0) {

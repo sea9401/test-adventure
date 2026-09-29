@@ -16,13 +16,13 @@ export function tileSettlementErrorMessage(
   const have = res.gold ?? 0;
   switch (res.error) {
     case "out_of_guild_gold":
-      return `길드 골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요 (현재 길드 골드 ${have.toLocaleString()} G). 거점 금고를 회수해 길드 자금을 채우세요.`;
+      return `길드 골드 부족: ${label} 비용 ${req.toLocaleString()} G 필요 (현재 길드 골드 ${have.toLocaleString()} G). 거점 금고를 회수해 길드 자금을 채우세요.`;
     case "out_of_gold":
-      return `골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요.`;
+      return `골드 부족: ${label} 비용 ${req.toLocaleString()} G 필요.`;
     case "not_guild_admin":
       return "개척마을 건설은 길드 마스터·관리자만 가능합니다.";
     case "need_guild":
-      return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
+      return "개척마을은 길드 전용입니다. 길드를 만들거나 가입하세요.";
     case "not_at_tile":
       return "개척하려면 먼저 이 칸으로 이동하세요.";
     case "not_adjacent_to_guild_tile":
@@ -42,7 +42,7 @@ export function tileSettlementErrorMessage(
     case "use_production_management":
       return "승격은 거점 관리 화면(생산 시스템)에서 진행하세요.";
     case "network":
-      return "네트워크 오류 — 잠시 후 다시 시도하세요.";
+      return "네트워크 오류입니다. 잠시 후 다시 시도하세요.";
     default:
       return `${label}에 실패했습니다 (${res.error ?? "알 수 없는 오류"}).`;
   }

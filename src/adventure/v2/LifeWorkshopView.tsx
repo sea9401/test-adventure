@@ -875,7 +875,7 @@ export function LifeWorkshopView({
             </span>
             <div>
               <h2 className="font-bold text-zinc-900 dark:text-zinc-100">
-                채집한 재료를 생활 성장으로 연결합니다
+                재료 가공과 도구 승급
               </h2>
               <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 원목과 광석을 가공해 도구를 승급하고, 생활 레벨 15부터 원하는 전문화를 선택할 수 있습니다.

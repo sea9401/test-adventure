@@ -581,7 +581,7 @@ export function V2MarketplaceView({
   );
 
   const cancel = (l: Listing) =>
-    act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물 취소 — 아이템 반환", () => loadBrowse(true));
+    act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물을 취소하고 아이템을 돌려받았습니다", () => loadBrowse(true));
   const createPriceAlert = (
     group: MarketplaceStackGroup,
     targetUnitPrice: number,
@@ -1463,35 +1463,35 @@ export function V2MarketplaceView({
                     </span>
                   ) : null}
                   {browseEquipmentTab && equipmentTierFilter !== "all" ? (
-                    <span className="rounded-full bg-violet-100 px-2 py-1 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       {equipmentTierFilter}T
                     </span>
                   ) : null}
                   {browseEquipmentTab && unregisteredCodexOnly ? (
                     <span
                       data-testid="marketplace-unregistered-codex-filter-chip"
-                      className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                      className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
                     >
                       도감 미등록
                     </span>
                   ) : null}
                   {craftedOnly ? (
-                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       제작품
                     </span>
                   ) : null}
                   {craftedQualityFilter === "plus1" ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       ★ 제작품
                     </span>
                   ) : null}
                   {craftedLevelFilter !== "all" ? (
-                    <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       제작자 Lv {craftedLevelFilter}+
                     </span>
                   ) : null}
                   {personalOnly ? (
-                    <span className="rounded-full bg-sky-100 px-2 py-1 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       내 항목
                     </span>
                   ) : null}

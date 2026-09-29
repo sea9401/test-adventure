@@ -327,7 +327,7 @@ export function V2ItemCard({
                 disabled={lock.busy}
                 aria-label={lock.locked ? "잠금 해제" : "잠금"}
                 aria-pressed={lock.locked}
-                title={lock.locked ? "잠금됨 — 일괄 판매 보호" : "잠그기"}
+                title={lock.locked ? "잠금됨 (일괄 판매 보호)" : "잠그기"}
                 className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-50 ${
                   lock.locked
                     ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40"
@@ -432,7 +432,7 @@ export function V2ItemCard({
               </p>
             ) : (
               <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                {equippedSetCount}/{set.pieces.length} 착용 중 — 모두 착용하면 발동
+                {equippedSetCount}/{set.pieces.length} 착용 중 (모두 착용하면 발동)
               </p>
             )}
           </div>

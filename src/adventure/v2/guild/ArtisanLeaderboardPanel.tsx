@@ -326,10 +326,10 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
                     key={reward.titleId}
                     className={`rounded px-1.5 py-px font-medium ${
                       reward.owned
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                         : reward.claimable
                         ? "bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-50"
-                        : "bg-white/70 text-amber-700 opacity-70 dark:bg-amber-950 dark:text-amber-200"
+                        : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                     }`}
                   >
                     {reward.label} · {reward.titleName} · 명성 +

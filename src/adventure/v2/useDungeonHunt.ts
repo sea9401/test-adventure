@@ -279,7 +279,7 @@ export function useDungeonHunt({
             );
             return r;
           }
-          pushLog(`✓ ${f}층 사냥 1회 — 스태미너 ${cur}/${MAX_STAMINA}`);
+          pushLog(`✓ ${f}층 사냥 1회 · 스태미너 ${cur}/${MAX_STAMINA}`);
           return null;
         }
         const err = json.error ?? "unknown";
@@ -287,7 +287,7 @@ export function useDungeonHunt({
           err === "policy_blocked"
             ? "policy_blocked (점령 길드가 자길드 멤버에게만 개방 중)"
             : err === "hp_zero"
-              ? "체력이 부족합니다 — 치료소에서 회복하거나 잠시 기다린 뒤 다시 시도하세요 (스태미너 미소모)"
+              ? "체력이 부족합니다. 치료소에서 회복하거나 잠시 기다린 뒤 다시 시도하세요 (스태미너 미소모)"
               : err;
         const after = json.stamina
           ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`

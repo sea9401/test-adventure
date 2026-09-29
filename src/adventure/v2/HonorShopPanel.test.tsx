@@ -85,7 +85,7 @@ describe("HonorShopPanel", () => {
     fireEvent.click(within(row).getByRole("button", { name: "구매" }));
 
     await waitFor(() => {
-      expect(mocks.notifySystem).toHaveBeenCalledWith("✓ 구매 완료 — 태양석 +1");
+      expect(mocks.notifySystem).toHaveBeenCalledWith("✓ 구매 완료: 태양석 +1");
     });
     expect(fetchMock).toHaveBeenLastCalledWith(
       "/api/v2/me/honor-shop",

@@ -100,7 +100,7 @@ export function FishingHallOfFameView({
             />
           </Card>
           <Card padding="none" className="overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
               <span
                 className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TIER_BADGE[activeTier]}`}
               >
@@ -125,7 +125,7 @@ export function FishingHallOfFameView({
                     </div>
                     {entries.length === 0 ? (
                       <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                        아직 기록 없음 — 역대 첫 기록의 주인이 되어 보자.
+                        아직 기록이 없습니다. 역대 첫 기록의 주인이 되어 보세요.
                       </p>
                     ) : (
                       <ul className="mt-1.5 space-y-0.5">
@@ -134,7 +134,7 @@ export function FishingHallOfFameView({
                             key={`${id}-${e.rank}-${e.name}`}
                             className={`flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[12px] ${
                               e.isMe
-                                ? "bg-sky-100 font-medium text-sky-900 dark:bg-sky-950/50 dark:text-sky-200"
+                                ? "bg-sky-100 font-medium text-sky-900 dark:bg-zinc-800 dark:text-sky-200"
                                 : "text-zinc-700 dark:text-zinc-300"
                             }`}
                           >

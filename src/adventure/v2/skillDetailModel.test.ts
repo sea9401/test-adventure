@@ -45,9 +45,9 @@ describe("buildSkillDetailModel", () => {
 
     expect(variants?.items).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^불 — /),
-        expect.stringMatching(/^물 — /),
-        expect.stringMatching(/^번개 — /),
+        expect.stringMatching(/^불: /),
+        expect.stringMatching(/^물: /),
+        expect.stringMatching(/^번개: /),
       ]),
     );
   });
@@ -59,7 +59,7 @@ describe("buildSkillDetailModel", () => {
     );
 
     expect(synergies?.items).toContain(
-      "장착: 총명 — 2회 공격 · 피해 마법 공격력×0.55 + 지능×0.44",
+      "장착: 총명 · 2회 공격 · 피해 마법 공격력×0.55 + 지능×0.44",
     );
   });
 
@@ -70,7 +70,7 @@ describe("buildSkillDetailModel", () => {
     );
 
     expect(synergies?.items).toContain(
-      "장착: 근원공명, 오원소 폭주 — 3회 공격 · 피해 마법 공격력×0.37 + 지능×0.29",
+      "장착: 근원공명, 오원소 폭주 · 3회 공격 · 피해 마법 공격력×0.37 + 지능×0.29",
     );
   });
 

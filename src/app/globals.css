@@ -267,6 +267,15 @@ body {
   --ui-tooltip-offset: -3px;
 }
 
+/* 모션 줄이기: Tailwind 깜박임 유틸리티는 멈춘다. 진행 표시(animate-spin)는 유지. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ui-dropdown-reveal,
   .ui-tab-content-reveal,

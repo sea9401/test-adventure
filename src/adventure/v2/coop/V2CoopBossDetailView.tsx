@@ -273,7 +273,7 @@ export function V2CoopBossDetailView({
                       on
                         ? "border border-rose-400/60 bg-rose-500/15 text-rose-700 dark:text-rose-300"
                         : isNext
-                          ? "animate-pulse border border-amber-400 text-amber-700 dark:text-amber-300"
+                          ? "border border-amber-400 font-semibold text-amber-700 dark:text-amber-300"
                           : "border border-zinc-200 text-zinc-400 dark:border-zinc-700"
                     }`}
                   >

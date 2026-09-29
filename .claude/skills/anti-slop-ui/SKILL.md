@@ -41,7 +41,7 @@ description: Use when 이 게임의 화면·컴포넌트·Tailwind 클래스·CS
 - 배지는 같은 화면 안에 실제로 다른 상태가 있을 때만 붙인다. 모든 행이 같은 값이면 정보가 아니다.
   - 좋은 예: 등급, 다른 장비와 구분되는 "장착", 새로 얻은 항목, 안 읽은 우편 수.
   - 나쁜 예: 기능명 옆 "NEW/BETA" 장식, 항상 켜진 "진행 중", 검증 안 하는 "인증됨".
-- `animate-pulse`/`animate-ping`/`animate-bounce`, `infinite` 애니메이션은 지금 행동해야 할 때(보상 수령 가능, 보스 등장)만, 행동하면 사라지게. 로딩 스켈레톤의 pulse는 허용. `motion-reduce:` / `prefers-reduced-motion`을 존중한다.
+- `animate-pulse`/`animate-ping`/`animate-bounce`, `infinite` 애니메이션은 지금 행동해야 할 때(보상 수령 가능, 보스 등장)만, 행동하면 사라지게. 로딩 스켈레톤의 pulse와 진행 스피너(`animate-spin`)는 허용. `globals.css`가 모션 줄이기 설정에서 `animate-pulse/ping/bounce`를 전역으로 멈추니, 새 CSS 무한 애니메이션을 만들면 그 클래스도 `prefers-reduced-motion: reduce` 블록에 넣는다(코스메틱 입자는 `ProfileDecorationMotion` 컨테이너 안에 두면 함께 숨겨진다).
 
 ### 4. 반복되는 알약·카드 모양
 - 모든 라벨을 `rounded-full px-*` 알약으로 감싸지 않는다. 목록은 줄·구분선, 표는 표, 선택지는 `ChoiceButton`처럼 용도에 맞춘다. 아바타·점·진행 바의 `rounded-full`은 정상.

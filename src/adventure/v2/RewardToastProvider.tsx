@@ -123,7 +123,7 @@ export function RewardToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto ui-reward-toast rounded-md border px-3 py-2 shadow-lg backdrop-blur ${TONE_CLASS[toast.tone]}`}
+            className={`pointer-events-auto ui-reward-toast rounded-md border px-3 py-2 shadow-lg ${TONE_CLASS[toast.tone]}`}
           >
             <div className="flex items-start gap-2">
               <div className="mt-0.5 shrink-0 rounded bg-white/60 px-1.5 py-0.5 text-[10px] font-semibold dark:bg-black/20">

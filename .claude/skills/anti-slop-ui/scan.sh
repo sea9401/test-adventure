@@ -50,7 +50,7 @@ check "코드 장식" '>\s*(//|>_|\[SYSTEM\])\s|["'"'"'`](//|>_) ' "$text_only"
 # 8·10. 문구
 check "홍보·과장 문구" '강력한|완벽한|혁신적|새로운 차원|한 단계 업그레이드|지금 바로 경험|풍성하게|더욱 편리|새로워진|환영합니다|(?i:seamless|elevate|supercharge|unleash|empower|next-generation)' "$text_only"
 check "개발 맥락 누출 의심" '[가-힣][^"'"'"'`]{0,30}\b[vV]2\b|\b[vV]2\b[^"'"'"'`]{0,30}[가-힣]|신규 ?\d+종|리워크|요청(으로|에 따라)|관리자 요청|Built with|React로|Claude|AI가 만든' "$text_only"
-check "문장 사이 긴 줄표(—, 탭 제목 구분자 외 금지)" '[가-힣][^"'"'`]*\s—\s' "$text_only"
+check "문장 사이 긴 줄표(—, 탭 제목 구분자 외 금지)" '[가-힣][^"'"'"'`]*\s—\s' "$text_only"
 # 9. 반투명·opacity
 check "반투명 패널(SURFACE_* 사용·scrim/프로스티드만 예외)" '(^|[\s"'"'"'`:])bg-(white|black|zinc|slate|gray|neutral|stone|amber|sky|[a-z]+-\d{2,3})/\d+'
 check "blur(SURFACE_FROSTED·모달 뒤 외 금지)" '\bbackdrop-blur|backdrop-filter'

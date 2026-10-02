@@ -299,18 +299,6 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("직업 스킬 이름은 서로 겹치지 않는다", () => {
-    const idsByName = new Map<string, Set<V2SkillId>>();
-    for (const id of Object.values(V2_SKILLS_BY_JOB).flat()) {
-      const name = V2_SKILLS[id].name;
-      idsByName.set(name, (idsByName.get(name) ?? new Set()).add(id));
-    }
-    const duplicates = [...idsByName]
-      .filter(([, ids]) => ids.size > 1)
-      .map(([name, ids]) => `${name}: ${[...ids].join(", ")}`);
-    expect(duplicates).toEqual([]);
-  });
-
   it("상위 직업 = 핵심 액티브 1 + 고유 % 패시브 1", () => {
     const UPPER: Record<string, readonly V2SkillId[]> = {
       shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"],

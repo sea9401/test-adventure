@@ -1,6 +1,5 @@
 import "server-only";
 import type { Monster } from "@/adventure/data/monsters/types";
-import { CHUSEOK_LUCKY_BAG } from "@/adventure/data/v2/chuseokEvent";
 
 import {
   COOP_BOSSES,
@@ -47,10 +46,6 @@ export async function simulateGuildRaidBattle({
     bossMp: coopBossMaxMp(definition),
   });
   return simulateRaidBattle({ tx, userId, monster: { ...monster, hp: bossHp }, lockForUpdate });
-}
-
-export async function simulateChuseokBattle(input: { tx: DbExecutor; userId: string }) {
-  return simulateRaidBattle({ ...input, monster: CHUSEOK_LUCKY_BAG, lockForUpdate: true });
 }
 
 async function simulateRaidBattle({ tx, userId, monster, lockForUpdate }: {

@@ -13,14 +13,13 @@ export default async function EventsPage({
   }>;
 }) {
   const params = await searchParams;
+  // 끝난 추석 이벤트 링크(?tab=chuseok)를 포함해 알 수 없는 탭은 출석 체크로 연다.
   const initialTab =
-    params.tab === "chuseok"
-      ? "chuseok"
-      : params.tab === "coupon"
-        ? "coupon"
-        : params.tab === "promotion"
-          ? "promotion"
-          : "attendance";
+    params.tab === "coupon"
+      ? "coupon"
+      : params.tab === "promotion"
+        ? "promotion"
+        : "attendance";
 
   return <V2EventsView initialTab={initialTab} />;
 }

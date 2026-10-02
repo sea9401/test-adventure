@@ -18,3 +18,14 @@
 ```sh
 CHUSEOK_TEST_DATABASE_URL=postgresql://USER@127.0.0.1:PORT/chuseok_test npm test -- src/lib/server/chuseokEvent.integration.test.ts
 ```
+
+## 종료와 제거 (2026-10-03)
+
+- 이벤트 기간이 끝나 화면(이벤트 탭·알림 배지), API, 서버 로직, 복주머니 전투 계산을 제거했다.
+  예전 링크(`/settings/events?tab=chuseok`)는 출석 체크 탭으로 열린다.
+- 참여 기록 보존과 게임 초기화 도구를 위해 DB 테이블 3개와 `src/db/chuseokSchema.ts`는 남긴다.
+  마이그레이션은 추가하지 않았다.
+- 이미 우편으로 보낸 단계 처치 보상은 우편함에서 그대로 받을 수 있다.
+- 복주머니 그림(`public/images/monster/v2/chuseok-lucky-bag.webp`)과 권리 기록은 보관한다.
+  코드 참조가 없어 이미지 검사에서 고아 파일 경고가 난다.
+- 운영 환경변수 `CHUSEOK_EVENT_STARTS_AT`은 더 읽지 않는다. 정리는 운영자 후속으로 둔다.

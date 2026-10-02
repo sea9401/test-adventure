@@ -21,7 +21,6 @@ import {
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useAttendanceReminder } from "./useAttendanceReminder";
-import { useChuseokReminder } from "./useChuseokReminder";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/우편함/거래소/랭킹/전체 소식) + 게임 안내서 +
 // 환경 설정 + 로그아웃. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
@@ -34,12 +33,8 @@ export function V2SettingsMenu() {
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const attendancePending = useAttendanceReminder();
-  const chuseokPending = useChuseokReminder();
-  const eventPending = attendancePending || chuseokPending;
-  const reminderLabel = [
-    attendancePending && "오늘 출석 체크 필요",
-    chuseokPending && "추석 이벤트 참여 가능",
-  ].filter(Boolean).join(", ");
+  const eventPending = attendancePending;
+  const reminderLabel = attendancePending ? "오늘 출석 체크 필요" : "";
 
   useEffect(() => {
     if (coinShopAccessible) return;

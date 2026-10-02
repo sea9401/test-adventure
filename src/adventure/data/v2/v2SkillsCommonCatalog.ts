@@ -215,7 +215,7 @@ export type V2CommonSkillId =
   | "v2c_archshaman_rite" // 금단 의식 (마법취약 폭발)
   | "v2c_archshaman_curse" // 흉조 II (마법취약 심화)
   // ── 마법 4차 네 번째 갈래(주교·대사제 계승) ──
-  | "v2c_archbishop_sanctuary" // 성역 선포 (낮은 회복 + 받피감)
+  | "v2c_archbishop_sanctuary" // 주교의 축도 (낮은 회복 + 받피감)
   | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
   | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
   | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
@@ -1435,7 +1435,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_radiantknight_verdict", name: "성역 선포", stat: "vit", category: "buff", tier: 3,
     description: "성역을 펼쳐 몸을 치유하고 다음 심판에 사용할 성력을 모은다.",
     detail: {
-      mechanics: ["시전 행동을 포함한 자신의 행동 종료 4회에 최대 HP 4%를 회복하고 성력을 10씩 얻는다. 성력 상한은 100이다."],
+      mechanics: ["시전 행동을 포함한 자신의 행동 종료 4회에 최대 HP 4%를 회복한다(회복량 보정 적용). 매번 성력 10을 얻으며, 성력 상한은 100이다."],
       synergies: ["성력은 여명의 심판이 소비한다. 패시브 없이도 성역과 심판만으로 성력을 운용할 수 있다."],
       limitations: ["체력이 가득 차도 성력을 얻는다. 재시전은 지속시간만 4행동으로 갱신하며, 성력은 전투가 바뀌면 초기화된다."],
     },
@@ -1821,8 +1821,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { enemyMagicVulnPctPerStack: 10, enemyMagicVulnApplyChancePct: 95 },
   },
   v2c_archbishop_sanctuary: {
-    id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
-    description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
+    // 성휘기사 성역 선포와 이름이 겹쳐 개명(피드백 #743). 저장된 학습/장착/패턴 호환을 위해 기존 ID 유지.
+    id: "v2c_archbishop_sanctuary", name: "주교의 축도", stat: "int", category: "heal", tier: 3,
+    description: "축복의 기도로 상처를 조금 메우고 잠시 피해를 줄인다.",
     mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100, spCost: 7,
     effects: [
       { kind: "heal", pctLostHp: 2.24, statCoef: 0.192, baseFlatByTier: [32, 32, 32], scaling: "spi" },

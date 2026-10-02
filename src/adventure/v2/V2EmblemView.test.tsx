@@ -142,6 +142,35 @@ describe("emblem screen", () => {
       .toContain("장착 중 · 슬롯 4");
   });
 
+  it("keeps the fusion confirmation and its result inside the selected emblem card", async () => {
+    respondWith(mixed);
+    render(<V2EmblemView />);
+    const cardOf = (iid: string) => document.querySelector(`[data-emblem-iid="${iid}"]`) as HTMLElement;
+    fireEvent.click(await screen.findByRole("button", { name: "문장 4 합성 대상 선택" }));
+    const confirm = screen.getByRole("group", { name: "문장 합성 확인" });
+    expect(cardOf("hp-high").contains(confirm)).toBe(true);
+    expect(within(confirm).getByRole("combobox", { name: "소모할 재료 문장" })).toBeTruthy();
+
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
+      ok: true, success: true, emblems: {
+        ...mixed,
+        owned: mixed.owned.filter((item) => item.iid !== "hp-copy")
+          .map((item) => item.iid === "hp-high" ? { ...item, grade: 4 } : item),
+        revision: 8,
+      },
+    }) });
+    fireEvent.click(within(confirm).getByRole("button", { name: "합성 실행" }));
+    const result = await screen.findByText(/합성에 성공했습니다/);
+    expect(cardOf("hp-high").contains(result)).toBe(true);
+    expect(screen.queryByRole("group", { name: "문장 합성 확인" })).toBeNull();
+
+    respondWith({ ...mixed, revision: 9 });
+    fireEvent.click(screen.getByRole("button", { name: "슬롯 1 해제" }));
+    const unequipped = await screen.findByText(/문장을 해제했습니다/);
+    expect(unequipped.closest("[data-emblem-iid]")).toBeNull();
+    expect(screen.queryByText(/합성에 성공했습니다/)).toBeNull();
+  });
+
   it("opens the emblem screen from the character menu", () => {
     const onAction = vi.fn();
     render(<V2CharacterMenu onAction={onAction} />);

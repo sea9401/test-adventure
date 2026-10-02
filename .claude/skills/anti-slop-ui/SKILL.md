@@ -19,9 +19,21 @@ description: Use when 이 게임의 화면·컴포넌트·Tailwind 클래스·CS
 | 탭 | `TabBar` |
 | 빈 상태·오류·안내 | `EmptyState`, `LoadErrorBanner`, `StatusBanner` |
 | 아이템 종류 라벨 | `ItemTypeChip` |
-| 글꼴 | 기본 Geist(`font-sans`/`font-mono`). 새 글꼴 금지 |
+| 메뉴 목록 | `EntryList` + `EntryRow` (카드 하나 안의 행, 목적지 화면 그림 썸네일). 상자 카드를 세로로 쌓지 않는다 |
+| 섹션 제목 | `SectionHeading` (금빛 스타일의 명조·장식 훅 포함) |
+| 주 행동·선택 색 | `Button` `primary`, `TabBar` (의미 토큰 `bg-primary`·`text-selected`). 보라를 직접 칠하지 않는다 |
+| 글꼴 | 기본 Geist(`font-sans`/`font-mono`). 금빛 스타일 제목용 명조(Noto Serif KR) 1종 외 새 글꼴 금지 |
 
 가장 비슷한 기존 화면(`src/adventure/v2/*View.tsx` 등)을 먼저 찾아 구조·간격·클래스를 재사용한다.
+
+## 화면 스타일(클래식·금빛)
+
+플레이어가 설정에서 고르는 두 스타일이 있다(`src/adventure/v2/uiStyle.ts`, `globals.css`의 "화면 스타일: 금빛"). 금빛은 로그인 대문의 니어블랙과 금색 포인트를 게임 안으로 확장한 스타일이다.
+
+- 금빛의 명조는 `ui-heading` 계열 훅(`SubViewHeader`, `SectionHeading`, 대화상자 제목, 카드 안 `h2`)으로만 적용한다. 화면에서 직접 `font-family`를 지정하지 않는다.
+- 금빛 장식은 짧은 금색 선과 작은 금색 분류 라벨(`SectionHeading`의 `eyebrow`) 두 가지뿐이다. 새 장식을 만들지 않는다.
+- 금빛에서 금색은 주 행동과 브랜드 포인트를 뜻한다. 주 행동 색은 `Button`의 `primary` 또는 `bg-primary` 토큰을 쓴다.
+- 새 화면은 두 스타일 모두에서 확인한다(`/dev/ui-system`에 네 조합이 있다).
 
 ## 10가지 단서와 적용 규칙
 

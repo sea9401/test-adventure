@@ -28,6 +28,7 @@ import {
   type CoopBossKindId,
   coopAttackCooldownMs,
   canAccessCoopBoss,
+  coopBossFreeSupportLocked,
   parseCoopVisibility,
   parseCoopMechanicState,
   coopBossCurrentMp,
@@ -198,6 +199,12 @@ export async function POST(req: Request) {
       return {
         status: 403,
         body: { ok: false as const, error: "no_permission" as const },
+      };
+    }
+    if (isSupport && coopBossFreeSupportLocked(sessionPeek.regionId)) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "support_locked" as const },
       };
     }
     if (isSupport && !sessionPeek.allowFreeSupport) {

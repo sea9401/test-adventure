@@ -72,7 +72,7 @@ function OpenGameDialog({
         </p>
         <h2
           id="game-dialog-title"
-          className="mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-100"
+          className="ui-heading mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-100"
         >
           {dialog.title}
         </h2>

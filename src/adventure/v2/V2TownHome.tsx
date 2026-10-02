@@ -11,7 +11,7 @@ import {
   Storefront,
   Toolbox,
 } from "@phosphor-icons/react";
-import { EntryCard } from "@/components/ui/EntryCard";
+import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
@@ -43,49 +43,53 @@ export function V2TownHome({
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="마을" />
-      <div className="space-y-2">
+      <EntryList>
         {gameStateLoaded && viewerGuildId == null && (
-          <EntryCard
+          <EntryRow
             icon={<Buildings size={28} weight="duotone" className="text-indigo-600" />}
             title="모험가 협회"
             onClick={() => onAction({ kind: "open-association" })}
           />
         )}
-        <EntryCard
+        <EntryRow
           icon={<Compass size={28} weight="duotone" className="text-sky-600" />}
           title="생활 지도"
           onClick={() => onAction({ kind: "open-map" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Toolbox size={28} weight="duotone" className="text-amber-600" />
           }
           title="생활 의뢰·조합 작업장"
           onClick={() => onAction({ kind: "open-life-workshop" })}
         />
-        <EntryCard
+        <EntryRow
           icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
           title="치료소"
+          image="/images/ui/healingcenter.webp"
           onClick={() => onAction({ kind: "open-healing" })}
         />
-        <EntryCard
+        <EntryRow
           icon={<Bank size={28} weight="duotone" className="text-yellow-600" />}
           title="은행"
+          image="/images/ui/bank.webp"
           onClick={() => onAction({ kind: "open-bank" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Storefront size={28} weight="duotone" className="text-orange-600" />
           }
           title="통합 교환소"
+          image="/images/ui/shop.webp"
           onClick={() => onAction({ kind: "open-exchange" })}
         />
-        <EntryCard
+        <EntryRow
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
           title="대장간"
+          image="/images/ui/forge.webp"
           onClick={() => onAction({ kind: "open-smithy" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <PottedPlant
               size={28}
@@ -94,9 +98,10 @@ export function V2TownHome({
             />
           }
           title="모험가 농장"
+          image="/images/ui/farm.webp"
           onClick={() => onAction({ kind: "open-farm" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <CookingPot
               size={28}
@@ -107,7 +112,7 @@ export function V2TownHome({
           title="주방"
           onClick={() => onAction({ kind: "open-kitchen" })}
         />
-      </div>
+      </EntryList>
     </PageShell>
   );
 }

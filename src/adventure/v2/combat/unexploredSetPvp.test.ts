@@ -86,6 +86,17 @@ describe.each(["p1", "p2"] as const)("%s unexplored set symmetry", side => {
     expect(next[side].hp).toBe(9799);
     expect(next[side].stacks.unexplored?.ironWallDefBonus).toBe(100);
   });
+  it("logs iron gains from basic hits and once per incoming direct skill", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const name = side === "p1" ? "P1" : "P2";
+    const ironLines = (state: PvPBattleState) => state.log.filter(e => e.text.startsWith("[철벽 누적]"));
+    const hit = basic(withRuntime(battle(target, fighter({ atk: 400 }), fighter({ hp: 10000, maxHp: 10000, def: 100, unexploredSetEffects: effects("iron_wall") })), side, { ironWallDefBonus: 99 }));
+    expect(ironLines(hit)).toEqual([expect.objectContaining({ kind: "info", side, text: `[철벽 누적] ${name} 방어 +1 (누적 +100)` })]);
+    const capped = basic({ ...hit, phase: target, [target]: { ...hit[target], attacksLeft: 1 } });
+    expect(ironLines(capped)).toHaveLength(1);
+    const combo = cast(battle(target, fighter({ atk: 1000 }), fighter({ hp: 5000, maxHp: 5000, def: 100, unexploredSetEffects: effects("iron_wall") }), ["v2c_martial_combo"]), target).state;
+    expect(ironLines(combo).map(e => e.text)).toEqual([`[철벽 누적] ${name} 방어 +5 (누적 +5)`]);
+  });
   it("boosts every hit of a direct skill with one revenge snapshot and consumes it once", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const state = withRuntime(battle(side, fighter({ unexploredSetEffects: effects("battle_revenge") }), fighter(), ["v2c_martial_combo"]), side, { revengePending: true });

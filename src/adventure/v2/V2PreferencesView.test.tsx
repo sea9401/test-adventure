@@ -154,4 +154,39 @@ describe("환경 설정 화면", () => {
       activityEnabled: { daily_hunt: false },
     });
   });
+  it("화면 스타일을 고르면 루트 클래스와 이 브라우저 저장값을 바꾼다", () => {
+    document.documentElement.classList.remove("ui-skin-gilded");
+    localStorage.removeItem("ui-style.v1");
+    render(<V2PreferencesView />);
+
+    expect(
+      screen.getByRole("heading", { name: "화면 스타일" }),
+    ).not.toBeNull();
+    const classic = screen.getByRole("button", { name: /^클래식/ });
+    const gilded = screen.getByRole("button", { name: /^금빛/ });
+    expect(classic.getAttribute("aria-pressed")).toBe("true");
+    expect(gilded.textContent).toContain("따뜻한 바탕, 명조 제목, 금색 버튼");
+
+    fireEvent.click(gilded);
+    expect(document.documentElement.classList.contains("ui-skin-gilded")).toBe(
+      true,
+    );
+    expect(localStorage.getItem("ui-style.v1")).toBe("gilded");
+    expect(gilded.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(classic);
+    expect(document.documentElement.classList.contains("ui-skin-gilded")).toBe(
+      false,
+    );
+    expect(localStorage.getItem("ui-style.v1")).toBe("classic");
+    expect(classic.getAttribute("aria-pressed")).toBe("true");
+  });
+  it("설정 카드 제목은 모두 공용 섹션 제목을 쓴다", () => {
+    render(<V2PreferencesView />);
+
+    for (const name of ["화면 테마", "화면 스타일", "알림", "배경 및 표시", "계정 및 안내"]) {
+      const heading = screen.getByRole("heading", { name });
+      expect(heading.className).toContain("ui-section-title");
+    }
+  });
 });

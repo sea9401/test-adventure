@@ -220,7 +220,26 @@ describe("StatsPanel 효과 능력치 표기", () => {
     expect(html).toMatch(/font-semibold[^>]*>142<\/span>/);
     expect(html).toContain("기본·성장 110");
     expect(html).toContain("효과 +32");
-    expect(html).toContain("성장 한계 160");
+    expect(html).toContain("기본 성장 한계 160");
     expect(html).not.toContain("장비 +32");
+  });
+});
+
+describe("StatsPanel 상세 행 목록", () => {
+  it("상세 수치는 칸마다 상자를 두지 않고 라벨과 값의 행으로 나눈다", () => {
+    const html = renderToStaticMarkup(
+      createElement(StatsPanel, {
+        stats: { str: 1 },
+        statKeys: ["str"],
+        statLabels: { str: "힘" },
+        combat: { atk: 10, def: 5, healMult: 1.2 },
+      }),
+    );
+
+    // 인셋 상자는 능력치 칸(힘) 하나뿐이고, 상세 3행(공격력·방어력·회복량)은 구분선 행이다.
+    expect(html.split("ui-surface-inset").length - 1).toBe(1);
+    expect(html).toContain("divide-y");
+    expect(html).toContain("공격력");
+    expect(html).toContain("회복량");
   });
 });

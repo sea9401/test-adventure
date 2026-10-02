@@ -67,6 +67,11 @@ describe("active arena loadout", () => {
 });
 
 describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
+  it("상대 무기·최대 MP 조건을 아레나 템플릿에서 읽을 수 있게 표시한다", () => {
+    expect(arenaPatternConditionSummary({ kind: "enemy_weapon", weaponType: "staff" })).toBe("상대 무기 지팡이");
+    expect(arenaPatternConditionSummary({ kind: "enemy_max_mp", op: "atLeast", value: 500 })).toBe("상대 최대 MP 500 이상");
+    expect(arenaPatternConditionSummary({ kind: "enemy_max_mp", op: "atMost", value: 499 })).toBe("상대 최대 MP 499 이하");
+  });
   it("혈맥 폭발의 발동 가능·재사용 대기 상태를 숫자 없이 요약한다", () => {
     expect(
       arenaPatternConditionSummary({
@@ -170,7 +175,7 @@ describe("arenaPatternActionSummary — 실제 패턴 행동만 표시", () => {
     expect(arenaPatternActionSummary(loadout)).toEqual([
       {
         key: "0:alternate:v2_skill_strike:v2_skill_recover",
-        name: "강타 → 회복 (교대)",
+        name: "내려치기 → 숨 고르기 (교대)",
         condition: "항상",
       },
     ]);

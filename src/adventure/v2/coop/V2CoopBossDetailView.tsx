@@ -334,7 +334,7 @@ export function V2CoopBossDetailView({
                 {killingBlowReward.bossMaterialCount}
               </p>
             )}
-            {session.allowFreeSupport && (
+            {session.allowFreeSupport && !isPersonalBoss && (
               <div className="space-y-1 pt-2">
                 <button
                   type="button"
@@ -437,7 +437,7 @@ export function V2CoopBossDetailView({
         </Card>
       )}
 
-      {session.isOwner && active && (
+      {session.isOwner && active && !isPersonalBoss && (
         <Card padding="md">
           <CoopFreeSupportOption
             checked={session.allowFreeSupport}

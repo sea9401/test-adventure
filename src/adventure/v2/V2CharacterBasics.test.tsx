@@ -35,4 +35,16 @@ describe("V2CharacterBasics 성장 방향 안내", () => {
     expect(html).toContain("3,000");
     expect(html).not.toContain("전투력");
   });
+  it("소속 길드·전투 횟수·숙달 포인트를 상자 대신 라벨과 값의 행으로 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <V2CharacterBasics {...BASE_PROPS} battleCount={1_234} guildName={null} />,
+    );
+
+    expect(html).toContain("<dl");
+    expect(html.split("<dt").length - 1).toBe(3);
+    expect(html).toContain("divide-y");
+    expect(html).not.toContain("rounded-md border border-zinc-200 bg-zinc-50");
+    expect(html).toContain("무소속");
+    expect(html).toContain("1,234");
+  });
 });

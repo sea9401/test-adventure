@@ -91,6 +91,37 @@ describe("GET /api/v2/coop/[sessionId]", () => {
     });
   });
 
+  it("개인 보스는 이전에 켜 둔 무료 지원 값이 남아 있어도 비허용으로 반환한다", async () => {
+    rows.queue = [
+      [{
+        id: "personal-1",
+        regionId: "tracking_weapon",
+        hp: 80,
+        maxHp: 100,
+        mechanicState: {},
+        expiresAt: new Date(Date.now() + 60_000),
+        defeatedAt: null,
+        summonedByName: "outsider",
+        summonerId: "outsider",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+        allowFreeSupport: true,
+      }],
+      [],
+      [],
+      [],
+    ];
+
+    const response = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ sessionId: "personal-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      session: { allowFreeSupport: false },
+    });
+  });
+
   it("불괴의 성채 상세에 방벽 진행도와 예상 광폭을 반환한다", async () => {
     rows.queue = [
       [{

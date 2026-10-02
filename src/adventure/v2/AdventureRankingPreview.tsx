@@ -90,7 +90,7 @@ export function AdventureRankingPreview() {
             aria-selected={index === metricIndex}
             className={`relative px-2 py-2.5 text-xs font-semibold transition ${
               index === metricIndex
-                ? "bg-white text-violet-700 after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-violet-600 dark:bg-zinc-900 dark:text-violet-300 dark:after:bg-violet-400"
+                ? "bg-white text-selected after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-selected-line dark:bg-zinc-900"
                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
             }`}
           >

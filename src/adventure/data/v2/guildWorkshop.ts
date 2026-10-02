@@ -60,6 +60,7 @@ import {
   UNEXPLORED_POOL_BY_ID,
   type UnexploredPoolId,
 } from "./unexploredMonsterPools";
+import { BAND_COMMON_POOLS } from "./dungeonUniqueDrops";
 
 // 활동 내역은 화면에 보이는 티어 기준으로 제한한다(표시 4T = 내부 카탈로그 10~12단계).
 export const GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER = 4;
@@ -340,6 +341,8 @@ export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
 export const GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT = 50;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_ARTISAN_XP = 3;
 export const STORM_EQUIPMENT_DISMANTLE_ROUTE_RECOVERY_PCT = 25;
+/** 제작품이 아닌 필드 사냥 장비 해체 시 회수하는 해당 구간 공용 재료 수(건의 #746). */
+export const GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS = 1;
 
 /** 화면 표시 티어 기준 개인 제작 수수료. 재료 병목보다 가볍게, 반복 제작에서만 누적되도록 둔다. */
 export const GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER: Record<
@@ -2196,6 +2199,17 @@ export function guildWorkshopDismantleArtisanXpForTier(tierRaw: number): number 
   );
 }
 
+let fieldDismantleEquipmentIdCache: ReadonlySet<V2EquipmentId> | null = null;
+
+// 고유·미개척지·협동 보스·폭풍 원정 장비는 각자 경제가 있어 실제 필드 사냥
+// 드랍 풀(BAND_COMMON_POOLS)에 있는 장비만 대상으로 삼는다.
+function fieldDismantleEquipmentIds(): ReadonlySet<V2EquipmentId> {
+  fieldDismantleEquipmentIdCache ??= new Set(
+    BAND_COMMON_POOLS.flatMap((pool) => pool.ids),
+  );
+  return fieldDismantleEquipmentIdCache;
+}
+
 export function guildWorkshopDismantlePlan(
   item: V2Equipment,
   inst: Pick<V2EquipInstance, "craftQuality" | "craftedBy"> = {},
@@ -2206,7 +2220,18 @@ export function guildWorkshopDismantlePlan(
     return { materials: {}, artisanXp: 0, blockedReason: "locked_level" };
   }
   if (inst.craftedBy?.profession !== "blacksmith" && !item.craftOnly) {
-    return { materials: {}, artisanXp: 0, blockedReason: "not_crafted" };
+    // 필드 사냥 일반 장비만 그 구간 공용 재료를 고정 수량 돌려준다. 대장장이
+    // 성장은 제작으로만 쌓이도록 숙련도는 주지 않는다.
+    const fieldMaterialId = fieldDismantleEquipmentIds().has(item.id)
+      ? guildWorkshopDismantleMaterialForTier(item.tier)
+      : undefined;
+    if (!fieldMaterialId) {
+      return { materials: {}, artisanXp: 0, blockedReason: "not_crafted" };
+    }
+    return {
+      materials: { [fieldMaterialId]: GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS },
+      artisanXp: 0,
+    };
   }
   const sourceRecipe = Object.values(GUILD_WORKSHOP_RECIPES).find(
     (recipe) => recipe.equipmentId === item.id,

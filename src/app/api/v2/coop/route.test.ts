@@ -104,6 +104,37 @@ describe("GET /api/v2/coop", () => {
     });
   });
 
+  it("개인 보스는 이전에 켜 둔 무료 지원 값이 남아 있어도 목록에 비허용으로 표시한다", async () => {
+    mocks.queryRows.push(
+      [{
+        id: "personal-1",
+        regionId: "tracking_weapon",
+        hp: 80,
+        maxHp: 100,
+        mechanicState: null,
+        expiresAt: new Date(Date.now() + 60_000),
+        summonedByName: "viewer",
+        summonerId: "viewer",
+        summonerGuildId: null,
+        visibility: "summoner_only",
+        allowFreeSupport: true,
+        spawnedAt: new Date(),
+        defeatedAt: null,
+      }],
+      [],
+      [],
+      [],
+      [],
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      sessions: [{ id: "personal-1", allowFreeSupport: false }],
+    });
+  });
+
   it("불괴의 성채 방벽 진행도와 예상 광폭을 목록에 표시한다", async () => {
     mocks.queryRows.push(
       [{

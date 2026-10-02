@@ -50,7 +50,6 @@ export type UnexploredMutationError =
   | "point_limit"
   | "not_adjacent"
   | "conversion_conflict"
-  | "difficulty_cap"
   | "not_active"
   | "start_required"
   | "would_disconnect"

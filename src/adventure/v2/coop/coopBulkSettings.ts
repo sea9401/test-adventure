@@ -41,7 +41,10 @@ export async function applyCoopBulkSettings(sessions: ManagedSession[], settings
         if (response.ok && body.ok) {
           result.applied++;
           if (change.body.visibility === "guild_only" && body.visibility === "summoner_only") result.guildFallback++;
-        } else if (body.error === "not_active" || body.error === "visibility_locked" || body.error === "no_session") {
+        } else if (
+          body.error === "not_active" || body.error === "visibility_locked"
+          || body.error === "support_locked" || body.error === "no_session"
+        ) {
           result.skipped++;
         } else result.failed++;
       } catch {

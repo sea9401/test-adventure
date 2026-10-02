@@ -116,6 +116,27 @@ describe("사냥터 성장 안내", () => {
   });
 });
 
+describe("사냥터 지역 그림", () => {
+  it("사냥터 목록 카드와 열린 사냥터 머리에 그 지역 그림을 보여 준다", () => {
+    const list = renderToStaticMarkup(
+      <V2DungeonList frontierDepth={8} onSelectFloor={vi.fn()} onBack={vi.fn()} />,
+    );
+    const opened = renderToStaticMarkup(
+      <V2DungeonList
+        frontierDepth={8}
+        initialOpenDepth={7}
+        onSelectFloor={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(list).toContain("plains.webp");
+    expect(list).toContain("canyon.webp");
+    expect(opened.split("canyon.webp").length - 1).toBeGreaterThan(0);
+    expect(opened).not.toContain("plains.webp");
+  });
+});
+
 describe("사냥터 희귀 지도 요청", () => {
   it("부모가 선택 콜백을 새로 만들어도 희귀 지도 목록을 다시 요청하지 않는다", async () => {
     const fetchMock = vi.fn(async () =>

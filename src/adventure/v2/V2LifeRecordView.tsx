@@ -310,19 +310,21 @@ export function LifeActivityCard({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {activity.records.map((record) => (
-          <div key={record.label} className={`${SURFACE_INSET} px-2.5 py-2`}>
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              {record.label}
+      {activity.records.length > 0 && (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-zinc-200 pt-3 sm:grid-cols-4 dark:border-zinc-700">
+          {activity.records.map((record) => (
+            <div key={record.label} className="min-w-0">
+              <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {record.label}
+              </dt>
+              <dd className="mt-0.5 font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+                {record.value.toLocaleString()}
+                {record.suffix ?? ""}
+              </dd>
             </div>
-            <div className="mt-0.5 font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
-              {record.value.toLocaleString()}
-              {record.suffix ?? ""}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </dl>
+      )}
 
       <div className="mt-3 space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
         {activity.effects.map((effect) => (

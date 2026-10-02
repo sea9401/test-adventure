@@ -626,7 +626,7 @@ export function LoadoutPresetAdjustment({
           type="button"
           onClick={onApplyAndSave}
           disabled={!canSubmit}
-          className="rounded-md border border-violet-600 bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md border border-primary-border bg-primary px-3 py-2 text-xs font-medium text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           적용 후 프리셋 저장
         </button>

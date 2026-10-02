@@ -224,21 +224,65 @@ describe("unexplored tree model", () => {
         name: "철갑 군단",
         share: 30,
         materialName: "강화 철편",
-        materialRateText: "1% · 집중 1.5%",
+        materialRateText: "1% (집중 시 1.5%)",
         weaponName: "철성 파쇄검",
-        weaponRateText: "0.1% · 집중 0.2%",
+        weaponRateText: "0.1% (집중 시 0.2%)",
       },
       {
         poolId: "mana_barrier",
         name: "마력 방벽체",
         share: 30,
         materialName: "방벽 결정",
-        materialRateText: "1% · 집중 1.5%",
+        materialRateText: "1% (집중 시 1.5%)",
         weaponName: "결계 증폭봉",
-        weaponRateText: "0.1% · 집중 0.2%",
+        weaponRateText: "0.1% (집중 시 0.2%)",
       },
     ]);
     expect(model.selected?.categoryLabel).toBe("보상 전환");
+  });
+
+  it("활성 특화 풀은 집중 강화를 찍은 풀만 집중 확률로 표시한다", () => {
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        selectedNodeIds: [
+          "start",
+          "pool-venom_colony",
+          "pool-bloodstained_dead",
+          "enh-bloodstained_dead-focus",
+        ],
+        encounterShares: [
+          { kind: "base", share: 40 },
+          { kind: "pool", poolId: "venom_colony", share: 30 },
+          { kind: "pool", poolId: "bloodstained_dead", share: 30 },
+        ],
+      }),
+      null,
+    );
+
+    expect(
+      model.poolSummary.map(({ poolId, materialRateText }) => [poolId, materialRateText]),
+    ).toEqual([
+      ["venom_colony", "1% (집중 시 1.5%)"],
+      ["bloodstained_dead", "1.5% (집중 적용)"],
+    ]);
+  });
+
+  it("집중 강화를 찍은 앞쪽 풀은 개척자 무기도 집중 확률로 표시한다", () => {
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        selectedNodeIds: ["start", "pool-iron_legion", "enh-iron_legion-focus"],
+        encounterShares: [
+          { kind: "base", share: 70 },
+          { kind: "pool", poolId: "iron_legion", share: 30 },
+        ],
+      }),
+      null,
+    );
+
+    expect(model.poolSummary[0]).toMatchObject({
+      materialRateText: "1.5% (집중 적용)",
+      weaponRateText: "0.2% (집중 적용)",
+    });
   });
 
   it("shows the selected specialty pool's monster drops on every linked node", () => {
@@ -323,7 +367,7 @@ describe("unexplored tree model", () => {
     expect(model.selected?.activationError).toBe("conversion_conflict");
   });
 
-  it("난이도 120을 넘기는 잠긴 노드에 상한 이유를 노출한다", () => {
+  it("난이도 120에서도 다음 경로 노드를 활성화할 수 있게 표시한다", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
@@ -346,8 +390,9 @@ describe("unexplored tree model", () => {
       finalDifficultyId,
     );
 
-    expect(model.selected?.state).toBe("locked");
-    expect(model.selected?.activationError).toBe("difficulty_cap");
+    expect(model.selected?.state).toBe("available");
+    expect(model.selected?.activationError).toBeNull();
+    expect(model.previewDifficulty).toBe(120);
   });
 
   it("locks every inactive node below level 100 without deleting progress", () => {

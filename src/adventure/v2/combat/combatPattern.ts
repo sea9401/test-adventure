@@ -8,6 +8,7 @@
 // 조건 평가에 필요한 전투 상태는 PatternCtx 로 받는다(엔진이 매 턴 합성).
 
 import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
+import type { V2WeaponType } from "@/adventure/data/v2/v2Equipment";
 
 // 🚩 기능 플래그 — C1~C3(데이터/엔진·UI·재밸런스) 완성 전까지 off. on 이면 엔진이 패턴 평가기로
 //    스킬을 고르고 procChance 를 건너뛴다(확정 발동). off 면 옛 슬롯순서+proc 경로 유지(무변).
@@ -81,6 +82,9 @@ export type V2CombatCondition =
     }
   // 적 HP 비율.
   | { kind: "enemy_hp"; op: "below" | "above"; pct: number }
+  // 상대의 전투 시작 장비 및 최대 MP. 알 수 없으면 미충족.
+  | { kind: "enemy_weapon"; weaponType: V2WeaponType }
+  | { kind: "enemy_max_mp"; op: "atLeast" | "atMost"; value: number }
   // 적 상태 — DoT/취약 스택. atLeast/atMost = stacks 이상/이하, none = 0(스택 없을 때).
   | {
       kind: "enemy_status";
@@ -147,6 +151,8 @@ export type V2PatternCtx = {
   selfBuffPctTargets: ReadonlySet<V2PatternSelfStatus>;
   selfResources: Readonly<Partial<Record<V2PatternSelfResource, number>>>;
   enemyHpPct: number; // 0~100
+  enemyWeaponType?: V2WeaponType;
+  enemyMaxMp?: number;
   enemyBleed: number; // 스택
   enemyBleedTurns: number; // 앞으로 출혈 피해가 발동할 횟수
   enemyPoison: number;
@@ -260,6 +266,12 @@ export function conditionPasses(
       return cond.op === "below"
         ? ctx.enemyHpPct <= cond.pct
         : ctx.enemyHpPct >= cond.pct;
+    case "enemy_weapon":
+      return ctx.enemyWeaponType != null && ctx.enemyWeaponType === cond.weaponType;
+    case "enemy_max_mp":
+      return ctx.enemyMaxMp != null && (cond.op === "atMost"
+        ? ctx.enemyMaxMp <= cond.value
+        : ctx.enemyMaxMp >= cond.value);
     case "enemy_status": {
       const stacks = enemyStatusValue(ctx, cond);
       return cond.op === "none"
@@ -280,7 +292,7 @@ export function conditionPasses(
   }
   // 모든 kind 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = cond;
-  return _exhaustive;
+  return false;
 }
 
 // 패턴 평가 — 우선순위(배열 순서)대로, 조건 충족 + 실행 가능(isUsable: 쿨다운/MP/효과)한
@@ -555,6 +567,19 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
       const op = c.op === "below" || c.op === "above" ? c.op : null;
       if (!op || !isFinitePct(c.pct)) return null;
       return { kind: c.kind, op, pct: Math.max(0, Math.min(100, c.pct)) };
+    }
+    case "enemy_weapon": {
+      const weaponType = c.weaponType;
+      return weaponType === "greatsword" || weaponType === "staff" ||
+        weaponType === "bow" || weaponType === "dagger"
+        ? { kind: "enemy_weapon", weaponType }
+        : null;
+    }
+    case "enemy_max_mp": {
+      const op = c.op === "atLeast" || c.op === "atMost" ? c.op : null;
+      return op && typeof c.value === "number" && Number.isSafeInteger(c.value) && c.value >= 0
+        ? { kind: "enemy_max_mp", op, value: c.value }
+        : null;
     }
     case "formula_completion":
       return typeof c.active === "boolean"

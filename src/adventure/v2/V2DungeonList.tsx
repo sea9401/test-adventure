@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,6 +28,7 @@ import {
   DUNGEON_THEME_VISIBILITY_STORAGE_KEY,
   parseHiddenThemeStarts,
 } from "./dungeonThemeVisibility";
+import { huntingGroundImageForDepth } from "./gameSceneBackgroundForPath";
 import { useDungeonThemeVisibility } from "./useDungeonThemeVisibility";
 import type { UnexploredClientSnapshot } from "./unexploredTreeModel";
 import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
@@ -186,8 +188,21 @@ export function V2DungeonList({
       />
 
       {openGroup ? (
-        // 이너 — 선택한 테마의 입구·심부·최심부 카드.
+        // 이너 — 선택한 테마의 지역 그림 한 장 + 입구·심부·최심부 카드.
         <div className="space-y-3">
+          <Card
+            padding="none"
+            aria-hidden
+            className="relative h-28 overflow-hidden"
+          >
+            <Image
+              src={huntingGroundImageForDepth(openGroup.themeStartDepth)}
+              alt=""
+              fill
+              sizes="(min-width: 768px) 720px, 100vw"
+              className="object-cover"
+            />
+          </Card>
           <GrowthSummary
             playerLevel={playerLevel}
             playerLevelCap={playerLevelCap}
@@ -326,39 +341,53 @@ export function V2DungeonList({
                     className="group block h-full text-left"
                   >
                     <Card
-                      padding="sm"
-                      className={`ui-dungeon-card flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
+                      padding="none"
+                      className={`ui-dungeon-card flex h-full flex-col overflow-hidden transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
                         hasChallenge
                           ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
                           : "hover:border-rose-300 dark:hover:border-rose-600"
                       }`}
                     >
-                      <div
-                        className={`truncate text-sm font-medium transition-colors ${
-                          hasChallenge
-                            ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
-                            : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
-                        }`}
-                      >
-                        {g.name}
-                      </div>
-                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        {stageRangeLabel(g.depths)}
-                      </div>
-                      {hasChallenge && (
-                        <div className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">
-                          도전 구역 포함
-                        </div>
-                      )}
                       <span
-                        className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
-                          hasChallenge
-                            ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
-                            : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
-                        }`}
+                        aria-hidden
+                        className="relative block h-20 w-full shrink-0 bg-zinc-100 dark:bg-zinc-800"
                       >
-                        열기
+                        <Image
+                          src={huntingGroundImageForDepth(startDepth)}
+                          alt=""
+                          fill
+                          sizes="(min-width: 768px) 360px, 50vw"
+                          className="object-cover"
+                        />
                       </span>
+                      <div className="flex flex-1 flex-col p-3">
+                        <div
+                          className={`truncate text-sm font-medium transition-colors ${
+                            hasChallenge
+                              ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
+                              : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
+                          }`}
+                        >
+                          {g.name}
+                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                          {stageRangeLabel(g.depths)}
+                        </div>
+                        {hasChallenge && (
+                          <div className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+                            도전 구역 포함
+                          </div>
+                        )}
+                        <span
+                          className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
+                            hasChallenge
+                              ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
+                              : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
+                          }`}
+                        >
+                          열기
+                        </span>
+                      </div>
                     </Card>
                   </button>
                 );

@@ -344,7 +344,7 @@ export function GuildAlchemyWorkshopPanel({
                     type="button"
                     onClick={() => void craft(recipe)}
                     disabled={busyRecipeId != null || maxQuantity <= 0}
-                    className="h-9 flex-1 rounded-md bg-violet-600 px-3 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-9 flex-1 rounded-md bg-primary px-3 text-xs font-bold text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busyRecipeId === recipe.id
                       ? "조제 중…"

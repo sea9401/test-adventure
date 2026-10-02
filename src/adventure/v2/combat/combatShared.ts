@@ -734,6 +734,10 @@ export type V2SkillCastInput = {
   };
   target: {
     def: number;
+    /** PvP 상대의 고정 최대 MP. 정보가 없으면 조건을 만족하지 않는다. */
+    maxMp?: number;
+    /** PvP 상대의 장착 무기 종류. */
+    weaponType?: import("@/adventure/data/v2/v2Equipment").V2WeaponType;
     // PR-2 v2 — 마법 방어력 (마법 데미지 경감, 미지정=물리 def 폴백).
     magicDef?: number;
     // 결계술 등 — 마법 스킬 피해에만 곱연산으로 적용되는 받피감. 평타 감소는 enemyPhase 쪽에서 처리.
@@ -854,6 +858,8 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       bloodlineBurstReady: a.bloodlineBurstReady ? 1 : 0,
     },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
+    enemyMaxMp: t.maxMp,
+    enemyWeaponType: t.weaponType,
     enemyBleed: t.bleedStacks ?? 0,
     enemyBleedTurns: Math.max(0, Math.floor(t.bleedTurns ?? 0)),
     enemyPoison: t.poisonStacks ?? 0,

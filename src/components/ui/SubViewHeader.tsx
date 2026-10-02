@@ -25,7 +25,7 @@ export function SubViewHeader({
           <BackButton onClick={onBack} />
         </div>
       )}
-      <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap px-16 text-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
+      <h1 className="ui-heading ui-screen-title pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap px-16 text-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
         {title}
       </h1>
       {right && (

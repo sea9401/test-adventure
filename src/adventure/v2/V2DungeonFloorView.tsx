@@ -185,7 +185,7 @@ export function UnexploredHuntSummaryPanel({
     ["equipment", "장비"],
     ["quality", "장비 품질"],
     ["specialMaterial", "특화 재료"],
-    ["rare", "희귀 보상"],
+    ["rare", "희귀 보상(희귀 재료·일반 사냥 유니크)"],
   ];
   const activeRewards = rewardLabels.filter(
     ([key]) => summary.rewardPct[key] !== 0,

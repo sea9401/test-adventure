@@ -56,7 +56,7 @@ describe("프리셋 SP 상태 표시", () => {
 
     expect(html).toContain("만독지배");
     expect(html).toContain("30 SP");
-    expect(html).toContain("회복");
+    expect(html).toContain("숨 고르기");
     expect(html).toContain("현재 미습득");
     expect(html).toContain("legacy_deleted_skill");
     expect(html).toContain("더 이상 존재하지 않는 스킬");

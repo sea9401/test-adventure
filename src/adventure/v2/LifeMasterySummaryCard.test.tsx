@@ -64,4 +64,30 @@ describe("생활 기록 화면", () => {
     expect(html).toContain("최종 숙련 달성 · MAX");
     expect(html).toContain('aria-valuenow="100"');
   });
+  it("누적 기록은 칸마다 상자를 두지 않고 라벨과 값 목록으로 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <LifeActivityCard
+        activity={{
+          id: "farming",
+          level: 27,
+          levelCap: 100,
+          xp: 500,
+          xpIntoLevel: 40,
+          xpForNext: 530,
+          records: [
+            { label: "총 수확", value: 328, suffix: "회" },
+            { label: "희귀 수확", value: 27, suffix: "회" },
+          ],
+          effects: [],
+          nextGoal: null,
+        }}
+      />,
+    );
+
+    expect(html).toContain("<dl");
+    expect(html.split("<dt").length - 1).toBe(2);
+    expect(html).toContain("328회");
+    // 아이콘 타일 하나만 인셋이고, 기록 칸은 인셋 상자가 아니다.
+    expect(html.split("ui-surface-inset").length - 1).toBe(1);
+  });
 });

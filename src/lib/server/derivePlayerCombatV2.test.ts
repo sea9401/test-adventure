@@ -162,6 +162,9 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
 
     expect(staff.displayAttack).toBe("magic");
     expect(sword.displayAttack).toBeUndefined();
+    expect(staff.weaponType).toBe("staff");
+    expect(sword.weaponType).toBe("greatsword");
+    expect(derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player.weaponType).toBeUndefined();
   });
 
   it("6T 추적 장비의 명중 옵션이 PvE/PvP 공용 accRating에 반영된다", () => {

@@ -23,7 +23,7 @@ export const WIND_MAGE_SKILLS: Record<WindMageSkillId, V2SkillDefinition> = {
   v2c_aeromancer_current: {
     id: "v2c_aeromancer_current", name: "기류 제어", stat: "int", category: "passive", tier: 3,
     description: "바람 주문으로 기류를 쌓아 다음 바람 주문을 강화한다.",
-    detail: { mechanics: ["질풍술·에어 블레이드 적중 시 기류 1개 생성(최대 3). 기류당 질풍술·에어 블레이드·템페스트 버스트 직접 피해 8% 증가."], synergies: ["폭풍 순환과 합산된다. 직업·속성에 관계없이 장착 시 적용."] },
+    detail: { mechanics: ["질풍술·에어 블레이드 적중 1회당 기본 기류 1개 생성(최대 3). 기류당 질풍술·에어 블레이드·템페스트 버스트 직접 피해 8% 증가."], synergies: ["폭풍 순환과 함께 장착해도 기본 기류 생성량은 적중당 1개. 피해 증가량은 합산되어 기류당 20%. 직업·속성에 관계없이 장착 시 적용."] },
     mpCost: 0, cooldown: 0, learnCost: 8000, effects: [], passive: { windCurrentDamagePctPerStack: 8 },
   },
   v2c_stormbringer_burst: {
@@ -45,7 +45,7 @@ export const WIND_MAGE_SKILLS: Record<WindMageSkillId, V2SkillDefinition> = {
   v2c_stormbringer_current: {
     id: "v2c_stormbringer_current", name: "폭풍 순환", stat: "int", category: "passive", tier: 3,
     description: "폭풍의 흐름을 순환시켜 기류에 더 큰 힘을 싣는다.",
-    detail: { mechanics: ["질풍술·에어 블레이드 적중 시 기류 1개 생성(최대 3). 기류당 질풍술·에어 블레이드·템페스트 버스트 직접 피해 12% 증가."], synergies: ["기류 제어와 합산하여 기류당 20% 증가. 직업·속성에 관계없이 장착 시 적용."] },
+    detail: { mechanics: ["질풍술·에어 블레이드 적중 1회당 기본 기류 1개 생성(최대 3). 기류당 질풍술·에어 블레이드·템페스트 버스트 직접 피해 12% 증가."], synergies: ["기류 제어와 함께 장착해도 기본 기류 생성량은 적중당 1개. 피해 증가량은 합산되어 기류당 20%. 직업·속성에 관계없이 장착 시 적용."] },
     mpCost: 0, cooldown: 0, learnCost: 12000, effects: [], passive: { windCurrentDamagePctPerStack: 12 },
   },
 };

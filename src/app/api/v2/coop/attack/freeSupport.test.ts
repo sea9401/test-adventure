@@ -252,6 +252,19 @@ describe("협동 무료 지원 공격", () => {
     expect((await POST(request(true))).status).toBe(403);
     expect(h.logs).toHaveLength(0);
   });
+  it("미개척지 개인 보스는 지원 허용 값과 무관하게 무료 지원을 거부한다", async () => {
+    Object.assign(h.session, {
+      regionId: "tracking_weapon",
+      visibility: "summoner_only",
+      summonerId: "helper",
+    });
+    const response = await POST(request(true));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: "support_locked" });
+    expect(h.session.hp).toBe(100);
+    expect(h.logs).toHaveLength(0);
+    expect(h.contributor!.lastAttackAt).toBeNull();
+  });
   it("무료 지원에도 기존 쿨다운을 적용한다", async () => {
     h.contributor!.lastAttackAt = new Date();
     expect((await POST(request(true))).status).toBe(429);

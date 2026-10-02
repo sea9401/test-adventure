@@ -242,7 +242,7 @@ describe("보호막 완전 흡수 시 반사·반격 차단", () => {
     expect(hasReactionLog(next.log)).toBe(false);
     expect(
       next.log.some(
-        (entry) => entry.text.includes("강타!") && entry.text.includes("0 피해"),
+        (entry) => entry.text.includes("내려치기!") && entry.text.includes("0 피해"),
       ),
     ).toBe(true);
   });

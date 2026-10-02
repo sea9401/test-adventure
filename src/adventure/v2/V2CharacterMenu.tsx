@@ -12,7 +12,7 @@ import {
   UserCircle,
 } from "@phosphor-icons/react";
 import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
-import { EntryCard } from "@/components/ui/EntryCard";
+import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
@@ -41,35 +41,35 @@ export function V2CharacterMenu({
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="캐릭터" />
-      <div className="space-y-2">
-        <EntryCard
+      <EntryList>
+        <EntryRow
           icon={
             <UserCircle size={28} weight="duotone" className="text-amber-500" />
           }
           title="내 정보"
           onClick={() => onAction({ kind: "open-info" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Backpack size={28} weight="duotone" className="text-emerald-600" />
           }
           title="인벤토리"
           onClick={() => onAction({ kind: "open-inventory" })}
         />
-        <EntryCard
+        <EntryRow
           icon={<Sparkle size={28} weight="duotone" className="text-violet-500" />}
           title="문장"
           description="문장 장착과 합성 · 레벨업 추가 성장"
           onClick={() => onAction({ kind: "open-emblems" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Lightning size={28} weight="duotone" className="text-violet-500" />
           }
           title="스킬"
           onClick={() => onAction({ kind: "open-skills" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <SlidersHorizontal
               size={28}
@@ -80,14 +80,14 @@ export function V2CharacterMenu({
           title="전투 프리셋"
           onClick={() => onAction({ kind: "open-presets" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Compass size={28} weight="duotone" className="text-rose-400" />
           }
           title="퀘스트"
           onClick={() => onAction({ kind: "open-quests" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Sparkle size={28} weight="duotone" className="text-violet-400" />
           }
@@ -95,7 +95,7 @@ export function V2CharacterMenu({
           onClick={() => onAction({ kind: "open-shrine" })}
         />
         {unexploredEnabled && (
-          <EntryCard
+          <EntryRow
             icon={
               <MapTrifold
                 size={28}
@@ -107,21 +107,21 @@ export function V2CharacterMenu({
             onClick={() => onAction({ kind: "open-unexplored" })}
           />
         )}
-        <EntryCard
+        <EntryRow
           icon={
             <Trophy size={28} weight="duotone" className="text-amber-600" />
           }
           title="트로피 전시대"
           onClick={() => onAction({ kind: "open-trophies" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <BookOpen size={28} weight="duotone" className="text-sky-500" />
           }
           title="모험의 서"
           onClick={() => onAction({ kind: "open-codex" })}
         />
-      </div>
+      </EntryList>
     </PageShell>
   );
 }

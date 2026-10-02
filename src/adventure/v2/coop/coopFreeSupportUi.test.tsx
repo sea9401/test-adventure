@@ -123,6 +123,16 @@ describe("무료 토벌 지원 UI", () => {
         .disabled,
     ).toBe(true);
   });
+  it("미개척지 개인 보스는 소환자에게도 지원 설정과 지원 공격을 제공하지 않는다", () => {
+    h.detail!.session.kind = "tracking_weapon";
+    h.detail!.session.visibility = "summoner_only";
+    h.detail!.session.isOwner = true;
+    showDetail();
+    expect(screen.queryByRole("button", { name: "무료 지원" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: "무료 토벌 지원 허용" }),
+    ).toBeNull();
+  });
   it("처치된 보스에는 지원 공격과 설정을 제공하지 않는다", () => {
     h.detail!.session.defeated = true;
     h.detail!.session.isOwner = true;

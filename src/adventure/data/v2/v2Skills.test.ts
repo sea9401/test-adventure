@@ -29,6 +29,20 @@ import {
   type V2SkillId,
 } from "./v2Skills";
 
+describe("스킬 이름", () => {
+  it("플레이어가 보유할 수 있는 스킬은 이름이 서로 겹치지 않는다", () => {
+    const idsByName = new Map<string, string[]>();
+    for (const skill of Object.values(V2_SKILLS)) {
+      if (skill.monsterOnly) continue;
+      idsByName.set(skill.name, [...(idsByName.get(skill.name) ?? []), skill.id]);
+    }
+    const duplicates = [...idsByName]
+      .filter(([, ids]) => ids.length > 1)
+      .map(([name, ids]) => `${name}: ${ids.join(", ")}`);
+    expect(duplicates).toEqual([]);
+  });
+});
+
 describe("변형 스킬 효과 설명", () => {
   it("변형 효과만 전투 수식으로 설명하고 시전 메타는 섞지 않는다", () => {
     const variant = V2_SKILLS.v2c_primordialmage_return.castVariants?.[0];

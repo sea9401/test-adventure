@@ -11,6 +11,7 @@ import type {
 } from "@/adventure/data/v2/guildWorkshop";
 import { GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
 import {
+  GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS,
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_QUALITY_BONUS_PCT,
   guildWorkshopMaterialName,
@@ -412,8 +413,7 @@ export const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   not_owned: "보유 중인 장비가 아닙니다.",
   equipped: "장착 중인 장비는 해체할 수 없습니다.",
   locked: "잠금 장비는 해체할 수 없습니다.",
-  not_crafted:
-    "필드/기본 장비는 해체 재료 회수 대상이 아닙니다. 대장장이 제작품이나 제작 전용 장비만 해체할 수 있습니다.",
+  not_crafted: `고유 장비와 필드 사냥 외 콘텐츠 장비는 재료를 회수할 수 없습니다. 제작품과 필드 사냥 일반 장비(구간 재료 ${GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS}개)만 해체할 수 있습니다.`,
   low_tier: "2T 미만 장비는 제작 재료를 회수할 수 없습니다.",
   no_material: "회수할 제작 재료가 없습니다.",
 };
@@ -872,7 +872,7 @@ export function dismantleBlockedText(reason?: string): string {
     case "locked":
       return "잠금";
     case "not_crafted":
-      return "필드 장비";
+      return "대상 아님";
     default:
       return "불가";
   }

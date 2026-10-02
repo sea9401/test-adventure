@@ -25,6 +25,7 @@ import {
   isDuelistDeclarationId,
 } from "./combat/duelistCombat";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
+import { WEAPON_TYPE_LABELS, type V2WeaponType } from "@/adventure/data/v2/v2Equipment";
 import {
   V2_COMBAT_PATTERN_MAX_PRESETS,
   V2_COMBAT_PATTERN_MAX_SUBCONDITIONS,
@@ -71,6 +72,8 @@ export const COMBAT_PATTERN_CONDITION_OPTIONS: PatternChoiceOption<CondKind>[] =
   { value: "self_resource", label: "내 전투 자원", group: "내 상태" },
   { value: "formula_completion", label: "완전식 발동", group: "내 상태", detail: "이 스킬로 주문식 3단계를 완성하는지 확인" },
   { value: "enemy_hp", label: "적 HP", group: "적 상태" },
+  { value: "enemy_weapon", label: "상대 무기 종류", group: "아레나 상대", detail: "상대가 장착한 무기 종류" },
+  { value: "enemy_max_mp", label: "상대 최대 MP", group: "아레나 상대", detail: "전투 중 줄지 않는 최대 MP" },
   { value: "enemy_status", label: "적 상태", group: "적 상태" },
   { value: "enemy_debuff", label: "적 디버프", group: "적 상태" },
   { value: "turn", label: "내 공격 차례", group: "타이밍" },
@@ -169,6 +172,11 @@ const ENEMY_STATUS_OPTIONS = [
   { value: "vuln", label: "마법취약" },
   { value: "frostChill", label: "한기" },
 ] as const;
+const ENEMY_WEAPON_OPTIONS: PatternChoiceOption<V2WeaponType>[] =
+  (Object.keys(WEAPON_TYPE_LABELS) as V2WeaponType[]).map((value) => ({
+    value,
+    label: WEAPON_TYPE_LABELS[value],
+  }));
 type EnemyStatusCondition = Extract<
   V2CombatCondition,
   { kind: "enemy_status" }
@@ -780,6 +788,10 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
       };
     case "enemy_hp":
       return { kind: "enemy_hp", op: "below", pct: 30 };
+    case "enemy_weapon":
+      return { kind: "enemy_weapon", weaponType: "staff" };
+    case "enemy_max_mp":
+      return { kind: "enemy_max_mp", op: "atLeast", value: 500 };
     case "enemy_status":
       return { kind: "enemy_status", tag: "bleed", op: "atLeast", stacks: 1 };
     case "enemy_debuff":
@@ -1178,8 +1190,8 @@ export function V2CombatPatternView({
     <Wrapper
       className={
         embedded
-          ? "space-y-3"
-          : "mx-auto max-w-[640px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100"
+          ? `${SURFACE_CARD} space-y-3 rounded-lg p-4`
+          : `${SURFACE_CARD} mx-auto max-w-[640px] space-y-3 rounded-lg p-6 text-zinc-900 dark:text-zinc-100`
       }
     >
       {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
@@ -1206,6 +1218,7 @@ export function V2CombatPatternView({
         여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상
         AND 혈전 준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
         {" "}결계는 내 전투 자원에서 선택합니다. 예: 금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 → 만법불침.
+        {" "}아레나에서는 상대 무기 종류와 상대 최대 MP를 AND/OR로 묶어 방어 스킬을 고를 수 있습니다. 무기 정보가 없으면 무기 조건은 성립하지 않습니다.
       </p>
 
       {loading ? (
@@ -1540,6 +1553,39 @@ export function ConditionParams({
             onValueChange={(pct) => onChange({ ...c, pct })}
           />
           <span className="text-zinc-400">%</span>
+        </>
+      );
+    case "enemy_weapon":
+      return (
+        <>
+          <PatternChoicePicker
+            value={c.weaponType}
+            options={ENEMY_WEAPON_OPTIONS}
+            label="상대 무기 종류 선택"
+            className="w-28"
+            onChange={(weaponType) => onChange({ ...c, weaponType })}
+          />
+          <span className="basis-full text-[11px] text-zinc-500 dark:text-zinc-400">
+            아레나 상대의 장착 무기를 확인합니다. 무기 정보가 없으면 이 조건은 성립하지 않습니다.
+          </span>
+        </>
+      );
+    case "enemy_max_mp":
+      return (
+        <>
+          <PatternChoiceButtons
+            value={c.op}
+            options={[{ value: "atLeast", label: "이상" }, { value: "atMost", label: "이하" }]}
+            label="상대 최대 MP 비교 방식"
+            onChange={(op) => onChange({ ...c, op })}
+          />
+          <PatternNumberInput
+            key="enemy-max-mp"
+            min={0}
+            value={c.value}
+            onValueChange={(value) => onChange({ ...c, value })}
+          />
+          <span className="text-zinc-400">MP</span>
         </>
       );
     case "formula_completion":

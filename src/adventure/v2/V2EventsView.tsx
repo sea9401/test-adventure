@@ -15,18 +15,11 @@ import { TabBar } from "@/components/ui/TabBar";
 import { V2CouponView } from "./V2CouponView";
 import { V2ReferralView } from "./V2ReferralView";
 import { V2AttendanceView } from "./V2AttendanceView";
-import { V2ChuseokEventView } from "./V2ChuseokEventView";
 import { useAttendanceReminder } from "./useAttendanceReminder";
-import { useChuseokReminder } from "./useChuseokReminder";
 
-export type EventTab = "attendance" | "promotion" | "coupon" | "chuseok";
+export type EventTab = "attendance" | "promotion" | "coupon";
 
 const EVENT_TABS = [
-  {
-    key: "chuseok" as const,
-    label: "추석",
-    icon: <Gift size={18} weight="duotone" />,
-  },
   {
     key: "attendance" as const,
     label: "출석 체크",
@@ -52,7 +45,6 @@ export function V2EventsView({
   const router = useRouter();
   const [tab, setTab] = useState<EventTab>(initialTab);
   const attendancePending = useAttendanceReminder();
-  const chuseokPending = useChuseokReminder();
   const tabs = EVENT_TABS.map((item) =>
     item.key === "attendance" && attendancePending
       ? {
@@ -60,9 +52,7 @@ export function V2EventsView({
           badge: "!",
           badgeLabel: "오늘 출석 체크 필요",
         }
-      : item.key === "chuseok" && chuseokPending
-        ? { ...item, badge: "!", badgeLabel: "추석 이벤트 참여 가능" }
-        : item,
+      : item,
   );
 
   const changeTab = (next: EventTab) => {
@@ -103,19 +93,15 @@ export function V2EventsView({
       <section
         role="tabpanel"
         aria-label={
-          tab === "chuseok"
-            ? "추석 이벤트"
-            : tab === "attendance"
-              ? "출석 체크"
-              : tab === "promotion"
-                ? "게임 홍보"
-                : "쿠폰 등록"
+          tab === "attendance"
+            ? "출석 체크"
+            : tab === "promotion"
+              ? "게임 홍보"
+              : "쿠폰 등록"
         }
         className="space-y-4"
       >
-        {tab === "chuseok" ? (
-          <V2ChuseokEventView />
-        ) : tab === "attendance" ? (
+        {tab === "attendance" ? (
           <V2AttendanceView />
         ) : tab === "promotion" ? (
           <V2ReferralView embedded />

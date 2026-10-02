@@ -56,6 +56,37 @@ describe("conditionPasses", () => {
     expect(rejected).toEqual(pattern.blocks.slice(0, 2));
   });
 
+  it("상대 무기와 최대 MP로 아레나 첫 행동을 고르고 정보가 없으면 다음 블록으로 넘어간다", () => {
+    const pattern: V2CombatPattern = { blocks: [
+      { condition: { kind: "all", conditions: [
+        { kind: "enemy_weapon", weaponType: "staff" },
+        { kind: "enemy_max_mp", op: "atLeast", value: 300 },
+      ] }, action: { kind: "skill", skillId: "magic_guard" } },
+      { condition: { kind: "always" }, action: { kind: "skill", skillId: "iron_wall" } },
+    ] };
+    expect(evaluateCombatPattern(pattern, ctx({ enemyWeaponType: "staff", enemyMaxMp: 300 }), () => true)).toBe("magic_guard");
+    expect(evaluateCombatPattern(pattern, ctx({ enemyWeaponType: "staff", enemyMaxMp: 299 }), () => true)).toBe("iron_wall");
+    expect(evaluateCombatPattern(pattern, ctx({ enemyMaxMp: 900 }), () => true)).toBe("iron_wall");
+    expect(evaluateCombatPattern(pattern, ctx(), () => true)).toBe("iron_wall");
+    expect(conditionPasses({ kind: "enemy_max_mp", op: "atMost", value: 300 }, ctx({ enemyMaxMp: 300 }))).toBe(true);
+    expect(conditionPasses({ kind: "enemy_max_mp", op: "atMost", value: 300 }, ctx({ enemyMaxMp: 301 }))).toBe(false);
+  });
+
+  it("상대 무기·최대 MP 조건을 프리셋용 파서에서 검증하고 보존한다", () => {
+    const blocks = [
+      { condition: { kind: "enemy_weapon", weaponType: "bow" }, action: { kind: "basic_attack" } },
+      { condition: { kind: "enemy_max_mp", op: "atMost", value: 500 }, action: { kind: "basic_attack" } },
+    ];
+    expect(parseCombatPattern({ blocks })).toEqual({ blocks });
+    for (const condition of [
+      { kind: "enemy_weapon", weaponType: "wand" },
+      { kind: "enemy_max_mp", op: "atLeast", value: -1 },
+      { kind: "enemy_max_mp", op: "atLeast", value: 1.5 },
+      { kind: "enemy_max_mp", op: "above", value: 300 },
+    ]) {
+      expect(parseCombatPattern({ blocks: [{ condition, action: { kind: "basic_attack" } }] })).toEqual({ blocks: [] });
+    }
+  });
   it.each(["all", "any"] as const)("완전식 %s 조건은 선택한 스킬별로 판정한다", (kind) => {
     const context = ctx({ formulaCompletionSkillIds: new Set(["finisher"]) });
     const pattern: V2CombatPattern = { blocks: [

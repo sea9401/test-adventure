@@ -1910,7 +1910,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(cast.state.p1.flags.skillCritAfterEvadePending).toBe(false);
     expect(
       cast.state.log.some(
-        (entry) => entry.text.includes("강타") && entry.text.includes("[치명타]"),
+        (entry) => entry.text.includes("내려치기") && entry.text.includes("[치명타]"),
       ),
     ).toBe(true);
     expect(
@@ -2355,7 +2355,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     // 시전 로그 존재.
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("강타"),
+        (e) => e.kind === "player_attack" && e.text.includes("내려치기"),
       ),
     ).toBe(true);
   });
@@ -2375,7 +2375,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(r.finalState.p1.v2SkillCooldowns).toEqual({});
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("강타"),
+        (e) => e.kind === "player_attack" && e.text.includes("내려치기"),
       ),
     ).toBe(false);
   });

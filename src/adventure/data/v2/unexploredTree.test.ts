@@ -64,7 +64,7 @@ describe("unexplored tree catalogue", () => {
       });
   });
 
-  it("keeps every node reachable at the approved minimum depths", () => {
+  it("keeps every node reachable while the upper entry shortens the boss route", () => {
     for (const node of UNEXPLORED_NODES) {
       expect(shortestUnexploredPath(node.id).at(0)).toBe("start");
       expect(shortestUnexploredPath(node.id).at(-1)).toBe(node.id);
@@ -82,8 +82,34 @@ describe("unexplored tree catalogue", () => {
     expect(Math.min(...poolDepths)).toBeGreaterThanOrEqual(6);
     expect(Math.min(...poolDepths)).toBeLessThanOrEqual(8);
     expect(Math.min(...enhancerDepths)).toBeGreaterThanOrEqual(9);
-    expect(Math.min(...deepDepths)).toBeGreaterThanOrEqual(18);
-    expect(depth("deep-boss")).toBeGreaterThanOrEqual(24);
+    expect(Math.min(...deepDepths)).toBeGreaterThanOrEqual(16);
+    expect(depth("deep-boss")).toBe(18);
+  });
+
+  it("lets the upper monster route reach the boss without the lower outer chain", () => {
+    const upperRoute = shortestUnexploredPath("sector-medium-0");
+    const route = unexploredActivationPath(upperRoute, "deep-boss", 40);
+
+    expect(route.ok).toBe(true);
+    if (!route.ok) return;
+    expect(route.nodeIds).not.toContain("outer-medium-0");
+    expect(route.nodeIds).toContain("outer-medium-6");
+    expect(route.nodeIds.at(-1)).toBe("deep-boss");
+  });
+
+  it("keeps capped difficulty rewards from growing while allowing connecting nodes", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selected = difficultyIds.slice(0, -1);
+    const before = deriveUnexploredEffects(selected);
+    const after = deriveUnexploredEffects([...selected, difficultyIds.at(-1)!]);
+
+    expect(before.difficulty).toBe(120);
+    expect(after.difficulty).toBe(120);
+    expect(after.rewardPct).toEqual(before.rewardPct);
+    expect(after.traceExtraChancePct).toBe(before.traceExtraChancePct);
+    expect(after.rareCopyChancePct).toBe(before.rareCopyChancePct);
   });
 
   it("uses loot search for the front six pools and trace search for the boss six", () => {
@@ -105,26 +131,26 @@ describe("unexplored tree catalogue", () => {
     }
   });
 
-  it("adds the fourteen difficulty nodes to +35 and derives their literal rewards", () => {
+  it("caps the fourteen difficulty nodes at 120 and prorates the last reward", () => {
     const difficultyNodeIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
     const effects = deriveUnexploredEffects(difficultyNodeIds);
 
     expect(difficultyNodeIds).toHaveLength(14);
-    expect(effects.difficultyIncrease).toBe(35);
+    expect(effects.difficultyIncrease).toBe(25);
     expect(effects.difficulty).toBe(120);
     expect(effects.rewardPct).toMatchObject({
       gold: 30,
       baseMaterial: 65,
       equipment: 65,
-      specialMaterial: 115,
+      specialMaterial: 42,
     });
-    expect(effects.traceExtraChancePct).toBe(65);
+    expect(effects.traceExtraChancePct).toBe(30);
     expect(effects.rareCopyChancePct).toBe(55);
   });
 
-  it("rejects a second conversion node and selections above difficulty 120", () => {
+  it("rejects a second conversion node and permits route nodes at difficulty 120", () => {
     const goldPath = shortestUnexploredPath("deep-gold");
     const collectorPath = shortestUnexploredPath("deep-collector");
     const selected = [...new Set([...goldPath, ...collectorPath.slice(0, -1)])];
@@ -149,10 +175,10 @@ describe("unexplored tree catalogue", () => {
     expect(
       deriveUnexploredEffects([...overCapSelected, finalDifficultyId])
         .difficultyIncrease,
-    ).toBe(40);
+    ).toBe(25);
     expect(
       unexploredActivationError(overCapSelected, finalDifficultyId, 160),
-    ).toBe("difficulty_cap");
+    ).toBeNull();
   });
 
   it("requires an active neighbour and prevents refunds that disconnect the tree", () => {

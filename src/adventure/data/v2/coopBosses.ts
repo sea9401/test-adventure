@@ -326,6 +326,14 @@ export function canAccessCoopBoss(
   return true; // public 또는 미지정
 }
 
+// 소환자만 싸우는 개인 보스는 혼자 잡아야 하므로 무료 지원을 켜거나 쓸 수 없다(세션 값 무시).
+export function coopBossFreeSupportLocked(
+  regionId: string | null | undefined,
+): boolean {
+  const kindId = parseCoopBossKindId(regionId);
+  return kindId !== null && COOP_BOSSES[kindId].visibilityLocked;
+}
+
 // 같은 종류 동시 소환 상한 — 소환서 비용이 1차 게이트라 느슨한 안전캡(목록/쿼리 비대화 방지).
 // ⚠️ 캘리브 다이얼.
 export const MAX_ACTIVE_PER_KIND = 20;

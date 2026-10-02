@@ -254,7 +254,7 @@ export function ProfileImagePanel() {
           type="button"
           onClick={() => void uploadCustomImage()}
           disabled={busy || !file || (state?.permits ?? 0) < 1}
-          className="mt-3 w-full rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+          className="mt-3 w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-on-primary hover:bg-primary-hover disabled:opacity-50"
         >
           {busy ? "등록 중…" : "직접 등록 이미지로 변경"}
         </button>

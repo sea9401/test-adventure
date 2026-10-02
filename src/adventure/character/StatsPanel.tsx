@@ -217,9 +217,10 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
   return items;
 }
 
-// 셀 공통 모양 — 버튼 트리거로도 div 로도 쓰는 클래스.
-const COMBAT_CELL =
-  `${SURFACE_INSET} block w-full cursor-help px-3 py-2 text-left transition-colors hover:border-zinc-300 dark:hover:border-zinc-600`;
+// 상세 행 — 상자 없이 왼쪽 라벨·오른쪽 값. 목록 컨테이너의 divide-y 가 행을 나눈다.
+const COMBAT_ROW =
+  "flex w-full cursor-help items-baseline justify-between gap-3 px-1 py-2 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800";
+// 능력치 칸 — 기본·성장·한계 등 여러 줄이라 인셋 칸으로 둔다.
 const STAT_CELL_BASE =
   `${SURFACE_INSET} block min-h-[4.5rem] w-full px-2 py-2 text-center`;
 const STAT_CELL =
@@ -238,7 +239,7 @@ export function StatsPanel({
   stats: Record<string, number>;
   /** 추가 효과까지 합산된 최종 스탯. 미지정 시 stats 와 동일 (증가분 표시 X). */
   totalStats?: Record<string, number>;
-  /** 각 스탯의 성장 한계치(cap). 지정 시 최종값과 효과 증가분을 분리한다(v2 내 정보). */
+  /** 각 스탯의 기본 성장 한계치(cap). 추가 효과는 이 한계 뒤에 합산한다. */
   caps?: Record<string, number | undefined>;
   /** 상세(전투 세부) — 공격력/방어력 + (v2) 마법공·마방·회피·명중·치명타·속도. magicAtk 은 0이면 숨김.
    *  v2 전용 필드(magicDef·회피 등)는 v2 caller 만 전달 — 라이브 caller(undefined)는 미표시. */
@@ -259,20 +260,19 @@ export function StatsPanel({
           <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             상세
           </div>
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {combatItems.map((it, i) => (
+          <div className="mt-1 divide-y divide-zinc-200 dark:divide-zinc-700">
+            {combatItems.map((it) => (
               <Tooltip
                 key={it.label}
                 content={combatStatDescription(it.label)}
-                // 2열 그리드 — 왼쪽 열은 좌측, 오른쪽 열은 우측 정렬해 가로 잘림 방지.
-                align={i % 2 === 0 ? "start" : "end"}
-                triggerClassName={COMBAT_CELL}
+                align="start"
+                triggerClassName={COMBAT_ROW}
               >
-                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="min-w-0 text-sm text-zinc-600 dark:text-zinc-300">
                   {it.label}
                 </span>
                 <span
-                  className={`mt-0.5 block text-lg font-semibold tabular-nums ${it.accent}`}
+                  className={`shrink-0 text-right text-base font-semibold tabular-nums ${it.accent}`}
                 >
                   {it.value}
                 </span>
@@ -328,7 +328,7 @@ export function StatsPanel({
                 )}
                 {cap !== undefined && (
                   <span className="mt-1 block break-all text-[11px] leading-none tabular-nums text-zinc-500 dark:text-zinc-400">
-                    성장 한계 {cap.toLocaleString()}
+                    기본 성장 한계 {cap.toLocaleString()}
                   </span>
                 )}
                 {hasEquipmentBonus && (

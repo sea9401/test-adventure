@@ -554,6 +554,8 @@ export type PlayerCombat = {
   // 전투 카드의 대표 공격력 표시. 실제 평타 속성(passiveMagicBasicAttack)과 분리해
   // 지팡이처럼 마공을 제공하는 무기는 마공 수치를 앞에 보여준다.
   displayAttack?: "physical" | "magic";
+  /** 장착한 무기의 종류. PvP 상대 무기 패턴 조건에 사용한다. */
+  weaponType?: import("@/adventure/data/v2/v2Equipment").V2WeaponType;
   def: number;
   spd: number; // 선공 판정에 사용
   evasionPct: number; // 레거시 표시 호환용. 전투 경감은 evaRating 대결.

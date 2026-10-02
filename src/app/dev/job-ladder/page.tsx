@@ -19,7 +19,7 @@ const BASE_JOBS: JobLadderEntry[] = [
     condition: `Lv ${V2_LEVEL_CAP} 달성`,
     bonus: "힘 +5",
     signatureSkills: [
-      { id: "v2_skill_strike", name: "강타", kind: "active" },
+      { id: "v2c_warrior_strike", name: "강타", kind: "active" },
       { id: "v2c_heavenlybow_orbit", name: "천궁궤적", kind: "active" },
       { id: "missing_skill", name: "손상된 스킬", kind: "active" },
     ],

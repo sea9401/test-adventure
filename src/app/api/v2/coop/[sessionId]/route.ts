@@ -16,6 +16,7 @@ import {
   parseCoopBossKindId,
   parseCoopVisibility,
   canAccessCoopBoss,
+  coopBossFreeSupportLocked,
   coopBossCurrentMp,
   coopBossMaxMp,
   coopBossTrackingThreat,
@@ -253,7 +254,9 @@ export async function GET(_req: Request, { params }: Ctx) {
       summonedByName: session.summonedByName,
       // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부. 소환자만 상세에서 범위 변경 가능.
       visibility: parseCoopVisibility(session.visibility),
-      allowFreeSupport: session.allowFreeSupport === true,
+      allowFreeSupport:
+        session.allowFreeSupport === true &&
+        !coopBossFreeSupportLocked(session.regionId),
       isOwner: session.summonerId === userId,
     },
     my: {

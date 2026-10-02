@@ -62,6 +62,7 @@ import {
 import {
   GUILD_WORKSHOP_BONUS_TIERS,
   GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT,
+  GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS,
   GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT,
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
@@ -551,6 +552,8 @@ export function GuildContent() {
         <li>
           분해는 제작 재료 일부를 돌려받는 기능입니다. 회수율은 최대{" "}
           <Em>{GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT}%</Em>입니다.
+          필드 사냥에서 얻은 일반 장비는 그 구간의 제작 재료를{" "}
+          <Em>{GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS}개</Em> 돌려받습니다.
         </li>
         <li>
           일일 제작 납품은 매일 00:00 KST에 초기화됩니다. 대장장이 Lv10

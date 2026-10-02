@@ -8,12 +8,14 @@ import {
   Bell,
   CaretRight,
   Check,
+  Crown,
   Eye,
   EyeSlash,
   FileText,
   ImageSquare,
   IdentificationCard,
   Moon,
+  Square,
   Sun,
   TerminalWindow,
   UserMinus,
@@ -21,6 +23,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PushNotificationSettings } from "@/components/PushNotificationSettings";
@@ -42,6 +45,11 @@ import {
   storedValueForDisplayMode,
   type DisplayMode,
 } from "./discreetMode";
+import {
+  GILDED_STYLE_CLASS,
+  UI_STYLE_STORAGE_KEY,
+  type UiStyle,
+} from "./uiStyle";
 
 const DeleteAccountModal = dynamic(
   () =>
@@ -85,12 +93,33 @@ const DISPLAY_OPTIONS = [
   Icon: typeof Eye;
 }[];
 
+const UI_STYLE_OPTIONS = [
+  {
+    id: "classic",
+    label: "클래식",
+    detail: "회색 바탕, 보라색 버튼",
+    Icon: Square,
+  },
+  {
+    id: "gilded",
+    label: "금빛",
+    detail: "따뜻한 바탕, 명조 제목, 금색 버튼",
+    Icon: Crown,
+  },
+] as const satisfies readonly {
+  id: UiStyle;
+  label: string;
+  detail: string;
+  Icon: typeof Eye;
+}[];
+
 export function V2PreferencesView() {
   const router = useRouter();
   const { accountName } = useGameIdentityState();
   const { snapshot, updatePreferences } = useAdventureDashboard();
   const [theme, setTheme] = useState<Theme>("dark");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
+  const [uiStyle, setUiStyle] = useState<UiStyle>("classic");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [notificationSaveError, setNotificationSaveError] = useState(false);
@@ -102,6 +131,7 @@ export function V2PreferencesView() {
     const root = document.documentElement;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(root.classList.contains("dark") ? "dark" : "light");
+    setUiStyle(root.classList.contains(GILDED_STYLE_CLASS) ? "gilded" : "classic");
     setDisplayMode(
       root.classList.contains(TERMINAL_MODE_CLASS)
         ? "terminal"
@@ -118,6 +148,18 @@ export function V2PreferencesView() {
     document.documentElement.classList.toggle("dark", next === "dark");
     try {
       localStorage.setItem("theme", next);
+    } catch {}
+  };
+
+  const changeUiStyle = (next: UiStyle) => {
+    setUiStyle(next);
+    document.documentElement.classList.toggle(
+      GILDED_STYLE_CLASS,
+      next === "gilded",
+    );
+    // 기본값을 나중에 바꿔도 직접 고른 스타일이 유지되도록 두 값 모두 저장한다.
+    try {
+      localStorage.setItem(UI_STYLE_STORAGE_KEY, next);
     } catch {}
   };
 
@@ -211,7 +253,7 @@ export function V2PreferencesView() {
 
       <Card as="section" padding="md" className="space-y-3">
         <div>
-          <h2 className="text-sm font-bold">화면 테마</h2>
+          <SectionHeading title="화면 테마" />
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             변경 사항은 이 브라우저에 저장됩니다.
           </p>
@@ -249,7 +291,47 @@ export function V2PreferencesView() {
 
       <Card as="section" padding="md" className="space-y-3">
         <div>
-          <h2 className="text-sm font-bold">알림</h2>
+          <SectionHeading title="화면 스타일" />
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            변경 사항은 이 브라우저에 저장됩니다.
+          </p>
+        </div>
+        <div className="space-y-2">
+          {UI_STYLE_OPTIONS.map((option) => {
+            const selected = uiStyle === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => changeUiStyle(option.id)}
+                aria-pressed={selected}
+                className={`${SURFACE_INSET} flex w-full items-center gap-3 p-3 text-left transition-colors hover:border-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                  selected
+                    ? "ring-2 ring-amber-500 text-amber-700 dark:text-amber-300"
+                    : "text-zinc-700 dark:text-zinc-300"
+                }`}
+              >
+                <option.Icon
+                  size={24}
+                  weight={selected ? "fill" : "duotone"}
+                  className="shrink-0"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{option.label}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    {option.detail}
+                  </span>
+                </span>
+                {selected && <Check size={18} weight="bold" className="shrink-0" aria-hidden />}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card as="section" padding="md" className="space-y-3">
+        <div>
+          <SectionHeading title="알림" />
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             게임 화면의 콘텐츠 알림과 기기별 푸시 알림 수신 여부를 선택합니다.
           </p>
@@ -301,7 +383,7 @@ export function V2PreferencesView() {
 
       <Card as="section" padding="md" className="space-y-3">
         <div>
-          <h2 className="text-sm font-bold">배경 및 표시</h2>
+          <SectionHeading title="배경 및 표시" />
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             게임 기능은 그대로 두고 배경과 꾸미기 효과의 표시만 바꿉니다.
           </p>
@@ -341,7 +423,7 @@ export function V2PreferencesView() {
 
       <Card as="section" padding="md" className="space-y-3">
         <div>
-          <h2 className="text-sm font-bold">계정 및 안내</h2>
+          <SectionHeading title="계정 및 안내" />
         </div>
         <Link
           href="/privacy"

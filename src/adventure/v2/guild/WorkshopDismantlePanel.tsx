@@ -6,6 +6,7 @@ import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_IDS,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
+import { GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS } from "@/adventure/data/v2/guildWorkshop";
 import { V2_SLOT_LABEL } from "@/adventure/data/v2/v2Equipment";
 import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import {
@@ -166,10 +167,13 @@ export function WorkshopDismantlePanel({
       }
       const dismantled = json.dismantled as DismantleCandidateView | undefined;
       if (dismantled) setDismantleResult(dismantled);
+      const artisanXp = Number(dismantled?.artisanXp ?? 0);
       const text = dismantled
-        ? `${dismantled.itemName} · 숙련도 +${Number(
-            dismantled.artisanXp ?? 0,
-          ).toLocaleString()}`
+        ? [
+            dismantled.itemName,
+            workshopMaterialRewardText(dismantled.rewards),
+            ...(artisanXp > 0 ? [`숙련도 +${artisanXp.toLocaleString()}`] : []),
+          ].join(" · ")
         : "";
       setDismantleMessage(dismantled ? `해체 완료 · ${text}` : "해체 완료");
       notifyReward("해체 완료", text);
@@ -201,7 +205,7 @@ export function WorkshopDismantlePanel({
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             대장장이 Lv {dismantle?.requiredBlacksmithLevel ?? 6}부터 2T 이상
-            대장장이 제작품을 제작 재료로 회수합니다.
+            제작품과 필드 사냥 일반 장비를 제작 재료로 회수합니다.
           </div>
         </div>
         {dismantleLoading ? (
@@ -215,11 +219,12 @@ export function WorkshopDismantlePanel({
       <div className="mb-2 grid gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-zinc-950 dark:text-amber-100 sm:grid-cols-2">
         <div>
           <span className="font-semibold">해체 가능</span> · 대장장이 제작자
-          각인이 있는 장비, 제작 전용 장비
+          각인이 있는 장비, 제작 전용 장비, 필드 사냥 일반 장비(구간 재료{" "}
+          {GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS}개)
         </div>
         <div>
-          <span className="font-semibold">해체 불가</span> · 필드/기본 장비,
-          장착 중인 장비, 잠금 장비, 2T 미만 장비
+          <span className="font-semibold">해체 불가</span> · 고유 장비, 필드
+          사냥 외 콘텐츠 장비, 장착 중인 장비, 잠금 장비, 2T 미만 장비
         </div>
       </div>
       <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">

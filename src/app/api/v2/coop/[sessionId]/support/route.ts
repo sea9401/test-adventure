@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { coopBossSessions } from "@/db/schema";
+import { coopBossFreeSupportLocked } from "@/adventure/data/v2/coopBosses";
 import { ensureUser } from "@/lib/server/ensureUser";
 
 type Ctx = { params: Promise<{ sessionId: string }> };
@@ -34,6 +35,8 @@ export async function POST(req: Request, { params }: Ctx) {
       return { status: 404, body: { ok: false, error: "no_session" } };
     if (session.summonerId !== userId)
       return { status: 403, body: { ok: false, error: "not_owner" } };
+    if (coopBossFreeSupportLocked(session.regionId))
+      return { status: 409, body: { ok: false, error: "support_locked" } };
     if (
       session.defeatedAt !== null ||
       session.hp <= 0 ||

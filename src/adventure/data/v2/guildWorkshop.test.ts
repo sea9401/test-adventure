@@ -3,6 +3,7 @@ import {
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   GUILD_WORKSHOP_MASTERWORK_GOLD_COST_MULT,
   GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER,
+  GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS,
   GUILD_WORKSHOP_GOLD_COST_BY_DISPLAY_TIER,
   GUILD_WORKSHOP_RECIPES,
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
@@ -53,6 +54,7 @@ import {
 import { MONSTER_CRAFT_MATERIAL_ID } from "./monsterCraftMaterials";
 import { COOP_BOSS_MATERIAL_ID } from "./coopRewards";
 import { STORM_EXPEDITION_ROUTE_MATERIAL_ID } from "./stormExpeditionRewards";
+import { BAND_COMMON_POOLS } from "./dungeonUniqueDrops";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
   ...Object.fromEntries(
@@ -1480,13 +1482,50 @@ describe("guild workshop recipes", () => {
     });
   });
 
-  it("only recovers workshop materials from blacksmith-crafted equipment", () => {
+  it("recovers one zone material from uncrafted field-hunt equipment without artisan xp", () => {
     const item = V2_EQUIPMENT.v2_canyon_greatsword;
     expect(guildWorkshopDismantlePlan(item, {}, 6)).toEqual({
-      materials: {},
+      materials: {
+        [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]:
+          GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS,
+      },
       artisanXp: 0,
-      blockedReason: "not_crafted",
     });
+    expect(GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS).toBe(1);
+  });
+
+  it("recovers the matching tier material from every field-hunt drop", () => {
+    const ids = new Set(BAND_COMMON_POOLS.flatMap((pool) => pool.ids));
+    expect(ids.size).toBeGreaterThan(0);
+    for (const id of ids) {
+      const item = V2_EQUIPMENT[id];
+      const materialId = guildWorkshopDismantleMaterialForTier(item.tier);
+      expect(materialId, id).toBeDefined();
+      expect(guildWorkshopDismantlePlan(item, {}, 6), id).toEqual({
+        materials: { [materialId!]: GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS },
+        artisanXp: 0,
+      });
+    }
+  });
+
+  it("keeps uncrafted non-field equipment out of dismantle recovery", () => {
+    for (const id of [
+      "v2_greatsword",
+      "v2_plateau_sig_skeleton_lance",
+      "v2_unexplored_iron_line_armor",
+      "v2_storm_wreckage_greatsword",
+      "v2_boss_abyssal_armor",
+    ] as const) {
+      expect(guildWorkshopDismantlePlan(V2_EQUIPMENT[id], {}, 20), id).toEqual({
+        materials: {},
+        artisanXp: 0,
+        blockedReason: "not_crafted",
+      });
+    }
+  });
+
+  it("keeps the crafted recovery path for blacksmith-crafted field equipment", () => {
+    const item = V2_EQUIPMENT.v2_canyon_greatsword;
     expect(
       guildWorkshopDismantlePlan(
         item,

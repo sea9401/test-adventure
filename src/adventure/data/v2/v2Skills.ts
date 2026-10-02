@@ -294,11 +294,11 @@ export function v2SkillLearnCost(skillId: V2SkillId): number {
 // 스킬 카탈로그 id — union 으로 컴파일타임 검증.
 export type V2SkillId =
   // ── Tier 1 스타터 (Lv1 자동 보유) ───────────────────────────────────
-  | "v2_skill_strike" // STR 강타
+  | "v2_skill_strike" // STR 내려치기
   | "v2_skill_flurry" // DEX 연격
-  | "v2_skill_recover" // VIT 회복
+  | "v2_skill_recover" // VIT 숨 고르기
   | "v2_skill_dash" // SPD 질주
-  | "v2_skill_fortune" // LUK 행운
+  | "v2_skill_fortune" // LUK 행운의 기운
   | "v2_skill_meditate" // INT 집중
   // ── 몬스터 전용 상태이상 (PR-9) — 플레이어 미학습, 몹 v2Skills 로만 ──────
   | "mob_venom_bite" // 독니 — 중독(DoT)
@@ -2443,7 +2443,7 @@ export function describeV2SkillEffects(
   activeCastEffects: readonly V2SkillEffect[] = effects,
 ): string[] {
   if (skill.painRitual || ["v2c_darkpriest_blessing", "v2c_atonementbishop_cycle", "v2c_darksaint_officiant"].includes(skill.id)) return [...describeV2Effects(effects, skill.tier, skill.monsterOnly === true, activeCastEffects), ...(skill.detail?.mechanics ?? [])];
-  if (skill.holyPower === "sanctuary") return ["성역 4행동: 행동 종료마다 최대 HP 4% 회복 · 성력 +10", "성력 상한 100 · 재시전 시 지속시간 갱신"];
+  if (skill.holyPower === "sanctuary") return ["성역 4행동: 행동 종료마다 최대 HP 4% 회복 (회복량 보정 적용) · 성력 +10", "성력 상한 100 · 재시전 시 지속시간 갱신"];
   if (skill.holyPower === "judgment") return ["물리 피해: 공격력×2 + 힘×2 + 정신×2", "성력 전부 소모: 1당 기본 피해 +1.5% (최대 2.5배)"];
   return describeV2Effects(
     effects,
@@ -2529,7 +2529,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
   if (p.poisonDamagePct) chips.push(`중독 피해 +${p.poisonDamagePct}%`);
-  if (p.windCurrentDamagePctPerStack) chips.push(`질풍술·에어 블레이드 적중 시 기류 +1 (최대 3), 기류당 바람 주문 직접 피해 +${p.windCurrentDamagePctPerStack}%`);
+  if (p.windCurrentDamagePctPerStack) chips.push(`질풍술·에어 블레이드 적중당 기본 기류 +1 (최대 3, 기류 제어·폭풍 순환 동시 장착 시에도 1개), 기류당 바람 주문 직접 피해 +${p.windCurrentDamagePctPerStack}%`);
   if (p.burnDurationBonusTurns) chips.push(`부여하는 연소 지속 +${p.burnDurationBonusTurns}행동`);
   if (p.burnRekindle) chips.push("겁화 붕괴 적중 시 연소 부여");
   if (p.fireSpellMpCostReductionPct) chips.push(`화염 계보 주문 MP 소모 -${p.fireSpellMpCostReductionPct}%`);

@@ -262,6 +262,9 @@ export function buildUnexploredTreeModel(
           ? ("preview" as const)
           : ("inactive" as const),
   }));
+  const focusedPoolIds = new Set(
+    deriveUnexploredEffects(snapshot.selectedNodeIds).focusedPoolIds,
+  );
   const poolSummary = snapshot.encounterShares.flatMap((share) =>
     share.kind === "pool"
       ? (() => {
@@ -270,14 +273,17 @@ export function buildUnexploredTreeModel(
           const weapon = pool.weaponEquipmentId
             ? V2_EQUIPMENT[pool.weaponEquipmentId]
             : null;
+          const focused = focusedPoolIds.has(poolId);
           return [{
             poolId,
             name: unexploredPoolName(poolId),
             share: share.share,
             materialName: pool.materialName,
-            materialRateText: "1% · 집중 1.5%",
+            materialRateText: focused ? "1.5% (집중 적용)" : "1% (집중 시 1.5%)",
             weaponName: weapon?.name ?? null,
-            weaponRateText: weapon ? "0.1% · 집중 0.2%" : null,
+            weaponRateText: weapon
+              ? focused ? "0.2% (집중 적용)" : "0.1% (집중 시 0.2%)"
+              : null,
           }];
         })()
       : [],

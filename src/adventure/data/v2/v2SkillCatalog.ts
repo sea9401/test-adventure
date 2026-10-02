@@ -8,7 +8,7 @@ import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
 export const V2_BASE_SKILLS = {
   v2_skill_strike: {
     id: "v2_skill_strike",
-    name: "강타",
+    name: "내려치기",
     stat: "str",
     category: "attack",
     tier: 1,
@@ -32,7 +32,7 @@ export const V2_BASE_SKILLS = {
   },
   v2_skill_recover: {
     id: "v2_skill_recover",
-    name: "회복",
+    name: "숨 고르기",
     stat: "vit",
     category: "heal",
     tier: 1,
@@ -55,7 +55,7 @@ export const V2_BASE_SKILLS = {
   },
   v2_skill_fortune: {
     id: "v2_skill_fortune",
-    name: "행운",
+    name: "행운의 기운",
     stat: "luk",
     category: "buff",
     tier: 1,

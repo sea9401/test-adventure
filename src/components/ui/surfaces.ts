@@ -9,18 +9,20 @@
 // 단계(elevation): CARD/ACCENT 는 페이지 배경 위로 "떠오른" 패널, INSET 은 그 카드 "안으로
 //   파인" 영역(카드보다 어둡게/연하게 = 안으로 들어가 보임). 새 컴포넌트는 색을 새로 고르지 말고
 //   토큰을 재사용 — 같은 토큰이면 같은 높이로 읽힌다.
+//
+// ui-surface-* 훅 클래스는 화면 스타일(금빛)이 재질을 덧입히는 자리다. 클래식에서는 스타일이 없다.
 
 /** 기본 카드 — 페이지 배경 위에 뜨는 1단 패널(흰 / zinc-900, 테두리+그림자). 대부분의 패널. */
 export const SURFACE_CARD =
-  "rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "ui-surface-card rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 /** 인셋 — 카드 "안에서" 한 단계 파인 영역(슬롯 칸·서브 박스·리스트 행). 카드보다 어둡게 = recessed. */
 export const SURFACE_INSET =
-  "rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950";
+  "ui-surface-inset rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950";
 
 /** 강조 패널 — 라이트는 amber, 다크는 중립 표면+amber 테두리로 색면을 줄인다. 불투명. */
 export const SURFACE_ACCENT =
-  "rounded-xl border border-amber-300 bg-amber-50 shadow-sm dark:border-amber-800 dark:bg-zinc-800";
+  "ui-surface-accent rounded-xl border border-amber-300 bg-amber-50 shadow-sm dark:border-amber-800 dark:bg-zinc-800";
 
 /** 프로스티드 헤더 — 반투명 + backdrop-blur(유일한 반투명 예외, 의도적). 지역 배경 위 헤더. */
 export const SURFACE_FROSTED =

@@ -59,7 +59,7 @@ import { resolveCrossover, type CrossFamily } from "./skyAscendantCombat";
 import { applyTier6UniquePvpEvent, tier6PvpDotContext, tier6PvpStatusKindCount } from "./tier6UniquePvpAdapter";
 import { consumePurificationWard, refreshTripleWardState, resolveTripleWardDamage, TRIPLE_WARD_LABELS, tripleWardStabilityReductionPct } from "./tripleWard";
 import { type EnemyHitResolution } from "./unexploredSetEffects";
-import { beginUnexploredAttackPvP, finishUnexploredAttackPvP, recordUnexploredHitPvP, unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
+import { appendIronWallGainLogPvP, beginUnexploredAttackPvP, finishUnexploredAttackPvP, recordUnexploredHitPvP, unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
 import { previewPlayerWindCurrent, settlePlayerWindCurrent } from "./windCurrentCast";
 export { applyImmediateProvokedBasicAttacksPvP } from "./engine.pvpProvoke";
 
@@ -907,6 +907,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     nextOppTripleWard = consumePurificationWard(nextOppTripleWard).state;
   }
   const windFinal = settlePlayerWindCurrent(windPreview, landedSkillHits > 0, side.maxMp);
+  const windMpRestored = Math.min(windFinal.mpRestore, Math.max(0, side.maxMp - settledCastMp));
   const frostChill = resolveFrostChillGain(
     opp.stacks.frostChillStacks,
     !blockHostileStatus && landedSkillHits > 0 ? result.frostChillGain : 0,
@@ -1652,6 +1653,13 @@ export function castV2SkillOnAttackerTurnPvPBody(
       side: who,
     });
   }
+  if (windMpRestored > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[바람의 정신] ${side.name} 마나 +${windMpRestored}`,
+      side: who,
+    });
+  }
   if (result.selfRegenToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1839,7 +1847,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
       : side.attacksLeft,
     hp: nextSideHp,
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
-    mp: Math.min(side.maxMp, settledCastMp + windFinal.mpRestore),
+    mp: settledCastMp + windMpRestored,
     duelistBuff: nextDuelistBuff,
     buffs: hasSigSkillBuffs
       ? { ...side.buffs, ...sigSkillBuffs }
@@ -2000,12 +2008,14 @@ export function castV2SkillOnAttackerTurnPvPBody(
   next = setSide(next, otherKey, nextOpp);
   let remainingDirectHp = Math.max(0, opp.hp - nextOppHp);
   let actualDirectHp = 0;
+  const ironBefore = next[otherKey];
   for (const hit of unexploredSkillHits) {
     const hpDamage = Math.min(remainingDirectHp, hit.hpDamage);
     remainingDirectHp -= hpDamage;
     actualDirectHp += hpDamage;
     next = setSide(next, otherKey, recordUnexploredHitPvP(next[otherKey], { ...hit, hpDamage }));
   }
+  next = { ...next, log: appendIronWallGainLogPvP(next.log, ironBefore, next[otherKey], otherKey) };
   next = finishUnexploredAttackPvP(next, who, otherKey, {
     ...unexploredAttack.context, hit: landedSkillHits > 0, anyCrit: skillCritFired,
   }, actualDirectHp);

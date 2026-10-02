@@ -8,7 +8,8 @@ import {
   TERMINAL_MODE_CLASS,
   TERMINAL_MODE_STORED_VALUE,
 } from "@/adventure/v2/discreetMode";
-import { Geist, Geist_Mono } from "next/font/google";
+import { uiStyleInitScript } from "@/adventure/v2/uiStyle";
+import { Geist, Geist_Mono, Noto_Serif_KR } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StaleBuildAutoReload } from "@/components/StaleBuildAutoReload";
@@ -31,6 +32,14 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// 금빛 화면 스타일의 제목 전용 명조. 금빛 클래스 아래에서만 쓰므로 미리 받지 않고,
+// 클래식 사용자는 글꼴 파일을 내려받지 않는다.
+const notoSerifKr = Noto_Serif_KR({
+  variable: "--font-serif-kr",
+  weight: ["600", "700"],
+  preload: false,
 });
 
 const SITE_NAME = "무슨무슨게임";
@@ -92,6 +101,7 @@ export const viewport: Viewport = {
 
 const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`;
 const displayModeInit = `(function(){try{var m=localStorage.getItem(${JSON.stringify(DISPLAY_MODE_STORAGE_KEY)});if(m===${JSON.stringify(TERMINAL_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(TERMINAL_MODE_CLASS)});else if(m===${JSON.stringify(DISCREET_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(DISCREET_MODE_CLASS)});else if(m===${JSON.stringify(BACKGROUND_HIDDEN_MODE_STORED_VALUE)})document.documentElement.classList.add(${JSON.stringify(BACKGROUND_HIDDEN_MODE_CLASS)});}catch(e){}})();`;
+const uiStyleInit = uiStyleInitScript();
 const gameRatingNoticeInit = `(function(){try{if(sessionStorage.getItem(${JSON.stringify(GAME_RATING_NOTICE_SESSION_KEY)})==='1')document.documentElement.classList.add(${JSON.stringify(GAME_RATING_NOTICE_SEEN_CLASS)});}catch(e){}})();`;
 
 export default function RootLayout({
@@ -103,12 +113,13 @@ export default function RootLayout({
     <SessionProvider>
       <html
         lang="ko"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${notoSerifKr.variable} h-full antialiased`}
         suppressHydrationWarning
       >
         <head>
           <script dangerouslySetInnerHTML={{ __html: themeInit }} />
           <script dangerouslySetInnerHTML={{ __html: displayModeInit }} />
+          <script dangerouslySetInnerHTML={{ __html: uiStyleInit }} />
           <script dangerouslySetInnerHTML={{ __html: gameRatingNoticeInit }} />
         </head>
         <body className="min-h-full flex flex-col font-sans">

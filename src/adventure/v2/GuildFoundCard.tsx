@@ -133,7 +133,7 @@ export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
         type="button"
         onClick={handleCreate}
         disabled={!canCreate}
-        className="mt-4 w-full rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 w-full rounded-md border border-primary-border bg-primary px-3 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? "창단 중..." : `길드 창단 (${GUILD_CREATE_GOLD_COST.toLocaleString()} G)`}
       </button>

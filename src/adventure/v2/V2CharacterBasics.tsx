@@ -53,15 +53,15 @@ export function V2CharacterBasics({
         </div>
       ) : null}
 
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <InfoTile label="소속 길드" value={guildName?.trim() || "무소속"} />
-        <InfoTile label="전투 횟수" value={battleCount.toLocaleString()} />
-        <InfoTile
+      <dl className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
+        <InfoRow label="소속 길드" value={guildName?.trim() || "무소속"} />
+        <InfoRow label="전투 횟수" value={battleCount.toLocaleString()} />
+        <InfoRow
           label="숙달 포인트"
           value={points.toLocaleString()}
           valueClass="text-emerald-700 dark:text-emerald-400"
         />
-      </div>
+      </dl>
 
       <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
         직업 숙련도와 수행 횟수는 성장의 신전에서 확인할 수 있습니다.
@@ -70,8 +70,8 @@ export function V2CharacterBasics({
   );
 }
 
-// 정보 1칸 — 라벨 + 값(문자/숫자 공용).
-function InfoTile({
+// 정보 1행 — 왼쪽 라벨, 오른쪽 값(문자/숫자 공용). 상자 없이 행 구분선으로 나눈다.
+function InfoRow({
   label,
   value,
   valueClass,
@@ -81,13 +81,13 @@ function InfoTile({
   valueClass?: string;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{label}</div>
-      <div
-        className={`mt-0.5 break-all font-semibold leading-tight tabular-nums ${valueClass ?? "text-zinc-700 dark:text-zinc-300"}`}
+    <div className="flex items-baseline justify-between gap-3 py-2">
+      <dt className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{label}</dt>
+      <dd
+        className={`min-w-0 break-all text-right font-semibold tabular-nums ${valueClass ?? "text-zinc-800 dark:text-zinc-200"}`}
       >
         {value}
-      </div>
+      </dd>
     </div>
   );
 }

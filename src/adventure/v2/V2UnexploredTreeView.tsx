@@ -60,7 +60,6 @@ const ERROR_TEXT: Record<string, string> = {
   point_limit: "사용할 수 있는 탐사 포인트가 부족합니다.",
   not_adjacent: "활성화한 노드와 연결된 길부터 선택해야 합니다.",
   conversion_conflict: "보상 전환 노드는 하나만 선택할 수 있습니다.",
-  difficulty_cap: "현재 구성은 최대 난이도 120을 초과합니다.",
   not_active: "활성화되지 않은 노드입니다.",
   start_required: "탐사 시작 노드는 반환할 수 없습니다.",
   would_disconnect: "반환하면 활성 경로가 끊어집니다.",
@@ -756,6 +755,14 @@ export function V2UnexploredTreeView({
                       <> → <strong className="text-violet-600 dark:text-violet-300">{model.previewDifficulty}</strong></>
                     )}
                   </p>
+                  {selected.effects.some((effect) =>
+                    effect.kind === "difficulty_reward" ||
+                    (effect.kind === "deep" && effect.effect === "contract"),
+                  ) && (
+                    <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+                      120단에서는 이 노드로 경로를 연결할 수 있지만 추가 난이도·보상은 적용되지 않습니다.
+                    </p>
+                  )}
                 </div>
                 <div className="mt-3">
                   {model.plan?.action === "activate" &&
@@ -852,6 +859,7 @@ export function V2UnexploredTreeView({
               <span>공통·기본 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.baseMaterial)}</strong>
               <span>장비</span><strong className="text-right">{formatPct(snapshot.rewardSummary.equipment)}</strong>
               <span>특화 전용 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.specialMaterial)}</strong>
+              <span>희귀 보상</span><strong className="text-right">{formatPct(snapshot.rewardSummary.rare)}</strong>
             </div>
             <details className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
               <summary className="cursor-pointer font-medium">재료 구분과 적용 대상</summary>
@@ -868,6 +876,11 @@ export function V2UnexploredTreeView({
                   희귀 재료: 성해의 핵·빛바랜 별침·적색거성의 제의구·압축 공허낭·죽은 별의 눈입니다.
                   희귀 재료·아이템 추가 획득 효과는 이 재료들과 유니크 장비·개척자 희귀 무기에 적용됩니다.
                   특화 전용 재료와 활력의 파편·찢어진 지도 조각에는 적용되지 않습니다.
+                </p>
+                <p>
+                  희귀 보상 보정은 위 희귀 재료의 기본 드롭률과 일반 사냥 유니크 장비의 기대 획득량에 적용됩니다.
+                  개척자 희귀 무기·특화 전용 장비·SP 열매의 독립 드롭률은 바뀌지 않습니다.
+                  희귀 제작 노드는 기본 드롭률 대신 획득 후 추가 1개를 판정합니다.
                 </p>
                 <p>
                   이 구분은 개척 노드 기준입니다. 장비 해방의 희귀 재료 드롭 효과는
@@ -959,6 +972,16 @@ export function V2UnexploredTreeView({
                     {craftCost.goldCost.toLocaleString()}G
                   </dd>
                 </dl>
+                <div className={`${SURFACE_CARD} space-y-1 p-3 text-xs`}>
+                  <p className="font-semibold">토벌 보상 기준 · 기여 등급 없음</p>
+                  <p>우두머리 핵 1개 확정 · 연결 특화 재료 1개 확정 (각 50%)</p>
+                  <p>장비 확률: {boss.uniqueDrops.map((drop) => `${drop.chancePct}%`).join(" · ")} · 각 장비 독립 판정</p>
+                  <ul className="space-y-0.5 text-zinc-600 dark:text-zinc-300">
+                    {boss.uniqueDrops.map((drop) => (
+                      <li key={drop.equipmentId}>{drop.equipmentName} {drop.chancePct}%</li>
+                    ))}
+                  </ul>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     size="xs"

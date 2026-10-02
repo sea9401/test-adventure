@@ -24,6 +24,21 @@ const OPTIONS = [
 ] as const;
 
 describe("combat pattern choice controls", () => {
+  it("상대 무기와 최대 MP 조건을 편집하고 아레나용 기준을 안내한다", () => {
+    const page = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
+    const weapon = renderToStaticMarkup(<ConditionParams
+      condition={{ kind: "enemy_weapon", weaponType: "staff" }} onChange={vi.fn()}
+    />);
+    const maxMp = renderToStaticMarkup(<ConditionParams
+      condition={{ kind: "enemy_max_mp", op: "atLeast", value: 500 }} onChange={vi.fn()}
+    />);
+    expect(COMBAT_PATTERN_CONDITION_OPTIONS.map((item) => item.value)).toContain("enemy_weapon");
+    expect(COMBAT_PATTERN_CONDITION_OPTIONS.map((item) => item.value)).toContain("enemy_max_mp");
+    expect(weapon).toContain("지팡이");
+    expect(maxMp).toContain("500");
+    expect(maxMp).toContain("이상");
+    expect(page).toContain("상대 최대 MP");
+  });
   it("행동 방식에서 일반 공격을 직접 선택할 수 있다", () => {
     const html = renderToStaticMarkup(
       <PatternChoiceButtons
@@ -368,7 +383,7 @@ describe("combat pattern choice controls", () => {
       />,
     );
 
-    expect(html).toContain("강타");
+    expect(html).toContain("내려치기");
     expect(html).toContain("변경");
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).not.toContain("<select");
@@ -387,11 +402,11 @@ describe("combat pattern choice controls", () => {
     );
 
     expect(html).toContain('role="listbox"');
-    expect(html).toContain("강타");
+    expect(html).toContain("내려치기");
     expect(html).toContain("힘을 실어 적에게 추가 피해를 준다.");
     expect(html).toContain("발동 100%");
     expect(html).toContain("MP ");
-    expect(html).toContain("회복");
+    expect(html).toContain("숨 고르기");
     expect(html).toContain("미장착");
     expect(html).toContain("현재 장착되지 않아 전투에서는 발동하지 않습니다.");
   });

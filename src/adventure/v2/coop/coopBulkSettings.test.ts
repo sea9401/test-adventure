@@ -52,6 +52,13 @@ describe("내 보스 일괄 설정", () => {
     ], { visibility: "guild_only" })).toEqual({ applied: 1, skipped: 2, failed: 2, guildFallback: 0 });
   });
 
+  it("무료 지원을 쓸 수 없는 개인 보스는 실패가 아니라 건너뜀으로 센다", async () => {
+    vi.stubGlobal("fetch", async () =>
+      Response.json({ ok: false, error: "support_locked" }, { status: 409 }));
+    expect(await applyCoopBulkSettings([session("personal")], { allowFreeSupport: true }))
+      .toEqual({ applied: 0, skipped: 1, failed: 0, guildFallback: 0 });
+  });
+
   it("길드가 없어 나만으로 적용된 결과를 알린다", async () => {
     vi.stubGlobal("fetch", async () => Response.json({ ok: true, visibility: "summoner_only" }));
     expect(await applyCoopBulkSettings([session("mine")], { visibility: "guild_only" }))

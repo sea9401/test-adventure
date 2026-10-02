@@ -54,6 +54,19 @@ describe("소환자 무료 지원 설정", () => {
       expect(state.updated).toEqual({ allowFreeSupport: value });
     },
   );
+  it.each([true, false])(
+    "미개척지 개인 보스는 지원 설정을 %s로 바꿀 수 없다",
+    async (value) => {
+      Object.assign(state.session!, {
+        regionId: "tracking_weapon",
+        visibility: "summoner_only",
+      });
+      const response = await POST(request(value), ctx);
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ error: "support_locked" });
+      expect(state.updated).toBeNull();
+    },
+  );
   it("소환자가 아니면 설정을 바꿀 수 없다", async () => {
     state.session!.summonerId = "other";
     expect((await POST(request(true), ctx)).status).toBe(403);

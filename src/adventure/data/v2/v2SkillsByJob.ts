@@ -144,7 +144,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   runecaster: ["v2c_runecaster_grandsigil", "v2c_runecaster_circuit"], // 대문장 해방 + 문장 회로
   // ── 마법 4차 네 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
   archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"], // 금단 의식(취약 폭발) + 흉조 II(취약 심화)
-  archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"], // 성역 선포 + 성직 권위
+  archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"], // 주교의 축도 + 성직 권위
   spellsealer: ["v2c_spellsealer_sealingfield", "v2c_spellsealer_greatward"], // 봉마진(공격·스킬 봉쇄) + 봉마대법
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 도발 액티브 + 반사 패시브 ──
   warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 도발 + 충격 방벽(피격 시 충격 축적)

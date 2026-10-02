@@ -157,6 +157,8 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
     },
     target: {
       def: skillTargetDef(side, opp),
+      maxMp: opp.maxMp,
+      weaponType: opp.player.weaponType,
       magicDef: skillTargetMagicDef(side, opp),
       // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
       selfBuffs: opp.v2SelfBuffs,

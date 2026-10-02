@@ -194,7 +194,8 @@ describe("메인 탭 디자인 시스템", () => {
     const lifeTab = screen.getByRole("button", {
       name: "생활, 처리 가능한 항목 있음",
     });
-    expect(lifeTab.className).toContain("text-violet-700");
+    expect(lifeTab.className).toContain("text-selected");
+    expect(lifeTab.className).toContain("border-selected-line");
     expect(lifeTab.className).toContain("border-b-2");
 
     fireEvent.click(lifeTab);

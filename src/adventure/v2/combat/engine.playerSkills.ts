@@ -767,6 +767,7 @@ export function applyPlayerV2SkillCast(
     }
   }
   const windFinal = settlePlayerWindCurrent(windPreview, landedSkillHits > 0, state.playerMaxMp);
+  const windMpRestored = Math.min(windFinal.mpRestore, Math.max(0, state.playerMaxMp - settledCastMp));
   const frostChill = resolveFrostChillGain(
     state.stacks.enemyFrostChillStacks,
     landedSkillHits > 0 ? result.frostChillGain : 0,
@@ -1226,6 +1227,13 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  if (windMpRestored > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[바람의 정신] 마나 +${windMpRestored}`,
+      turn: "player",
+    });
+  }
   if (result.selfRegenToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1490,7 +1498,7 @@ export function applyPlayerV2SkillCast(
     playerHp: nextPlayerHp,
     ...(nextBerserker ? { berserker: nextBerserker } : {}),
     enemyHp: nextEnemyHp,
-    playerMp: Math.min(state.playerMaxMp, settledCastMp + windFinal.mpRestore),
+    playerMp: settledCastMp + windMpRestored,
     duelistBuff: nextDuelistBuff,
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,

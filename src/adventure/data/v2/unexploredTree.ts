@@ -633,6 +633,9 @@ for (let index = 0; index < 9; index += 1) {
   } else addEdge(outerMediumIds[index - 1], medium.id);
 }
 
+// 위쪽 특화 경로도 심부 외곽 사슬로 들어갈 수 있게 한다.
+addEdge(sectorMediumIds[0], outerMediumIds[6]);
+
 const deepSeeds: ReadonlyArray<{
   id: string;
   name: string;
@@ -643,7 +646,7 @@ const deepSeeds: ReadonlyArray<{
   {
     id: "gold",
     name: "황금 탐사대",
-    description: "골드 +30%, 장비·재료 획득량 -50%.",
+    description: "골드 +30%. 일반 장비·공통/기본·특화·희귀 재료와 일반 사냥 유니크 장비 -50%.",
     icon: "coin",
     effect: "gold",
   },
@@ -657,7 +660,7 @@ const deepSeeds: ReadonlyArray<{
   {
     id: "armory",
     name: "무구 발굴단",
-    description: "장비 +80%, 골드·재료 -50%, 높은 품질 기대확률 +20%.",
+    description: "일반 장비 +80%, 높은 품질 기대확률 +20%. 골드·공통/기본·특화·희귀 재료와 일반 사냥 유니크 장비 -50%.",
     icon: "equipment",
     effect: "armory",
   },
@@ -854,18 +857,22 @@ export function deriveUnexploredEffects(
           rewardPct[key] += effect.pct;
           break;
         }
-        case "difficulty_reward":
-          difficultyIncrease += effect.difficulty;
-          if (effect.reward === "gold") rewardPct.gold += effect.amount;
+        case "difficulty_reward": {
+          // 남은 난이도만큼 보상을 적용한다. 120단 뒤의 노드는 경로만 연결한다.
+          const applied = Math.min(effect.difficulty, Math.max(0, 25 - difficultyIncrease));
+          difficultyIncrease += applied;
+          const amount = Math.round(effect.amount * applied / effect.difficulty);
+          if (effect.reward === "gold") rewardPct.gold += amount;
           else if (effect.reward === "base") {
-            rewardPct.baseMaterial += effect.amount;
-            rewardPct.equipment += effect.amount;
+            rewardPct.baseMaterial += amount;
+            rewardPct.equipment += amount;
           } else if (effect.reward === "special") {
-            rewardPct.specialMaterial += effect.amount;
+            rewardPct.specialMaterial += amount;
           } else if (effect.reward === "trace") {
-            traceExtraChancePct += effect.amount;
-          } else rareCopyChancePct += effect.amount;
+            traceExtraChancePct += amount;
+          } else rareCopyChancePct += amount;
           break;
+        }
         case "pool_material":
           addRecordValue(poolMaterialPctByPool, effect.poolId, effect.pct);
           break;
@@ -905,12 +912,14 @@ export function deriveUnexploredEffects(
             rewardPct.specialMaterial -= 50;
             rewardPct.rare -= 50;
           } else if (effect.effect === "contract") {
-            difficultyIncrease += 5;
-            rewardPct.gold += 5;
-            rewardPct.baseMaterial += 15;
-            rewardPct.equipment += 15;
-            rewardPct.specialMaterial += 15;
-            rewardPct.rare += 15;
+            const applied = Math.min(5, Math.max(0, 25 - difficultyIncrease));
+            difficultyIncrease += applied;
+            rewardPct.gold += applied;
+            const bonus = applied * 3;
+            rewardPct.baseMaterial += bonus;
+            rewardPct.equipment += bonus;
+            rewardPct.specialMaterial += bonus;
+            rewardPct.rare += bonus;
           } else if (effect.effect === "tracking") {
             baseMinShare = 25;
             basePoolRewardPct -= 25;
@@ -960,8 +969,7 @@ export type UnexploredActivationError =
   | "already_active"
   | "point_limit"
   | "not_adjacent"
-  | "conversion_conflict"
-  | "difficulty_cap";
+  | "conversion_conflict";
 
 const CONVERSION_IDS = new Set(["deep-gold", "deep-collector", "deep-armory"]);
 
@@ -987,9 +995,6 @@ export function unexploredActivationError(
     [...CONVERSION_IDS].some((id) => id !== nodeId && selected.has(id))
   ) {
     return "conversion_conflict";
-  }
-  if (deriveUnexploredEffects([...selected, nodeId]).difficultyIncrease > 25) {
-    return "difficulty_cap";
   }
   return null;
 }

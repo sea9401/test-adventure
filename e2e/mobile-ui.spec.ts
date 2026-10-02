@@ -133,16 +133,16 @@ test("스킬 상세는 장착 액션과 분리해 열고 닫는다", async ({ pa
   await page.goto("/dev/skill-loadout");
   await page.getByRole("button", { name: "상세 보기 모드" }).click();
 
-  const detailTrigger = page.getByRole("button", { name: "강타 상세 보기" });
+  const detailTrigger = page.getByRole("button", { name: "내려치기 상세 보기" });
   await detailTrigger.click();
-  await expect(page.getByRole("dialog", { name: "강타" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "내려치기" })).toBeVisible();
   await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "강타" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "내려치기" })).toBeHidden();
   await expect(detailTrigger).toBeFocused();
 
-  await page.getByRole("button", { name: "강타 해제" }).click();
+  await page.getByRole("button", { name: "내려치기 해제" }).click();
   await page.getByRole("button", { name: "독침 장착" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

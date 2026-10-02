@@ -96,6 +96,17 @@ export function recordUnexploredHitPvP(side: PvPSide, hit: EnemyHitResolution): 
   } } };
 }
 
+/** PvE와 같은 형식으로 철벽 누적 증가분을 남긴다. 상한에 막혀 늘지 않으면 남기지 않는다. */
+export function appendIronWallGainLogPvP(
+  log: PvPBattleState["log"], before: PvPSide, after: PvPSide, side: "p1" | "p2",
+): PvPBattleState["log"] {
+  const total = after.stacks.unexplored?.ironWallDefBonus ?? 0;
+  const gain = total - (before.stacks.unexplored?.ironWallDefBonus ?? 0);
+  return gain > 0
+    ? appendLog(log, { kind: "info", side, text: `[철벽 누적] ${after.name} 방어 +${gain} (누적 +${total})` })
+    : log;
+}
+
 export function finishUnexploredActionPvP(
   state: PvPBattleState, actor: "p1" | "p2", target: "p1" | "p2", successful = true,
 ): PvPBattleState {

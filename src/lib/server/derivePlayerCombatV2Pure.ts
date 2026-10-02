@@ -611,6 +611,7 @@ export function derivePlayerCombatV2Pure(
         pvpEfficiencyPct: 0,
       };
 
+  const equippedWeaponType = weaponTypeOf(v2Equipped.weapon);
   const player: PlayerCombat = {
     hp,
     maxHp,
@@ -680,8 +681,11 @@ export function derivePlayerCombatV2Pure(
     ...(input.passiveSkillCritAfterEvade ? { skillCritAfterEvade: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
-    ...(weaponTypeOf(v2Equipped.weapon) === "staff"
+    ...(equippedWeaponType === "staff"
       ? { displayAttack: "magic" as const }
+      : {}),
+    ...(equippedWeaponType
+      ? { weaponType: equippedWeaponType }
       : {}),
     ...(excessSpi > 0 && specMagicAtk > specAtk
       ? { passiveMagicBasicAttack: true as const }

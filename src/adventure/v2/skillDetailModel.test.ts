@@ -2,12 +2,22 @@ import { describe, expect, it } from "vitest";
 import { buildSkillDetailModel } from "./skillDetailModel";
 
 describe("buildSkillDetailModel", () => {
+  it("distinguishes the two sanctuary skills and explains healing amplification", () => {
+    const radiant = buildSkillDetailModel("v2c_radiantknight_verdict");
+    const archbishop = buildSkillDetailModel("v2c_archbishop_sanctuary");
+
+    expect(radiant?.name).not.toBe(archbishop?.name);
+    expect(radiant?.sections.flatMap((section) => section.items).join(" "))
+      .toContain("회복량 보정 적용");
+    expect(radiant?.facts.join(" ")).toContain("회복량 보정 적용");
+    expect(archbishop?.facts.join(" ")).toContain("회복량 보정 적용");
+  });
   it("builds automatic facts for a legacy skill without manual detail", () => {
     const model = buildSkillDetailModel("v2_skill_strike");
 
     expect(model).toMatchObject({
       skillId: "v2_skill_strike",
-      name: "강타",
+      name: "내려치기",
     });
     expect(model?.facts.some((fact) => fact.includes("공격력×1"))).toBe(true);
     expect(model?.facts.some((fact) => fact.startsWith("SP "))).toBe(true);

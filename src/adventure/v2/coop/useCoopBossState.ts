@@ -551,6 +551,8 @@ export function useCoopSessionState({
             ? `재공격 대기 중입니다. ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
             : j.error === "support_disabled"
               ? "소환자가 무료 토벌 지원을 허용하지 않았습니다."
+              : j.error === "support_locked"
+                ? "개인 보스는 혼자 잡아야 해서 무료 지원을 쓸 수 없습니다."
               : j.error === "out_of_stamina"
               ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
               : j.error === "no_active_boss"
@@ -604,6 +606,8 @@ export function useCoopSessionState({
         setNotice(
           j.error === "not_owner"
             ? "소환자만 무료 토벌 지원 설정을 바꿀 수 있어요."
+            : j.error === "support_locked"
+              ? "개인 보스는 혼자 잡아야 해서 무료 지원을 쓸 수 없습니다."
             : j.error === "not_active"
               ? "이미 끝난 토벌입니다."
               : "무료 토벌 지원 설정을 변경하지 못했습니다.",

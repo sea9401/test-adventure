@@ -70,8 +70,16 @@ describe("Button 디자인 계층", () => {
 
     expect(soft).toContain("bg-violet-50");
     expect(soft).toContain("text-violet-700");
-    expect(buttonClassName({ variant: "primary", size: "md" })).toContain(
-      "bg-violet-600",
-    );
+  });
+
+  it("주 버튼과 포커스 링은 화면 스타일이 바꾸는 의미 토큰을 쓴다", () => {
+    const primary = buttonClassName({ variant: "primary", size: "md" });
+
+    expect(primary).toContain("bg-primary");
+    expect(primary).toContain("border-primary-border");
+    expect(primary).toContain("text-on-primary");
+    expect(primary).toContain("hover:bg-primary-hover");
+    expect(primary).toContain("focus-visible:ring-focus");
+    expect(primary).not.toContain("violet");
   });
 });

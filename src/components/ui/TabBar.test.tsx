@@ -42,7 +42,7 @@ describe("TabBar 모바일 폭", () => {
 });
 
 describe("TabBar 선택과 알림", () => {
-  it("선택 탭은 보라색 밑줄을, 알림은 접근 가능한 라벨을 사용한다", () => {
+  it("선택 탭은 선택 색 밑줄을, 알림은 접근 가능한 라벨을 사용한다", () => {
     const html = renderToStaticMarkup(
       <TabBar
         tabs={[
@@ -61,7 +61,9 @@ describe("TabBar 선택과 알림", () => {
       />,
     );
 
-    expect(html).toContain("text-violet-700");
+    expect(html).toContain("text-selected");
+    expect(html).toContain("border-selected-line");
+    expect(html).not.toContain("violet");
     expect(html).toContain("border-b-2");
     expect(html).toContain('aria-label="처리 가능한 생활 항목 있음"');
   });

@@ -42,7 +42,7 @@ import { everyNHitsEffect, firesOnCritPoison, formatChillSlowLog, formatDefDebuf
 import { applyTier6UniquePvpEvent, tier6PvpDotContext, tier6PvpStatusKindCount } from "./tier6UniquePvpAdapter";
 import { consumePurificationWard, resolveTripleWardDamage, TRIPLE_WARD_LABELS, tripleWardStabilityReductionPct } from "./tripleWard";
 import { type UnexploredAttackContext } from "./unexploredSetEffects";
-import { beginUnexploredAttackPvP, finishUnexploredActionPvP, finishUnexploredAttackPvP, recordUnexploredHitPvP, unexploredDefensePvP, unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
+import { appendIronWallGainLogPvP, beginUnexploredAttackPvP, finishUnexploredActionPvP, finishUnexploredAttackPvP, recordUnexploredHitPvP, unexploredDefensePvP, unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
 // 암살/분쇄/방어관통 → ATK 보너스 → 크리 → 베이스뎀 → 처형·크리·행운별·암살 배수 →
@@ -1442,6 +1442,7 @@ function advanceTurnPvPBody(
     hpDamage: directHpDamage,
     fullyEvaded: false,
   });
+  log = appendIronWallGainLogPvP(log, trackedShieldBreak.side, newDefender, defKey);
   if (trackedShieldBreak.triggered) {
     log = appendLog(log, {
       kind: "info",

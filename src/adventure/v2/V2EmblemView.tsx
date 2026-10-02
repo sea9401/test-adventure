@@ -21,18 +21,23 @@ const ERRORS: Record<string, string> = {
   rate_limited: "요청이 많습니다. 잠시 후 다시 시도해 주세요.",
 };
 function name(item: Emblem): string { return `${EMBLEM_LABELS[item.kind]} 문장 · ${item.grade}등급`; }
+const DIVIDER = "border-t border-zinc-200 pt-3 dark:border-zinc-700";
+
+/** iid가 있으면 해당 문장 카드 안에, 없으면 화면 상단에 표시한다. */
+type Notice = { text: string; alert?: boolean; iid?: string };
 
 export function V2EmblemView() {
   const router = useRouter();
   const [state, setState] = useState<EmblemState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [slot, setSlot] = useState(0);
   const [targetIid, setTargetIid] = useState<string | null>(null);
   const [materialIid, setMaterialIid] = useState("");
   const [sort, setSort] = useState<EmblemSort>("kind");
   const inFlight = useRef(false);
+  const anchoredNoticeRef = useRef<HTMLParagraphElement>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -52,10 +57,15 @@ export function V2EmblemView() {
     return () => controller.abort();
   }, [load]);
 
-  async function mutate(input: EmblemMutation) {
+  // 정렬 때문에 대상 문장 카드가 옮겨져도 결과가 화면 안에 보이게 한다.
+  useEffect(() => {
+    if (notice?.iid) anchoredNoticeRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [notice]);
+
+  async function mutate(input: EmblemMutation, anchorIid?: string) {
     if (!state || inFlight.current) return;
     inFlight.current = true;
-    setBusy(true); setError(""); setNotice("");
+    setBusy(true); setError(""); setNotice(null);
     try {
       const response = await fetch("/api/v2/emblems", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -65,11 +75,13 @@ export function V2EmblemView() {
       if (data.emblems) setState(parseEmblemState(data.emblems));
       if (!response.ok || !data.ok) throw new Error(ERRORS[data.error] ?? "변경하지 못했습니다. 잠시 후 다시 시도해 주세요.");
       setTargetIid(null);
-      setNotice(input.action === "fuse"
+      setNotice({ iid: anchorIid, text: input.action === "fuse"
         ? data.success ? "합성에 성공했습니다. 문장 등급이 올랐습니다." : "합성에 실패했습니다. 재료만 소모되고 대상 문장은 유지됩니다."
-        : input.action === "equip" ? "문장을 장착했습니다. 다음 레벨업부터 성장 효과가 적용됩니다." : "문장을 해제했습니다. 이미 얻은 능력치는 유지됩니다.");
+        : input.action === "equip" ? "문장을 장착했습니다. 다음 레벨업부터 성장 효과가 적용됩니다." : "문장을 해제했습니다. 이미 얻은 능력치는 유지됩니다." });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.");
+      const message = err instanceof Error ? err.message : "요청을 처리하지 못했습니다.";
+      if (anchorIid) setNotice({ iid: anchorIid, text: message, alert: true });
+      else setError(message);
     } finally {
       inFlight.current = false; setBusy(false);
     }
@@ -79,6 +91,7 @@ export function V2EmblemView() {
   const materials = target ? state!.owned.filter((item) => item.iid !== target.iid && item.kind === target.kind && item.grade === target.grade && !state!.slots.includes(item.iid)) : [];
   const material = materials.find((item) => item.iid === materialIid) ?? materials[0];
   const inventory = sortEmblemInventory(state?.owned ?? [], sort);
+  const anchoredIid = notice?.iid && state?.owned.some((item) => item.iid === notice.iid) ? notice.iid : null;
 
   return <PageShell className={SURFACE_CARD}>
     <SubViewHeader title="문장" onBack={() => router.push("/character")} />
@@ -89,7 +102,7 @@ export function V2EmblemView() {
       <p className="text-zinc-600 dark:text-zinc-300">태초의 성소에서 획득합니다. 드롭 등급: 1등급 89% · 2등급 10% · 3등급 1%. 4·5등급은 합성으로만 획득합니다.</p>
     </Card>
     {error && <Card role="alert" className="space-y-2"><p>{error}</p><Button disabled={busy} onClick={() => void load()}>다시 불러오기</Button></Card>}
-    {notice && <Card role="status">{notice}</Card>}
+    {notice && !anchoredIid && <Card role={notice.alert ? "alert" : "status"}>{notice.text}</Card>}
     {!state && !error && <p role="status">문장 정보를 불러오는 중...</p>}
     {state && <>
       <section aria-label="문장 장착 슬롯" className="space-y-2">
@@ -106,19 +119,6 @@ export function V2EmblemView() {
           })}
         </div>
       </section>
-      {target && <Card className="space-y-3" aria-label="문장 합성 확인">
-        <h2 className="font-bold">{name(target)} 합성</h2>
-        <p className="text-sm">성공률 {Math.round(EMBLEM_FUSION_CHANCE[target.grade] * 100)}%. 성공 시 {target.grade + 1}등급으로 성장합니다. 실패해도 재료 문장은 소모되며, 대상 문장은 유지됩니다.</p>
-        {material ? <>
-          <label className="block text-sm">소모할 재료 문장
-            <select className={`${SURFACE_INSET} mt-1 block min-h-11 w-full p-2`} value={material.iid} disabled={busy} onChange={(event) => setMaterialIid(event.target.value)}>
-              {materials.map((item) => <option key={item.iid} value={item.iid}>{name(item)} · 문장 {state.owned.indexOf(item) + 1}</option>)}
-            </select>
-          </label>
-          <Button variant="warning" disabled={busy} onClick={() => void mutate({ action: "fuse", iid: target.iid, materialIid: material.iid })}>합성 실행</Button>
-        </> : <p className="text-sm">장착하지 않은 동일 종류·동일 등급 문장이 1개 필요합니다.</p>}
-        <Button className="ml-2" disabled={busy} onClick={() => setTargetIid(null)}>취소</Button>
-      </Card>}
       <section className="space-y-2" aria-label="보유 문장">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">보유 문장 · {state.owned.length}개</h2>
@@ -137,21 +137,37 @@ export function V2EmblemView() {
         {state.owned.length === 0 && <Card>보유 문장이 없습니다. 태초의 성소에서 문장을 획득해 보세요.</Card>}
         {inventory.map(({ item, number }) => {
           const equippedSlot = state.slots.indexOf(item.iid);
-          return <Card key={item.iid} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold">{name(item)}</h3>
-                {equippedSlot >= 0 && <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                  장착 중 · 슬롯 {equippedSlot + 1}
-                </span>}
+          return <Card key={item.iid} data-emblem-iid={item.iid} className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">{name(item)}</h3>
+                  {equippedSlot >= 0 && <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                    장착 중 · 슬롯 {equippedSlot + 1}
+                  </span>}
+                </div>
+                <p className="text-sm">레벨업당 {EMBLEM_LABELS[item.kind]} +0~{emblemGrowthMax(item)} · 거래 불가</p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">문장 {number}</p>
               </div>
-              <p className="text-sm">레벨업당 {EMBLEM_LABELS[item.kind]} +0~{emblemGrowthMax(item)} · 거래 불가</p>
-              <p className="text-xs text-zinc-600 dark:text-zinc-300">문장 {number}</p>
+              <div className="flex shrink-0 gap-2">
+                <Button disabled={busy || state.slots[slot] === item.iid} aria-label={`문장 ${number} 장착`} onClick={() => void mutate({ action: "equip", iid: item.iid, slot }, item.iid)}>장착</Button>
+                <Button disabled={busy || item.grade === 5} aria-label={`문장 ${number} 합성 대상 선택`} onClick={() => { setTargetIid(item.iid); setMaterialIid(""); setNotice(null); }}>{item.grade === 5 ? "최대 등급" : "합성"}</Button>
+              </div>
             </div>
-            <div className="flex shrink-0 gap-2">
-              <Button disabled={busy || state.slots[slot] === item.iid} aria-label={`문장 ${number} 장착`} onClick={() => void mutate({ action: "equip", iid: item.iid, slot })}>장착</Button>
-              <Button disabled={busy || item.grade === 5} aria-label={`문장 ${number} 합성 대상 선택`} onClick={() => { setTargetIid(item.iid); setMaterialIid(""); }}>{item.grade === 5 ? "최대 등급" : "합성"}</Button>
-            </div>
+            {target?.iid === item.iid && <div role="group" aria-label="문장 합성 확인" className={`${DIVIDER} space-y-3`}>
+              <p className="text-sm">성공률 {Math.round(EMBLEM_FUSION_CHANCE[target.grade] * 100)}%. 성공 시 {target.grade + 1}등급으로 성장합니다. 실패해도 재료 문장은 소모되며, 대상 문장은 유지됩니다.</p>
+              {material ? <label className="block text-sm">소모할 재료 문장
+                <select className={`${SURFACE_INSET} mt-1 block min-h-11 w-full p-2`} value={material.iid} disabled={busy} onChange={(event) => setMaterialIid(event.target.value)}>
+                  {materials.map((entry) => <option key={entry.iid} value={entry.iid}>{name(entry)} · 문장 {state.owned.indexOf(entry) + 1}</option>)}
+                </select>
+              </label> : <p className="text-sm">장착하지 않은 동일 종류·동일 등급 문장이 1개 필요합니다.</p>}
+              <div className="flex flex-wrap gap-2">
+                {material && <Button variant="warning" disabled={busy} onClick={() => void mutate({ action: "fuse", iid: target.iid, materialIid: material.iid }, target.iid)}>합성 실행</Button>}
+                <Button disabled={busy} onClick={() => setTargetIid(null)}>취소</Button>
+              </div>
+            </div>}
+            {notice && anchoredIid === item.iid && <p ref={anchoredNoticeRef} role={notice.alert ? "alert" : "status"}
+              className={`${DIVIDER} text-sm ${notice.alert ? "text-red-600 dark:text-red-400" : ""}`}>{notice.text}</p>}
           </Card>;
         })}
       </section>

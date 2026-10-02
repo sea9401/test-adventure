@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
+import { SectionHeading } from "@/components/ui/SectionHeading";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
@@ -34,8 +35,8 @@ function PreviewPanel() {
       />
       <Card className="space-y-3">
         <div>
-          <h2 className="font-semibold">오늘의 모험</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <SectionHeading eyebrow="일일 목표" title="오늘의 모험" />
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             긴 한국어 설명도 카드 안에서 안정적으로 읽힙니다.
           </p>
         </div>
@@ -79,16 +80,23 @@ function PreviewPanel() {
 }
 
 export function UiSystemPreview() {
+  // 클래식·금빛 × 라이트·다크. 금빛은 루트 대신 래퍼 클래스로 미리 본다.
+  const panels = [
+    { title: "클래식 · 라이트", className: "" },
+    { title: "클래식 · 다크", className: "dark" },
+    { title: "금빛 · 라이트", className: "ui-skin-gilded" },
+    { title: "금빛 · 다크", className: "ui-skin-gilded dark" },
+  ];
   return (
     <main className="mx-auto grid max-w-6xl gap-6 p-4 sm:p-6 lg:grid-cols-2">
-      <section>
-        <h1 className="mb-3 text-xl font-bold">정돈된 게임 UI · 라이트</h1>
-        <PreviewPanel />
-      </section>
-      <section className="dark">
-        <h2 className="mb-3 text-xl font-bold text-zinc-900">다크 모드</h2>
-        <PreviewPanel />
-      </section>
+      {panels.map((panel) => (
+        <section key={panel.title} className={panel.className}>
+          <h2 className="ui-heading mb-3 bg-zinc-100 text-xl font-bold text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+            {panel.title}
+          </h2>
+          <PreviewPanel />
+        </section>
+      ))}
     </main>
   );
 }

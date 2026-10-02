@@ -67,7 +67,7 @@ describe("unexplored service", () => {
     ).toMatchObject({ ok: false, error: "point_limit" });
   });
 
-  it("rejects conversion conflicts and difficulty above 120", () => {
+  it("rejects conversion conflicts and opens the boss path at difficulty 120", () => {
     const goldPath = shortestUnexploredPath("deep-gold");
     const collectorPath = shortestUnexploredPath("deep-collector");
     const conversionSelected = [
@@ -88,16 +88,28 @@ describe("unexplored service", () => {
       }), { action: "activate", nodeId: "deep-collector" }),
     ).toMatchObject({ ok: false, error: "conversion_conflict" });
 
-    const capPath = shortestUnexploredPath("outer-medium-8");
-    expect(capPath).toHaveLength(24);
-    expect(
-      applyUnexploredMutation(character({
-        unexplored: parseUnexploredSave({
-          xpPoints: 30,
-          selectedNodeIds: capPath,
-        }),
-      }), { action: "activate", nodeId: "sector-medium-5" }),
-    ).toMatchObject({ ok: false, error: "difficulty_cap" });
+    const upperPath = shortestUnexploredPath("outer-medium-8");
+    const lowerEntry = shortestUnexploredPath("sector-medium-6");
+    const selectedNodeIds = [
+      ...new Set([
+        ...upperPath,
+        ...lowerEntry,
+        ...Array.from({ length: 6 }, (_, index) => `outer-medium-${index}`),
+      ]),
+    ];
+    const result = applyUnexploredMutation(character({
+      unexplored: parseUnexploredSave({
+        xpPoints: 30,
+        achievementIds: [
+          "first_personal_boss", "defeat_tracking_weapon",
+          "defeat_toxic_blood_lord", "defeat_glacial_colossus",
+          "defeat_all_personal_bosses",
+        ],
+        selectedNodeIds,
+      }),
+    }), { action: "activate", nodeId: "deep-boss" });
+    expect(result).toMatchObject({ ok: true, snapshot: { difficulty: 120 } });
+    if (result.ok) expect(result.snapshot.selectedNodeIds).toContain("deep-boss");
   });
 
   it("activates a valid node and grants permanent pool-count achievements", () => {

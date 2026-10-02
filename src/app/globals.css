@@ -48,12 +48,30 @@
      화면의 눈부심을 줄이고 콘텐츠 surface 경계를 또렷하게 만든다. */
   --background: #f4f4f5;
   --foreground: #171717;
+  /* 화면 스타일 의미 토큰(클래식 값). 금빛 값은 아래 "화면 스타일: 금빛" 섹션에서 덮는다.
+     컴포넌트는 bg-primary, text-selected 같은 유틸리티로만 쓴다. */
+  --ui-primary: var(--color-violet-600);
+  --ui-primary-hover: var(--color-violet-700);
+  --ui-primary-border: var(--color-violet-600);
+  --ui-on-primary: var(--color-white);
+  --ui-selected: var(--color-violet-700);
+  --ui-selected-line: var(--color-violet-600);
+  --ui-selected-hover: var(--color-violet-600);
+  --ui-focus: var(--color-violet-500);
 }
 
 .dark {
   color-scheme: dark;
   --background: #0a0a0a;
   --foreground: #ededed;
+  --ui-primary: var(--color-violet-500);
+  --ui-primary-hover: var(--color-violet-400);
+  --ui-primary-border: var(--color-violet-500);
+  --ui-on-primary: var(--color-white);
+  --ui-selected: var(--color-violet-300);
+  --ui-selected-line: var(--color-violet-400);
+  --ui-selected-hover: var(--color-violet-300);
+  --ui-focus: var(--color-violet-400);
 }
 
 @theme inline {
@@ -61,6 +79,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-primary: var(--ui-primary);
+  --color-primary-hover: var(--ui-primary-hover);
+  --color-primary-border: var(--ui-primary-border);
+  --color-on-primary: var(--ui-on-primary);
+  --color-selected: var(--ui-selected);
+  --color-selected-line: var(--ui-selected-line);
+  --color-selected-hover: var(--ui-selected-hover);
+  --color-focus: var(--ui-focus);
 }
 
 html {
@@ -3881,16 +3907,17 @@ body {
   }
 }
 
-/* 배경 숨김·은신 모드 — 게임 장면 배경만 공통으로 감춘다. */
+/* 배경 숨김·은신 모드 — 게임 장면 배경만 공통으로 감춘다.
+   바탕은 회색 변수로 두어 금빛 화면 스타일에서는 미색·니어블랙으로 함께 바뀐다. */
 html.ui-background-hidden body,
 html.ui-discreet-mode body {
-  background-color: #f4f4f5;
+  background-color: var(--color-zinc-100);
   background-image: none;
 }
 
 html.dark.ui-background-hidden body,
 html.dark.ui-discreet-mode body {
-  background-color: #09090b;
+  background-color: var(--color-zinc-950);
 }
 
 html.ui-background-hidden .game-scene-background,
@@ -3942,6 +3969,125 @@ html.ui-discreet-mode .ui-chat-name-chroma {
   filter: none;
   color: inherit;
   -webkit-text-fill-color: currentColor;
+}
+
+/* ── 화면 스타일: 금빛 ─────────────────────────────────────────────
+   설정에서 고르는 선택 스타일(src/adventure/v2/uiStyle.ts). 로그인 대문의
+   니어블랙과 금색 포인트를 게임 안으로 확장하고, 라이트는 미색 바탕에 먹색 글자로 맞춘다.
+   Tailwind 회색 유틸리티는 var(--color-zinc-*)로 컴파일되므로 단계표만 바꾸면
+   화면 전체의 중립색이 함께 바뀐다. 터미널 모드에서는 적용하지 않는다.
+   다크 판정은 루트의 .dark와 대문·미리보기 래퍼의 .dark를 모두 받는다. */
+.ui-skin-gilded:not(.ui-terminal-mode) {
+  --color-white: #fdfbf7;
+  --color-zinc-50: #f6f3ec;
+  --color-zinc-100: #eeeae2;
+  --color-zinc-200: #e3ddd2;
+  --color-zinc-300: #cec6b8;
+  --color-zinc-400: #a59d90;
+  --color-zinc-500: #716b62;
+  --color-zinc-600: #57514a;
+  --color-zinc-700: #38342e;
+  --color-zinc-800: #201e1b;
+  --color-zinc-900: #151412;
+  --color-zinc-950: #0a0a0b;
+  --background: #f6f3ec;
+  --foreground: #151412;
+  --ui-primary: var(--color-amber-300);
+  --ui-primary-hover: var(--color-amber-200);
+  --ui-primary-border: var(--color-amber-500);
+  --ui-on-primary: #151412;
+  --ui-selected: var(--color-amber-800);
+  --ui-selected-line: var(--color-amber-500);
+  --ui-selected-hover: var(--color-amber-700);
+  --ui-focus: var(--color-amber-700);
+  --ui-ornament: var(--color-amber-500);
+  --ui-eyebrow: var(--color-amber-700);
+}
+
+:is(.ui-skin-gilded.dark, .ui-skin-gilded .dark, .dark .ui-skin-gilded):not(
+    .ui-terminal-mode
+  ) {
+  --background: #0a0a0b;
+  --foreground: #ece7de;
+  --ui-primary: var(--color-amber-300);
+  --ui-primary-hover: var(--color-amber-200);
+  --ui-primary-border: var(--color-amber-300);
+  --ui-on-primary: #151412;
+  --ui-selected: var(--color-amber-300);
+  --ui-selected-line: var(--color-amber-300);
+  --ui-selected-hover: var(--color-amber-200);
+  --ui-focus: var(--color-amber-300);
+  --ui-ornament: var(--color-amber-300);
+  --ui-eyebrow: var(--color-amber-300);
+}
+
+/* 카드 재질 — 그라데이션 없이 따뜻한 그림자와 위쪽 하이라이트만. SURFACE_* 훅에는
+   --tw-inset-shadow만 더해 각 화면이 덧붙인 그림자(대화상자 shadow-2xl 등)는 유지한다. */
+.ui-skin-gilded:not(.ui-terminal-mode) .ui-game-card {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 1px 2px rgb(60 45 20 / 0.08),
+    0 6px 16px rgb(60 45 20 / 0.05);
+}
+
+:is(.ui-skin-gilded.dark, .ui-skin-gilded .dark, .dark .ui-skin-gilded):not(
+    .ui-terminal-mode
+  )
+  .ui-game-card {
+  box-shadow:
+    inset 0 1px 0 rgb(255 236 200 / 0.05),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 18px rgb(0 0 0 / 0.2);
+}
+
+.ui-skin-gilded:not(.ui-terminal-mode) :is(.ui-surface-card, .ui-surface-accent) {
+  --tw-inset-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+:is(.ui-skin-gilded.dark, .ui-skin-gilded .dark, .dark .ui-skin-gilded):not(
+    .ui-terminal-mode
+  )
+  :is(.ui-surface-card, .ui-surface-accent) {
+  --tw-inset-shadow: inset 0 1px 0 rgb(255 236 200 / 0.04);
+}
+
+/* 금빛 제목과 장식 — 명조는 제목에만, 장식은 짧은 금색 선과 금색 분류 라벨 두 가지만.
+   훅: SubViewHeader(ui-screen-title), SectionHeading(ui-section-title·ui-eyebrow),
+   게임 대화상자 제목(ui-heading), 카드 안 h2. 클래식에서는 이 규칙이 없다. */
+.ui-skin-gilded:not(.ui-terminal-mode)
+  :is(
+    .ui-heading,
+    .ui-game-card h2,
+    .ui-surface-card h2,
+    .ui-surface-accent h2
+  ) {
+  font-family: var(--font-serif-kr), var(--font-geist-sans), serif;
+  letter-spacing: -0.01em;
+}
+
+.ui-skin-gilded:not(.ui-terminal-mode) .ui-screen-title::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 2.5rem;
+  height: 1px;
+  background: var(--ui-ornament);
+  transform: translateX(-50%);
+}
+
+.ui-skin-gilded:not(.ui-terminal-mode) .ui-section-title::after {
+  content: "";
+  display: block;
+  width: 2.5rem;
+  height: 1px;
+  margin-top: 0.375rem;
+  background: var(--ui-ornament);
+}
+
+.ui-skin-gilded:not(.ui-terminal-mode) .ui-eyebrow {
+  color: var(--ui-eyebrow);
+  letter-spacing: 0.12em;
 }
 
 /* 터미널 모드 — 검은 업무용 콘솔처럼 보이는 저시인성 게임 화면.

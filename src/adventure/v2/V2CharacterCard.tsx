@@ -780,7 +780,7 @@ function AdventureSupportModal({
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full rounded-md bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          className="mt-4 w-full rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
         >
           확인
         </button>

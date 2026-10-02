@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { DevStyleToggle } from "./DevStyleToggle";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -15,5 +16,10 @@ export default function DevLayout({ children }: { children: React.ReactNode }) {
   ) {
     notFound();
   }
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <DevStyleToggle />
+    </>
+  );
 }

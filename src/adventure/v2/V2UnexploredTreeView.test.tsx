@@ -311,6 +311,17 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("모든 특화 몬스터를 처치하면 획득합니다.");
   });
 
+  it("개인 소환 보스의 확정 보상과 독립 장비 확률을 소환 전에 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    expect(html).toContain("기여 등급 없음");
+    expect(html).toContain("우두머리 핵 1개 확정");
+    expect(html).toContain("30% · 10% · 0.5%");
+    expect(html).toContain("각 장비 독립 판정");
+  });
+
   it("renders the 160-node graph, point progress and opaque panels", () => {
     const html = renderToStaticMarkup(
       <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
@@ -402,9 +413,9 @@ describe("V2UnexploredTreeView", () => {
     );
 
     expect(html).toContain("강화 철편");
-    expect(html).toContain("재료 1% · 집중 1.5%");
+    expect(html).toContain("재료 1% (집중 시 1.5%)");
     expect(html).toContain("철성 파쇄검");
-    expect(html).toContain("무기 0.1% · 집중 0.2%");
+    expect(html).toContain("무기 0.1% (집중 시 0.2%)");
   });
 
   it("shows all thirteen exploration achievements with their completion state and reward", () => {

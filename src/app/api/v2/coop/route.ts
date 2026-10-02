@@ -14,6 +14,7 @@ import {
   coopTierForRatio,
   parseCoopBossKindId,
   canAccessCoopBoss,
+  coopBossFreeSupportLocked,
   COOP_BOSSES,
   coopBossCurrentMp,
   coopBossMaxMp,
@@ -159,7 +160,9 @@ export async function GET() {
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),
-        allowFreeSupport: s.allowFreeSupport === true,
+        allowFreeSupport:
+          s.allowFreeSupport === true &&
+          !coopBossFreeSupportLocked(s.regionId),
         isOwner: s.summonerId === userId,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,

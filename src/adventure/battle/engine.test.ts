@@ -578,10 +578,10 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     });
     // strike 가 적어도 한 번은 발동 (cd=3, mp=20 가정 — 충분).
     expect(r.finalState.playerMp).toBeLessThan(1000);
-    // 로그에 강타 prefix 가 박힌 player_attack 존재 (일반 공격과 구분).
+    // 로그에 내려치기 prefix 가 박힌 player_attack 존재 (일반 공격과 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("강타!"),
+        (e) => e.kind === "player_attack" && e.text.includes("내려치기!"),
       ),
     ).toBe(true);
   });
@@ -600,7 +600,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     expect(r.finalState.v2SkillCooldowns).toEqual({});
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("강타!"),
+        (e) => e.kind === "player_attack" && e.text.includes("내려치기!"),
       ),
     ).toBe(false);
   });
@@ -617,7 +617,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     });
     // 두 스킬 모두 한 번 이상 발동 — player_attack 로그에 prefix.
     const strikeFired = r.finalState.log.some(
-      (e) => e.kind === "player_attack" && e.text.includes("강타!"),
+      (e) => e.kind === "player_attack" && e.text.includes("내려치기!"),
     );
     const flurryFired = r.finalState.log.some(
       (e) => e.kind === "player_attack" && e.text.includes("연격!"),
@@ -660,9 +660,9 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
         },
       },
     );
-    // 강타 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
+    // 내려치기 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
     const castLogs = r.finalState.log.filter(
-      (e) => e.kind === "player_attack" && e.text.includes("강타!"),
+      (e) => e.kind === "player_attack" && e.text.includes("내려치기!"),
     );
     expect(castLogs.length).toBeGreaterThanOrEqual(2);
   });
@@ -694,12 +694,12 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
-    // 데미지 로그 — player_attack kind + 스킬명 prefix "[강타]".
+    // 데미지 로그 — player_attack kind + 스킬명 prefix "[내려치기]".
     const dmgLog = r.finalState.log.find(
       (e) =>
         e.kind === "player_attack" &&
         e.text.includes("피해를 입혔다") &&
-        e.text.includes("강타"),
+        e.text.includes("내려치기"),
     );
     expect(dmgLog).toBeDefined();
   });
@@ -920,10 +920,10 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       pickAction: () => ({ kind: "attack" }),
       potions: {},
     });
-    // enemy v2 cast 발동 로그 없음 (강타 prefix 없음 — 일반 적 공격 enemy_attack 와 구분).
+    // enemy v2 cast 발동 로그 없음 (내려치기 prefix 없음 — 일반 적 공격 enemy_attack 와 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "enemy_attack" && e.text.includes("강타!"),
+        (e) => e.kind === "enemy_attack" && e.text.includes("내려치기!"),
       ),
     ).toBe(false);
     // enemy v2 state 빈 그대로.
@@ -944,10 +944,10 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       pickAction: () => ({ kind: "attack" }),
       potions: {},
     });
-    // enemy 강타 발동 로그 존재.
+    // enemy 내려치기 발동 로그 존재.
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "enemy_attack" && e.text.includes("강타!"),
+        (e) => e.kind === "enemy_attack" && e.text.includes("내려치기!"),
       ),
     ).toBe(true);
     // enemy MP 차감됨.
@@ -970,9 +970,9 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       potions: {},
     });
     // strike mpCost=15. v2MaxMp=200. 최대 ~13 회 cast 가능. flag reset 없으면 1회만.
-    // 시전 별도 로그 폐기됐고 damage 로그가 enemy_attack — 강타 prefix 로 매 cast 식별.
+    // 시전 별도 로그 폐기됐고 damage 로그가 enemy_attack — 내려치기 prefix 로 매 cast 식별.
     const castLogs = r.finalState.log.filter(
-      (e) => e.kind === "enemy_attack" && e.text.includes("강타"),
+      (e) => e.kind === "enemy_attack" && e.text.includes("내려치기"),
     );
     expect(castLogs.length).toBeGreaterThan(1);
   });
@@ -1164,7 +1164,7 @@ describe("회피 강화 (guaranteedEvades)", () => {
     expect(cast.state.flags.skillCritAfterEvadePending).toBe(false);
     expect(
       cast.state.log.some(
-        (entry) => entry.text.includes("강타") && entry.text.includes("[치명타]"),
+        (entry) => entry.text.includes("내려치기") && entry.text.includes("[치명타]"),
       ),
     ).toBe(true);
     expect(

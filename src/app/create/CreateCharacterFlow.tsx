@@ -111,7 +111,7 @@ export function CreateCharacterFlow() {
               type="button"
               onClick={finish}
               disabled={busy}
-              className="mt-4 w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-4 w-full rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "생성 중…" : "모험 시작"}
             </button>

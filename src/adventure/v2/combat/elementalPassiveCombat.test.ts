@@ -37,6 +37,28 @@ describe("속성 패시브 실제 전투", () => {
     expect(castPve(full).state.playerMp).toBe(castPve(full,{...player,windCurrentMpRestorePctPerStack:undefined}).state.playerMp);
     expect(castPve(initial,{...player,windCurrentMpRestorePctPerStack:200}).state.playerMp).toBe(1000);
   });
+  it("PvE 바람의 정신은 실제 MP 회복량을 기록하고 회복하지 않으면 기록하지 않는다", () => {
+    const initial = initialBattleState(player,enemy,"바람",skills(blade));
+    const cast = castPve(initial).state;
+    expect(cast.log.some(entry => entry.text === "[바람의 정신] 마나 +10")).toBe(true);
+    const capped = castPve({...initial,stacks:{...initial.stacks,windCurrent:3}}).state;
+    expect(capped.log.some(entry => entry.text.includes("[바람의 정신]"))).toBe(false);
+    vi.mocked(Math.random).mockReturnValue(0.99);
+    const failed = castPve(initial).state;
+    expect(failed.log.some(entry => entry.text.includes("[바람의 정신]"))).toBe(false);
+    vi.mocked(Math.random).mockReturnValue(0.1);
+    const limited = castPve(initial,{...player,windCurrentMpRestorePctPerStack:200}).state;
+    expect(limited.log.filter(entry => entry.text.includes("[바람의 정신]")).map(entry => entry.text)).toEqual(["[바람의 정신] 마나 +625"]);
+  });
+  it.each(["p1","p2"] as const)("PvP %s 바람의 정신은 실제 MP 회복량을 기록한다", who => {
+    const initial = initialBattleStatePvP(player,player,"A","B",skills(blade),skills(blade));
+    const cast = castV2SkillOnAttackerTurnPvP(initial,who).state;
+    const name = who === "p1" ? "A" : "B";
+    expect(cast.log.some(entry => entry.text === `[바람의 정신] ${name} 마나 +10` && entry.side === who)).toBe(true);
+    initial[who].stacks.windCurrent = 3;
+    const capped = castV2SkillOnAttackerTurnPvP(initial,who).state;
+    expect(capped.log.some(entry => entry.text.includes("[바람의 정신]"))).toBe(false);
+  });
   it("PvE 폭풍 뒤 재생성 강화가 이어지고 전투가 바뀌면 초기화된다", () => {
     const initial = initialBattleState(player,enemy,"바람",skills(burst));
     initial.stacks.windCurrent=3;

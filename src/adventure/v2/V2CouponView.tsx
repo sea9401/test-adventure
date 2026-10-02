@@ -95,7 +95,7 @@ export function V2CouponView({ embedded = false }: { embedded?: boolean }) {
             </div>
             <Link
               href="/plaza/inbox"
-              className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:border-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+              className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-primary-border bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover"
             >
               우편함에서 받기
             </Link>

@@ -11,7 +11,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
 import { STAT_LABELS } from "@/adventure/data/stats";
-import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
+import { WEAPON_TYPE_LABELS, type V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 import {
   parseCombatPattern,
   type V2CombatCondition,
@@ -164,6 +164,10 @@ export function arenaPatternConditionSummary(
         : `내 ${SELF_RESOURCE_LABEL[condition.resource]} ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "enemy_hp":
       return `적 HP ${condition.pct}% ${condition.op === "below" ? "이하" : "이상"}`;
+    case "enemy_weapon":
+      return `상대 무기 ${WEAPON_TYPE_LABELS[condition.weaponType]}`;
+    case "enemy_max_mp":
+      return `상대 최대 MP ${condition.value} ${condition.op === "atMost" ? "이하" : "이상"}`;
     case "enemy_status":
       return condition.op === "none"
         ? `적 ${ENEMY_STATUS_LABEL[condition.tag]} 없음`

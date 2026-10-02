@@ -56,4 +56,27 @@ describe("무료 지원 API 요청", () => {
       { url: "/api/v2/coop/boss/support", body: { allowFreeSupport: false } },
     ]);
   });
+  it("개인 보스 무료 지원 거절을 공격과 설정 모두에서 안내한다", async () => {
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? Response.json({ ok: false, error: "support_locked" }, { status: 403 })
+        : Response.json({
+            ok: true,
+            session: { defeated: false, expired: false },
+            my: {},
+          }));
+    const detail = renderHook(() =>
+      useCoopSessionState({ sessionId: "boss", setStamina: () => {} }),
+    );
+    await waitFor(() => expect(detail.result.current.detail).not.toBeNull());
+    const message = "개인 보스는 혼자 잡아야 해서 무료 지원을 쓸 수 없습니다.";
+    await act(async () => {
+      await detail.result.current.attack(true);
+    });
+    expect(detail.result.current.notice).toBe(message);
+    await act(async () => {
+      await detail.result.current.setFreeSupport(true);
+    });
+    expect(detail.result.current.notice).toBe(message);
+  });
 });

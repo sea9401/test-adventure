@@ -34,6 +34,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "spiStat": 15,
   "strStat": 15,
   "vitStat": 15,
+  "weaponType": "bow",
 }
 `;
 
@@ -109,6 +110,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "spiStat": 45,
   "strStat": 15,
   "vitStat": 15,
+  "weaponType": "staff",
 }
 `;
 
@@ -146,6 +148,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "spiStat": 15,
   "strStat": 15,
   "vitStat": 15,
+  "weaponType": "dagger",
 }
 `;
 
@@ -220,6 +223,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "spiStat": 15,
   "strStat": 148,
   "vitStat": 55,
+  "weaponType": "greatsword",
 }
 `;
 

@@ -54,4 +54,20 @@ describe("마을 생활 콘텐츠 메뉴", () => {
 
     expect(html).not.toContain("모험가 협회");
   });
+  it("시설 메뉴를 한 카드 안의 행으로 묶고 시설 그림을 썸네일로 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <V2TownHome gameStateLoaded viewerGuildId={null} onAction={vi.fn()} />,
+    );
+
+    expect(html.split("ui-surface-card").length - 1).toBe(1);
+    for (const image of [
+      "healingcenter.webp",
+      "bank.webp",
+      "shop.webp",
+      "forge.webp",
+      "farm.webp",
+    ]) {
+      expect(html).toContain(image);
+    }
+  });
 });

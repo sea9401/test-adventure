@@ -68,7 +68,7 @@ describe("프리셋 SP 진단", () => {
       },
       {
         skillId: "v2_skill_recover",
-        name: "회복",
+        name: "숨 고르기",
         spCost: 3,
         status: "notLearned",
       },

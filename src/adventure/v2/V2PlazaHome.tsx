@@ -1,7 +1,7 @@
 "use client";
 
 import { Envelope, Megaphone, Note, Storefront, Trophy } from "@phosphor-icons/react";
-import { EntryCard } from "@/components/ui/EntryCard";
+import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
@@ -21,39 +21,39 @@ export function V2PlazaHome({
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="광장" />
-      <div className="space-y-2">
-        <EntryCard
+      <EntryList>
+        <EntryRow
           icon={<Note size={28} weight="duotone" className="text-sky-500" />}
           title="게시판"
           onClick={() => onAction({ kind: "open-bulletin" })}
         />
-        <EntryCard
+        <EntryRow
           icon={<Trophy size={28} weight="duotone" className="text-amber-600" />}
           title="랭킹"
           onClick={() => onAction({ kind: "open-rankings" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Megaphone size={28} weight="duotone" className="text-violet-400" />
           }
           title="전체 소식"
           onClick={() => onAction({ kind: "open-feed" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Storefront size={28} weight="duotone" className="text-rose-500" />
           }
           title="거래소"
           onClick={() => onAction({ kind: "open-market" })}
         />
-        <EntryCard
+        <EntryRow
           icon={
             <Envelope size={28} weight="duotone" className="text-emerald-500" />
           }
           title="우편함"
           onClick={() => onAction({ kind: "open-inbox" })}
         />
-      </div>
+      </EntryList>
     </PageShell>
   );
 }

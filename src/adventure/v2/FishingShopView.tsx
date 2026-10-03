@@ -3,8 +3,10 @@
 import Image from "next/image";
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { CaretDown } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
-import { TabBar } from "@/components/ui/TabBar";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { FISH_TIERS, FISH_TIER_ORDER } from "@/adventure/data/v2/fish";
 import { FishingSubTabs } from "./FishingSubTabs";
 import { fishingCatchItemChancePct } from "./fishingStock";
@@ -267,6 +269,7 @@ export function FishingShopView({
 
           <FishingSubTabs
             active="shop"
+            fishingLevel={progression?.level ?? null}
             onOpenFishing={onOpenFishing}
             onOpenDangerous={onOpenDangerous}
             onOpenChallenges={onOpenChallenges}
@@ -286,15 +289,14 @@ export function FishingShopView({
       )}
 
       {dangerousShop ? (
-        <TabBar
-          tabs={[
+        <SegmentedControl
+          options={[
             { key: "regular", label: "일반 낚시" },
             { key: "dangerous", label: "위험 해역" },
           ]}
-          active={shopTab}
+          value={shopTab}
           onChange={setShopTab}
           ariaLabel="낚시 상점 종류"
-          size="md"
         />
       ) : null}
 
@@ -394,8 +396,11 @@ export function FishingShopView({
           )}
 
           {progression && onBuyGear && (
-            <Card padding="sm">
-              <h3 className="text-sm font-bold">크기 효과 적용 범위</h3>
+            <details className={`${SURFACE_INSET} group p-3`}>
+              <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-bold [&::-webkit-details-marker]:hidden">
+                크기 효과 적용 범위
+                <CaretDown size={16} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
+              </summary>
               <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
                 <li>
                   <strong className="text-zinc-800 dark:text-zinc-100">모든 어종 크기</strong>
@@ -410,10 +415,10 @@ export function FishingShopView({
                   :{" "}앞선 보정 후 해당 어종의 크기 범위 상위 20%에 들었을 때 추가로 중첩됩니다.
                 </li>
               </ul>
-              <p className="mt-2 border-t border-zinc-200 pt-2 text-[11px] leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+              <p className="mt-2 border-t border-zinc-200 pt-2 text-xs leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                 +N%는 최종 길이를 N% 곱하는 효과가 아니라, 해당 어종의 최대 크기까지 남은 폭을 N%만큼 줄이는 보정입니다. 상위 20% 보정 구간은 전광판의 ‘대물’ 판정 구간인 상위 10%보다 넓습니다.
               </p>
-            </Card>
+            </details>
           )}
 
           {progression && onBuyGear && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   CaretDown,
   CaretUp,
@@ -268,14 +268,14 @@ export function V2JobLadder({
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">직업 찾기</h3>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
               {isFiltering ? `검색 결과 ${filteredJobs.length}개 · ` : ""}
               현재 공개 {visibleJobs.length}개
             </span>
             <button
               type="button"
               onClick={() => setRoadmapOpen(true)}
-              className="flex min-h-8 items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2.5 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900"
+              className="flex min-h-8 items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-2.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900"
             >
               <TreeStructure size={14} weight="duotone" />
               전직 로드맵
@@ -312,7 +312,7 @@ export function V2JobLadder({
                 key={tag.key}
                 type="button"
                 onClick={() => toggleTag(tag.key)}
-                className={`h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-[11px] font-medium transition ${
+                className={`h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-xs font-medium transition ${
                   active
                     ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300"
                     : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -522,17 +522,17 @@ function JobSection({
           <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             {title} <span className="tabular-nums text-zinc-400">{jobs.length}</span>
           </span>
-          <span className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
             {isOpen ? "접기" : "펼치기"}
             {isOpen ? <CaretUp size={13} /> : <CaretDown size={13} />}
           </span>
         </button>
       ) : (
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+          <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             {title}
           </h4>
-          <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+          <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
             {jobs.length}
           </span>
         </div>
@@ -600,6 +600,8 @@ function JobRow({
   onSetGoal: () => void;
   onPick: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
   const unlocked = job.unlocked !== false;
   const tags = jobCardTags(job, { currentJobId }).slice(0, 4);
   const cultivation = jobCultivationSummary(job.id);
@@ -612,69 +614,51 @@ function JobRow({
   return (
     <li
       aria-current={isCurrent ? "true" : undefined}
-      className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-2 px-3 py-2 ${
+      className={`${SURFACE_INSET} px-3 py-2 ${
         isCurrent
           ? "border-emerald-500 ring-2 ring-emerald-500 ring-offset-1 ring-offset-white dark:border-emerald-400 dark:ring-emerald-400 dark:ring-offset-zinc-900"
           : ""
       }`}
     >
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{job.name}</span>
+     <div className="flex items-center justify-between gap-2">
+      {/* 기본은 이름·숙련도·해금 조건 한 줄. 태그·직업 보너스·수행 스탯은 눌러서 펼친다. */}
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={detailsId}
+        aria-label={`${job.name} 자세히`}
+        onClick={() => setExpanded((open) => !open)}
+        className="flex min-h-10 min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
+      >
+        <span className="flex max-w-full items-center gap-2">
+          <span className="truncate text-sm font-medium">{job.name}</span>
           {isCurrent && (
-            <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-950 dark:text-emerald-300">
               현재 직업
             </span>
           )}
           {job.skillsCollected && (
-            <span className="flex shrink-0 items-center gap-0.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-              <CheckCircle size={11} weight="fill" />
+            <span className="flex shrink-0 items-center gap-0.5 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-700 dark:bg-zinc-950 dark:text-sky-300">
+              <CheckCircle size={12} weight="fill" />
               수집 완료
             </span>
           )}
           {!unlocked && (
-            <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
               잠김
             </span>
           )}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
-          숙련도 {job.cumLevel ?? 0}
+          <CaretDown
+            size={14}
+            aria-hidden
+            className={`shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
         </span>
-        {job.bonus && (
-          <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-            직업 보너스 · {job.bonus}
-          </span>
-        )}
-        {cultivation && (
-          <span
-            className={`text-[11px] font-medium ${
-              cultivation === "생활직은 수행할 수 없음"
-                ? "text-amber-700 dark:text-amber-300"
-                : "text-violet-700 dark:text-violet-300"
-            }`}
-          >
-            {cultivation === "생활직은 수행할 수 없음"
-              ? cultivation
-              : `수행 스탯 · ${cultivation}`}
-          </span>
-        )}
-        {job.conditionRevealed !== false && (
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            해금 조건 · {job.condition}
-          </span>
-        )}
-      </div>
+        <span className="text-xs text-zinc-600 dark:text-zinc-300">
+          숙련도 {job.cumLevel ?? 0}
+          {job.conditionRevealed !== false ? ` · 해금 조건 · ${job.condition}` : ""}
+        </span>
+      </button>
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
@@ -700,6 +684,41 @@ function JobRow({
           {advanceAction.label}
         </button>
       </div>
+     </div>
+      {expanded && (
+        <div id={detailsId} className="mt-2 space-y-1 border-t border-zinc-200 pt-2 text-xs dark:border-zinc-700">
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded bg-white px-1.5 py-0.5 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          {job.bonus && (
+            <p className="font-medium text-emerald-600 dark:text-emerald-400">
+              직업 보너스 · {job.bonus}
+            </p>
+          )}
+          {cultivation && (
+            <p
+              className={`font-medium ${
+                cultivation === "생활직은 수행할 수 없음"
+                  ? "text-amber-700 dark:text-amber-300"
+                  : "text-violet-700 dark:text-violet-300"
+              }`}
+            >
+              {cultivation === "생활직은 수행할 수 없음"
+                ? cultivation
+                : `수행 스탯 · ${cultivation}`}
+            </p>
+          )}
+        </div>
+      )}
     </li>
   );
 }

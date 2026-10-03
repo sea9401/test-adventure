@@ -94,4 +94,12 @@ describe("buildSkillDetailModel", () => {
       "pvp",
     ]);
   });
+
+  it("shows damage type badges used by the library filter", () => {
+    const model = buildSkillDetailModel("v2c_mage_fireball");
+
+    expect(model?.badges).toEqual(
+      expect.arrayContaining(["마법 공격", "연소"]),
+    );
+  });
 });

@@ -1,8 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  DailyRequestFilters,
   LIFE_REQUEST_BOARD_TABS,
+  LifeRequestBoardMenu,
   LifeRequestCard,
+  sortDailyRequestsForBoard,
   WeeklyRequestChoiceSection,
   groupWeeklyRequestChoices,
   type LifeRequestView,
@@ -31,6 +34,73 @@ const REQUEST: LifeRequestView = {
   source: { label: "벌목터에서 획득", workshopTab: "process" },
 };
 
+describe("오늘의 의뢰 정렬", () => {
+  const withId = (id: string, patch: Partial<LifeRequestView>): LifeRequestView => ({
+    ...REQUEST,
+    id,
+    ...patch,
+  });
+
+  it("납품 가능 → 진행 중 → 잠김 → 완료 순으로, 같은 무리 안에서는 원래 순서를 지킨다", () => {
+    const sorted = sortDailyRequestsForBoard(
+      [
+        withId("done", { completed: true, shortage: 0, balance: 10 }),
+        withId("short-a", {}),
+        withId("locked", { unlocked: false, shortage: 0 }),
+        withId("ready-a", { shortage: 0, balance: 10 }),
+        withId("short-b", {}),
+        withId("ready-b", { shortage: 0, balance: 12 }),
+        withId("chain", { chainLocked: true, shortage: 0 }),
+      ],
+      false,
+    );
+
+    expect(sorted.map((request) => request.id)).toEqual([
+      "ready-a",
+      "ready-b",
+      "short-a",
+      "short-b",
+      "locked",
+      "chain",
+      "done",
+    ]);
+  });
+
+  it("오늘 납품 횟수를 다 쓰면 재료가 충분해도 앞으로 끌어오지 않는다", () => {
+    const sorted = sortDailyRequestsForBoard(
+      [withId("short", {}), withId("ready", { shortage: 0, balance: 10 })],
+      true,
+    );
+
+    expect(sorted.map((request) => request.id)).toEqual(["short", "ready"]);
+  });
+});
+
+describe("생활 의뢰 게시판 메뉴와 필터", () => {
+  it("게시판 메뉴는 화면 안 선택 묶음이다", () => {
+    const html = renderToStaticMarkup(<LifeRequestBoardMenu value="weekly" onChange={vi.fn()} />);
+
+    expect(html).toContain('role="group" aria-label="생활 의뢰 메뉴"');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>[\s\S]*?주간/);
+  });
+
+  it("등급은 선택 상자 하나, 납품 가능만은 체크 상자로 거른다", () => {
+    const html = renderToStaticMarkup(
+      <DailyRequestFilters
+        grade="normal"
+        onGradeChange={vi.fn()}
+        availableOnly
+        onAvailableOnlyChange={vi.fn()}
+      />,
+    );
+
+    expect(html).toMatch(/<select[^>]*aria-label="의뢰 등급"/);
+    expect(html).toContain(">전체 등급</option>");
+    expect(html).toMatch(/<input[^>]*type="checkbox"[^>]*checked=""/);
+    expect(html).toContain("납품 가능만");
+  });
+});
+
 describe("생활 의뢰 정보 구조", () => {
   it("오늘·주간·의뢰인·기록을 각각 분리한다", () => {
     expect(LIFE_REQUEST_BOARD_TABS.map(({ id, label }) => ({ id, label }))).toEqual([
@@ -58,6 +128,7 @@ describe("생활 의뢰 정보 구조", () => {
     expect(html).toContain('aria-valuenow="7"');
     expect(html).toContain("3개 더 필요");
     expect(html).toContain("life-workshop-touch-stack");
+    expect(html).toMatch(/<p class="[^"]*truncate[^"]*">바구니와 손잡이를/);
     expect(html).not.toContain(">보유<");
   });
 

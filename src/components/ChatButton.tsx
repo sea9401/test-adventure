@@ -15,6 +15,7 @@ import {
   chatPollDelayMs,
   nextChatIdlePollCount,
 } from "./chat/chatPollingPolicy";
+import { useHideOnScrollDown } from "./useHideOnScrollDown";
 
 const ChatPanel = dynamic(
   () => import("./ChatPanel").then((module) => module.ChatPanel),
@@ -298,6 +299,9 @@ export function ChatButton({
     hasUnreadChat || hasUnreadTrade || hasUnreadGuild || hasUnreadNotice;
   const floating = variant === "floating";
   const showToggle = !floating || !open;
+  // 떠 있는 버튼은 아래로 읽어 내려가는 동안 숨겨 내용을 가리지 않게 한다. 위로 스크롤하거나
+  //   키보드로 포커스하면 다시 보인다.
+  const hiddenWhileScrolling = useHideOnScrollDown({ disabled: !floating || open });
 
   return (
     <>
@@ -326,15 +330,19 @@ export function ChatButton({
           data-testid={floating ? "floating-chat-toggle" : undefined}
           className={
             floating
-              ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 ${CHAT_FLOATING_CLOSED_LAYER_CLASS} inline-flex h-14 w-14 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none`
+              ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] right-4 ${CHAT_FLOATING_CLOSED_LAYER_CLASS} inline-flex h-12 w-12 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-6 sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none motion-reduce:transition-none ${
+                  hiddenWhileScrolling
+                    ? "pointer-events-none translate-y-24 opacity-0 focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100"
+                    : ""
+                }`
               : "relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
           }
         >
           {open ? (
-            <X size={floating ? 27 : 20} weight="bold" />
+            <X size={floating ? 24 : 20} weight="bold" />
           ) : (
             <ChatCircle
-              size={floating ? 27 : 20}
+              size={floating ? 24 : 20}
               weight={floating ? "fill" : "duotone"}
             />
           )}

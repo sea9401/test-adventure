@@ -34,7 +34,8 @@ export function V2AnnouncementsPanel() {
   }, []);
 
   // 로딩 실패는 조용히 숨김 (카드 자체를 안 그림).
-  if (failed) return null;
+  // 공지가 없으면 홈 자리를 차지하지 않게 숨긴다(전체 공지는 광장 메뉴에서 볼 수 있다).
+  if (failed || posts?.length === 0) return null;
 
   const goToBoard = () => router.push("/plaza/notices");
 

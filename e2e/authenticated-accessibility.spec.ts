@@ -10,6 +10,7 @@ import {
   seedAuthenticatedE2ePhaseThreeState,
 } from "./support/authenticatedDatabase";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
+import { openPasswordLogin } from "./support/signIn";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
 const CHARACTER_NAME = "접근성검증모험가";
@@ -140,7 +141,7 @@ test("데이터가 채워진 성장·생활·거래 화면에 자동 탐지 접�
   }
 
   await page.goto("/town/life-workshop");
-  await page.getByRole("button", { name: "재료 가공", exact: true }).click();
+  await page.getByRole("tab", { name: "재료 가공", exact: true }).click();
   const processingRecipeSelect = page
     .getByRole("combobox", { name: /재료 선택/ })
     .first();
@@ -256,7 +257,7 @@ test("4차 동적 작업 결과와 입력 오류를 보조기기에 알린다", 
   await seedAuthenticatedE2ePhaseThreeState();
 
   await page.goto("/town/life-workshop");
-  await page.getByRole("button", { name: "재료 가공", exact: true }).click();
+  await page.getByRole("tab", { name: "재료 가공", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: /재료 선택/ }).first(),
   ).toBeVisible();
@@ -421,12 +422,7 @@ async function openMaterialSelling(page: Page) {
 }
 
 async function loginWithPassword(page: Page, loginId: string, password: string) {
-  await page.goto("/sign-in");
-  const passwordLoginSummary = page
-    .locator("summary")
-    .filter({ hasText: "아이디·비밀번호로 로그인" });
-  await expect(passwordLoginSummary).toBeVisible();
-  await passwordLoginSummary.click();
+  await openPasswordLogin(page);
   await page.getByLabel("아이디", { exact: true }).fill(loginId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();

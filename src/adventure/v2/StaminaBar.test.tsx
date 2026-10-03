@@ -2,7 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StaminaBar } from "./StaminaBar";
+import { StaminaBar, StaminaPotionModal, staminaRegenSummary } from "./StaminaBar";
 
 afterEach(() => {
   cleanup();
@@ -33,3 +33,29 @@ describe("전투용 스태미너 바", () => {
     expect(screen.queryByRole("button", { name: "2개 사용" })).toBeNull();
   });
 });
+
+describe("상단 바의 스태미나 창", () => {
+  it("회복 속도와 최대치까지 남은 시간을 보여 준다", () => {
+    render(
+      <StaminaPotionModal
+        potions={0}
+        current={1_820}
+        max={2_000}
+        regen={{ secondsPerPoint: 12, untilFull: "36분" }}
+        onUse={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("12초마다 1")).toBeTruthy();
+    expect(screen.getByText("36분")).toBeTruthy();
+  });
+
+  it("회복 요약을 계산한다", () => {
+    const now = Date.UTC(2026, 9, 3, 0, 0, 0);
+    const summary = staminaRegenSummary({ current: 1_990, lastUpdatedAt: now }, now, 2_000, 0);
+    expect(summary.secondsPerPoint).toBe(12);
+    expect(summary.untilFull).toBe("2분");
+    expect(staminaRegenSummary({ current: 2_000, lastUpdatedAt: now }, now, 2_000, 0).untilFull).toBe("회복 완료");
+  });
+});
+

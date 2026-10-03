@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchGameState } from "./fetchGameState";
 import { FirstAid } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
@@ -218,14 +219,16 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
             )}
           </div>
         )}
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
+          fullWidth
           onClick={handleHeal}
           disabled={busy !== null || hp == null}
-          className="mt-4 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-4"
         >
           {hp == null ? "..." : "전부 회복 (무료)"}
-        </button>
+        </Button>
       </Card>
 
       <Card padding="md">
@@ -319,14 +322,13 @@ function ChargeRow({
           disabled={busy || full}
           className="min-h-9 w-36 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm tabular-nums text-zinc-900 outline-none transition focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => onBuy(kind, amount)}
           disabled={busy || full || !affordable}
-          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
         >
           충전 ({actual.toLocaleString()}g)
-        </button>
+        </Button>
         <FullChargeButton
           kind={kind}
           current={current}
@@ -355,13 +357,11 @@ export function FullChargeButton({
 }) {
   const fullChargeAmount = affordableFullCharge(current, gold);
   return (
-    <button
-      type="button"
+    <Button
       onClick={() => onBuy(kind, fullChargeAmount)}
       disabled={busy || fullChargeAmount <= 0}
-      className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
     >
       {`가득 (${fullChargeAmount.toLocaleString()}g)`}
-    </button>
+    </Button>
   );
 }

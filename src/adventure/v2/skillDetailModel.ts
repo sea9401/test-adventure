@@ -12,7 +12,11 @@ import {
   V2_ELEMENT_LABEL,
   type V2Element,
 } from "@/adventure/data/v2/elements";
-import { classifySkillForLibrary } from "./skillLibraryFilters";
+import {
+  classifySkillForLibrary,
+  SKILL_DAMAGE_TYPE_LABELS,
+  skillDamageTypes,
+} from "./skillLibraryFilters";
 
 export type SkillDetailSectionId =
   | "variants"
@@ -163,6 +167,7 @@ export function buildSkillDetailModel(skillId: string): SkillDetailModel | null 
     CATEGORY_LABELS[skill.category],
     STAT_LABELS[skill.stat],
     skill.element ? V2_ELEMENT_LABEL[skill.element] : "",
+    ...skillDamageTypes(skill.id).map((type) => SKILL_DAMAGE_TYPE_LABELS[type]),
   ].filter(
     (badge, index, all) =>
       badge.length > 0 && all.indexOf(badge) === index,

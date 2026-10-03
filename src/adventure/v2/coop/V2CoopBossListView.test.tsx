@@ -26,6 +26,38 @@ vi.mock("@/adventure/v2/coop/useCoopBossState", async (importOriginal) => {
 
 import { V2CoopBossListView } from "./V2CoopBossListView";
 
+describe("협동 보스 목록 골격", () => {
+  beforeEach(() => {
+    state.sessions = [];
+  });
+
+  it("보스 목록과 소환을 먼저 보여 주고 토벌 설정은 맨 아래 접기에 둔다", () => {
+    const html = renderToStaticMarkup(
+      <V2CoopBossListView onOpenSession={() => {}} onBack={() => {}} />,
+    );
+
+    const sessionsAt = html.indexOf("진행 중인 협동 보스");
+    const summonAt = html.indexOf("새 보스 소환");
+    const settingsAt = html.indexOf("토벌 설정");
+    expect(sessionsAt).toBeGreaterThan(-1);
+    expect(summonAt).toBeGreaterThan(sessionsAt);
+    expect(settingsAt).toBeGreaterThan(summonAt);
+    expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>[^<]*토벌 설정/);
+    expect(html.indexOf("소환 시 자동 무료 지원")).toBeGreaterThan(settingsAt);
+  });
+
+  it("소개 문장은 도움말로 옮기고 난이도 선택은 공용 선택 묶음으로 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <V2CoopBossListView onOpenSession={() => {}} onBack={() => {}} />,
+    );
+
+    expect(html).toContain('aria-label="도움말"');
+    expect(html).not.toContain("사냥에서 모은 소환서로 보스를 소환하면");
+    expect(html.match(/role="group" aria-label="[^"]+ 난이도"/g)).toHaveLength(3);
+    expect(html).not.toMatch(/text-\[1[01]px\]/);
+  });
+});
+
 describe("협동 보스 소환 난이도 선택", () => {
   beforeEach(() => {
     state.sessions = [];

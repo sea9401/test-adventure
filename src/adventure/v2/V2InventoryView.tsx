@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ItemSearchInput } from "./ItemSearchInput";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { TwoPane } from "@/components/ui/TwoPane";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -1088,115 +1089,117 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     <PageShell>
       <SubViewHeader title="인벤토리" onBack={onBack} />
 
-      {/* 위쪽 — 모바일 3×2, PC 6×1 장착 요약. 해제는 상세 카드에서만 수행한다. */}
-      <Card padding="md">
-        <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          장착 중
-        </h2>
-        <div className="mt-2">
-          <EquippedItemSummaryGrid
-            equipped={equipped}
-            owned={owned}
-            onOpen={(inst, anchor) => setCard({ inst, anchor })}
-          />
-        </div>
-      </Card>
-
-      <Card padding="md" className="space-y-3">
-        <TabBar
-          tabs={V2_ITEM_TABS}
-          active={tab}
-          onChange={(nextTab) => {
-            setSaleSelection(null);
-            setTab(nextTab);
-          }}
-          ariaLabel="인벤토리 카테고리"
-          size="sm"
-          variant="highlight"
-          scrollable
-        />
-
-        <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
-        {search.trim() && tab !== "material" && tab !== "consumable" && (
-          <p className="text-xs text-zinc-600 dark:text-zinc-300">일괄 판매·도감 일괄 등록은 검색 결과와 관계없이 현재 부위 전체에 적용됩니다. 찾은 장비만 팔려면 선택 판매를 이용해 주세요.</p>
-        )}
-
-        {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
-
-        {loading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton rows={3} />
-          </div>
-        ) : tab === "consumable" ? (
-          <RareMapsTab
-            search={search}
-            materials={materials}
-            spFruitUsed={spFruitUsed}
-            busy={busy}
-            onUseSpFruit={useSpFruit}
-            onUseEquipmentBox={useCoopEquipmentBox}
-            onUseMasteryTome={useCoopMasteryTome}
-            masteryCertificates={masteryCertificates}
-            onUseMasteryCertificate={() => setCertificateModalOpen(true)}
-            rareMaps={rareMaps}
-            cashItems={cashItems}
-            onUseCashItem={useCashItem}
-            cookingFoods={cookingFoods}
-            cookingFoodDefinitions={cookingFoodDefinitions}
-            onUseCookingFood={useCookingFood}
-            onUseExpTome={useExpTome}
-            fishSpecimens={fishSpecimens}
-            registeredFishIds={registeredFishIds}
-            onUseFishSpecimen={useFishSpecimen}
-          />
-        ) : tab === "material" ? (
-          <MaterialsTab search={search} materials={materials} pageSize={INVENTORY_PAGE_SIZE} />
-        ) : (
-          <EquipmentTab
-            search={search}
-            slot={tab}
-            instances={ownedBySlot[tab]}
-            equippedIid={equipped[tab] ?? null}
-            busy={busy}
-            sortMode={sortMode}
-            setSortMode={setSortMode}
-            lockedOnly={lockedOnly}
-            setLockedOnly={setLockedOnly}
-            sellQualityPct={sellQualityPct}
-            setSellQualityPct={setSellQualityPct}
-            pageSize={INVENTORY_PAGE_SIZE}
-            frontierDepth={frontierDepth}
-            onBulkSell={applyBulkSell}
-            onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
-            onRegisterCodex={registerEquipmentCodex}
-            codexBulk={{
-              registerableCount: equipmentCodexBulkCounts[tab],
-              onStart: () => openEquipmentCodexBulk(tab),
+      {/* 장착 요약 — 휴대폰은 위(3×2), 태블릿은 6×1, PC(1024px 이상)는 왼쪽 고정 칸(2열).
+          해제는 상세 카드에서만 수행한다. */}
+      <TwoPane
+        aside={
+          <Card padding="md">
+            <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              장착 중
+            </h2>
+            <div className="mt-2">
+              <EquippedItemSummaryGrid
+                equipped={equipped}
+                owned={owned}
+                onOpen={(inst, anchor) => setCard({ inst, anchor })}
+              />
+            </div>
+          </Card>
+        }
+      >
+        <Card padding="md" className="space-y-3">
+          <TabBar
+            tabs={V2_ITEM_TABS}
+            active={tab}
+            onChange={(nextTab) => {
+              setSaleSelection(null);
+              setTab(nextTab);
             }}
-            selection={{
-              active: saleSelection?.slot === tab,
-              selectedIids:
-                saleSelection?.slot === tab
-                  ? saleSelection.iids
-                  : new Set<string>(),
-              selectedCount:
-                saleSelection?.slot === tab && selectedSaleResult?.ok
-                  ? selectedSaleResult.plan.count
-                  : 0,
-              selectedGold:
-                saleSelection?.slot === tab && selectedSaleResult?.ok
-                  ? selectedSaleResult.plan.gold
-                  : 0,
-              onStart: () => startSelectedSale(tab),
-              onCancel: cancelSelectedSale,
-              onToggle: (inst) => toggleSelectedSale(tab, inst),
-              onConfirm: applySelectedSale,
-            }}
+            ariaLabel="인벤토리 카테고리"
+            size="sm"
+            variant="highlight"
+            scrollable
           />
-        )}
-      </Card>
+
+          <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
+
+          {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
+
+          {loading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton rows={3} />
+            </div>
+          ) : tab === "consumable" ? (
+            <RareMapsTab
+              search={search}
+              materials={materials}
+              spFruitUsed={spFruitUsed}
+              busy={busy}
+              onUseSpFruit={useSpFruit}
+              onUseEquipmentBox={useCoopEquipmentBox}
+              onUseMasteryTome={useCoopMasteryTome}
+              masteryCertificates={masteryCertificates}
+              onUseMasteryCertificate={() => setCertificateModalOpen(true)}
+              rareMaps={rareMaps}
+              cashItems={cashItems}
+              onUseCashItem={useCashItem}
+              cookingFoods={cookingFoods}
+              cookingFoodDefinitions={cookingFoodDefinitions}
+              onUseCookingFood={useCookingFood}
+              onUseExpTome={useExpTome}
+              fishSpecimens={fishSpecimens}
+              registeredFishIds={registeredFishIds}
+              onUseFishSpecimen={useFishSpecimen}
+            />
+          ) : tab === "material" ? (
+            <MaterialsTab search={search} materials={materials} pageSize={INVENTORY_PAGE_SIZE} />
+          ) : (
+            <EquipmentTab
+              search={search}
+              slot={tab}
+              instances={ownedBySlot[tab]}
+              equippedIid={equipped[tab] ?? null}
+              busy={busy}
+              sortMode={sortMode}
+              setSortMode={setSortMode}
+              lockedOnly={lockedOnly}
+              setLockedOnly={setLockedOnly}
+              sellQualityPct={sellQualityPct}
+              setSellQualityPct={setSellQualityPct}
+              pageSize={INVENTORY_PAGE_SIZE}
+              frontierDepth={frontierDepth}
+              onBulkSell={applyBulkSell}
+              onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+              onRegisterCodex={registerEquipmentCodex}
+              codexBulk={{
+                registerableCount: equipmentCodexBulkCounts[tab],
+                onStart: () => openEquipmentCodexBulk(tab),
+              }}
+              selection={{
+                active: saleSelection?.slot === tab,
+                selectedIids:
+                  saleSelection?.slot === tab
+                    ? saleSelection.iids
+                    : new Set<string>(),
+                selectedCount:
+                  saleSelection?.slot === tab && selectedSaleResult?.ok
+                    ? selectedSaleResult.plan.count
+                    : 0,
+                selectedGold:
+                  saleSelection?.slot === tab && selectedSaleResult?.ok
+                    ? selectedSaleResult.plan.gold
+                    : 0,
+                onStart: () => startSelectedSale(tab),
+                onCancel: cancelSelectedSale,
+                onToggle: (inst) => toggleSelectedSale(tab, inst),
+                onConfirm: applySelectedSale,
+              }}
+            />
+          )}
+        </Card>
+      </TwoPane>
       {codexBulk ? (
         <EquipmentCodexBulkDialog
           slot={codexBulk.slot}

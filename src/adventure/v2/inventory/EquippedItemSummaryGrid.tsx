@@ -47,7 +47,7 @@ export function EquippedItemSummaryGrid({
 }) {
   const byIid = new Map(owned.map((inst) => [inst.iid, inst]));
   return (
-    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6" aria-label="장착 장비">
+    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 lg:grid-cols-2" aria-label="장착 장비">
       {EQUIPPED_SUMMARY_SLOTS.map(({ slot, label, Icon, color }) => {
         const iid = equipped[slot];
         const inst = iid ? byIid.get(iid) : undefined;

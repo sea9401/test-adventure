@@ -16,8 +16,10 @@ description: Use when 이 게임의 화면·컴포넌트·Tailwind 클래스·CS
 | 화면 상단 제목 줄 | `SubViewHeader` |
 | 뒤로 가기 | `BackButton` (인라인 자작 금지) |
 | 버튼·선택지 | `Button`/`buttonClassName`, `ChoiceButton` |
-| 탭 | `TabBar` |
-| 빈 상태·오류·안내 | `EmptyState`, `LoadErrorBanner`, `StatusBanner` |
+| 탭 | 화면 탭 `TabBar`, 화면 안 전환 `SegmentedControl` |
+| 빈 상태·오류·안내 | `EmptyState`(바로가기 `action`), `LoadErrorBanner`, `StatusBanner` |
+| 화면 머리·도움말 | `SubViewHeader`(`help`로 규칙 접기) |
+| PC 목록·상세 2단 | `TwoPane` |
 | 아이템 종류 라벨 | `ItemTypeChip` |
 | 메뉴 목록 | `EntryList` + `EntryRow` (카드 하나 안의 행, 목적지 화면 그림 썸네일). 상자 카드를 세로로 쌓지 않는다 |
 | 섹션 제목 | `SectionHeading` (금빛 스타일의 명조·장식 훅 포함) |
@@ -25,6 +27,20 @@ description: Use when 이 게임의 화면·컴포넌트·Tailwind 클래스·CS
 | 글꼴 | 기본 Geist(`font-sans`/`font-mono`). 금빛 스타일 제목용 명조(Noto Serif KR) 1종 외 새 글꼴 금지 |
 
 가장 비슷한 기존 화면(`src/adventure/v2/*View.tsx` 등)을 먼저 찾아 구조·간격·클래스를 재사용한다.
+
+## 화면 골격
+
+모든 화면은 같은 순서로 읽히게 만든다. 처음 온 사람이 "무슨 화면인지 → 지금 상태 → 무엇을 누를지"를 바로 알아야 한다.
+
+- **첫머리**: `SubViewHeader`(제목) → 지금 상태 한 줄 → 주 행동. 규칙·설명 문단은 `SubViewHeader`의 `help`(도움말 패널)나 접기로 옮긴다. 제목 아래에 설명 문단을 늘어놓지 않는다.
+- **탭**: 화면을 나누는 탭은 `TabBar`(밑줄, 넘치면 `scrollable`), 화면 안 보기 전환은 `SegmentedControl`. 탭은 2단까지, 필터는 칩 한 줄이나 선택 상자 하나. 버튼 격자·알약·채움 버튼으로 탭을 직접 만들지 않는다.
+- **버튼**: 화면에 주 행동(`primary`) 하나, 나머지는 보조(`secondary`)·글자(`ghost`). 빨강(`danger`)은 삭제·판매·초기화에만. `success`·`warning`·`info`는 주 버튼과 같은 모양이라 새 코드에서는 쓰지 않는다. 색 바탕 + 흰 글자 버튼을 손으로 칠하지 않는다.
+- **목록**: 같은 모양 카드를 쌓지 말고 `EntryList`/`EntryRow`나 한 카드 안의 행으로. 비어 있는 슬롯은 하나로 접고, 반복되는 입력 양식은 항목을 고른 뒤 하나만 연다.
+- **빈 상태**: `EmptyState`에 왜 비었는지와 채우는 방법을 쓰고, 가능하면 `action`으로 바로가기를 준다.
+- **잠금**: 잠긴 메뉴는 `EntryRow`·`EntryCard`의 `locked`로 해금 조건을 메뉴에서 바로 보여 준다. 들어가서야 잠김을 알게 하지 않는다.
+- **PC 2단**: 1024px 이상에서 목록·상세를 나란히 볼 화면은 `TwoPane`(왼쪽 고정 폭 목록, 오른쪽 상세). 휴대폰에서는 위아래로 쌓인다.
+- **글씨**: 본문 14px(`text-sm`), 보조 최소 12px(`text-xs`). `text-[10px]`·`text-[11px]`를 새로 쓰지 않는다. 넘치면 글씨를 줄이지 말고 접는다.
+- **자동 검사**: `src/components/ui/designSystemBudget.test.ts`가 손칠 버튼과 12px 미만 글씨 수가 기준을 넘지 않게 막는다. 화면을 고쳐 줄면 기준도 낮춘다.
 
 ## 화면 스타일(클래식·금빛)
 

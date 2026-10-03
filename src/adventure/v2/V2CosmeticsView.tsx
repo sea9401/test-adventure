@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
+  CaretDown,
   FrameCorners,
   Gift,
   ImageSquare,
@@ -428,23 +429,22 @@ export function V2CosmeticsView({
 
   return (
     <PageShell>
-      <SubViewHeader title="꾸미기" onBack={() => router.push("/")} />
-
-      <Card padding="md" className="space-y-1">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm font-bold text-violet-700 dark:text-violet-300">
-            <Palette size={20} weight="duotone" />
-            꾸미기 보관함
-          </div>
-          <span className="shrink-0 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+      <SubViewHeader
+        title="꾸미기"
+        onBack={() => router.push("/")}
+        right={
+          <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             연장권 {cashItems[COSMETIC_EXTENSION_ITEM_ID] ?? 0}개
           </span>
-        </div>
-        <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          프로필 이미지 변경과 닉네임 꾸미기, 프로필 꾸미기, 배지를 한곳에서 관리합니다.
-          아레나 입상 메달은 영구 사용하며, 상자에서 획득한 꾸미기는 도감에 기록된 뒤 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
-        </p>
-      </Card>
+        }
+        help={
+          <p>
+            프로필 이미지 변경과 닉네임 꾸미기, 프로필 꾸미기, 배지를 한곳에서 관리합니다. 아레나 입상
+            메달은 영구 사용하며, 상자에서 획득한 꾸미기는 도감에 기록된 뒤{" "}
+            {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
+          </p>
+        }
+      />
 
       {loadError && <LoadErrorBanner onRetry={() => void load()} />}
 
@@ -622,8 +622,7 @@ function ChromaCodex({
     <CollectionLayout
       title="닉네임 꾸미기 도감"
       description="채팅과 캐릭터 닉네임에 표시할 색상과 주변 특수 효과입니다."
-    >
-      {CHROMA_NAME_VARIANTS.map((variant) => {
+      items={CHROMA_NAME_VARIANTS.map((variant) => {
         const owned = cosmetics.chromaNames.includes(variant.id);
         const accessActive = museunCosmeticAccessActive(
           cosmetics,
@@ -632,7 +631,10 @@ function ChromaCodex({
         );
         const active =
           accessActive && cosmetics.equippedChromaName === variant.id;
-        return (
+        return {
+          key: variant.id,
+          owned,
+          node: (
           <CosmeticCard
             key={variant.id}
             owned={owned}
@@ -667,9 +669,10 @@ function ChromaCodex({
             rarity={variant.rarity}
             detail={`${CHROMA_NAME_RARITIES[variant.rarity].effect} · ${variant.theme}`}
           />
-        );
+          ),
+        };
       })}
-    </CollectionLayout>
+    />
   );
 }
 
@@ -694,8 +697,7 @@ function BorderCodex({
     <CollectionLayout
       title="프로필 꾸미기 도감"
       description="카드 바깥 테두리와 프로필 상단 배경을 함께 바꿉니다. 수치와 장비 영역은 읽기 편한 기본 배경을 유지합니다."
-    >
-      {SORTED_PROFILE_BORDER_VARIANTS.map((variant) => {
+      items={SORTED_PROFILE_BORDER_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
         const accessActive = museunCosmeticAccessActive(
           cosmetics,
@@ -704,7 +706,10 @@ function BorderCodex({
         );
         const active =
           accessActive && cosmetics.equippedProfileBorder === variant.itemId;
-        return (
+        return {
+          key: variant.itemId,
+          owned,
+          node: (
           <CosmeticCard
             key={variant.itemId}
             owned={owned}
@@ -736,9 +741,10 @@ function BorderCodex({
             detail={`${PROFILE_BORDER_RARITIES[variant.rarity].effect} · ${variant.feature}`}
             decoration={variant.id}
           />
-        );
+          ),
+        };
       })}
-    </CollectionLayout>
+    />
   );
 }
 
@@ -765,13 +771,15 @@ function BadgeCodex({
     <CollectionLayout
       title="배지 도감"
       description="아레나 명예 배지와 채팅 배지 중 하나만 골라 닉네임 앞에 표시합니다."
-    >
-      {ARENA_CHAMPIONSHIP_BADGE_VARIANTS.map((variant) => {
+      items={[...ARENA_CHAMPIONSHIP_BADGE_VARIANTS.map((variant) => {
         const count = championshipBadges[variant.id];
         const owned = count > 0;
         const active =
           owned && cosmetics.equippedChampionshipBadge === variant.id;
-        return (
+        return {
+          key: `championship-${variant.id}`,
+          owned,
+          node: (
           <CosmeticCard
             key={`championship-${variant.id}`}
             owned={owned}
@@ -799,9 +807,10 @@ function BadgeCodex({
             detail={`${variant.detail}${owned ? ` · ${count}회 달성` : ""}`}
             permanent
           />
-        );
-      })}
-      {SORTED_CHAT_BADGE_VARIANTS.map((variant) => {
+          ),
+        };
+      }),
+      ...SORTED_CHAT_BADGE_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
         const accessActive = museunCosmeticAccessActive(
           cosmetics,
@@ -810,7 +819,10 @@ function BadgeCodex({
         );
         const active =
           accessActive && cosmetics.equippedChatBadge === variant.itemId;
-        return (
+        return {
+          key: variant.itemId,
+          owned,
+          node: (
           <CosmeticCard
             key={variant.itemId}
             owned={owned}
@@ -844,21 +856,25 @@ function BadgeCodex({
             rarity={variant.rarity}
             detail={CHAT_BADGE_RARITIES[variant.rarity].effect}
           />
-        );
-      })}
-    </CollectionLayout>
+          ),
+        };
+      })]}
+    />
   );
 }
 
-function CollectionLayout({
+// 도감 — 보유한 꾸미기를 먼저 카드로, 미획득은 "미획득 N종" 접기 안 작은 칸으로 모은다.
+export function CollectionLayout({
   title,
   description,
-  children,
+  items,
 }: {
   title: string;
   description: string;
-  children: React.ReactNode;
+  items: ReadonlyArray<{ key: string; owned: boolean; node: React.ReactNode }>;
 }) {
+  const owned = items.filter((item) => item.owned);
+  const missing = items.filter((item) => !item.owned);
   return (
     <section className="space-y-3">
       <div>
@@ -867,12 +883,35 @@ function CollectionLayout({
           {description}
         </p>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">{children}</div>
+      {owned.length > 0 ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {owned.map((item) => (
+            <Fragment key={item.key}>{item.node}</Fragment>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          아직 보유한 꾸미기가 없습니다. 꾸미기 상자에서 얻을 수 있습니다.
+        </p>
+      )}
+      {missing.length > 0 ? (
+        <details className={`${SURFACE_INSET} group overflow-hidden`}>
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold text-zinc-700 dark:text-zinc-200 [&::-webkit-details-marker]:hidden">
+            미획득 {missing.length}종
+            <CaretDown size={16} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="grid grid-cols-2 gap-2 border-t border-zinc-200 p-3 sm:grid-cols-3 dark:border-zinc-700">
+            {missing.map((item) => (
+              <Fragment key={item.key}>{item.node}</Fragment>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }
 
-function CosmeticCard({
+export function CosmeticCard({
   owned,
   accessActive,
   accessUntil,
@@ -905,6 +944,17 @@ function CosmeticCard({
   themedHeader?: boolean;
   permanent?: boolean;
 }) {
+  if (!owned) {
+    // 미획득 — 도감처럼 이름과 희귀도만 작게. 버튼은 두지 않는다.
+    return (
+      <div className="min-w-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="truncate text-sm font-semibold text-zinc-500 dark:text-zinc-400">{title}</div>
+        <div className={`text-xs font-semibold ${RARITY_TEXT_CLASS[rarity]}`}>
+          {CHROMA_NAME_RARITIES[rarity].name}
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       className={`${SURFACE_INSET} ${className} flex min-h-16 items-center justify-between gap-3 px-3 py-2 ${
@@ -931,7 +981,7 @@ function CosmeticCard({
           {title}
         </div>
         <div
-          className={`text-[11px] ${
+          className={`text-xs ${
             themedHeader
               ? "text-zinc-200"
               : "text-zinc-500 dark:text-zinc-400"
@@ -945,7 +995,7 @@ function CosmeticCard({
         </div>
         {owned && (
           <div
-            className={`mt-0.5 text-[11px] font-medium ${
+            className={`mt-0.5 text-xs font-medium ${
               accessActive
                 ? "text-emerald-700 dark:text-emerald-300"
                 : "text-rose-700 dark:text-rose-300"
@@ -959,7 +1009,7 @@ function CosmeticCard({
         {owned && !permanent && onExtend && (
           <Button
             size="xs"
-            variant="warning"
+            variant="secondary"
             disabled={busy}
             onClick={onExtend}
           >
@@ -968,7 +1018,7 @@ function CosmeticCard({
         )}
         <Button
           size="xs"
-          variant={active ? "secondary" : "info"}
+          variant={active ? "secondary" : "primary"}
           disabled={!owned || !accessActive || busy}
           onClick={onToggle}
         >

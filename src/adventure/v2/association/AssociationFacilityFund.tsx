@@ -12,6 +12,7 @@ import {
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 import type { AdventurerAssociationFacilityId } from "@/adventure/data/v2/adventurerAssociation";
+import { Button } from "@/components/ui/Button";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 
@@ -129,7 +130,7 @@ export function AssociationFacilityFund({
 
   return (
     <div className={`${SURFACE_INSET} space-y-2 px-3 py-2`}>
-      <div className="flex items-center justify-between gap-2 text-xs">
+      <div className="flex items-center justify-between gap-2 text-sm">
         <strong>Lv.{next.level} 공동 기부</strong>
         <span className="text-zinc-500 dark:text-zinc-400">달성 즉시 자동 승급</span>
       </div>
@@ -145,13 +146,9 @@ export function AssociationFacilityFund({
       <ProgressRow label="골드" current={currentGold} required={requiredGold} suffix="G" />
       {notice && <p className="text-xs text-amber-700 dark:text-amber-300">{notice}</p>}
       {!open ? (
-        <button
-          type="button"
-          onClick={() => void openDonation()}
-          className="w-full rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
-        >
+        <Button variant="primary" size="md" fullWidth onClick={() => void openDonation()}>
           재료·골드 기부
-        </button>
+        </Button>
       ) : (
         <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
           {rows.filter((row) => row.remaining > 0).map((row) => {
@@ -197,8 +194,8 @@ export function AssociationFacilityFund({
             </label>
           )}
           <div className="flex gap-2">
-            <button type="button" onClick={() => setOpen(false)} className="flex-1 rounded border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-600">취소</button>
-            <button type="button" disabled={busy || !canSubmit} onClick={() => void donate()} className="flex-1 rounded bg-amber-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{busy ? "기부 중" : "기부"}</button>
+            <Button size="md" className="flex-1" onClick={() => setOpen(false)}>취소</Button>
+            <Button variant="primary" size="md" className="flex-1" disabled={busy || !canSubmit} onClick={() => void donate()}>{busy ? "기부 중" : "기부"}</Button>
           </div>
         </div>
       )}
@@ -209,7 +206,7 @@ export function AssociationFacilityFund({
 function ProgressRow({ icon, label, current, required, suffix = "" }: { icon?: ReactNode; label: string; current: number; required: number; suffix?: string }) {
   const percent = required > 0 ? Math.min(100, Math.floor((current / required) * 100)) : 100;
   return (
-    <div className="text-[11px]">
+    <div className="text-xs">
       <div className="flex justify-between gap-2"><span className="inline-flex items-center gap-1">{icon}{label}</span><span className="tabular-nums text-zinc-500">{current.toLocaleString()}{suffix} / {required.toLocaleString()}{suffix}</span></div>
       <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-full bg-amber-500" style={{ width: `${percent}%` }} /></div>
     </div>

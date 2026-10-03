@@ -666,6 +666,7 @@ export function FishingView({
 
         <FishingSubTabs
           active="fishing"
+          fishingLevel={progression?.level ?? null}
           challengeBadgeCount={challengeBadgeCount}
           onOpenDangerous={onOpenDangerous}
           onOpenChallenges={onOpenChallenges}

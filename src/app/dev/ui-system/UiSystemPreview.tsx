@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { Backpack, Compass } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { Inset } from "@/components/ui/Inset";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
 import { TextInput } from "@/components/ui/TextInput";
@@ -20,12 +25,24 @@ const TABS = [
   },
 ] as const;
 
+const SPARRING = [
+  { key: "dummy", label: "허수아비 연습" },
+  { key: "friendly", label: "유저 친선전" },
+] as const;
+
 function PreviewPanel() {
   const [active, setActive] = useState<(typeof TABS)[number]["key"]>(
     "adventure",
   );
+  const [sparring, setSparring] = useState<(typeof SPARRING)[number]["key"]>("dummy");
   return (
     <div className="space-y-4 bg-zinc-100 p-4 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <SubViewHeader
+        title="훈련장"
+        onBack={() => {}}
+        help={<p>허수아비는 보상 없이 연습만 합니다. 친선전은 기록에 남지 않습니다.</p>}
+      />
+      <SegmentedControl options={SPARRING} value={sparring} onChange={setSparring} ariaLabel="대련 종류" />
       <TabBar
         tabs={TABS}
         active={active}
@@ -69,6 +86,16 @@ function PreviewPanel() {
         <Button disabled>비활성</Button>
       </div>
       <TextInput aria-label="검색 예시" placeholder="장비 이름 검색" />
+      <EntryList>
+        <EntryRow icon={<Compass size={24} aria-hidden />} title="사냥터" description="몬스터를 잡고 경험치와 재료를 얻습니다" onClick={() => {}} />
+        <EntryRow icon={<Compass size={24} aria-hidden />} title="레어맵" locked="레어맵 지도를 얻으면 열립니다" onClick={() => {}} />
+      </EntryList>
+      <EmptyState
+        icon={<Backpack size={32} aria-hidden />}
+        title="재료가 없습니다"
+        message="사냥에서 재료를 모을 수 있습니다."
+        action={{ label: "사냥하러 가기", onClick: () => {} }}
+      />
       <div className="grid gap-2 sm:grid-cols-2">
         <StatusBanner tone="actionable">수확 가능한 작물 5개</StatusBanner>
         <StatusBanner tone="success">오늘 참여 완료</StatusBanner>

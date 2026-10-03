@@ -1,7 +1,10 @@
 "use client";
 
+import { LockSimple } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_FROSTED } from "@/components/ui/surfaces";
+import { DANGEROUS_FISHING_UNLOCK_LEVEL } from "./dangerousFishingHeritage";
+import { useFishingLevel } from "./useFishingLevel";
 
 // 낚시터 5화면 공용 서브 탭바 — 낚시 / 일일 과제 / 주간 순위 / 명예의 전당 / 상점.
 // 우상단 작은 버튼 메뉴를 탭바로 승격.
@@ -18,6 +21,7 @@ export type FishingTabKey =
 export function FishingSubTabs({
   active,
   challengeBadgeCount,
+  fishingLevel,
   onOpenFishing,
   onOpenDangerous,
   onOpenChallenges,
@@ -27,6 +31,8 @@ export function FishingSubTabs({
 }: {
   active: FishingTabKey;
   challengeBadgeCount?: number;
+  // 위험 해역 잠금 표시용 낚시 레벨. 이미 아는 화면은 넘기고(로딩 중이면 null), 생략하면 직접 읽는다.
+  fishingLevel?: number | null;
   onOpenFishing?: () => void;
   onOpenDangerous?: () => void;
   onOpenChallenges?: () => void;
@@ -40,12 +46,24 @@ export function FishingSubTabs({
         ? "99+"
         : challengeBadgeCount
       : undefined;
+  const showsDangerous = active === "dangerous" || Boolean(onOpenDangerous);
+  const fetchedLevel = useFishingLevel(fishingLevel === undefined && showsDangerous);
+  const level = fishingLevel === undefined ? fetchedLevel : fishingLevel;
+  const dangerousLocked = level !== null && level < DANGEROUS_FISHING_UNLOCK_LEVEL;
   const tabs = [
     ...(active === "fishing" || onOpenFishing
       ? [{ key: "fishing" as const, label: "낚시" }]
       : []),
-    ...(active === "dangerous" || onOpenDangerous
-      ? [{ key: "dangerous" as const, label: "위험 해역" }]
+    ...(showsDangerous
+      ? [
+          dangerousLocked
+            ? {
+                key: "dangerous" as const,
+                label: `위험 해역 Lv ${DANGEROUS_FISHING_UNLOCK_LEVEL}`,
+                icon: <LockSimple size={14} weight="bold" />,
+              }
+            : { key: "dangerous" as const, label: "위험 해역" },
+        ]
       : []),
     ...(active === "challenges" || onOpenChallenges
       ? [{ key: "challenges" as const, label: "의뢰", badge: challengeBadge }]

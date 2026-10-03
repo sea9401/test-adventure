@@ -101,6 +101,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
+import { TwoPane } from "@/components/ui/TwoPane";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { usePagination } from "@/lib/usePagination";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
@@ -114,11 +115,11 @@ import {
   SlidersHorizontal,
   Star,
   Storefront,
-  X,
   type Icon,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createMarketplaceReadCoordinator } from "./marketplace/marketplaceReadCoordinator";
+import { MarketplaceSearchInput } from "./marketplace/MarketplaceSearchInput";
 
 export { MarketplaceRecentTradeList } from "@/adventure/v2/marketplace/MarketplaceListingList";
 
@@ -1090,7 +1091,7 @@ export function V2MarketplaceView({
     : null;
 
   return (
-    <main className="mx-auto w-full min-w-0 max-w-[760px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
+    <main className="mx-auto w-full min-w-0 max-w-[760px] space-y-4 p-4 text-zinc-900 sm:p-6 lg:max-w-[60rem] dark:text-zinc-100">
       <SubViewHeader title="거래소" onBack={onBack} />
       <Card padding="none" className="overflow-hidden">
         <div
@@ -1184,330 +1185,310 @@ export function V2MarketplaceView({
       )}
 
       {tab === "browse" && (
-        <>
-          <Card padding="none" className="overflow-hidden">
-            <div className="border-b border-zinc-200 px-2 pt-1 dark:border-zinc-700">
-              <TabBar
-                tabs={V2_ITEM_TABS}
-                active={browseTab}
-                onChange={handleBrowseTabChange}
-                ariaLabel="거래소 목록 분류"
-                size="sm"
-                scrollable
-              />
-            </div>
-            <div className="space-y-3 p-3">
-              <div className={`${SURFACE_INSET} px-3 py-2 text-[11px] text-zinc-600 dark:text-zinc-300`}>
-                매물은 6·12·24시간 중 선택한 기간 동안 경매하며, 마감 {bidExtensionWindowMinutes}분 미만에 새 입찰이 들어오면 마감이 {bidExtensionMinutes}분 연장됩니다.
-              </div>
-              <button
-                type="button"
-                aria-pressed={personalOnly}
-                aria-label="내 항목만 보기"
-                onClick={() => setPersonalOnly((value) => !value)}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                  personalOnly
-                    ? "border-sky-700 bg-sky-700 text-white"
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                <Package size={15} weight={personalOnly ? "fill" : "duotone"} />
-                내 항목만 보기
-              </button>
-              <div className="flex gap-2">
-                <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">아이템 또는 제작자 검색</span>
-                  <MagnifyingGlass
-                    aria-hidden
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+        // PC(1024px 이상)는 왼쪽에 분류·검색·필터·정렬, 오른쪽에 매물. 필터를 펼치면 길어져 고정하지 않는다.
+        <TwoPane
+          sticky={false}
+          aside={
+              <Card padding="none" className="overflow-hidden">
+                <div className="border-b border-zinc-200 px-2 pt-1 dark:border-zinc-700">
+                  <TabBar
+                    tabs={V2_ITEM_TABS}
+                    active={browseTab}
+                    onChange={handleBrowseTabChange}
+                    ariaLabel="거래소 목록 분류"
+                    size="sm"
+                    scrollable
+                    desktopColumns={4}
                   />
-                  <input
-                    type="search"
-                    placeholder="아이템 또는 제작자 검색"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onBlur={(event) => rememberSearch(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        rememberSearch(event.currentTarget.value);
-                      }
-                    }}
-                    className="w-full rounded-md border border-zinc-300 bg-white py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                  {search ? (
-                    <button
-                      type="button"
-                      aria-label="검색어 지우기"
-                      onClick={() => setSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    >
-                      <X size={14} />
-                    </button>
-                  ) : null}
-                </label>
-                <button
-                  type="button"
-                  aria-expanded={filtersOpen}
-                  onClick={() => setFiltersOpen((open) => !open)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
-                    filtersOpen || activeFilterCount > 0
-                      ? "border-sky-700 bg-sky-700 text-white"
-                      : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <SlidersHorizontal size={16} weight="duotone" />
-                  {browseEquipmentTab ? "필터" : "정렬"}
-                  {activeFilterCount > 0 ? (
-                    <span className="rounded-full bg-white px-1.5 text-[9px] leading-4 text-sky-700">
-                      {activeFilterCount}
-                    </span>
-                  ) : null}
-                </button>
-              </div>
-
-              <div
-                className="flex gap-1.5 overflow-x-auto pb-0.5"
-                role="group"
-                aria-label="매물 정렬"
-              >
-                {browseSortButtons.map((button) => {
-                  const active =
-                    sort === button.ascending || sort === button.descending;
-                  const ascending = sort === button.ascending;
-                  const next =
-                    sort === button.ascending
-                      ? button.descending
-                      : sort === button.descending
-                        ? button.ascending
-                        : button.initial;
-                  return (
-                    <button
-                      key={button.key}
-                      type="button"
-                      aria-pressed={active}
-                      aria-label={`${button.label} ${active ? (ascending ? "오름차순" : "내림차순") : "정렬"}`}
-                      onClick={() => setSort(next)}
-                      className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
-                        active
-                          ? "border-sky-700 bg-sky-700 text-white"
-                          : "border-zinc-300 bg-white text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                      }`}
-                    >
-                      {button.label}
-                      {active ? (ascending ? " ↑" : " ↓") : ""}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {recentSearches.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                  <span className="text-zinc-400">최근 검색</span>
-                  {recentSearches.map((query) => (
-                    <button
-                      key={query}
-                      type="button"
-                      onClick={() => setSearch(query)}
-                      className="rounded-full border border-zinc-200 bg-white px-2 py-1 text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                    >
-                      {query}
-                    </button>
-                  ))}
                 </div>
-              ) : null}
-
-              {filtersOpen && (
-                <div className={`${SURFACE_INSET} grid gap-3 p-3 sm:grid-cols-2`}>
-                  <label className="space-y-1">
-                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                      정렬
-                    </span>
-                    <SelectControl
-                      value={sort}
-                      onChange={(v) => setSort(v as MarketplaceBrowseSort)}
-                      options={browseSortOptions}
-                      className="w-full"
+                <div className="space-y-3 p-3">
+                  <div className={`${SURFACE_INSET} px-3 py-2 text-[11px] text-zinc-600 dark:text-zinc-300`}>
+                    매물은 6·12·24시간 중 선택한 기간 동안 경매하며, 마감 {bidExtensionWindowMinutes}분 미만에 새 입찰이 들어오면 마감이 {bidExtensionMinutes}분 연장됩니다.
+                  </div>
+                  <button
+                    type="button"
+                    aria-pressed={personalOnly}
+                    aria-label="내 항목만 보기"
+                    onClick={() => setPersonalOnly((value) => !value)}
+                    className={`flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                      personalOnly
+                        ? "border-sky-700 bg-sky-700 text-white"
+                        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <Package size={15} weight={personalOnly ? "fill" : "duotone"} />
+                    내 항목만 보기
+                  </button>
+                  <div className="flex gap-2">
+                    <MarketplaceSearchInput
+                      search={search}
+                      onSearchChange={setSearch}
+                      onRemember={rememberSearch}
                     />
-                  </label>
-                  {browseEquipmentTab && (
-                    <>
-                      <label className="space-y-1">
-                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                          아이템 티어
-                        </span>
-                        <SelectControl
-                          value={equipmentTierFilter}
-                          onChange={(value) =>
-                            setEquipmentTierFilter(
-                              value as MarketplaceEquipmentTierFilter,
-                            )
-                          }
-                          options={MARKETPLACE_EQUIPMENT_TIER_OPTIONS}
-                          className="w-full"
-                        />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                          제작 품질
-                        </span>
-                        <SelectControl
-                          value={craftedQualityFilter}
-                          onChange={(v) =>
-                            setCraftedQualityFilter(v as typeof craftedQualityFilter)
-                          }
-                          options={[
-                            ["all", "전체 품질"],
-                            ["plus1", "★ 제작품만"],
-                          ]}
-                          className="w-full"
-                        />
-                      </label>
-                      <div className="space-y-1">
-                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                          도감 상태
-                        </span>
-                        <button
-                          type="button"
-                          aria-pressed={unregisteredCodexOnly}
-                          disabled={!equipmentCodexLoaded}
-                          onClick={() =>
-                            setUnregisteredCodexOnly((value) => !value)
-                          }
-                          className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                            unregisteredCodexOnly
-                              ? "border-sky-600 bg-sky-600 text-white"
-                              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                          }`}
-                        >
-                          {!equipmentCodexLoaded
-                            ? "도감 불러오는 중"
-                            : unregisteredCodexOnly
-                              ? "✓ 도감 미등록만 보는 중"
-                              : "도감 미등록만 보기"}
-                        </button>
-                      </div>
-                      <label className="space-y-1">
-                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                          제작자 숙련도
-                        </span>
-                        <SelectControl
-                          value={craftedLevelFilter}
-                          onChange={(v) =>
-                            setCraftedLevelFilter(v as typeof craftedLevelFilter)
-                          }
-                          options={[
-                            ["all", "전체 레벨"],
-                            ["2", "Lv 2 이상"],
-                            ["3", "Lv 3 이상"],
-                            ["4", "Lv 4 이상"],
-                            ["5", "Lv 5 이상"],
-                          ]}
-                          className="w-full"
-                        />
-                      </label>
-                      <div className="space-y-1">
-                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                          제작 여부
-                        </span>
-                        <button
-                          type="button"
-                          aria-pressed={craftedOnly}
-                          onClick={() => setCraftedOnly((value) => !value)}
-                          className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition ${
-                            craftedOnly
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                          }`}
-                        >
-                          {craftedOnly ? "✓ 제작품만 보는 중" : "제작품만 보기"}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                      즐겨찾기
-                    </span>
                     <button
                       type="button"
-                      aria-pressed={favoriteOnly}
-                      onClick={() => setFavoriteOnly((value) => !value)}
-                      className={`flex w-full items-center gap-1.5 rounded-md border px-3 py-2 text-left text-xs font-medium transition ${
-                        favoriteOnly
-                          ? "border-amber-500 bg-amber-500 text-white"
+                      aria-expanded={filtersOpen}
+                      onClick={() => setFiltersOpen((open) => !open)}
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
+                        filtersOpen || activeFilterCount > 0
+                          ? "border-sky-700 bg-sky-700 text-white"
                           : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                       }`}
                     >
-                      <Star size={14} weight={favoriteOnly ? "fill" : "regular"} />
-                      {favoriteOnly ? "즐겨찾기만 보는 중" : "즐겨찾기만 보기"}
+                      <SlidersHorizontal size={16} weight="duotone" />
+                      {browseEquipmentTab ? "필터" : "정렬"}
+                      {activeFilterCount > 0 ? (
+                        <span className="rounded-full bg-white px-1.5 text-[9px] leading-4 text-sky-700">
+                          {activeFilterCount}
+                        </span>
+                      ) : null}
                     </button>
                   </div>
-                </div>
-              )}
 
-              <MarketplaceWatchFilter watchlist={watchlist} />
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                    매물{" "}
-                    {displayedItemCount.toLocaleString()}개
-                  </span>
-                  <span className="text-zinc-400">·</span>
-                  <span className="text-zinc-500 dark:text-zinc-400">
-                    {activeSortLabel}
-                  </span>
-                  {q ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      “{search.trim()}”
-                    </span>
-                  ) : null}
-                  {browseEquipmentTab && equipmentTierFilter !== "all" ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      {equipmentTierFilter}T
-                    </span>
-                  ) : null}
-                  {browseEquipmentTab && unregisteredCodexOnly ? (
-                    <span
-                      data-testid="marketplace-unregistered-codex-filter-chip"
-                      className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                    >
-                      도감 미등록
-                    </span>
-                  ) : null}
-                  {craftedOnly ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      제작품
-                    </span>
-                  ) : null}
-                  {craftedQualityFilter === "plus1" ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      ★ 제작품
-                    </span>
-                  ) : null}
-                  {craftedLevelFilter !== "all" ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      제작자 Lv {craftedLevelFilter}+
-                    </span>
-                  ) : null}
-                  {personalOnly ? (
-                    <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      내 항목
-                    </span>
-                  ) : null}
-                </div>
-                {activeFilterCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={resetBrowseFilters}
-                    className="font-medium text-sky-700 hover:underline dark:text-sky-300"
+                  <div
+                    className="flex gap-1.5 overflow-x-auto pb-0.5"
+                    role="group"
+                    aria-label="매물 정렬"
                   >
-                    필터 초기화
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </Card>
+                    {browseSortButtons.map((button) => {
+                      const active =
+                        sort === button.ascending || sort === button.descending;
+                      const ascending = sort === button.ascending;
+                      const next =
+                        sort === button.ascending
+                          ? button.descending
+                          : sort === button.descending
+                            ? button.ascending
+                            : button.initial;
+                      return (
+                        <button
+                          key={button.key}
+                          type="button"
+                          aria-pressed={active}
+                          aria-label={`${button.label} ${active ? (ascending ? "오름차순" : "내림차순") : "정렬"}`}
+                          onClick={() => setSort(next)}
+                          className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                            active
+                              ? "border-sky-700 bg-sky-700 text-white"
+                              : "border-zinc-300 bg-white text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                          }`}
+                        >
+                          {button.label}
+                          {active ? (ascending ? " ↑" : " ↓") : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {recentSearches.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <span className="text-zinc-400">최근 검색</span>
+                      {recentSearches.map((query) => (
+                        <button
+                          key={query}
+                          type="button"
+                          onClick={() => setSearch(query)}
+                          className="rounded-full border border-zinc-200 bg-white px-2 py-1 text-zinc-600 hover:border-sky-300 hover:text-sky-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                        >
+                          {query}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {filtersOpen && (
+                    <div className={`${SURFACE_INSET} grid gap-3 p-3 sm:grid-cols-2`}>
+                      <label className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          정렬
+                        </span>
+                        <SelectControl
+                          value={sort}
+                          onChange={(v) => setSort(v as MarketplaceBrowseSort)}
+                          options={browseSortOptions}
+                          className="w-full"
+                        />
+                      </label>
+                      {browseEquipmentTab && (
+                        <>
+                          <label className="space-y-1">
+                            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                              아이템 티어
+                            </span>
+                            <SelectControl
+                              value={equipmentTierFilter}
+                              onChange={(value) =>
+                                setEquipmentTierFilter(
+                                  value as MarketplaceEquipmentTierFilter,
+                                )
+                              }
+                              options={MARKETPLACE_EQUIPMENT_TIER_OPTIONS}
+                              className="w-full"
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                              제작 품질
+                            </span>
+                            <SelectControl
+                              value={craftedQualityFilter}
+                              onChange={(v) =>
+                                setCraftedQualityFilter(v as typeof craftedQualityFilter)
+                              }
+                              options={[
+                                ["all", "전체 품질"],
+                                ["plus1", "★ 제작품만"],
+                              ]}
+                              className="w-full"
+                            />
+                          </label>
+                          <div className="space-y-1">
+                            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                              도감 상태
+                            </span>
+                            <button
+                              type="button"
+                              aria-pressed={unregisteredCodexOnly}
+                              disabled={!equipmentCodexLoaded}
+                              onClick={() =>
+                                setUnregisteredCodexOnly((value) => !value)
+                              }
+                              className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                unregisteredCodexOnly
+                                  ? "border-sky-600 bg-sky-600 text-white"
+                                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                              }`}
+                            >
+                              {!equipmentCodexLoaded
+                                ? "도감 불러오는 중"
+                                : unregisteredCodexOnly
+                                  ? "✓ 도감 미등록만 보는 중"
+                                  : "도감 미등록만 보기"}
+                            </button>
+                          </div>
+                          <label className="space-y-1">
+                            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                              제작자 숙련도
+                            </span>
+                            <SelectControl
+                              value={craftedLevelFilter}
+                              onChange={(v) =>
+                                setCraftedLevelFilter(v as typeof craftedLevelFilter)
+                              }
+                              options={[
+                                ["all", "전체 레벨"],
+                                ["2", "Lv 2 이상"],
+                                ["3", "Lv 3 이상"],
+                                ["4", "Lv 4 이상"],
+                                ["5", "Lv 5 이상"],
+                              ]}
+                              className="w-full"
+                            />
+                          </label>
+                          <div className="space-y-1">
+                            <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                              제작 여부
+                            </span>
+                            <button
+                              type="button"
+                              aria-pressed={craftedOnly}
+                              onClick={() => setCraftedOnly((value) => !value)}
+                              className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition ${
+                                craftedOnly
+                                  ? "border-emerald-600 bg-emerald-600 text-white"
+                                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                              }`}
+                            >
+                              {craftedOnly ? "✓ 제작품만 보는 중" : "제작품만 보기"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                          즐겨찾기
+                        </span>
+                        <button
+                          type="button"
+                          aria-pressed={favoriteOnly}
+                          onClick={() => setFavoriteOnly((value) => !value)}
+                          className={`flex w-full items-center gap-1.5 rounded-md border px-3 py-2 text-left text-xs font-medium transition ${
+                            favoriteOnly
+                              ? "border-amber-500 bg-amber-500 text-white"
+                              : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          <Star size={14} weight={favoriteOnly ? "fill" : "regular"} />
+                          {favoriteOnly ? "즐겨찾기만 보는 중" : "즐겨찾기만 보기"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <MarketplaceWatchFilter watchlist={watchlist} />
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                        매물{" "}
+                        {displayedItemCount.toLocaleString()}개
+                      </span>
+                      <span className="text-zinc-400">·</span>
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        {activeSortLabel}
+                      </span>
+                      {q ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          “{search.trim()}”
+                        </span>
+                      ) : null}
+                      {browseEquipmentTab && equipmentTierFilter !== "all" ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          {equipmentTierFilter}T
+                        </span>
+                      ) : null}
+                      {browseEquipmentTab && unregisteredCodexOnly ? (
+                        <span
+                          data-testid="marketplace-unregistered-codex-filter-chip"
+                          className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                        >
+                          도감 미등록
+                        </span>
+                      ) : null}
+                      {craftedOnly ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          제작품
+                        </span>
+                      ) : null}
+                      {craftedQualityFilter === "plus1" ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          ★ 제작품
+                        </span>
+                      ) : null}
+                      {craftedLevelFilter !== "all" ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          제작자 Lv {craftedLevelFilter}+
+                        </span>
+                      ) : null}
+                      {personalOnly ? (
+                        <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          내 항목
+                        </span>
+                      ) : null}
+                    </div>
+                    {activeFilterCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={resetBrowseFilters}
+                        className="font-medium text-sky-700 hover:underline dark:text-sky-300"
+                      >
+                        필터 초기화
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </Card>
+          }
+        >
           {!browseEquipmentTab ? (
             <MarketplaceStackBrowse
               listings={browsePager.pageItems}
@@ -1585,7 +1566,7 @@ export function V2MarketplaceView({
               setPage={browsePager.setPage}
             />
           )}
-        </>
+        </TwoPane>
       )}
 
       {tab === "recent" && (

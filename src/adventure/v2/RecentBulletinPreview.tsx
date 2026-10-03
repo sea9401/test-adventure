@@ -21,6 +21,8 @@ export function RecentBulletinPreview() {
       .catch(() => { if (active) setPosts([]); });
     return () => { active = false; };
   }, []);
+  // 보여 줄 글이 없으면 홈 자리를 차지하지 않게 숨긴다(게시판은 광장 메뉴에서 열 수 있다).
+  if (posts?.length === 0) return null;
   return (
     <section className={`${SURFACE_CARD} h-full p-4`} aria-labelledby="recent-bulletin-title">
       <div className="flex items-center justify-between gap-2">

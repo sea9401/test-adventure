@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import {
+  CaretDown,
   Check,
   CheckSquare,
   ClockCountdown,
@@ -17,6 +19,8 @@ import {
   type AdventureActivityView,
   type AdventureDashboardSummary,
 } from "./adventureDashboard";
+
+const CHECKLIST_VISIBLE_PER_GROUP = 3;
 
 const GROUP_LABELS = {
   daily: "오늘",
@@ -84,12 +88,12 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
         <span className="block truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
           {activity.title}
         </span>
-        <span className="block truncate text-[0.6875rem] text-zinc-500 dark:text-zinc-400">
+        <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
           {activity.detail}
         </span>
       </span>
       <span
-        className={`shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-semibold ${
+        className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${
           actionable
             ? "bg-amber-500 text-white"
             : completed
@@ -110,10 +114,14 @@ function ActivityGroup({
   group: AdventureActivityGroup;
   activities: readonly AdventureActivityView[];
 }) {
+  const [expanded, setExpanded] = useState(false);
   const items = sortAdventureActivities(
     activities.filter((activity) => activity.group === group),
   );
   if (items.length === 0) return null;
+  // 지금 할 수 있는 것부터 정렬돼 있으니 앞의 몇 개만 보이고 나머지는 펼쳐서 본다.
+  const hiddenCount = Math.max(0, items.length - CHECKLIST_VISIBLE_PER_GROUP);
+  const visible = expanded ? items : items.slice(0, CHECKLIST_VISIBLE_PER_GROUP);
   const tracked = items.filter(
     (item) => item.countsTowardCompletion !== false,
   );
@@ -124,15 +132,26 @@ function ActivityGroup({
         <h3 className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
           {GROUP_LABELS[group]}
         </h3>
-        <span className="text-[0.6875rem] font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
+        <span className="text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
           {group === "ready" ? `준비 ${items.length}개` : `${completed} / ${tracked.length}`}
         </span>
       </div>
       <div>
-        {items.map((activity) => (
+        {visible.map((activity) => (
           <ActivityRow key={activity.id} activity={activity} />
         ))}
       </div>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+          className="flex min-h-10 w-full items-center justify-center gap-1 border-t border-zinc-200 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          {expanded ? "접기" : `나머지 ${hiddenCount}개 보기`}
+          <CaretDown size={14} aria-hidden className={expanded ? "rotate-180" : ""} />
+        </button>
+      )}
     </Inset>
   );
 }
@@ -176,7 +195,7 @@ export function AdventureActivityChecklist({
             <h2 id="adventure-check-title" className="truncate text-sm font-bold text-amber-950 dark:text-amber-100">
               오늘의 모험 체크
             </h2>
-            <p className="mt-0.5 text-[0.6875rem] text-amber-800 dark:text-amber-300">
+            <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
               {resetLabel}
             </p>
           </div>

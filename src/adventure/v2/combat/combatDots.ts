@@ -98,7 +98,12 @@ export function tickV2Dots(
     );
     totalDmg += damage;
     if (damage > 0) {
-      ticks.push({ tag: d.tag, label: d.label, damage });
+      // 누적형(maxStacks > 1)만 스택 수를 싣는다. 로그에 "출혈(8)로"처럼 표시된다.
+      ticks.push(
+        d.maxStacks > 1
+          ? { tag: d.tag, label: d.label, stacks: d.stacks, damage }
+          : { tag: d.tag, label: d.label, damage },
+      );
     }
     if (d.turns > 1) nextDots.push({ ...d, turns: d.turns - 1 });
     // turns === 1 → drop (이번 turn 이 마지막 적용).
@@ -107,6 +112,8 @@ export function tickV2Dots(
 }
 
 export type V2DotTick = Pick<V2Dot, "tag" | "label"> & {
+  /** 누적형 DoT의 틱 시점 스택 수. 단일 스택 DoT는 생략한다. */
+  stacks?: number;
   damage: number;
 };
 
@@ -131,10 +138,11 @@ export function v2DotLogLabel(tick: Pick<V2DotTick, "tag" | "label">): string {
   return tick.tag === "burn" ? "화상" : tick.label;
 }
 
-export function v2DotLogCause(tick: Pick<V2DotTick, "tag" | "label">): string {
+export function v2DotLogCause(tick: Pick<V2DotTick, "tag" | "label" | "stacks">): string {
   const label = v2DotLogLabel(tick);
-  // 받침 ㄹ 뒤에는 "으로"가 아닌 "로"를 쓴다: 출혈로 / 중독으로 / 화상으로.
-  return `${label}${tick.tag === "bleed" ? "로" : "으로"}`;
+  const stacks = tick.stacks != null ? `(${tick.stacks})` : "";
+  // 받침 ㄹ 뒤에는 "으로"가 아닌 "로"를 쓴다: 출혈(8)로 / 중독(3)으로 / 화상으로.
+  return `${label}${stacks}${tick.tag === "bleed" ? "로" : "으로"}`;
 }
 
 export function makeBleedDot(args: {

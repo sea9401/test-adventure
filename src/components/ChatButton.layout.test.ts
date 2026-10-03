@@ -3,6 +3,7 @@
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -47,6 +48,25 @@ const props = {
 afterEach(cleanup);
 
 describe("ChatButton toggle visibility", () => {
+  it("스크롤로 숨은 플로팅 토글도 키보드 포커스를 받으면 다시 보인다", () => {
+    render(createElement(ChatButton, { ...props, variant: "floating" }));
+    act(() => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 400 });
+      window.dispatchEvent(new Event("scroll"));
+    });
+
+    const classes = screen.getByTestId("floating-chat-toggle").className.split(/\s+/);
+    expect(classes).toContain("opacity-0");
+    expect(classes).toEqual(
+      expect.arrayContaining(["focus-visible:pointer-events-auto", "focus-visible:translate-y-0", "focus-visible:opacity-100"]),
+    );
+
+    act(() => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+      window.dispatchEvent(new Event("scroll"));
+    });
+  });
+
   it("채팅이 열려 있는 동안 플로팅 토글을 제거하고 닫히면 복원한다", () => {
     render(createElement(ChatButton, { ...props, variant: "floating" }));
 

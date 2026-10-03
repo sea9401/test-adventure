@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { darkPriestPattern } from "@/adventure/data/v2/darkPriestPattern";
 import { arenaPatternActionSummary } from "@/adventure/data/v2/arenaLoadout";
 import { fetchGameState } from "./fetchGameState";
-import { ArrowClockwise, CheckCircle, X } from "@phosphor-icons/react";
+import { ArrowClockwise, CaretDown, CheckCircle, ListNumbers, X } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -918,6 +921,39 @@ function AlternateSkillPatternPickers({
   );
 }
 
+// 패턴 규칙 — 단독 화면은 머리 도움말, 스킬 화면 탭은 맨 위 접기에서 보여 준다.
+export function PatternRulesHelp() {
+  return (
+    <ul className="list-disc space-y-1.5 pl-5 leading-relaxed">
+      <li>
+        위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음 블록을
+        확인하고, 모두 실패하면 기본 공격을 사용합니다.
+      </li>
+      <li>
+        서로 다른 스킬은 독립적으로 판정하며, 같은 스킬을 중복 배치해도 발동률을 따로 다시
+        굴리지는 않습니다.
+      </li>
+      <li>
+        교대 사용은 두 스킬을 A → B → A → B 순서로 반복하되, 선택된 스킬이 실제로 발동한 뒤에만
+        다음 순서로 넘어갑니다. 사용할 수 없거나 발동률 판정에 실패하면 아래 블록을 확인하고 현재
+        A/B 차례를 유지합니다.
+      </li>
+      <li>
+        여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상 AND 혈전
+        준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
+      </li>
+      <li>
+        결계는 내 전투 자원에서 선택합니다. 예: 금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 →
+        만법불침.
+      </li>
+      <li>
+        아레나에서는 상대 무기 종류와 상대 최대 MP를 AND/OR로 묶어 방어 스킬을 고를 수 있습니다.
+        무기 정보가 없으면 무기 조건은 성립하지 않습니다.
+      </li>
+    </ul>
+  );
+}
+
 export function V2CombatPatternView({
   onBack,
   embedded = false,
@@ -1194,7 +1230,9 @@ export function V2CombatPatternView({
           : `${SURFACE_CARD} mx-auto max-w-[640px] space-y-3 rounded-lg p-6 text-zinc-900 dark:text-zinc-100`
       }
     >
-      {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
+      {!embedded && (
+        <SubViewHeader title="스킬 패턴" onBack={onBack} help={<PatternRulesHelp />} />
+      )}
       {equipped.includes("v2c_darkpriest_blessing") && (
         <section className={`${SURFACE_INSET} rounded-lg p-3 text-sm`}>
           <p className="font-semibold">암흑사제 스킬 변경</p>
@@ -1202,81 +1240,27 @@ export function V2CombatPatternView({
           <ol className="my-2 list-inside list-decimal text-xs">
             {arenaPatternActionSummary({ pattern: darkPriestPattern(equipped) }).map((item) => <li key={item.key}>{item.condition} → {item.name}</li>)}
           </ol>
-          <button type="button" disabled={loading || busy} className="rounded border px-3 py-1 disabled:opacity-50" onClick={() => {
+          <Button size="sm" disabled={loading || busy} onClick={() => {
             const suggested = darkPriestPattern(equipped);
             if (suggested) { setBlocks(suggested.blocks); setSaveState("pending"); }
-          }}>암흑사제 추천 패턴 적용</button>
+          }}>암흑사제 추천 패턴 적용</Button>
         </section>
       )}
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        위에서부터 조건과 사용 가능 여부를 확인합니다. 스킬 발동률 판정에 실패하면 다음
-        블록을 확인하고, 모두 실패하면 기본 공격을 사용합니다. 서로 다른 스킬은 독립적으로
-        판정하며, 같은 스킬을 중복 배치해도 발동률을 따로 다시 굴리지는 않습니다.
-        교대 사용은 두 스킬을 A → B → A → B 순서로 반복하되, 선택된 스킬이 실제로
-        발동한 뒤에만 다음 순서로 넘어갑니다. 사용할 수 없거나 발동률 판정에 실패하면
-        아래 블록을 확인하고 현재 A/B 차례를 유지합니다.
-        여러 조건은 AND (모두 만족) 또는 OR (하나 만족)으로 묶습니다. 예: 내 HP 50% 이상
-        AND 혈전 준비 없음 → 혈전, 혈전 준비 있음 → 필살기.
-        {" "}결계는 내 전투 자원에서 선택합니다. 예: 금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 → 만법불침.
-        {" "}아레나에서는 상대 무기 종류와 상대 최대 MP를 AND/OR로 묶어 방어 스킬을 고를 수 있습니다. 무기 정보가 없으면 무기 조건은 성립하지 않습니다.
-      </p>
+      {embedded && (
+        <details className={`${SURFACE_INSET} group p-3 text-sm`}>
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 font-semibold text-zinc-800 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">패턴이 작동하는 방식
+            <CaretDown size={16} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-2 text-zinc-700 dark:text-zinc-200">
+            <PatternRulesHelp />
+          </div>
+        </details>
+      )}
 
       {loading ? (
         <p className="text-sm text-zinc-500">불러오는 중…</p>
       ) : (
         <>
-          <section className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                프리셋 ({presets.length}/{V2_COMBAT_PATTERN_MAX_PRESETS})
-              </span>
-              <span className="text-[11px] text-zinc-400">불러오면 바로 적용됩니다</span>
-            </div>
-            {presets.length === 0 ? (
-              <p className="text-xs text-zinc-400">
-                저장된 프리셋이 없습니다. 아래에서 현재 패턴을 이름 붙여 저장하면 빠르게 바꿔 끼울 수 있습니다.
-              </p>
-            ) : (
-              <ul className="flex flex-wrap gap-2">
-                {presets.map((p) => (
-                  <li
-                    key={p.name}
-                    className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white py-1 pl-2 pr-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    <span className="max-w-[140px] truncate font-medium">{p.name}</span>
-                    <button type="button" onClick={() => loadPreset(p)} disabled={busy}
-                      className="rounded px-1.5 text-indigo-600 hover:bg-indigo-100 disabled:opacity-40 dark:text-indigo-400 dark:hover:bg-indigo-950">불러오기</button>
-                    <button
-                      type="button"
-                      onClick={() => void overwritePreset(p)}
-                      disabled={busy}
-                      aria-label={`${p.name} 프리셋을 현재 패턴으로 덮어쓰기`}
-                      title="현재 패턴으로 덮어쓰기"
-                      className="inline-flex size-8 items-center justify-center rounded-md border border-amber-500 text-amber-700 transition hover:bg-amber-50 active:scale-90 disabled:opacity-40 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950"
-                    >
-                      <ArrowClockwise size={16} weight="bold" aria-hidden />
-                    </button>
-                    <button type="button" onClick={() => deletePreset(p.name)} disabled={busy}
-                      className="rounded px-1.5 text-rose-500 hover:bg-rose-100 disabled:opacity-40 dark:hover:bg-rose-950">✕</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="text"
-                value={presetName}
-                maxLength={V2_COMBAT_PRESET_NAME_MAXLEN}
-                onChange={(e) => setPresetName(e.target.value)}
-                placeholder="현재 패턴 이름 (예: 보스용)"
-                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-              />
-              <button type="button" onClick={savePreset} disabled={busy}
-                className="shrink-0 rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
-                프리셋으로 저장
-              </button>
-            </div>
-          </section>
 
           {resonanceMaterialIds.size > 0 && (
             <div className={`${SURFACE_ACCENT} p-3 text-sm text-violet-800 dark:text-violet-200`}>
@@ -1287,13 +1271,27 @@ export function V2CombatPatternView({
           )}
 
           {activeCastableEquipped.length === 0 && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-zinc-950 dark:text-amber-300">
-              개별 발동 가능한 장착 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
-              <br />
-              <span className="text-amber-600/80 dark:text-amber-400/80">
+            <StatusBanner tone="warning" className="space-y-1 text-sm">
+              <p>개별 발동 가능한 장착 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.</p>
+              <p className="text-xs">
                 기존 특정 스킬 블록은 보존되며, 스킬을 다시 장착하면 그대로 발동합니다.
-              </span>
-            </div>
+                {embedded ? " 스킬 탭에서 장착할 수 있습니다." : null}
+              </p>
+              {!embedded && (
+                <Link href="/character/skills" className="inline-flex min-h-10 items-center font-semibold underline underline-offset-2">
+                  스킬 장착하러 가기
+                </Link>
+              )}
+            </StatusBanner>
+          )}
+
+          {blocks.length === 0 && (
+            <EmptyState
+              icon={<ListNumbers size={32} aria-hidden />}
+              title="블록이 없으면 기본 공격만 사용합니다"
+              message="조건과 행동을 정한 블록을 위에서부터 차례로 확인합니다."
+              action={{ label: "블록 추가", onClick: add }}
+            />
           )}
 
           <ul className="space-y-2">
@@ -1474,10 +1472,13 @@ export function V2CombatPatternView({
           </ul>
 
           <div className="flex items-center justify-between gap-2">
-            <button type="button" onClick={add}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
-              + 블록 추가
-            </button>
+            {blocks.length > 0 ? (
+              <Button size="sm" onClick={add}>
+                + 블록 추가
+              </Button>
+            ) : (
+              <span />
+            )}
             {/* 저장 버튼 없음 — 편집하면 자동 저장된다. 아래는 그 상태 표시. */}
             <span
               role="status"
@@ -1509,6 +1510,58 @@ export function V2CombatPatternView({
               {msg}
             </StatusBanner>
           )}
+
+          <details className={`${SURFACE_INSET} group p-3`}>
+            <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              패턴 프리셋 ({presets.length}/{V2_COMBAT_PATTERN_MAX_PRESETS})
+              <CaretDown size={16} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">불러오면 바로 적용됩니다.</p>
+            {presets.length === 0 ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                저장된 프리셋이 없습니다. 아래에서 현재 패턴을 이름 붙여 저장하면 빠르게 바꿔 끼울 수 있습니다.
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {presets.map((p) => (
+                  <li
+                    key={p.name}
+                    className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white py-1 pl-2 pr-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    <span className="max-w-[140px] truncate font-medium">{p.name}</span>
+                    <button type="button" onClick={() => loadPreset(p)} disabled={busy}
+                      className="rounded px-1.5 text-indigo-600 hover:bg-indigo-100 disabled:opacity-40 dark:text-indigo-400 dark:hover:bg-indigo-950">불러오기</button>
+                    <button
+                      type="button"
+                      onClick={() => void overwritePreset(p)}
+                      disabled={busy}
+                      aria-label={`${p.name} 프리셋을 현재 패턴으로 덮어쓰기`}
+                      title="현재 패턴으로 덮어쓰기"
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-amber-500 text-amber-700 transition hover:bg-amber-50 active:scale-90 disabled:opacity-40 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950"
+                    >
+                      <ArrowClockwise size={16} weight="bold" aria-hidden />
+                    </button>
+                    <button type="button" onClick={() => deletePreset(p.name)} disabled={busy}
+                      className="rounded px-1.5 text-rose-500 hover:bg-rose-100 disabled:opacity-40 dark:hover:bg-rose-950">✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="text"
+                value={presetName}
+                maxLength={V2_COMBAT_PRESET_NAME_MAXLEN}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder="현재 패턴 이름 (예: 보스용)"
+                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              <button type="button" onClick={savePreset} disabled={busy}
+                className="shrink-0 rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                프리셋으로 저장
+              </button>
+            </div>
+          </details>
         </>
       )}
     </Wrapper>

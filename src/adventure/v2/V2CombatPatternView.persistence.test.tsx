@@ -76,6 +76,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("빈 스킬 패턴", () => {
+  it("블록이 없으면 기본 공격 안내와 블록 추가 바로가기, 스킬 장착 링크를 보여 준다", async () => {
+    serveSkills({ equipped: [], pattern: null });
+    render(<V2CombatPatternView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("블록이 없으면 기본 공격만 사용합니다")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "스킬 장착하러 가기" }).getAttribute("href")).toBe("/character/skills");
+    expect(screen.queryByRole("button", { name: "+ 블록 추가" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "블록 추가" }));
+
+    expect(patternRows()).toHaveLength(1);
+    expect(screen.queryByText("블록이 없으면 기본 공격만 사용합니다")).toBeNull();
+  });
+});
+
 describe("결투가 패턴 저장과 화면 재진입 (#687)", () => {
   it("네 선언의 순서를 편집·저장하고 프리셋을 적용해도 재진입 시 모든 블록을 보존한다", async () => {
     const { requests } = serveSkills();

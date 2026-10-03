@@ -132,10 +132,6 @@ body {
    보고되어 다열 카드가 휴대폰 안에 억지로 들어가는 경우가 있다. 터치 기기에서는
    실제 조작 폭을 우선해 선택 칸과 의뢰 카드를 한 열로 유지한다. */
 @media (hover: none) and (pointer: coarse) {
-  .life-workshop-touch-tabs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .life-workshop-touch-stack {
     grid-template-columns: minmax(0, 1fr);
   }

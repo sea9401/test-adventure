@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, type Dispatch, type SetStateAction } from "react";
+import { useId, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { CaretDown } from "@phosphor-icons/react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   type V2EquipInstance,
@@ -92,6 +93,8 @@ export function EquipmentTab({
   selection: EquipmentSaleSelection;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const bulkPanelId = useId();
 
   const sortedInstances: V2EquipInstance[] = useMemo(
     () => sortEquipInstances(instances, sortMode),
@@ -130,28 +133,87 @@ export function EquipmentTab({
   return (
     <>
       {instances.length > 0 && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
-          <div className="flex flex-wrap items-center gap-1">
-            {!selection.active && codexBulk ? (
-              <Button
-                onClick={codexBulk.onStart}
-                disabled={busy !== null || codexBulk.registerableCount === 0}
-                variant="success"
-                size="xs"
-                className="mr-1 min-h-0 px-2 py-0.5 text-[11px]"
-              >
-                도감 일괄 등록 ({codexBulk.registerableCount})
-              </Button>
-            ) : null}
-            {selection.active ? (
-              <span className="text-xs font-medium text-rose-600 dark:text-rose-300">
-                판매할 장비를 선택하세요
-              </span>
-            ) : (
-              <>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="장비 정렬 기준"
+              value={sortMode}
+              onChange={(event) =>
+                setSortMode(event.currentTarget.value as SortMode)
+              }
+              className="min-h-10 min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white py-1 pl-2 pr-7 text-sm font-semibold text-zinc-800 [color-scheme:light] outline-none focus:ring-2 focus:ring-focus sm:min-h-9 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:[color-scheme:dark]"
+            >
+              {INVENTORY_SORT_OPTIONS.map((option) => (
+                <option
+                  key={option.key}
+                  value={option.key}
+                  className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              onClick={() => setLockedOnly((current) => !current)}
+              aria-pressed={lockedOnly}
+              variant={lockedOnly ? "primary" : "secondary"}
+              size="sm"
+              className="shrink-0"
+            >
+              잠금만 보기 ({lockedCount})
+            </Button>
+          </div>
+          {selection.active ? (
+            <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
+              판매할 장비를 선택하세요
+            </p>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-expanded={bulkOpen}
+              aria-controls={bulkPanelId}
+              onClick={() => setBulkOpen((open) => !open)}
+            >
+              일괄 작업
+              <CaretDown
+                size={14}
+                aria-hidden
+                className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
+              />
+            </Button>
+          )}
+          {/* 일괄 작업 — 현재 탭 부위 전체 대상, 장착·잠금 장비는 제외(전 장비 판매 가능) */}
+          {bulkOpen && !selection.active ? (
+            <section
+              id={bulkPanelId}
+              aria-label="일괄 작업"
+              className={`${SURFACE_INSET} space-y-3 p-3 text-sm`}
+            >
+              {search.trim() ? (
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                  일괄 판매·도감 일괄 등록은 검색 결과와 관계없이 현재 부위 전체에 적용됩니다. 찾은
+                  장비만 팔려면 선택 판매를 이용해 주세요.
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {codexBulk ? (
+                  <Button
+                    onClick={codexBulk.onStart}
+                    disabled={busy !== null || codexBulk.registerableCount === 0}
+                    size="sm"
+                  >
+                    도감 일괄 등록 ({codexBulk.registerableCount})
+                  </Button>
+                ) : null}
+                <Button onClick={selection.onStart} disabled={busy !== null} size="sm">
+                  선택 판매
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                 {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
-                <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <label className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-300">
                   품질
                   <input
                     type="number"
@@ -169,7 +231,7 @@ export function EquipmentTab({
                       );
                     }}
                     aria-label="일괄 판매 품질 임계값(%)"
-                    className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                    className="min-h-10 w-14 rounded-lg border border-zinc-300 bg-white px-2 text-right text-sm tabular-nums text-zinc-700 [appearance:textfield] sm:min-h-9 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
                   />
                   %
                 </label>
@@ -181,9 +243,8 @@ export function EquipmentTab({
                     )
                   }
                   disabled={busy !== null || qualitySellCount === 0}
-                  variant="warning"
-                  size="xs"
-                  className="min-h-0 px-2 py-0.5 text-[11px]"
+                  variant="danger"
+                  size="sm"
                 >
                   이하 판매 ({qualitySellCount})
                 </Button>
@@ -193,53 +254,13 @@ export function EquipmentTab({
                   }
                   disabled={busy !== null}
                   variant="danger"
-                  size="xs"
-                  className="min-h-0 px-2 py-0.5 text-[11px]"
+                  size="sm"
                 >
                   미장착 전부 판매
                 </Button>
-                <Button
-                  onClick={selection.onStart}
-                  disabled={busy !== null}
-                  variant="secondary"
-                  size="xs"
-                  className="min-h-0 px-2 py-0.5 text-[11px]"
-                >
-                  선택 판매
-                </Button>
-              </>
-            )}
-          </div>
-          <div className="flex min-h-8 items-center gap-1 rounded-lg border border-zinc-300 bg-white px-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <Button
-              type="button"
-              onClick={() => setLockedOnly((current) => !current)}
-              aria-pressed={lockedOnly}
-              variant={lockedOnly ? "primary" : "secondary"}
-              size="xs"
-              className="min-h-7 px-2 py-0.5 text-[11px]"
-            >
-              잠금만 보기 ({lockedCount})
-            </Button>
-            <select
-              aria-label="장비 정렬 기준"
-              value={sortMode}
-              onChange={(event) =>
-                setSortMode(event.currentTarget.value as SortMode)
-              }
-              className="min-h-7 rounded-md border-0 bg-white py-0.5 pl-1 pr-6 text-xs font-semibold text-zinc-800 [color-scheme:light] outline-none focus:ring-2 focus:ring-violet-500 dark:bg-zinc-900 dark:text-zinc-100 dark:[color-scheme:dark]"
-            >
-              {INVENTORY_SORT_OPTIONS.map((option) => (
-                <option
-                  key={option.key}
-                  value={option.key}
-                  className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
       <EquipmentCardGrid

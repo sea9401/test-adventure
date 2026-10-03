@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { useGameResourceState } from "./GameResourceContext";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import { useSystemToast } from "./RewardToastProvider";
@@ -94,18 +95,20 @@ export function BankPanel() {
       {depositOnly ? (
         // 코어루프 — 출금이 없고, 은행 잔액은 패배 페널티 완충+우선소비라 '전부 입금'이 기본 선택.
         //   금액 입력 없이 원탭으로 보유 골드 전부 입금(사용자 요청).
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
+          fullWidth
           onClick={() => submit("deposit", "all")}
           disabled={busyAction !== null || gold <= 0}
-          className="mt-3 w-full rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-3"
         >
           {busyAction === "deposit"
             ? "입금 중…"
             : gold > 0
               ? `전액 입금 (${gold.toLocaleString()}G)`
               : "입금할 골드 없음"}
-        </button>
+        </Button>
       ) : (
         <>
           <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
@@ -135,27 +138,17 @@ export function BankPanel() {
             </button>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => submit("deposit")}
-              disabled={!canSubmit}
-              className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button variant="primary" onClick={() => submit("deposit")} disabled={!canSubmit}>
               {busyAction === "deposit" ? "처리 중…" : "입금"}
-            </button>
-            <button
-              type="button"
-              onClick={() => submit("withdraw")}
-              disabled={!canSubmit}
-              className="rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            </Button>
+            <Button onClick={() => submit("withdraw")} disabled={!canSubmit}>
               {busyAction === "withdraw" ? "처리 중…" : "출금"}
-            </button>
+            </Button>
           </div>
         </>
       )}
       {depositOnly && (
-        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
           입금한 골드는 사냥 패배 페널티에서 안전합니다.
         </p>
       )}

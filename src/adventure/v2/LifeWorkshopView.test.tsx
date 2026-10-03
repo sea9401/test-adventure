@@ -31,18 +31,13 @@ describe("생활 제작 마법부여 할인 표시", () => {
 });
 
 describe("생활 조합 작업장 모바일 배치", () => {
-  it("선택 탭은 중립 다크 표면과 amber 텍스트를 함께 렌더링한다", () => {
+  it("상단 분류는 가로로 넘기는 밑줄 탭 한 줄이다", () => {
     const html = renderToStaticMarkup(<LifeWorkshopView onBack={vi.fn()} />);
 
-    expect(html).toMatch(
-      /<button[^>]*aria-pressed="true"[^>]*class="[^"]*dark:bg-zinc-800[^"]*dark:text-amber-300[^"]*"/,
-    );
-  });
-
-  it("터치 기기에서 상단 메뉴를 네 칸으로 되돌릴 수 있는 표식을 둔다", () => {
-    const html = renderToStaticMarkup(<LifeWorkshopView onBack={vi.fn()} />);
-
-    expect(html).toContain("life-workshop-touch-tabs");
+    expect(html).toMatch(/role="tablist" aria-label="생활 조합 작업장 메뉴"/);
+    expect(html).toContain("overflow-x-auto");
+    expect(html).not.toContain("life-workshop-touch-tabs");
+    expect(html).toMatch(/aria-selected="true"[^>]*>(?:<[^>]+>)*생활 의뢰/);
   });
 
   it("직접 제작 경로는 첫 렌더부터 생활 제작 탭을 선택한다", () => {
@@ -50,7 +45,16 @@ describe("생활 조합 작업장 모바일 배치", () => {
       <LifeWorkshopView onBack={vi.fn()} initialTab="craft" />,
     );
 
-    expect(html).toMatch(/aria-pressed="true"[^>]*>생활 제작<\/button>/);
+    expect(html).toMatch(/aria-selected="true"[^>]*>(?:<[^>]+>)*생활 제작/);
+  });
+
+  it("작업장 소개는 도움말로 옮긴다", () => {
+    const html = renderToStaticMarkup(
+      <LifeWorkshopView onBack={vi.fn()} initialTab="process" />,
+    );
+
+    expect(html).toContain('aria-label="도움말"');
+    expect(html).not.toContain("재료 가공과 도구 승급");
   });
 
   it("작업 결과 영역을 polite 상태 메시지로 알린다", () => {

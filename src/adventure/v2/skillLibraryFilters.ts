@@ -3,6 +3,7 @@ import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 export type SkillJobTierFilter =
   | "all"
@@ -104,4 +105,110 @@ export function matchesSkillLibraryClassification(
     (tierFilter === "all" || classification.tier === tierFilter) &&
     (lineageFilter === "all" || classification.lineage === lineageFilter)
   );
+}
+
+export type SkillDamageType = "physical" | "magic" | "bleed" | "poison" | "burn";
+export type SkillDamageTypeFilter = "all" | SkillDamageType;
+
+export const SKILL_DAMAGE_TYPE_LABELS: Record<SkillDamageType, string> = {
+  physical: "물리 공격",
+  magic: "마법 공격",
+  bleed: "출혈",
+  poison: "중독",
+  burn: "연소",
+};
+
+export const SKILL_DAMAGE_TYPE_OPTIONS: ReadonlyArray<
+  readonly [SkillDamageTypeFilter, string]
+> = [
+  ["all", "전체 유형"],
+  ["physical", SKILL_DAMAGE_TYPE_LABELS.physical],
+  ["magic", SKILL_DAMAGE_TYPE_LABELS.magic],
+  ["bleed", SKILL_DAMAGE_TYPE_LABELS.bleed],
+  ["poison", SKILL_DAMAGE_TYPE_LABELS.poison],
+  ["burn", SKILL_DAMAGE_TYPE_LABELS.burn],
+];
+
+const SKILL_DAMAGE_TYPE_ORDER: readonly SkillDamageType[] = [
+  "physical",
+  "magic",
+  "bleed",
+  "poison",
+  "burn",
+];
+
+// 효과 배열 밖의 전용 메커니즘으로 피해를 주는 스킬. 엔진의 실제 피해 판정과 맞춘다.
+const SKILL_DAMAGE_TYPE_EXTRAS: Partial<Record<V2SkillId, readonly SkillDamageType[]>> = {
+  v2c_lawweaver_release: ["magic"], // 각인 해방 추가 타격은 마법 피해
+};
+
+// 이름·설명 문구는 판별에 쓰지 않는다. 데이터 키만 본다.
+const TEXT_KEYS = new Set(["name", "description", "detail", "label"]);
+
+// 패시브 키 이름으로 판별하는 피해 강화·상태이상 계열. 마법 방어(magicDefPct·magicBarrier)처럼
+//   받는 피해를 줄이는 키는 걸리지 않도록 공격 쪽 키만 고른다.
+const KEY_PATTERNS: ReadonlyArray<readonly [SkillDamageType, RegExp]> = [
+  ["physical", /PhysicalSkill|^physicalSkill|^enemyPhysical/],
+  ["magic", /MagicSkill|^magicSkill|^enemyMagic/],
+  ["bleed", /bleed/i],
+  ["poison", /poison|venom|toxic/i],
+  ["burn", /burn/i],
+];
+
+function isDamageEffectKind(kind: unknown): boolean {
+  return (
+    typeof kind === "string" &&
+    kind !== "healFromDamage" &&
+    (kind === "damage" || kind.endsWith("Damage"))
+  );
+}
+
+function collectDamageTypes(value: unknown, out: Set<SkillDamageType>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectDamageTypes(item, out);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  if (record.kind === "dot") {
+    const tag = record.tag;
+    if (tag === "bleed" || tag === "poison" || tag === "burn") out.add(tag);
+  } else if (isDamageEffectKind(record.kind)) {
+    // 엔진과 같은 기준: 마법·정신 계수는 마법 피해, 그 외 계수는 물리 피해.
+    out.add(
+      record.scaling === "magic" || record.scaling === "spi"
+        ? "magic"
+        : "physical",
+    );
+  }
+  for (const [key, child] of Object.entries(record)) {
+    if (TEXT_KEYS.has(key)) continue;
+    for (const [type, pattern] of KEY_PATTERNS) {
+      if (pattern.test(key)) out.add(type);
+    }
+    collectDamageTypes(child, out);
+  }
+}
+
+const damageTypeCache = new Map<string, readonly SkillDamageType[]>();
+
+export function skillDamageTypes(skillId: string): readonly SkillDamageType[] {
+  const cached = damageTypeCache.get(skillId);
+  if (cached) return cached;
+  const skill = V2_SKILLS[skillId as V2SkillId];
+  const found = new Set<SkillDamageType>();
+  if (skill) {
+    collectDamageTypes(skill, found);
+    for (const type of SKILL_DAMAGE_TYPE_EXTRAS[skill.id] ?? []) found.add(type);
+  }
+  const types = SKILL_DAMAGE_TYPE_ORDER.filter((type) => found.has(type));
+  damageTypeCache.set(skillId, types);
+  return types;
+}
+
+export function matchesSkillDamageType(
+  skillId: string,
+  filter: SkillDamageTypeFilter,
+): boolean {
+  return filter === "all" || skillDamageTypes(skillId).includes(filter);
 }

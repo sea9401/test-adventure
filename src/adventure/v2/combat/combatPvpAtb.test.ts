@@ -215,7 +215,7 @@ describe("resolveBattlePvP ATB invariants", () => {
         entry.kind === "info" &&
         entry.effect === "status_damage" &&
         entry.side === "p2" &&
-        entry.text.includes("중독으로"),
+        /중독(\(\d+\))?으로/.test(entry.text),
     );
 
     expect(firstPoisonTick).toBeDefined();

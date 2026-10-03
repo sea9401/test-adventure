@@ -15,6 +15,7 @@ import {
   UsersThree,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import {
   SURFACE_ACCENT,
   SURFACE_CARD,
@@ -299,6 +300,91 @@ const ERROR_TEXT: Record<string, string> = {
   request_unavailable: "현재 게시된 의뢰가 아닙니다.",
 };
 
+// 오늘의 의뢰 정렬 — 납품 가능 → 진행 중 → 잠김 → 완료. 같은 무리 안에서는 서버 순서를 지킨다.
+export function sortDailyRequestsForBoard(
+  requests: readonly LifeRequestView[],
+  periodLimitReached: boolean,
+): LifeRequestView[] {
+  const rank = (request: LifeRequestView) => {
+    if (request.completed) return 3;
+    if (!request.unlocked || !request.requesterUnlocked || request.chainLocked) return 2;
+    if (!periodLimitReached && request.shortage === 0) return 0;
+    return 1;
+  };
+  return requests
+    .map((request, index) => ({ request, index, rank: rank(request) }))
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map((entry) => entry.request);
+}
+
+// 게시판 안 보기 전환(오늘·주간·의뢰인·기록). 작업장 분류 탭 아래 두 번째 단.
+export function LifeRequestBoardMenu({
+  value,
+  onChange,
+}: {
+  value: BoardTab;
+  onChange: (tab: BoardTab) => void;
+}) {
+  return (
+    <SegmentedControl
+      ariaLabel="생활 의뢰 메뉴"
+      value={value}
+      onChange={onChange}
+      options={LIFE_REQUEST_BOARD_TABS.map((entry) => {
+        const Icon = entry.icon;
+        return {
+          key: entry.id,
+          label: (
+            <span className="inline-flex items-center justify-center gap-1.5">
+              <Icon size={16} weight={value === entry.id ? "fill" : "regular"} aria-hidden />
+              {entry.label}
+            </span>
+          ),
+        };
+      })}
+    />
+  );
+}
+
+// 오늘의 의뢰 필터 — 등급 선택 상자 하나 + 납품 가능만 체크 상자.
+export function DailyRequestFilters({
+  grade,
+  onGradeChange,
+  availableOnly,
+  onAvailableOnlyChange,
+}: {
+  grade: LifeRequestGrade | "all" | null;
+  onGradeChange: (grade: LifeRequestGrade | "all") => void;
+  availableOnly: boolean;
+  onAvailableOnlyChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <select
+        aria-label="의뢰 등급"
+        value={grade ?? "all"}
+        onChange={(event) => onGradeChange(event.target.value as LifeRequestGrade | "all")}
+        className="min-h-10 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+      >
+        {(["all", "normal", "skilled", "expert"] as const).map((value) => (
+          <option key={value} value={value}>
+            {value === "all" ? "전체 등급" : LIFE_REQUEST_GRADES[value].label}
+          </option>
+        ))}
+      </select>
+      <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
+        <input
+          type="checkbox"
+          checked={availableOnly}
+          onChange={(event) => onAvailableOnlyChange(event.target.checked)}
+          className="size-4 accent-emerald-600"
+        />
+        납품 가능만
+      </label>
+    </div>
+  );
+}
+
 export function LifeRequestBoard({
   onChanged,
   onOpenWorkshopTab,
@@ -413,16 +499,7 @@ export function LifeRequestBoard({
     <div className="flex flex-col gap-3">
       {notice ? <div role="status" className={`${SURFACE_ACCENT} px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-100`}>{notice}</div> : null}
 
-      <div aria-label="생활 의뢰 메뉴" className="grid grid-cols-4 gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
-        {LIFE_REQUEST_BOARD_TABS.map((entry) => {
-          const Icon = entry.icon;
-          return (
-            <button key={entry.id} type="button" aria-pressed={boardTab === entry.id} onClick={() => setBoardTab(entry.id)} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition ${boardTab === entry.id ? "bg-white text-amber-700 shadow-sm dark:bg-zinc-800 dark:text-amber-300" : "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"}`}>
-              <Icon size={16} weight={boardTab === entry.id ? "fill" : "regular"} />{entry.label}
-            </button>
-          );
-        })}
-      </div>
+      <LifeRequestBoardMenu value={boardTab} onChange={setBoardTab} />
 
       <details className={`${SURFACE_CARD} ${boardTab === "daily" ? "order-3" : "hidden"} group p-4`}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
@@ -519,17 +596,13 @@ export function LifeRequestBoard({
             <div className="mt-1 flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400"><ClockCountdown size={13} />{resetText(data.nextDailyResetAt)}</div>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-          <div className="flex flex-wrap gap-1.5" aria-label="의뢰 등급 필터">
-            {(["all", "normal", "skilled", "expert"] as const).map((grade) => (
-              <Button key={grade} size="sm" variant={selectedGrade === grade ? "primary" : "secondary"} aria-pressed={selectedGrade === grade} onClick={() => setSelectedGrade(grade)}>
-                {grade === "all" ? "전체 등급" : LIFE_REQUEST_GRADES[grade].label}
-              </Button>
-            ))}
-          </div>
-          <Button size="sm" variant={availableOnly ? "success" : "secondary"} aria-pressed={availableOnly} onClick={() => setAvailableOnly((current) => !current)}>
-            <CheckCircle size={14} /> 납품 가능만 보기
-          </Button>
+        <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+          <DailyRequestFilters
+            grade={selectedGrade}
+            onGradeChange={setSelectedGrade}
+            availableOnly={availableOnly}
+            onAvailableOnlyChange={setAvailableOnly}
+          />
         </div>
         <details className={`${SURFACE_INSET} mt-3 group p-3`}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
@@ -567,8 +640,8 @@ export function LifeRequestBoard({
           </div>
         </details>
         {filteredDaily.length > 0 ? (
-          <div className="life-workshop-touch-stack mt-4 grid gap-3 lg:grid-cols-2">
-            {filteredDaily.map((request) => <LifeRequestCard key={request.id} request={request} periodLimitReached={dailyDone >= LIFE_REQUEST_DAILY_LIMIT} busy={busy === request.id} onDeliver={() => void deliver(request)} onOpenWorkshopTab={onOpenWorkshopTab} />)}
+          <div className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            {sortDailyRequestsForBoard(filteredDaily, dailyDone >= LIFE_REQUEST_DAILY_LIMIT).map((request) => <LifeRequestCard key={request.id} variant="row" request={request} periodLimitReached={dailyDone >= LIFE_REQUEST_DAILY_LIMIT} busy={busy === request.id} onDeliver={() => void deliver(request)} onOpenWorkshopTab={onOpenWorkshopTab} />)}
           </div>
         ) : (
           <div className={`${SURFACE_INSET} mt-3 p-4 text-center text-xs text-zinc-500`}>현재 필터에 맞는 의뢰가 없습니다.</div>
@@ -664,6 +737,7 @@ export function LifeRequestCard({
   busy,
   onDeliver,
   onOpenWorkshopTab,
+  variant = "card",
 }: {
   request: LifeRequestView;
   periodLimitReached: boolean;
@@ -672,6 +746,8 @@ export function LifeRequestCard({
   busy: boolean;
   onDeliver: () => void;
   onOpenWorkshopTab?: (tab: WorkshopDestination) => void;
+  // card: 주간·연계 격자 안 카드. row: 오늘의 의뢰처럼 한 카드 안에서 구분선으로 나뉜 행.
+  variant?: "card" | "row";
 }) {
   const enough = request.shortage === 0;
   const gathered = Math.min(request.balance, request.quantity);
@@ -695,16 +771,16 @@ export function LifeRequestCard({
                 ? "즉시 납품"
                 : `부족 ${request.shortage.toLocaleString()}개`;
   return (
-    <article className={`${SURFACE_INSET} min-w-0 flex flex-col p-4 ${ready || request.completed ? "ring-2 ring-emerald-400 dark:ring-emerald-600" : ""}`}>
+    <article className={variant === "row" ? "min-w-0 flex flex-col py-4" : `${SURFACE_INSET} min-w-0 flex flex-col p-4`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
             {request.completed ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-[10px] dark:border-emerald-700 dark:bg-zinc-950">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-white px-2 py-0.5 text-xs dark:border-emerald-700 dark:bg-zinc-950">
                 <SealCheck size={13} weight="fill" />납품 완료
               </span>
             ) : null}
-            {categoryLabel ? <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-300">{categoryLabel}</span> : null}
+            {categoryLabel ? <span className="rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-300">{categoryLabel}</span> : null}
             {LANE_LABEL[request.lane]}
             {request.chainStage ? <span>· {request.chainStage}/{request.chainTotal}단계</span> : null}
           </div>
@@ -715,22 +791,20 @@ export function LifeRequestCard({
           {LIFE_REQUEST_GRADES[request.grade].label}
         </span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{request.description}</p>
+      <p className="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-300">{request.description}</p>
       {periodLimitReached && !request.completed && closedByWeeklyRequestTitle ? (
         <div className={`${SURFACE_ACCENT} mt-3 px-3 py-2 text-xs font-semibold leading-5 text-amber-900 dark:text-amber-100`}>
           ‘{closedByWeeklyRequestTitle}’ 의뢰를 선택하여 이번 주에는 납품할 수 없습니다.
         </div>
       ) : null}
       {request.completed ? (
-        <div className="mt-4 flex items-center gap-3 border-y border-emerald-300 py-4 text-emerald-800 dark:border-emerald-800 dark:text-emerald-200" role="status">
-          <SealCheck className="shrink-0" size={28} weight="fill" />
-          <div>
-            <div className="text-sm font-extrabold">납품 완료</div>
-            <div className="mt-0.5 text-xs font-semibold">납품과 보상 수령을 완료했습니다.</div>
-          </div>
+        <div className="mt-3 flex items-center gap-2 text-emerald-800 dark:text-emerald-200" role="status">
+          <SealCheck className="shrink-0" size={20} weight="fill" />
+          <span className="text-sm font-bold">납품 완료</span>
+          <span className="text-xs">납품과 보상 수령을 완료했습니다.</span>
         </div>
       ) : (
-        <div className="mt-4 border-y border-zinc-200 py-3 dark:border-zinc-700">
+        <div className="mt-3">
           <div className="flex items-center justify-between gap-3 text-sm">
             <div className="min-w-0">
               <div className="text-xs text-zinc-500">납품 품목</div>
@@ -755,9 +829,9 @@ export function LifeRequestCard({
         보상 · {request.rewardGold.toLocaleString()}골드 · {ACTIVITY_LABEL[request.activity]} XP +{request.rewardXp} · 신뢰 +{request.trustGain}
       </div>
       {!request.completed ? (
-        <div className="life-workshop-touch-stack mt-4 grid grid-cols-2 gap-2">
+        <div className="life-workshop-touch-stack mt-3 grid grid-cols-2 gap-2">
           <SourceAction request={request} onOpenWorkshopTab={onOpenWorkshopTab} />
-          <Button size="sm" disabled={busy || !request.unlocked || !request.requesterUnlocked || request.chainLocked || periodLimitReached || !enough} onClick={onDeliver}>
+          <Button variant={ready ? "primary" : "secondary"} size="sm" disabled={busy || !request.unlocked || !request.requesterUnlocked || request.chainLocked || periodLimitReached || !enough} onClick={onDeliver}>
             {buttonText}
           </Button>
         </div>

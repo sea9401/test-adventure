@@ -55,4 +55,14 @@ describe("EntryList", () => {
     expect(html).toContain("문장 장착과 합성");
     expect(html).toContain("truncate");
   });
+  it("잠긴 메뉴는 설명 대신 해금 조건과 자물쇠를 보여 주고 흐리게 하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <EntryRow icon={<span />} title="개척 노드" description="탐사망 강화" locked="Lv 100에 열림" onClick={vi.fn()} />,
+    );
+
+    expect(html).toContain("Lv 100에 열림");
+    expect(html).not.toContain("탐사망 강화");
+    expect(html).toContain("data-locked");
+    expect(html).not.toMatch(/\bopacity-\d/);
+  });
 });

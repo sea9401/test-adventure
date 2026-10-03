@@ -16,11 +16,13 @@ import {
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PageShell } from "@/components/ui/PageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
+import { TwoPane } from "@/components/ui/TwoPane";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useRewardToast } from "./RewardToastProvider";
@@ -661,12 +663,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     <PageShell spacing="tight">
       <SubViewHeader title="퀘스트" onBack={onBack} />
 
-      <QuestTopTabs
-        active={topTab}
-        onChange={setTopTab}
-        dailyRewardReady={repeat?.dailyBundle.claimable === true}
-        weeklyRewardReady={repeat?.weeklyBundle.claimable === true}
-      />
+      <HeaderPanel className="py-2">
+        <QuestTopTabs
+          active={topTab}
+          onChange={setTopTab}
+          dailyRewardReady={repeat?.dailyBundle.claimable === true}
+          weeklyRewardReady={repeat?.weeklyBundle.claimable === true}
+        />
+      </HeaderPanel>
 
       <QuestTabContent key={topTab} tab={topTab}>
         {loading ? (
@@ -692,14 +696,18 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     const resetAt =
       scope === "daily" ? repeat.dailyResetAt : repeat.weeklyResetAt;
     const completed = list.filter((q) => q.complete).length;
+    // PC(1024px 이상)는 왼쪽에 마일스톤 보상, 오른쪽에 퀘스트 목록.
     return (
-      <>
-        <BundleCard
-          scope={scope}
-          bundle={bundle}
-          busy={bundleBusy === scope}
-          onClaim={() => claimBundle(scope)}
-        />
+      <TwoPane
+        aside={
+          <BundleCard
+            scope={scope}
+            bundle={bundle}
+            busy={bundleBusy === scope}
+            onClaim={() => claimBundle(scope)}
+          />
+        }
+      >
         <Card padding="md" className="space-y-3">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">
@@ -715,7 +723,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             ))}
           </ul>
         </Card>
-      </>
+      </TwoPane>
     );
   }
 
@@ -734,81 +742,90 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     const doneCount = scoped.filter(isDone).length;
     const shown = scoped.filter((q) => (tab === "done" ? isDone(q) : !isDone(q)));
 
+    // PC(1024px 이상)는 왼쪽에 성장 미션·업적 점수·진행 중/완료·모두 받기, 오른쪽에 계열별 퀘스트.
+    //   튜토리얼의 성장 미션은 길어질 수 있어 고정하지 않고, 업적은 짧아서 긴 목록을 따라오게 한다.
     return (
-      <>
-        {forTutorial && (
-          <GrowthLeapMissionPanel
-            mission={growthLeap}
-            now={growthLeapNow}
-            busyId={growthLeapBusy}
-            onClaim={(milestoneId) => void claimGrowthLeap(milestoneId)}
-            coinShopAccessible={coinShopAccessible}
-          />
-        )}
-        {!forTutorial && achievement && (
-          <Card padding="md" className="space-y-2">
-            <div className="flex items-center gap-3">
-              <Trophy size={24} weight="duotone" className="shrink-0 text-amber-600 dark:text-amber-500" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-semibold">업적 점수</h2>
-                  <strong className="text-lg tabular-nums text-zinc-800 dark:text-zinc-100">
-                    {achievement.score.toLocaleString()}점
-                  </strong>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {achievement.completed}/{achievement.total}개 달성 · 전체 {achievement.maxScore.toLocaleString()}점
-                </p>
-              </div>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-amber-400 dark:bg-amber-600"
-                style={{ width: `${Math.min(100, (achievement.score / Math.max(1, achievement.maxScore)) * 100)}%` }}
+      <TwoPane
+        sticky={!forTutorial}
+        aside={
+          <>
+            {forTutorial && (
+              <GrowthLeapMissionPanel
+                mission={growthLeap}
+                now={growthLeapNow}
+                busyId={growthLeapBusy}
+                onClaim={(milestoneId) => void claimGrowthLeap(milestoneId)}
+                coinShopAccessible={coinShopAccessible}
               />
-            </div>
-          </Card>
-        )}
-        <TabBar
-          tabs={[
-            { key: "active", label: `진행 중 (${activeCount})` },
-            { key: "done", label: `완료 (${doneCount})` },
-          ]}
-          active={tab}
-          onChange={setTab}
-          ariaLabel={`${groupLabel} 탭`}
-          size="sm"
-        />
+            )}
+            {!forTutorial && achievement && (
+              <Card padding="md" className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <Trophy size={24} weight="duotone" className="shrink-0 text-amber-600 dark:text-amber-500" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h2 className="text-sm font-semibold">업적 점수</h2>
+                      <strong className="text-lg tabular-nums text-zinc-800 dark:text-zinc-100">
+                        {achievement.score.toLocaleString()}점
+                      </strong>
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {achievement.completed}/{achievement.total}개 달성 · 전체 {achievement.maxScore.toLocaleString()}점
+                    </p>
+                  </div>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-amber-400 dark:bg-amber-600"
+                    style={{ width: `${Math.min(100, (achievement.score / Math.max(1, achievement.maxScore)) * 100)}%` }}
+                  />
+                </div>
+              </Card>
+            )}
+            <HeaderPanel className="py-2">
+              <TabBar
+                tabs={[
+                  { key: "active", label: `진행 중 (${activeCount})` },
+                  { key: "done", label: `완료 (${doneCount})` },
+                ]}
+                active={tab}
+                onChange={setTab}
+                ariaLabel={`${groupLabel} 탭`}
+                size="sm"
+              />
+            </HeaderPanel>
 
+            {tab === "active" && (
+              <Card padding="sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    받을 수 있는 {groupLabel} 보상 {claimableCount}개
+                  </p>
+                  <Button
+                    onClick={() => claimAll(claimAllScope)}
+                    disabled={
+                      claimableCount === 0 || busy !== null || claimAllBusy !== null
+                    }
+                    loading={claimAllBusy === claimAllScope}
+                    loadingLabel={`${groupLabel} 보상 모두 수령 중`}
+                    variant="warning"
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    <Gift size={16} weight="fill" aria-hidden />
+                    모두 받기 ({claimableCount})
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </>
+        }
+      >
         {!forTutorial && monsterCodexOpen && monsterCodex && (
           <MonsterHuntCodexCard
             codex={monsterCodex}
             onClose={() => setMonsterCodexOpen(false)}
           />
-        )}
-
-        {tab === "active" && (
-          <Card padding="sm">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                받을 수 있는 {groupLabel} 보상 {claimableCount}개
-              </p>
-              <Button
-                onClick={() => claimAll(claimAllScope)}
-                disabled={
-                  claimableCount === 0 || busy !== null || claimAllBusy !== null
-                }
-                loading={claimAllBusy === claimAllScope}
-                loadingLabel={`${groupLabel} 보상 모두 수령 중`}
-                variant="warning"
-                size="sm"
-                className="shrink-0"
-              >
-                <Gift size={16} weight="fill" aria-hidden />
-                모두 받기 ({claimableCount})
-              </Button>
-            </div>
-          </Card>
         )}
 
         {shown.length === 0 ? (
@@ -859,7 +876,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             );
           })
         )}
-      </>
+      </TwoPane>
     );
   }
 }

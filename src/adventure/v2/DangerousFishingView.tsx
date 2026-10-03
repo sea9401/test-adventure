@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type {
   DangerousBaitId,
@@ -209,9 +209,19 @@ export function DangerousFishingView({
 
   return (
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[780px] space-y-4 rounded-2xl p-4 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-6`}>
-      <SubViewHeader title="위험 해역 낚시" onBack={onBack} />
+      <SubViewHeader
+        title="위험 해역 낚시"
+        onBack={onBack}
+        help={
+          <p>
+            기존 낚시와 별개의 선택형 콘텐츠입니다. 정해진 20분 세션이나 일일 숙제 없이 한 번의 어획
+            후에도 귀환할 수 있습니다.
+          </p>
+        }
+      />
       <FishingSubTabs
         active="dangerous"
+        fishingLevel={model ? model.heritage.fishingLevel : null}
         onOpenFishing={onOpenFishing}
         onOpenChallenges={onOpenChallenges}
         onOpenLeaderboard={onOpenLeaderboard}
@@ -224,26 +234,23 @@ export function DangerousFishingView({
           onVerify={verifyHuman}
         />
       ) : null}
-      <TabBar
-        tabs={[
-          { key: "voyage", label: "출항", badge: model?.state.voyage ? "!" : undefined },
+      <SegmentedControl
+        options={[
+          { key: "voyage", label: <AlertLabel text="출항" alert={Boolean(model?.state.voyage)} /> },
           {
             key: "boss",
-            label: "거대어",
-            badge:
-              boss?.event?.status === "active" || (boss?.eligible && !boss.claimed)
-                ? "!"
-                : undefined,
+            label: (
+              <AlertLabel
+                text="거대어"
+                alert={boss?.event?.status === "active" || Boolean(boss?.eligible && !boss.claimed)}
+              />
+            ),
           },
         ]}
-        active={activeTab}
+        value={activeTab}
         onChange={setActiveTab}
         ariaLabel="위험 해역 콘텐츠"
-        size="md"
       />
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        기존 낚시와 별개의 선택형 콘텐츠입니다. 정해진 20분 세션이나 일일 숙제 없이 한 번의 어획 후에도 귀환할 수 있습니다.
-      </p>
       {showPurpose ? (
         <section className={`${SURFACE_INSET} space-y-3 p-4`} aria-label="위험 해역 목표와 보상">
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -448,5 +455,20 @@ export function DangerousFishingView({
         </>
       )}
     </main>
+  );
+}
+
+// 화면 안 보기 전환 라벨 — 확인할 내용이 있으면 작은 점을 붙인다(화면 낭독기에는 문장으로).
+function AlertLabel({ text, alert }: { text: string; alert: boolean }) {
+  return (
+    <span className="inline-flex items-center justify-center gap-1.5">
+      {text}
+      {alert ? (
+        <>
+          <span aria-hidden className="size-2 rounded-full bg-amber-500" />
+          <span className="sr-only">, 확인할 내용 있음</span>
+        </>
+      ) : null}
+    </span>
   );
 }

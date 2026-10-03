@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
+import { Button } from "@/components/ui/Button";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { TabBar } from "@/components/ui/TabBar";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Pagination } from "@/components/ui/Pagination";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
@@ -128,15 +134,21 @@ type MatchResp =
       stamina?: StaminaState;
     };
 
-type Tab = "main" | "history" | "ranking" | "tournament" | "loadout" | "shop";
+type Tab = "main" | "history" | "ranking" | "loadout" | "shop";
+type RankingView = "weekly" | "tournament";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "main", label: "메인" },
-  { id: "ranking", label: "순위표" },
-  { id: "tournament", label: "본선" },
-  { id: "loadout", label: "전투 세팅" },
-  { id: "history", label: "기록" },
-  { id: "shop", label: "상점" },
+// 화면 탭은 다섯 개. 주간 순위표와 본선은 순위 탭 안에서 SegmentedControl로 바꾼다.
+export const ARENA_TABS: ReadonlyArray<{ key: Tab; label: string }> = [
+  { key: "main", label: "도전" },
+  { key: "ranking", label: "순위" },
+  { key: "loadout", label: "전투 세팅" },
+  { key: "history", label: "기록" },
+  { key: "shop", label: "상점" },
+];
+
+const RANKING_VIEWS: ReadonlyArray<{ key: RankingView; label: string }> = [
+  { key: "weekly", label: "주간 순위" },
+  { key: "tournament", label: "본선" },
 ];
 
 // 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
@@ -220,7 +232,7 @@ function RecentBattleList({
   const rows = pager.pageItems;
   if (rows.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-zinc-500">{emptyText}</div>
+      <div className={`${SURFACE_CARD} p-6 text-center text-sm text-zinc-500 dark:text-zinc-400`}>{emptyText}</div>
     );
   }
   return (
@@ -389,6 +401,62 @@ function OpponentRecords({
   );
 }
 
+// 아레나 규칙과 주간 보상 — 화면 머리 도움말에서 보여 준다.
+export function ArenaRulesHelp({
+  tournamentDay,
+  dailyMatchCount,
+}: {
+  tournamentDay: boolean;
+  dailyMatchCount: number;
+}) {
+  const rules: Array<[string, string]> = [
+    ["매칭", "실유저 랭크 · 부족하면 연습 상대"],
+    ["쿨타임", "매치 후 10초"],
+    [
+      "스태미나",
+      tournamentDay
+        ? `일요일 연습전 무료 · 오늘 ${dailyMatchCount}전`
+        : `오늘 ${dailyMatchCount}전 · 10전마다 비용 +1`,
+    ],
+    ["점수", tournamentDay ? "일요일 연습전 · Elo 변동 없음" : "Elo K=32 · 승패 양쪽 정산"],
+    ["피해 보정", "최종 피해 35% 감소"],
+    ["방어 기록", "상대가 나를 공격해도 점수/전적 반영"],
+    ["골드", tournamentDay ? "일요일 연습전 보상 없음" : "승리 Lv×50 · 패배/무승부 Lv×10"],
+  ];
+  return (
+    <div className="space-y-3">
+      <dl className="space-y-1.5">
+        {rules.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-3">
+            <dt className="shrink-0 text-zinc-500 dark:text-zinc-400">{label}</dt>
+            <dd className="text-right">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <span className="font-semibold">주간 보상</span>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">우편함 지급</span>
+        </div>
+        <dl className="space-y-1">
+          {WEEKLY_REWARDS.map((reward) => (
+            <div key={reward.rank} className="flex justify-between gap-3">
+              <dt>{reward.rank}</dt>
+              <dd className="tabular-nums text-amber-700 dark:text-amber-300">
+                {reward.coins.toLocaleString()} 코인
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          토요일 23:59 레이팅 순위 기준입니다. 일요일 본선 후 매주 월요일 00:00(KST)에 시즌이
+          넘어갑니다.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const router = useRouter();
   const {
@@ -398,6 +466,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     setStamina,
   } = useGameState();
   const [tab, setTab] = useState<Tab>("main");
+  const [rankingView, setRankingView] = useState<RankingView>("weekly");
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<ArenaHistoryEntry[]>([]);
@@ -579,26 +648,24 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           </>
         }
         onBack={onBack}
+        help={
+          <ArenaRulesHelp
+            tournamentDay={tournamentDay}
+            dailyMatchCount={state?.state?.dailyMatchCount ?? 0}
+          />
+        }
       />
 
-      {/* 탭 바 */}
-      <nav className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-100 p-1 sm:grid-cols-6 dark:bg-zinc-800">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={
-              "rounded-md px-2 py-1.5 text-sm font-medium transition " +
-              (tab === t.id
-                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
-                : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200")
-            }
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      <HeaderPanel className="py-2">
+        <TabBar
+          tabs={ARENA_TABS}
+          active={tab}
+          onChange={setTab}
+          ariaLabel="아레나 메뉴"
+          variant="highlight"
+          scrollable
+        />
+      </HeaderPanel>
 
       {loadError && <LoadErrorBanner onRetry={loadState} />}
 
@@ -650,104 +717,39 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 </span>
               )}
             </div>
-          </section>
-
-          <button
-            type="button"
-            disabled={!canChallenge}
-            onClick={challenge}
-            className="ui-lift-card w-full rounded-lg bg-amber-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
-          >
-            {busy
-              ? "매치 진행 중..."
-              : onCooldown
-                ? `재도전까지 ${cooldownLeftSec}초`
-                : tournamentDay
-                  ? "일요일 무료 연습전"
-                  : lowStamina
-                    ? `스태미나 부족 (${nextStaminaCost} 필요)`
-                    : `도전 (스태미나 ${nextStaminaCost})`}
-          </button>
-
-          {error && (
-            <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-zinc-950 dark:text-red-300">
-              {error}
-            </div>
-          )}
-
-          <section className="grid gap-3 sm:grid-cols-2">
-            <div className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="mb-2 font-semibold">규칙</div>
-              <dl className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
-                <div className="flex justify-between gap-3">
-                  <dt>매칭</dt>
-                  <dd className="text-right">실유저 랭크 · 부족하면 연습 상대</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>쿨타임</dt>
-                  <dd className="text-right">매치 후 10초</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>스태미나</dt>
-                  <dd className="text-right">
-                    {tournamentDay
-                      ? `일요일 연습전 무료 · 오늘 ${state?.state?.dailyMatchCount ?? 0}전`
-                      : `오늘 ${state?.state?.dailyMatchCount ?? 0}전 · 10전마다 비용 +1`}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>점수</dt>
-                  <dd className="text-right">
-                    {tournamentDay
-                      ? "일요일 연습전 · Elo 변동 없음"
-                      : "Elo K=32 · 승패 양쪽 정산"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>피해 보정</dt>
-                  <dd className="text-right">최종 피해 35% 감소</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>방어 기록</dt>
-                  <dd className="text-right">상대가 나를 공격해도 점수/전적 반영</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>골드</dt>
-                  <dd className="text-right">
-                    {tournamentDay
-                      ? "일요일 연습전 보상 없음"
-                      : "승리 Lv×50 · 패배/무승부 Lv×10"}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="font-semibold">주간 보상</span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  우편함 지급
-                </span>
-              </div>
-              <div className="space-y-1 text-xs">
-                {WEEKLY_REWARDS.map((r) => (
-                  <div
-                    key={r.rank}
-                    className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800"
-                  >
-                    <span className="font-medium">{r.rank}</span>
-                    <span className="tabular-nums text-amber-700 dark:text-amber-300">
-                      {r.coins.toLocaleString()} 코인
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                토요일 23:59 레이팅 순위 기준입니다. 일요일 본선 후 매주 월요일
-                00:00(KST)에 시즌이 넘어갑니다.
+            <div className="mt-4 space-y-1.5">
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                disabled={!canChallenge}
+                onClick={challenge}
+              >
+                {busy
+                  ? "매치 진행 중..."
+                  : onCooldown
+                    ? `재도전까지 ${cooldownLeftSec}초`
+                    : tournamentDay
+                      ? "일요일 무료 연습전"
+                      : lowStamina
+                        ? `스태미나 부족 (${nextStaminaCost} 필요)`
+                        : `도전 (스태미나 ${nextStaminaCost})`}
+              </Button>
+              <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+                {tournamentDay
+                  ? `일요일 연습전 무료 · 오늘 ${state?.state?.dailyMatchCount ?? 0}전`
+                  : `오늘 ${state?.state?.dailyMatchCount ?? 0}전 · 10전마다 비용 +1`}
               </p>
             </div>
           </section>
+
+
+          {error && (
+            <StatusBanner tone="error" role="alert" className="text-sm">
+              {error}
+            </StatusBanner>
+          )}
+
 
           <RecentBattleList
             history={history}
@@ -765,9 +767,17 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {tab === "ranking" && <V2ArenaRankingTab />}
-
-      {tab === "tournament" && <V2ArenaTournamentTab />}
+      {tab === "ranking" && (
+        <div className="space-y-3">
+          <SegmentedControl
+            options={RANKING_VIEWS}
+            value={rankingView}
+            onChange={setRankingView}
+            ariaLabel="순위 보기"
+          />
+          {rankingView === "weekly" ? <V2ArenaRankingTab /> : <V2ArenaTournamentTab />}
+        </div>
+      )}
 
       {tab === "loadout" && <V2ArenaLoadoutTab />}
 

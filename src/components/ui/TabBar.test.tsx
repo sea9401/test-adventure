@@ -68,3 +68,24 @@ describe("TabBar 선택과 알림", () => {
     expect(html).toContain('aria-label="처리 가능한 생활 항목 있음"');
   });
 });
+
+describe("TabBar PC 좁은 칸", () => {
+  it("desktopColumns를 주면 1024px 이상에서 가로 스크롤 대신 여러 줄 격자로 놓는다", () => {
+    const html = renderToStaticMarkup(
+      <TabBar
+        tabs={["무기", "갑옷", "장갑", "신발", "반지", "목걸이", "재료", "소모품"].map((label) => ({
+          key: label,
+          label,
+        }))}
+        active="무기"
+        onChange={() => {}}
+        ariaLabel="분류"
+        scrollable
+        desktopColumns={4}
+      />,
+    );
+
+    expect(html).toMatch(/role="tablist"[^>]*class="[^"]*lg:grid lg:grid-cols-4 lg:overflow-visible/);
+    expect(html.match(/lg:text-center/g)).toHaveLength(8);
+  });
+});

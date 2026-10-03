@@ -8,6 +8,7 @@ import {
   setAuthenticatedE2ePersonalBossHp,
 } from "./support/authenticatedDatabase";
 import { prepareLocalHttpBrowser } from "./support/localHttpBrowser";
+import { openPasswordLogin } from "./support/signIn";
 import { installStormExpeditionApiFixture } from "./support/stormExpeditionFixture";
 
 const LOCAL_ORIGIN = "http://localhost:3212";
@@ -753,12 +754,7 @@ async function advanceToWarrior(page: Page) {
 }
 
 async function loginWithPassword(page: Page, loginId: string, password: string) {
-  await page.goto("/sign-in");
-  const passwordLoginSummary = page
-    .locator("summary")
-    .filter({ hasText: "아이디·비밀번호로 로그인" });
-  await expect(passwordLoginSummary).toBeVisible();
-  await passwordLoginSummary.click();
+  await openPasswordLogin(page);
   await page.getByLabel("아이디", { exact: true }).fill(loginId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();

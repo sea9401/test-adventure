@@ -68,6 +68,14 @@ export type TabBarProps<K extends string> = {
   className?: string;
   // 탭이 많아 화면을 넘칠 때 줄바꿈 대신 가로 스크롤. 모바일에서 7+ 탭이 세로로 깨지는 걸 방지.
   scrollable?: boolean;
+  // PC(1024px 이상) 좁은 칸(TwoPane 왼쪽 등)에서는 가로로 넘기는 대신 이 열 수의 격자로 놓는다.
+  desktopColumns?: 2 | 3 | 4;
+};
+
+const DESKTOP_COLUMNS: Record<2 | 3 | 4, string> = {
+  2: "lg:grid lg:grid-cols-2 lg:overflow-visible",
+  3: "lg:grid lg:grid-cols-3 lg:overflow-visible",
+  4: "lg:grid lg:grid-cols-4 lg:overflow-visible",
 };
 
 export function TabBar<K extends string>({
@@ -80,6 +88,7 @@ export function TabBar<K extends string>({
   badgeVariant = "solid",
   className,
   scrollable = false,
+  desktopColumns,
 }: TabBarProps<K>) {
   const navRef = useRef<HTMLElement>(null);
   // 가로 스크롤 시 좌/우 끝 도달 여부 — 안 닿은(=넘치는) 쪽 가장자리를 페이드해 "더 있음"을 알린다.
@@ -115,6 +124,7 @@ export function TabBar<K extends string>({
     scrollable
       ? "no-scrollbar w-full min-w-0 max-w-full flex-nowrap overflow-x-auto"
       : "",
+    desktopColumns ? DESKTOP_COLUMNS[desktopColumns] : "",
     className,
   ]
     .filter(Boolean)
@@ -150,7 +160,7 @@ export function TabBar<K extends string>({
             aria-selected={selected}
             type="button"
             onClick={() => onChange(t.key)}
-            className={`shrink-0 whitespace-nowrap ${TAB_BASE[variant]} ${SIZE[size]} transition-colors ${
+            className={`shrink-0 whitespace-nowrap ${desktopColumns ? "lg:text-center" : ""} ${TAB_BASE[variant]} ${SIZE[size]} transition-colors ${
               selected ? state.active : state.inactive
             }`}
           >

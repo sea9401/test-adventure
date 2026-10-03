@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CoopVisibility } from "@/adventure/data/v2/coopBosses";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import { CoopFreeSupportOption } from "./CoopFreeSupportOption";
@@ -68,15 +69,14 @@ export function CoopManagementPanel({ management, sessions, busy, loaded }: {
             </select>
           </label>
         </div>
-        <button type="button"
+        <Button variant="primary" size="md" fullWidth
           disabled={disabled || !loaded || ownCount === 0 || (support === "keep" && visibility === "keep")}
           onClick={() => void management.applyBulk({
             ...(support !== "keep" ? { allowFreeSupport: support === "on" } : {}),
             ...(visibility !== "keep" ? { visibility } : {}),
-          })}
-          className="min-h-11 w-full rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50">
+          })}>
           내 보스 {ownCount}마리에 적용
-        </button>
+        </Button>
       </section>
       {management.notice && <p role="status" className={`${SURFACE_ACCENT} p-3 text-sm`}>{management.notice}</p>}
     </Card>

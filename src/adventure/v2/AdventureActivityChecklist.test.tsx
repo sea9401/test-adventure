@@ -106,3 +106,37 @@ describe("오늘의 모험 체크", () => {
     );
   });
 });
+
+describe("오늘의 모험 체크 접기", () => {
+  it("묶음마다 앞의 3개만 보이고 나머지는 펼쳐서 본다", () => {
+    const daily: AdventureActivityView[] = Array.from({ length: 5 }, (_, index) => ({
+      id: `daily_${index}`,
+      group: "daily",
+      tab: "battle",
+      title: `일일 활동 ${index + 1}`,
+      detail: "0 / 1",
+      href: "/battle",
+      state: "in_progress",
+      current: 0,
+      target: 1,
+      enabled: true,
+      defaultEnabled: true,
+    }) as AdventureActivityView);
+    render(
+      <AdventureActivityChecklist
+        activities={daily}
+        summary={{ completed: 0, total: 5, actionableCount: 0 }}
+        serverNow={0}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole("link", { name: /일일 활동/ })).toHaveLength(3);
+    const more = screen.getByRole("button", { name: "나머지 2개 보기" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(more);
+    expect(screen.getAllByRole("link", { name: /일일 활동/ })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "접기" }).getAttribute("aria-expanded")).toBe("true");
+  });
+});

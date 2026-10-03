@@ -313,6 +313,30 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">변이자 계열<");
   });
 
+  it("피해 유형으로 독·마법 공격 스킬만 골라 볼 수 있다", () => {
+    const library = realLoadoutLibrary([
+      "v2c_rogue_poison",
+      "v2c_mage_fireball",
+      "v2_skill_strike",
+    ]).map((skill) => ({ ...skill, equipped: false }));
+    render(
+      <V2LoadoutPanel
+        previewMode
+        loadout={{ spBudget: 99, spUsed: 0, equipped: [], library }}
+      />,
+    );
+    const select = screen.getByLabelText("피해 유형");
+
+    fireEvent.change(select, { target: { value: "poison" } });
+    expect(screen.getByText(/검색 결과 1 \/ 3/)).toBeTruthy();
+
+    fireEvent.change(select, { target: { value: "magic" } });
+    expect(screen.getByText(/검색 결과 1 \/ 3/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "검색 초기화" }));
+    expect(screen.getByText(/검색 결과 3 \/ 3/)).toBeTruthy();
+  });
+
   it("간략 카드의 이름 행과 모바일 동작 행을 분리한다", () => {
     const html = renderToStaticMarkup(
       <V2LoadoutPanel

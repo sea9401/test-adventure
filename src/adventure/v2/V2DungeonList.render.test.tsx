@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { RareMapButton, UnexploredDungeonCard, V2DungeonList } from "./V2DungeonList";
@@ -162,5 +162,54 @@ describe("사냥터 희귀 지도 요청", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(initialRequestCount);
+  });
+});
+
+describe("사냥터 PC 2단", () => {
+  function wideScreen() {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("1024px"),
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  }
+
+  it("1024px 이상에서는 사냥터 목록과 고른 사냥터 구역을 나란히 보여 주고 도전 구역이 있는 사냥터를 먼저 고른다", () => {
+    wideScreen();
+    const { container } = render(
+      <V2DungeonList frontierDepth={8} onSelectFloor={vi.fn()} onBack={vi.fn()} />,
+    );
+
+    const aside = container.querySelector("aside");
+    const selected = aside?.querySelector('[aria-current="true"]');
+    expect(selected?.textContent).toContain("도전 구역 포함");
+    expect(container.querySelector("aside + div")?.textContent).toContain("입장");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("사냥터");
+    expect(aside?.className).not.toContain("lg:sticky");
+    // 사냥터 이름과 지역 그림은 오른쪽 맨 위 카드 하나에 함께 둔다.
+    const main = container.querySelector("aside + div");
+    const nameCard = main?.querySelector("h2")?.closest(".ui-surface-card");
+    expect(nameCard?.querySelector("img")).toBeTruthy();
+    expect(main?.querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("고른 사냥터를 표시 설정에서 숨기면 남은 사냥터로 넘어간다", () => {
+    wideScreen();
+    const { container } = render(
+      <V2DungeonList frontierDepth={8} onSelectFloor={vi.fn()} onBack={vi.fn()} />,
+    );
+    const before = container.querySelector('aside [aria-current="true"]')?.textContent ?? "";
+    const name = before.split("입구")[0].replace("도전 구역 포함", "").trim();
+
+    fireEvent.click(screen.getByRole("button", { name: "표시 설정" }));
+    const label = Array.from(container.querySelectorAll("label")).find((item) =>
+      item.textContent?.startsWith(name),
+    );
+    fireEvent.click(label!.querySelector("input")!);
+
+    const after = container.querySelector('aside [aria-current="true"]');
+    expect(after).toBeTruthy();
+    expect(after?.textContent?.startsWith(name)).toBe(false);
   });
 });

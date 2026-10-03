@@ -6,7 +6,7 @@ import { EquipmentTab } from "./EquipmentTab";
 const id = (value: string) => value as V2EquipmentId;
 
 describe("EquipmentTab 선택 판매", () => {
-  it("현재 장비 탭에서 등록 가능한 도감 항목 수와 도감 일괄 등록 버튼을 표시한다", () => {
+  it("기본 화면에는 일괄 작업 메뉴 버튼만 두고 따로 떨어진 라벨은 두지 않는다", () => {
     const html = renderToStaticMarkup(
       <EquipmentTab
         slot="weapon"
@@ -38,7 +38,8 @@ describe("EquipmentTab 선택 판매", () => {
       />,
     );
 
-    expect(html).toContain(">도감 일괄 등록 (1)<");
+    expect(html).toContain("일괄 작업");
+    expect(html).not.toContain("도감 일괄 등록 (1)");
     expect(html).not.toContain(">도감<");
     expect(html).not.toContain(">정리<");
   });

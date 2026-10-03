@@ -73,14 +73,12 @@ describe("GameChrome 결합형 게임 헤더", () => {
     expect(bar?.className).toContain("dark:bg-zinc-950");
   });
 
-  it("협동 보스의 스태미너는 기존 배치를 유지한다", () => {
+  it("협동 보스는 상단 바와 겹치는 화면 안 스태미너 카드를 두지 않는다", () => {
     routeState.pathname = "/battle/coop";
     routeState.huntStaminaMode = true;
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(<GameChrome><main>협동 보스</main></GameChrome>);
-    const bar = within(container).getByText("스태미너").parentElement?.parentElement;
-    expect(bar?.parentElement?.className).not.toContain("sticky");
-    expect(bar?.className).toContain("py-3");
+    expect(within(container).queryByText("스태미너")).toBeNull();
   });
 
   it("쿨다운 모드에서는 미개척지 스태미너 바를 숨긴다", () => {

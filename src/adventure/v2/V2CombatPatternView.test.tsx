@@ -8,6 +8,7 @@ import {
   ConditionParams,
   SkillPatternChoiceList,
   SkillPatternPicker,
+  PatternRulesHelp,
   V2CombatPatternView,
   ENEMY_DEBUFF_OPTIONS,
   combatPatternSkillChoices,
@@ -37,7 +38,8 @@ describe("combat pattern choice controls", () => {
     expect(weapon).toContain("지팡이");
     expect(maxMp).toContain("500");
     expect(maxMp).toContain("이상");
-    expect(page).toContain("상대 최대 MP");
+    expect(page).not.toContain("상대 최대 MP");
+    expect(renderToStaticMarkup(<PatternRulesHelp />)).toContain("상대 최대 MP");
   });
   it("행동 방식에서 일반 공격을 직접 선택할 수 있다", () => {
     const html = renderToStaticMarkup(
@@ -67,8 +69,20 @@ describe("combat pattern choice controls", () => {
     expect(html).toContain('aria-checked="true"');
   });
 
+  it("규칙 문단은 단독 화면에서 도움말로, 스킬 화면 탭에서는 접기로 옮긴다", () => {
+    const page = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
+    const embedded = renderToStaticMarkup(
+      <V2CombatPatternView onBack={vi.fn()} embedded />,
+    );
+
+    expect(page).toContain('aria-label="도움말"');
+    expect(page).not.toContain("서로 다른 스킬은 독립적으로 판정");
+    expect(embedded).toMatch(/<details[^>]*>\s*<summary[^>]*>[^<]*패턴이 작동하는 방식/);
+    expect(embedded).toContain("서로 다른 스킬은 독립적으로 판정");
+  });
+
   it("서로 다른 스킬의 독립 판정과 중복 스킬의 공유 판정을 안내한다", () => {
-    const html = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
+    const html = renderToStaticMarkup(<PatternRulesHelp />);
 
     expect(html).toContain("발동률 판정에 실패하면 다음");
     expect(html).toContain("서로 다른 스킬은 독립적으로 판정");
@@ -78,9 +92,7 @@ describe("combat pattern choice controls", () => {
   });
 
   it("AND/OR 복합 조건의 의미와 혈전 조합 예시를 안내한다", () => {
-    const page = renderToStaticMarkup(
-      <V2CombatPatternView onBack={vi.fn()} />,
-    );
+    const page = renderToStaticMarkup(<PatternRulesHelp />);
     const andEditor = renderToStaticMarkup(
       <ConditionParams
         condition={{
@@ -496,7 +508,7 @@ describe("결계 패턴 편집", () => {
   });
 
   it("세 결계 중 하나가 없을 때 만법불침을 쓰는 OR 예시를 안내한다", () => {
-    const html = renderToStaticMarkup(<V2CombatPatternView onBack={vi.fn()} />);
+    const html = renderToStaticMarkup(<PatternRulesHelp />);
     expect(html).toContain("금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 → 만법불침");
   });
 });

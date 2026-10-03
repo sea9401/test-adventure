@@ -143,7 +143,7 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
       </p>
       <div className="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700">
         <table className="w-full border-collapse text-left">
-          <thead className="bg-zinc-100 text-[11px] text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+          <thead className="bg-zinc-100 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
             <tr>
               <th className="border-b border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
                 티어
@@ -307,11 +307,11 @@ export function CoopRewardTable({
                     <span className="block font-semibold">
                       {COOP_TIER_LABEL[tier]}
                     </span>
-                    <span className="text-[10px] text-zinc-400">
+                    <span className="text-xs text-zinc-400">
                       기여 기준
                     </span>
                     {mine && (
-                      <span className="ml-1 rounded bg-amber-400 px-1 text-[10px] font-semibold text-zinc-950">
+                      <span className="ml-1 rounded bg-amber-400 px-1 text-xs font-semibold text-zinc-950">
                         현재
                       </span>
                     )}

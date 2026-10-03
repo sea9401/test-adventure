@@ -7,6 +7,31 @@ import {
 } from "./fishingProgression";
 import { FishingShopView } from "./FishingShopView";
 
+describe("낚시 상점 설명 접기", () => {
+  it("크기 효과 적용 범위 설명은 접기 안에 둔다", () => {
+    const html = renderToStaticMarkup(
+      <FishingShopView
+        state={{
+          coins: 0,
+          ownedTitleIds: [],
+          staminaPotions: 0,
+          progression: fishingProgressionView(emptyFishingProgression()),
+          seedPouch: null,
+          staminaPotionLimit: null,
+          abyssalBait: null,
+        }}
+        loading={false}
+        buying={null}
+        onBuy={vi.fn(async () => ({ ok: true, message: "완료" }))}
+        onBuyGear={vi.fn(async () => ({ ok: true, message: "완료" }))}
+      />,
+    );
+
+    expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>\s*크기 효과 적용 범위/);
+    expect(html).not.toMatch(/text-\[11px\][^"]*"[^>]*>\+N%/);
+  });
+});
+
 describe("낚시 상점 숙련도 표시", () => {
   it("숙련도와 장비를 합산한 보너스의 부동소수점 꼬리를 숨긴다", () => {
     const base = emptyFishingProgression();

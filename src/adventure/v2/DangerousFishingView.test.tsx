@@ -552,6 +552,24 @@ describe("위험 해역 개인 화면", () => {
     expect(html).not.toContain("출항하기");
   });
 
+  it("출항·거대어는 화면 안 보기 전환이고 소개 문장은 도움말로 옮긴다", () => {
+    const html = renderToStaticMarkup(
+      <DangerousFishingView
+        model={model()}
+        boss={null}
+        loading={false}
+        busy={null}
+        error={null}
+        {...handlers}
+      />,
+    );
+
+    expect(html).toContain('role="group" aria-label="위험 해역 콘텐츠"');
+    expect(html).not.toContain('role="tablist" aria-label="위험 해역 콘텐츠"');
+    expect(html).toContain('aria-label="도움말"');
+    expect(html).not.toContain("기존 낚시와 별개의 선택형 콘텐츠입니다");
+  });
+
   it("출항·거대어 탭을 나누고 준비 화면에 해역 이미지·잠금 상태·현재 장비·상점 이동을 표시한다", () => {
     const html = renderToStaticMarkup(
       <DangerousFishingView
@@ -828,7 +846,7 @@ describe("위험 해역 개인 화면", () => {
       },
     };
     const view = render(<DangerousFishingView boss={before} {...props} />);
-    fireEvent.click(screen.getByRole("tab", { name: /거대어/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^거대어(,|$)/ }));
     fireEvent.click(screen.getByRole("button", { name: "개인 시도 준비" }));
     fireEvent.click(screen.getByRole("button", { name: "거대어 낚시 시작" }));
     await waitFor(() => expect(onStartBossAttempt).toHaveBeenCalledTimes(1));
@@ -868,7 +886,7 @@ describe("위험 해역 개인 화면", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: /거대어/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^거대어(,|$)/ }));
 
     const startButton = screen.getByRole("button", { name: "개인 시도 준비" });
     expect((startButton as HTMLButtonElement).disabled).toBe(true);

@@ -10,6 +10,9 @@ import { useCoopManagement } from "./useCoopManagement";
 import { SURFACE_CARD, SURFACE_ACCENT } from "@/components/ui/surfaces";
 import { useEffect, useState } from "react";
 import { CaretDown, CaretRight, CaretUp } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import {
@@ -165,17 +168,17 @@ function CoopSessionCard({
             <span className="text-sm font-semibold">
               {displayName}
               {difficultyBadge && (
-                <span className="ml-1.5 rounded border border-rose-300 px-1 py-0.5 align-middle text-[10px] font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300">
+                <span className="ml-1.5 rounded border border-rose-300 px-1 py-0.5 align-middle text-xs font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300">
                   {difficultyBadge}
                 </span>
               )}
               <span
-                className={`ml-1.5 rounded border px-1.5 py-0.5 align-middle text-[10px] font-semibold ${visibilityClass}`}
+                className={`ml-1.5 rounded border px-1.5 py-0.5 align-middle text-xs font-semibold ${visibilityClass}`}
               >
                 {visibilityLabel}
               </span>
               {session.isOwner && (
-                <span className="ml-1.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 align-middle text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                <span className="ml-1.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 align-middle text-xs font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
                   내 소환
                 </span>
               )}
@@ -185,12 +188,12 @@ function CoopSessionCard({
                 </span>
               )}
               {session.summonedByName && (
-                <span className="ml-1.5 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                   {session.summonedByName} 님이 소환
                 </span>
               )}
             </span>
-            <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
+            <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
               {fmtCoopRemain(session.expiresAt - now)}
             </span>
           </span>
@@ -211,7 +214,7 @@ function CoopSessionCard({
                     style={{ width: `${mpPct}%` }}
                   />
                 </span>
-                <span className="flex justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                <span className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
                   <span>MP {bossMp.toLocaleString()}</span>
                   {bossMp === 0 && <span>탈진</span>}
                 </span>
@@ -230,7 +233,7 @@ function CoopSessionCard({
             {session.kind === "immortal_berserker" && (
               <ImmortalBerserkerStatus status={session} compact />
             )}
-            <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
               <span>
                 {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}
               </span>
@@ -242,7 +245,7 @@ function CoopSessionCard({
               </span>
             </span>
             {personalBoss && (
-              <span className="block text-[11px] leading-5 text-violet-700 dark:text-violet-300">
+              <span className="block text-xs leading-5 text-violet-700 dark:text-violet-300">
                 {personalBoss.uniqueDrops.map((drop) => (
                   <span key={drop.equipmentId} className="mr-2 inline-block">
                     {V2_EQUIPMENT[drop.equipmentId].name} {drop.chancePct}%
@@ -317,10 +320,19 @@ export function V2CoopBossListView({
     <main
       className={`${SURFACE_CARD} mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100`}
     >
-      <SubViewHeader title="협동 보스" onBack={onBack} />
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
-      </p>
+      <SubViewHeader
+        title="협동 보스"
+        onBack={onBack}
+        help={
+          <>
+            <p>사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.</p>
+            <p>
+              새 보스는 먼저 나만 볼 수 있습니다. 필요할 때 상세 화면에서 길드 또는 전체에
+              공개하세요.
+            </p>
+          </>
+        }
+      />
 
       <V2CoopTabs active="bosses" onOpenShop={onOpenShop} />
 
@@ -342,7 +354,7 @@ export function V2CoopBossListView({
               <span className="min-w-0 text-sm">
                 <span className="font-medium">{coopBossListName(c.kind)}</span>
                 {coopBossDifficultyBadge(c.kind) && (
-                  <span className="ml-1 rounded border border-emerald-400 px-1 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-700 dark:text-emerald-300">
+                  <span className="ml-1 rounded border border-emerald-400 px-1 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-700 dark:text-emerald-300">
                     {coopBossDifficultyBadge(c.kind)}
                   </span>
                 )}{" "}
@@ -357,18 +369,19 @@ export function V2CoopBossListView({
                   </span>
                 )}
               </span>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
                 disabled={busy}
                 onClick={() => void claim(c.sessionId)}
-                className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="shrink-0"
               >
                 {COOP_BOSSES[c.kind].rewardMode === "unexplored_personal"
                   ? "보상 수령"
                   : c.tier
                     ? "보상 수령"
                     : "확인"}
-              </button>
+              </Button>
             </div>
           ))}
         </Card>
@@ -426,8 +439,6 @@ export function V2CoopBossListView({
         </div>
       )}
 
-      <CoopManagementPanel management={management} sessions={sessions} busy={busy} loaded={loaded} />
-
       {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
       <div className="space-y-3">
         <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -453,7 +464,7 @@ export function V2CoopBossListView({
                       {section.sessions.length}
                     </span>
                   </h2>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {section.description}
                   </p>
                 </div>
@@ -485,6 +496,16 @@ export function V2CoopBossListView({
         )}
       </div>
 
+      {/* 소환은 토벌 설정을 읽은 뒤에만 열린다. 설정은 아래 접기에 있으니 실패하면 여기서 알린다. */}
+      {!management.ready && !management.loading && (
+        <StatusBanner tone="error" className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span>토벌 설정을 불러오지 못해 지금은 소환할 수 없습니다.</span>
+          <Button size="sm" onClick={() => void management.reload()}>
+            설정 다시 불러오기
+          </Button>
+        </StatusBanner>
+      )}
+
       {/* 소환하기 — 보스별 카드, 난이도 변형은 카드 안에서 선택 */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -492,10 +513,6 @@ export function V2CoopBossListView({
             <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               새 보스 소환
             </div>
-            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              새 보스는 먼저 나만 볼 수 있습니다. 필요할 때 상세 화면에서 길드 또는
-              전체에 공개하세요.
-            </p>
           </div>
           <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             보스 소환서 {scrolls.toLocaleString()}장 보유
@@ -530,60 +547,51 @@ export function V2CoopBossListView({
                   <span className="block text-sm font-semibold">
                     {baseDef.name}
                   </span>
-                  <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                     소환서 {def.scrollCost}장 · {coopBossDurationLabel(def)}
                     {activeLabel && ` · 토벌 중 ${activeLabel}`}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setInfoOpen(open ? null : group.id)}
-                  aria-expanded={open}
-                  className="flex shrink-0 items-center gap-0.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  정보
-                  {open ? <CaretUp size={12} /> : <CaretDown size={12} />}
-                </button>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   disabled={busy || !loaded || !management.ready || capped || short}
                   onClick={() => void handleSummon(selectedKind)}
-                  className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                  className="shrink-0"
                 >
                   {capped
                     ? "한도 도달"
                     : short
                       ? `소환서 ${scrolls}/${def.scrollCost}`
                       : "소환"}
-                </button>
+                </Button>
               </div>
-              {group.variants.length > 1 && (
-                <div className="grid grid-cols-2 gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900">
-                  {group.variants.map((variant) => {
-                    const selected = selectedKind === variant.kind;
-                    return (
-                      <button
-                        key={variant.kind}
-                        type="button"
-                        onClick={() =>
-                          setSelectedKindByGroup((prev) => ({
-                            ...prev,
-                            [group.id]: variant.kind,
-                          }))
-                        }
-                        aria-pressed={selected}
-                        className={`rounded px-2 py-1.5 text-xs font-semibold transition-colors ${
-                          selected
-                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
-                            : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        }`}
-                      >
-                        {variant.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {group.variants.length > 1 && (
+                  <SegmentedControl
+                    options={group.variants.map((variant) => ({
+                      key: variant.kind,
+                      label: variant.label,
+                    }))}
+                    value={selectedKind}
+                    onChange={(kind) =>
+                      setSelectedKindByGroup((prev) => ({ ...prev, [group.id]: kind }))
+                    }
+                    ariaLabel={`${baseDef.name} 난이도`}
+                    className="flex-1"
+                  />
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInfoOpen(open ? null : group.id)}
+                  aria-expanded={open}
+                  className="ml-auto shrink-0"
+                >
+                  정보
+                  {open ? <CaretUp size={14} aria-hidden /> : <CaretDown size={14} aria-hidden />}
+                </Button>
+              </div>
               <div className="ui-expand-grid" data-open={open} aria-hidden={!open}>
                 <div className="ui-expand-content">
                   <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
@@ -591,7 +599,7 @@ export function V2CoopBossListView({
                       {def.traits.map((t) => (
                         <span
                           key={t}
-                          className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                          className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
                         >
                           {t}
                         </span>
@@ -605,6 +613,15 @@ export function V2CoopBossListView({
           );
         })}
       </div>
+
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 border-t border-zinc-200 pt-3 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200 [&::-webkit-details-marker]:hidden">토벌 설정
+          <CaretDown size={16} aria-hidden className="shrink-0 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-2">
+          <CoopManagementPanel management={management} sessions={sessions} busy={busy} loaded={loaded} />
+        </div>
+      </details>
     </main>
   );
 }

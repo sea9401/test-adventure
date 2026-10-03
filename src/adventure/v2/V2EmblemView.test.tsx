@@ -4,204 +4,144 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import type { EmblemState } from "@/adventure/data/v2/emblems";
 import { V2EmblemView } from "./V2EmblemView";
 import { V2CharacterMenu } from "./V2CharacterMenu";
+
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 const fetchMock = vi.fn();
-const initial = { owned: [{ iid: "a", kind: "hp", grade: 1 }, { iid: "b", kind: "hp", grade: 1 }], slots: ["a", null, null, null], revision: 4 };
-const mixed: EmblemState = {
+
+const sample: EmblemState = {
   owned: [
-    { iid: "str", kind: "str", grade: 2 },
-    { iid: "hp-low", kind: "hp", grade: 1 },
-    { iid: "mp", kind: "mp", grade: 5 },
-    { iid: "hp-high", kind: "hp", grade: 3 },
-    { iid: "hp-copy", kind: "hp", grade: 3 },
-    { iid: "luk", kind: "luk", grade: 4 },
+    { iid: "str-2", kind: "str", grade: 2 },
+    { iid: "hp-3", kind: "hp", grade: 3 },
+    { iid: "dex-a", kind: "dex", grade: 1 },
+    { iid: "dex-b", kind: "dex", grade: 1 },
+    { iid: "dex-c", kind: "dex", grade: 1 },
   ],
-  slots: ["str", "hp-low", "mp", "hp-high"],
+  slots: ["str-2", "hp-3", null, null],
   revision: 7,
 };
 
-function respondWith(emblems: EmblemState) {
-  fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, emblems }) });
+function respondWith(emblems: EmblemState, extra: Record<string, unknown> = {}) {
+  fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, emblems, ...extra }) });
+}
+function lastBody() {
+  return JSON.parse(fetchMock.mock.calls.at(-1)![1].body);
 }
 
-function inventoryHeadings() {
-  return within(screen.getByRole("region", { name: "보유 문장" }))
-    .getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
-}
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
-  fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ok: true, emblems: initial }) });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-describe("emblem screen", () => {
-  it("defaults to kind and high grade order, and switches sorting without renumbering items", async () => {
-    respondWith(mixed);
+describe("문장 화면", () => {
+  it("맨 위에 장착한 문장으로 레벨업마다 얻는 능력치 합계를 보여 주고 규칙은 접어 둔다", async () => {
+    respondWith(sample);
     render(<V2EmblemView />);
-    await screen.findByRole("region", { name: "보유 문장" });
-    expect(inventoryHeadings()).toEqual([
-      "HP 문장 · 3등급", "HP 문장 · 3등급", "HP 문장 · 1등급",
-      "MP 문장 · 5등급", "힘 문장 · 2등급", "행운 문장 · 4등급",
-    ]);
 
-    const sort = screen.getByRole("combobox", { name: "문장 정렬" });
-    expect((sort as HTMLSelectElement).value).toBe("kind");
-    fireEvent.change(sort, { target: { value: "grade" } });
-    expect(inventoryHeadings()).toEqual([
-      "MP 문장 · 5등급", "행운 문장 · 4등급", "HP 문장 · 3등급",
-      "HP 문장 · 3등급", "힘 문장 · 2등급", "HP 문장 · 1등급",
-    ]);
-    const inventory = within(screen.getByRole("region", { name: "보유 문장" }));
-    expect(inventory.getAllByRole("button", { name: /^문장 \d+ 장착$/ })
-      .map((button) => button.getAttribute("aria-label"))).toEqual([
-      "문장 3 장착", "문장 6 장착", "문장 4 장착", "문장 5 장착", "문장 1 장착", "문장 2 장착",
-    ]);
-
-    fireEvent.change(sort, { target: { value: "acquired" } });
-    expect(inventoryHeadings()).toEqual([
-      "힘 문장 · 2등급", "HP 문장 · 1등급", "MP 문장 · 5등급",
-      "HP 문장 · 3등급", "HP 문장 · 3등급", "행운 문장 · 4등급",
-    ]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const summary = await screen.findByRole("region", { name: "레벨업 성장 요약" });
+    expect(summary.textContent).toContain("HP +0~10");
+    expect(summary.textContent).toContain("힘 +0~2");
+    const rules = summary.querySelector("details");
+    expect(rules?.hasAttribute("open")).toBe(false);
+    expect(rules?.textContent).toContain("이미 얻은 능력치는 해제해도 유지");
   });
 
-  it("identifies all four equipped instances beside their names, including duplicate kinds", async () => {
-    respondWith(mixed);
+  it("빈 칸을 누르면 그 칸에 넣을 문장을 고르고 현재 리비전과 함께 장착한다", async () => {
+    respondWith(sample);
     render(<V2EmblemView />);
-    const inventory = within(await screen.findByRole("region", { name: "보유 문장" }));
-    const headings = inventory.getAllByRole("heading", { level: 3 });
-    const badges = inventory.getAllByText(/^장착 중 · 슬롯 [1-4]$/);
-    expect(badges).toHaveLength(4);
-    expect(headings[0].parentElement?.textContent).toContain("장착 중 · 슬롯 4");
-    expect(headings[1].parentElement?.textContent).not.toContain("장착 중");
-    expect(headings[2].parentElement?.textContent).toContain("장착 중 · 슬롯 2");
-    expect(headings[3].parentElement?.textContent).toContain("장착 중 · 슬롯 3");
-    expect(headings[4].parentElement?.textContent).toContain("장착 중 · 슬롯 1");
-    expect(headings[5].parentElement?.textContent).not.toContain("장착 중");
-  });
 
-  it("equips the sorted instance and refreshes its badge after replacement and unequip", async () => {
-    respondWith(mixed);
-    render(<V2EmblemView />);
-    const sort = await screen.findByRole("combobox", { name: "문장 정렬" });
-    fireEvent.change(sort, { target: { value: "grade" } });
-    fireEvent.click(screen.getByRole("button", { name: "슬롯 4 선택" }));
-    const equipped = { ...mixed, slots: ["str", "hp-low", "mp", "hp-copy"], revision: 8 };
-    respondWith(equipped);
-    fireEvent.click(screen.getByRole("button", { name: "문장 5 장착" }));
+    fireEvent.click(await screen.findByRole("button", { name: "칸 3: 비어 있음" }));
+    const picker = screen.getByRole("group", { name: "칸 3에 넣을 문장" });
+    respondWith({ ...sample, slots: ["str-2", "hp-3", "dex-a", null], revision: 8 });
+    fireEvent.click(within(picker).getByRole("button", { name: "민첩 1등급 장착" }));
+
     await screen.findByText(/문장을 장착했습니다/);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
-      action: "equip", iid: "hp-copy", slot: 3, expectedRevision: 7,
-    });
-    expect((sort as HTMLSelectElement).value).toBe("grade");
-    const inventory = within(screen.getByRole("region", { name: "보유 문장" }));
-    const hpHeadings = inventory.getAllByRole("heading", { name: "HP 문장 · 3등급" });
-    expect(hpHeadings[0].parentElement?.textContent).not.toContain("장착 중");
-    expect(hpHeadings[1].parentElement?.textContent).toContain("장착 중 · 슬롯 4");
-    expect((screen.getByRole("button", { name: "문장 5 장착" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(lastBody()).toEqual({ action: "equip", iid: "dex-a", slot: 2, expectedRevision: 7 });
+    expect(screen.getByRole("button", { name: "칸 3: 민첩 1등급" })).toBeTruthy();
+  });
 
-    respondWith({ ...equipped, slots: ["str", "hp-low", "mp", null], revision: 9 });
-    fireEvent.click(screen.getByRole("button", { name: "슬롯 4 해제" }));
+  it("장착된 칸을 누르면 해제할 수 있다", async () => {
+    respondWith(sample);
+    render(<V2EmblemView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "칸 1: 힘 2등급" }));
+    respondWith({ ...sample, slots: [null, "hp-3", null, null], revision: 8 });
+    fireEvent.click(screen.getByRole("button", { name: "칸 1 해제" }));
+
     await screen.findByText(/문장을 해제했습니다/);
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
-      action: "unequip", slot: 3, expectedRevision: 8,
-    });
-    expect(inventory.queryByText("장착 중 · 슬롯 4")).toBeNull();
-    expect((sort as HTMLSelectElement).value).toBe("grade");
+    expect(lastBody()).toEqual({ action: "unequip", slot: 0, expectedRevision: 7 });
   });
 
-  it("preserves fusion target and material identities after sorting", async () => {
-    respondWith(mixed);
+  it("보유 문장은 같은 종류·등급을 개수로 묶고 합성 가능 여부를 표시한다", async () => {
+    respondWith(sample);
     render(<V2EmblemView />);
-    const sort = await screen.findByRole("combobox", { name: "문장 정렬" });
-    fireEvent.change(sort, { target: { value: "grade" } });
-    fireEvent.click(screen.getByRole("button", { name: "문장 4 합성 대상 선택" }));
-    const materials = screen.getByRole("combobox", { name: "소모할 재료 문장" });
-    expect(within(materials).getAllByRole("option").map((option) => option.textContent))
-      .toEqual(["HP 문장 · 3등급 · 문장 5"]);
 
-    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
-      ok: true, success: true, emblems: {
-        ...mixed,
-        owned: mixed.owned.filter((item) => item.iid !== "hp-copy")
-          .map((item) => item.iid === "hp-high" ? { ...item, grade: 4 } : item),
-        revision: 8,
-      },
-    }) });
-    fireEvent.click(screen.getByRole("button", { name: "합성 실행" }));
-    await screen.findByText(/합성에 성공했습니다/);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
-      action: "fuse", iid: "hp-high", materialIid: "hp-copy", expectedRevision: 7,
-    });
-    expect(inventoryHeadings()).toEqual([
-      "MP 문장 · 5등급", "HP 문장 · 4등급", "행운 문장 · 4등급", "힘 문장 · 2등급", "HP 문장 · 1등급",
-    ]);
-    const inventory = within(screen.getByRole("region", { name: "보유 문장" }));
-    expect(inventory.getByRole("heading", { name: "HP 문장 · 4등급" }).parentElement?.textContent)
-      .toContain("장착 중 · 슬롯 4");
+    const inventory = await screen.findByRole("region", { name: "보유 문장" });
+    const groups = within(inventory).getAllByRole("button", { name: /등급/ }).map((button) => button.textContent);
+    expect(groups).toHaveLength(3);
+    expect(within(inventory).getByRole("button", { name: /민첩 1등급.*3개/ }).textContent).toContain("합성 가능");
+    expect(within(inventory).getByRole("button", { name: /HP 3등급.*1개/ }).textContent).toContain("장착");
   });
 
-  it("keeps the fusion confirmation and its result inside the selected emblem card", async () => {
-    respondWith(mixed);
+  it("묶음을 열면 성공률과 재료 소모를 보여 주고, 합성하기를 눌러야 합성한다", async () => {
+    respondWith(sample);
     render(<V2EmblemView />);
-    const cardOf = (iid: string) => document.querySelector(`[data-emblem-iid="${iid}"]`) as HTMLElement;
-    fireEvent.click(await screen.findByRole("button", { name: "문장 4 합성 대상 선택" }));
-    const confirm = screen.getByRole("group", { name: "문장 합성 확인" });
-    expect(cardOf("hp-high").contains(confirm)).toBe(true);
-    expect(within(confirm).getByRole("combobox", { name: "소모할 재료 문장" })).toBeTruthy();
 
-    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({
-      ok: true, success: true, emblems: {
-        ...mixed,
-        owned: mixed.owned.filter((item) => item.iid !== "hp-copy")
-          .map((item) => item.iid === "hp-high" ? { ...item, grade: 4 } : item),
-        revision: 8,
-      },
-    }) });
-    fireEvent.click(within(confirm).getByRole("button", { name: "합성 실행" }));
-    const result = await screen.findByText(/합성에 성공했습니다/);
-    expect(cardOf("hp-high").contains(result)).toBe(true);
-    expect(screen.queryByRole("group", { name: "문장 합성 확인" })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /민첩 1등급.*3개/ }));
+    const detail = screen.getByRole("group", { name: "민첩 문장 1등급" });
+    expect(detail.textContent).toContain("성공률 35%");
+    expect(detail.textContent).toContain("실패해도 재료 문장 1개는 소모");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    respondWith({ ...mixed, revision: 9 });
-    fireEvent.click(screen.getByRole("button", { name: "슬롯 1 해제" }));
-    const unequipped = await screen.findByText(/문장을 해제했습니다/);
-    expect(unequipped.closest("[data-emblem-iid]")).toBeNull();
-    expect(screen.queryByText(/합성에 성공했습니다/)).toBeNull();
+    respondWith({ ...sample, owned: sample.owned.filter((item) => item.iid !== "dex-b") }, { success: false });
+    fireEvent.click(within(detail).getByRole("button", { name: "합성하기" }));
+
+    const row = screen.getByRole("group", { name: "민첩 문장" });
+    expect((await within(row).findByText(/합성에 실패했습니다/)).textContent).toContain("재료만 소모");
+    expect(lastBody()).toEqual({ action: "fuse", iid: "dex-a", materialIid: "dex-b", expectedRevision: 7 });
   });
 
-  it("opens the emblem screen from the character menu", () => {
+  it("묶음에서 원하는 칸을 골라 바로 장착할 수 있다", async () => {
+    respondWith(sample);
+    render(<V2EmblemView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /민첩 1등급.*3개/ }));
+    respondWith({ ...sample, slots: ["dex-a", "hp-3", null, null], revision: 8 });
+    fireEvent.click(screen.getByRole("button", { name: "칸 1에 장착 (지금: 힘 2등급)" }));
+
+    await screen.findByText(/문장을 장착했습니다/);
+    expect(lastBody()).toEqual({ action: "equip", iid: "dex-a", slot: 0, expectedRevision: 7 });
+  });
+
+  it("칸 고르기와 묶음 상세는 한 번에 하나만 열린다", async () => {
+    respondWith(sample);
+    render(<V2EmblemView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "칸 3: 비어 있음" }));
+    fireEvent.click(screen.getByRole("button", { name: /민첩 1등급.*3개/ }));
+    expect(screen.queryByRole("group", { name: "칸 3에 넣을 문장" })).toBeNull();
+    expect(screen.getByRole("group", { name: "민첩 문장 1등급" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "칸 4: 비어 있음" }));
+    expect(screen.queryByRole("group", { name: "민첩 문장 1등급" })).toBeNull();
+    expect(screen.getByRole("group", { name: "칸 4에 넣을 문장" })).toBeTruthy();
+  });
+
+  it("불러오지 못하면 빈 목록 대신 다시 불러오기를 보여 준다", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({ ok: false, error: "rate_limited" }) });
+    render(<V2EmblemView />);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("요청이 많습니다");
+    respondWith(sample);
+    fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
+    await screen.findByRole("region", { name: "보유 문장" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("캐릭터 메뉴에서 문장 화면으로 이동한다", () => {
     const onAction = vi.fn();
     render(<V2CharacterMenu onAction={onAction} />);
     fireEvent.click(screen.getByRole("button", { name: /문장/ }));
     expect(onAction).toHaveBeenCalledWith({ kind: "open-emblems" });
-  });
-  it("shows four slots and sends the selected slot with the current revision", async () => {
-    render(<V2EmblemView />);
-    const slots = await screen.findAllByRole("button", { name: /^슬롯 [1-4] 선택$/ });
-    expect(slots).toHaveLength(4);
-    fireEvent.click(slots[3]);
-    fireEvent.click(screen.getByRole("button", { name: "문장 2 장착" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ action: "equip", iid: "b", slot: 3, expectedRevision: 4 });
-  });
-  it("requires explicit fusion confirmation and explains a failed fusion", async () => {
-    render(<V2EmblemView />);
-    fireEvent.click(await screen.findByRole("button", { name: "문장 1 합성 대상 선택" }));
-    expect(screen.getByText(/실패해도 재료 문장은 소모/)).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, success: false, emblems: { ...initial, owned: [initial.owned[0]], revision: 5 } }) });
-    fireEvent.click(screen.getByRole("button", { name: "합성 실행" }));
-    expect(await screen.findByText(/합성에 실패했습니다/)).toBeTruthy();
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ action: "fuse", iid: "a", materialIid: "b", expectedRevision: 4 });
-    expect(screen.queryByRole("button", { name: "문장 2 장착" })).toBeNull();
-  });
-  it("handles loading failures with a retry instead of an empty inventory", async () => {
-    fetchMock.mockRejectedValueOnce(new Error("offline"));
-    render(<V2EmblemView />);
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
-    expect(await screen.findByRole("button", { name: "문장 2 장착" })).toBeTruthy();
   });
 });

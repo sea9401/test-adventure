@@ -1,4 +1,4 @@
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretRight, LockSimple } from "@phosphor-icons/react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { SURFACE_CARD } from "./surfaces";
@@ -33,6 +33,8 @@ export function EntryRow({
   image,
   title,
   description,
+  locked,
+  selected = false,
   onClick,
 }: {
   icon: ReactNode;
@@ -40,13 +42,21 @@ export function EntryRow({
   image?: string;
   title: string;
   description?: string;
+  /** 해금 조건 문구(예: "Lv 100에 열림"). 주면 설명 대신 자물쇠와 조건을 보여 준다. 누를 수는 있다. */
+  locked?: string;
+  /** PC 2단에서 오른쪽에 열린 항목. */
+  selected?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+      data-locked={locked ? "true" : undefined}
+      aria-current={selected ? "true" : undefined}
+      className={`flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+        selected ? "bg-zinc-100 dark:bg-zinc-800" : ""
+      }`}
     >
       <span
         aria-hidden
@@ -65,10 +75,15 @@ export function EntryRow({
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-base font-medium text-zinc-900 dark:text-zinc-100">
+        <span className={`block truncate text-base font-medium ${locked ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-900 dark:text-zinc-100"}`}>
           {title}
         </span>
-        {description ? (
+        {locked ? (
+          <span className="flex items-center gap-1 truncate text-sm text-zinc-500 dark:text-zinc-400">
+            <LockSimple size={14} weight="bold" aria-hidden className="shrink-0" />
+            {locked}
+          </span>
+        ) : description ? (
           <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">
             {description}
           </span>

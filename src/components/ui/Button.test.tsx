@@ -83,3 +83,19 @@ describe("Button 디자인 계층", () => {
     expect(primary).not.toContain("violet");
   });
 });
+
+describe("Button 위계", () => {
+  it("성공·경고·안내 변형은 화면마다 다른 색 대신 주 버튼과 같은 모양으로 그린다", () => {
+    const primary = buttonClassName({ variant: "primary" });
+    for (const variant of ["success", "warning", "info"] as const) {
+      const cls = buttonClassName({ variant });
+      expect(cls).toBe(primary);
+      expect(cls).not.toMatch(/emerald|amber|sky/);
+    }
+  });
+
+  it("위험 행동만 빨간 버튼을 쓴다", () => {
+    expect(buttonClassName({ variant: "danger" })).toContain("bg-rose-600");
+    expect(buttonClassName({ variant: "primary" })).not.toContain("rose");
+  });
+});

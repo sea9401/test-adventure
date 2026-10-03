@@ -32,9 +32,12 @@ import {
 } from "./SkillDetailDialog";
 import { useSystemMessageState } from "./RewardToastProvider";
 import {
+  matchesSkillDamageType,
   matchesSkillLibraryClassification,
+  SKILL_DAMAGE_TYPE_OPTIONS,
   SKILL_JOB_TIER_OPTIONS,
   SKILL_LINEAGE_OPTIONS,
+  type SkillDamageTypeFilter,
   type SkillJobTierFilter,
   type SkillLineageFilter,
 } from "./skillLibraryFilters";
@@ -240,6 +243,8 @@ export function V2LoadoutPanel({
     useState<SkillJobTierFilter>("all");
   const [skillLineageFilter, setSkillLineageFilter] =
     useState<SkillLineageFilter>("all");
+  const [skillDamageTypeFilter, setSkillDamageTypeFilter] =
+    useState<SkillDamageTypeFilter>("all");
   const [domain, setDomain] = useState<SkillDomain>("combat");
   const [viewMode, setViewMode] =
     useState<SkillLibraryViewMode>("compact");
@@ -428,6 +433,13 @@ export function V2LoadoutPanel({
         ) {
           return false;
         }
+        // 피해 유형은 전투 스킬 목록에서만 고를 수 있으므로 생활 스킬에는 적용하지 않는다.
+        if (
+          domain === "combat" &&
+          !matchesSkillDamageType(s.skillId, skillDamageTypeFilter)
+        ) {
+          return false;
+        }
         if (filter === "favorite") return favorite;
         if (filter === "equipped") return equipped;
         if (filter === "available") return !equipped && wouldFit;
@@ -436,12 +448,14 @@ export function V2LoadoutPanel({
         return s.category === filter;
       }),
     [
+      domain,
       equippedSet,
       favoriteSet,
       filter,
       displayedDomainLibrary,
       queryTerms,
       searchIndex,
+      skillDamageTypeFilter,
       skillLineageFilter,
       skillTierFilter,
       learnedSkillIds,
@@ -1231,9 +1245,9 @@ export function V2LoadoutPanel({
             </button>
           </div>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-md">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-xl sm:grid-cols-3">
           <label className="space-y-1">
-            <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
               스킬 차수
             </span>
             <select
@@ -1251,7 +1265,7 @@ export function V2LoadoutPanel({
             </select>
           </label>
           <label className="space-y-1">
-            <span className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
               직업 계열
             </span>
             <select
@@ -1270,6 +1284,28 @@ export function V2LoadoutPanel({
               ))}
             </select>
           </label>
+          {domain === "combat" && (
+            <label className="space-y-1">
+              <span className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                피해 유형
+              </span>
+              <select
+                value={skillDamageTypeFilter}
+                onChange={(event) =>
+                  setSkillDamageTypeFilter(
+                    event.target.value as SkillDamageTypeFilter,
+                  )
+                }
+                className="h-8 w-full rounded-md border border-zinc-300 bg-white px-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+                {SKILL_DAMAGE_TYPE_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className="mt-2 flex min-w-0 max-w-full overflow-x-auto gap-1.5 pb-1">
           {filterDefs.map((f) => (
@@ -1298,12 +1334,14 @@ export function V2LoadoutPanel({
               setFilter("all");
               setSkillTierFilter("all");
               setSkillLineageFilter("all");
+              setSkillDamageTypeFilter("all");
             }}
             disabled={
               query.length === 0 &&
               filter === "all" &&
               skillTierFilter === "all" &&
-              skillLineageFilter === "all"
+              skillLineageFilter === "all" &&
+              (domain === "lifestyle" || skillDamageTypeFilter === "all")
             }
             className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   BulletinFeed,
@@ -63,6 +63,13 @@ afterEach(() => {
 });
 
 describe("RecentBulletinPreview", () => {
+  it("보여 줄 글이 없으면 홈에서 위젯을 숨긴다", async () => {
+    mocks.fetchPosts.mockResolvedValue({ posts: [] } as unknown as BulletinFeed);
+    const { container } = render(<RecentBulletinPreview />);
+
+    await waitFor(() => expect(container.innerHTML).toBe(""));
+  });
+
   it("공지를 제외한 최신 일반 게시글 네 개만 표시한다", async () => {
     const feed: BulletinFeed = {
       posts: [

@@ -799,7 +799,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
       (e) =>
         e.kind !== "hp_bar" &&
         e.effect === "status_damage" &&
-        e.text.includes("출혈로") &&
+        /출혈(\(\d+\))?로/.test(e.text) &&
         e.text.includes("피해를 입었다"),
     );
     expect(dotTickLogs.length).toBeGreaterThan(0);
@@ -1915,7 +1915,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
         (e) =>
           e.kind !== "hp_bar" &&
           e.effect === "status_damage" &&
-          e.text.includes("출혈로"),
+          /출혈(\(\d+\))?로/.test(e.text),
       ).length,
     ).toBe(1);
   });

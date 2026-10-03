@@ -35,7 +35,8 @@ export function AdventureHomeWidgetGrid({
         <div
           key={id}
           data-testid="home-widget"
-          className={FULL_WIDTH.has(id) ? "sm:col-span-2" : ""}
+          // 위젯이 아무것도 그리지 않으면(예: 공지가 없을 때) 칸 자체를 숨겨 빈 자리를 남기지 않는다.
+          className={`has-[>div:empty]:hidden ${FULL_WIDTH.has(id) ? "sm:col-span-2" : ""}`}
         >
           <div
             className={

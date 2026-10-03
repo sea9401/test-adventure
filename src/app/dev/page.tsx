@@ -13,6 +13,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/job-codex", title: "직업 도감 — 수집 대시보드(A 메타 PR-1)", desc: "V2JobCodexView 렌더 확인. 직군/직업 숙련도 진행 + 직업 해금/패시브 수집 표기. mock(전사 정복·일부 수집)." },
   { href: "/dev/skill-loadout", title: "스킬 — 전투·생활 장착 목록 분리", desc: "생활 스킬 SP 0과 전투/생활 장착 목록·라이브러리 탭 분리를 로그인 없이 확인." },
   { href: "/dev/adventure-home", title: "모험 홈 — 캐릭터 요약·스태미나·오늘의 모험", desc: "로그인 없이 그릴 수 있는 홈 위젯을 예시 데이터로 확인합니다." },
+  { href: "/dev/emblems", title: "문장 · 장착 칸과 보유 문장", desc: "예시 문장으로 칸 장착, 묶음 상세, 합성을 실제 규칙대로 눌러 봅니다." },
   { href: "/dev/hub-menus", title: "허브 메뉴 — 행 목록과 시설 그림", desc: "캐릭터·마을·전투·광장 메뉴를 한 카드 안의 행과 시설 썸네일로 확인합니다." },
   { href: "/dev/hunting-grounds", title: "사냥터 목록 — 지역 그림", desc: "사냥터 카드의 지역 그림과 열린 사냥터 머리 그림을 확인합니다." },
   { href: "/dev/navbar", title: "메인 nav — 가장자리 페이드", desc: "6탭(…길드·광장)이 좁은 폭에서 넘칠 때 우측 페이드로 '더 있음' 신호. 320/360/390/720px 박스." },

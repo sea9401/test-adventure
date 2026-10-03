@@ -58,4 +58,22 @@ describe("모험 홈 위젯", () => {
       expect.stringContaining("[&>*]:h-full"),
     ]);
   });
+
+  it("내용 없이 비어 있는 위젯 칸은 자리를 차지하지 않게 숨긴다", () => {
+    const Empty = () => null;
+    const { container } = render(
+      <AdventureHomeWidgetGrid
+        order={["announcements", "bulletin_preview"]}
+        hidden={[]}
+        widgets={{ announcements: <Empty />, bulletin_preview: <p>글</p> }}
+      />,
+    );
+
+    const cells = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-testid="home-widget"]'),
+    );
+    expect(cells).toHaveLength(2);
+    expect(cells.every((cell) => cell.className.includes("has-[>div:empty]:hidden"))).toBe(true);
+    expect((cells[0].firstElementChild as HTMLElement).innerHTML).toBe("");
+  });
 });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Coins, Lightning } from "@phosphor-icons/react";
 import { applyRegen, type StaminaState } from "./stamina";
-import { StaminaPotionModal } from "./StaminaBar";
+import { StaminaPotionModal, staminaRegenSummary } from "./StaminaBar";
 import {
   autoGatheringActivityHref,
   autoGatheringStatusDisplay,
@@ -178,6 +178,7 @@ export function V2TopBar({
           potions={staminaPotions}
           current={displayStamina.current}
           max={staminaMax}
+          regen={staminaRegenSummary(stamina, now, staminaMax, staminaRegenBonusPct)}
           onUse={onUsePotion}
           onClose={() => setPotionModalOpen(false)}
         />

@@ -14,22 +14,24 @@ export type ButtonSize = "xs" | "sm" | "md" | "lg" | "icon";
 const BASE =
   "relative inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-zinc-950";
 
+// 주 버튼 색은 화면 스타일이 정한다(globals.css의 --ui-primary*). 클래식은 보라, 금빛은 금색.
+const PRIMARY =
+  "border border-primary-border bg-primary text-on-primary hover:bg-primary-hover";
+
+// 버튼 위계는 주 행동(primary)·보조(secondary)·위험(danger)·약한 강조(soft)·글자(ghost)뿐이다.
+//   success·warning·info는 화면마다 초록·주황·하늘색 주 버튼이 섞이던 원인이라 주 버튼과 같은
+//   모양으로 그린다. 새 코드는 primary를 쓰고, 위험 행동(삭제·판매·초기화)만 danger.
 const VARIANT: Record<ButtonVariant, string> = {
-  // 주 버튼 색은 화면 스타일이 정한다(globals.css의 --ui-primary*). 클래식은 보라, 금빛은 금색.
-  primary:
-    "border border-primary-border bg-primary text-on-primary hover:bg-primary-hover",
+  primary: PRIMARY,
   secondary:
     "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800",
   soft:
     "border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 dark:hover:bg-violet-900",
-  success:
-    "border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500",
-  warning:
-    "border border-amber-700 bg-amber-700 text-white hover:bg-amber-800 dark:border-amber-400 dark:bg-amber-400 dark:text-zinc-950 dark:hover:bg-amber-300",
+  success: PRIMARY,
+  warning: PRIMARY,
   danger:
     "border border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-500 dark:bg-rose-600 dark:hover:bg-rose-500",
-  info:
-    "border border-sky-600 bg-sky-600 text-white hover:bg-sky-700 dark:border-sky-500 dark:bg-sky-600 dark:hover:bg-sky-500",
+  info: PRIMARY,
   ghost:
     "border border-transparent text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200",
 };

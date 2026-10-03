@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Hammer, Mountains, Sparkle, Tree } from "@phosphor-icons/react";
+import { BookOpen, Mountains, Sparkle, Tree } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
@@ -127,14 +129,14 @@ export type WorkshopTab =
   | "specialization"
   | "codex";
 
-const TAB_LABELS: Array<{ id: WorkshopTab; label: string }> = [
-  { id: "requests", label: "생활 의뢰" },
-  { id: "process", label: "재료 가공" },
-  { id: "craft", label: "생활 제작" },
-  { id: "aids", label: "생활 보조품" },
-  { id: "tools", label: "생활 도구" },
-  { id: "specialization", label: "전문화" },
-  { id: "codex", label: "가공 도감" },
+const TAB_LABELS: ReadonlyArray<{ key: WorkshopTab; label: string }> = [
+  { key: "requests", label: "생활 의뢰" },
+  { key: "process", label: "재료 가공" },
+  { key: "craft", label: "생활 제작" },
+  { key: "aids", label: "생활 보조품" },
+  { key: "tools", label: "생활 도구" },
+  { key: "specialization", label: "전문화" },
+  { key: "codex", label: "가공 도감" },
 ];
 
 const ACTIVITY_LABEL: Record<LifeWorkshopActivity, string> = {
@@ -865,43 +867,27 @@ export function LifeWorkshopView({
 
   return (
     <PageShell spacing="normal">
-      <SubViewHeader title="생활 조합 작업장" onBack={onBack} />
+      <SubViewHeader
+        title="생활 조합 작업장"
+        onBack={onBack}
+        help={
+          <p>
+            생활 의뢰로 모은 재료를 납품하고, 원목과 광석을 가공해 도구를 승급합니다. 생활 레벨
+            15부터 원하는 전문화를 선택할 수 있습니다.
+          </p>
+        }
+      />
 
-      {tab !== "requests" ? (
-        <Card padding="md">
-          <div className="flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200">
-              <Hammer size={25} weight="duotone" aria-hidden />
-            </span>
-            <div>
-              <h2 className="font-bold text-zinc-900 dark:text-zinc-100">
-                재료 가공과 도구 승급
-              </h2>
-              <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                원목과 광석을 가공해 도구를 승급하고, 생활 레벨 15부터 원하는 전문화를 선택할 수 있습니다.
-              </p>
-            </div>
-          </div>
-        </Card>
-      ) : null}
-
-      <div className="life-workshop-touch-tabs grid grid-cols-4 gap-1 rounded-xl bg-zinc-100 p-1 sm:grid-cols-7 dark:bg-zinc-900">
-        {TAB_LABELS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            aria-pressed={tab === entry.id}
-            onClick={() => setTab(entry.id)}
-            className={`min-h-10 rounded-lg px-1 py-2 text-[11px] font-semibold transition sm:text-xs ${
-              tab === entry.id
-                ? "bg-white text-amber-700 shadow-sm dark:bg-zinc-800 dark:text-amber-300"
-                : "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
-            }`}
-          >
-            {entry.label}
-          </button>
-        ))}
-      </div>
+      <HeaderPanel className="py-2">
+        <TabBar
+          tabs={TAB_LABELS}
+          active={tab}
+          onChange={setTab}
+          ariaLabel="생활 조합 작업장 메뉴"
+          variant="highlight"
+          scrollable
+        />
+      </HeaderPanel>
 
       {tab !== "requests" ? (
         <div

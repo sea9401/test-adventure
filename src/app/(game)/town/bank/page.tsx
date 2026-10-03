@@ -11,9 +11,6 @@ export default function TownBankPage() {
     <main className="game-content-readable mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="은행" onBack={() => router.push("/town")} />
       <BankPanel />
-      <p className="px-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-        은행에 맡긴 골드는 사냥 패배 페널티로 사라지지 않습니다.
-      </p>
     </main>
   );
 }

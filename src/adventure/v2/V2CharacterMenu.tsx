@@ -15,6 +15,7 @@ import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { canChangeUnexploredNodes } from "@/adventure/data/v2/unexploredState";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
 // 장비 장착/해제는 인벤토리 안에서 처리. 모험의 서는 도감(우선 재료) — 맨 아래에 둔다.
@@ -31,12 +32,20 @@ export type CharacterAction =
   | { kind: "open-codex" }
   | { kind: "open-unexplored" };
 
+// 개척 노드는 100레벨부터. 레벨을 읽기 전(기본 1레벨)에는 잠금으로 보이지 않게 한다.
+export function unexploredLockLabel(level: number, loaded: boolean): string | undefined {
+  return loaded && !canChangeUnexploredNodes(level) ? "Lv 100에 열립니다" : undefined;
+}
+
 export function V2CharacterMenu({
   onAction,
   unexploredEnabled = V2_UNEXPLORED,
+  unexploredLocked,
 }: {
   onAction: (action: CharacterAction) => void;
   unexploredEnabled?: boolean;
+  /** 개척 노드 해금 조건. 주면 메뉴 행에 자물쇠와 조건을 보여 준다. */
+  unexploredLocked?: string;
 }) {
   return (
     <PageShell spacing="tight">
@@ -104,6 +113,7 @@ export function V2CharacterMenu({
               />
             }
             title="개척 노드"
+            locked={unexploredLocked}
             onClick={() => onAction({ kind: "open-unexplored" })}
           />
         )}

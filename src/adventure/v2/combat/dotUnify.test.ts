@@ -98,8 +98,8 @@ describe("PR-2 DoT 피해 공식", () => {
     const r = tickV2Dots([bleed, poison], 1000);
     expect(r.totalDmg).toBe(105 + 10);
     expect(r.ticks).toEqual([
-      { tag: "bleed", label: "출혈", damage: 105 },
-      { tag: "poison", label: "중독", damage: 10 },
+      { tag: "bleed", label: "출혈", stacks: 3, damage: 105 },
+      { tag: "poison", label: "중독", stacks: 2, damage: 10 },
     ]);
   });
 

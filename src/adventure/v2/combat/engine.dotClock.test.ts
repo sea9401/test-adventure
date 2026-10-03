@@ -47,14 +47,14 @@ const m = (k: string): Monster => V2_MONSTERS[k];
 
 function bleedTicks(log: { text: string; t?: number; turn?: "player" | "enemy" }[]) {
   return log.filter(
-    (l) => l.text.includes("출혈로") && l.text.includes("피해를 입었다"),
+    (l) => /출혈(\(\d+\))?로/.test(l.text) && l.text.includes("피해를 입었다"),
   );
 }
 
 function firstBleedDamage(
   log: { text: string; t?: number; turn?: "player" | "enemy" }[],
 ): number {
-  const match = bleedTicks(log)[0]?.text.match(/출혈로 (\d+) 피해/);
+  const match = bleedTicks(log)[0]?.text.match(/출혈(?:\(\d+\))?로 (\d+) 피해/);
   return Number(match?.[1] ?? 0);
 }
 
@@ -62,8 +62,8 @@ function firstPoisonDamage(
   log: { text: string; t?: number; turn?: "player" | "enemy" }[],
 ): number {
   const match = log
-    .find((entry) => entry.text.includes("중독으로"))
-    ?.text.match(/중독으로 (\d+) 피해/);
+    .find((entry) => /중독(\(\d+\))?으로/.test(entry.text))
+    ?.text.match(/중독(?:\(\d+\))?으로 (\d+) 피해/);
   return Number(match?.[1] ?? 0);
 }
 

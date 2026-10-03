@@ -24,9 +24,13 @@ import { GuildTradePostPanel } from "@/adventure/v2/guild/GuildTradePostPanel";
 import { GuildTrainingGroundPanel } from "@/adventure/v2/guild/GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "@/adventure/v2/guild/GuildWorkshopPanel";
 import { GUILD_FACILITY_ICON_COLORS } from "@/adventure/v2/guild/guildFacilities";
+import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { TwoPane } from "@/components/ui/TwoPane";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { AssociationFacilityFund } from "./AssociationFacilityFund";
 
 type FacilityRow = {
@@ -52,6 +56,8 @@ const DESCRIPTIONS: Record<AdventurerAssociationFacilityId, string> = {
 export function AdventurerAssociationView({ onBack }: { onBack: () => void }) {
   const [facilities, setFacilities] = useState<FacilityRow[]>([]);
   const [active, setActive] = useState<AdventurerAssociationFacilityId | null>(null);
+  const [detailView, setDetailView] = useState<"use" | "fund">("use");
+  const wide = useMediaQuery("(min-width: 1024px)");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,133 +86,222 @@ export function AdventurerAssociationView({ onBack }: { onBack: () => void }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  if (active) {
+  const byId = new Map(facilities.map((row) => [row.buildingId, row]));
+  const rowFor = (buildingId: AdventurerAssociationFacilityId): FacilityRow =>
+    byId.get(buildingId) ?? {
+      buildingId,
+      level: 1,
+      targetLevel: 2,
+      materials: {},
+      gold: 0,
+      nextUpgrade: null,
+    };
+
+  const openFacility = (buildingId: AdventurerAssociationFacilityId) => {
+    setDetailView("use");
+    setActive(buildingId);
+  };
+  // PC(1024px 이상)는 목록과 상세를 나란히 두고, 처음에는 첫 시설을 고른 상태로 연다.
+  const shown = active ?? (wide ? ADVENTURER_ASSOCIATION_FACILITY_IDS[0] : null);
+
+  const help = (
+    <>
+      <p className="font-semibold">무소속 모험가를 위한 공공시설</p>
+      <p>
+        시설은 모두 Lv.1부터 개방됩니다. 길드에 가입하지 않은 모험가가 재료와 골드를 기부할 수
+        있으며, 목표를 채우는 즉시 자동으로 승급합니다. 길드 창고는 협회 시설에 포함되지 않습니다.
+      </p>
+      <p>각 시설의 주간 보상은 길드 또는 협회 중 먼저 이용한 한쪽으로 고정됩니다.</p>
+    </>
+  );
+
+  const list = (
+    <EntryList>
+      {ADVENTURER_ASSOCIATION_FACILITY_IDS.map((buildingId) => (
+        <EntryRow
+          key={buildingId}
+          icon={
+            <GameIcon
+              name={SETTLEMENT_BUILDINGS[buildingId].iconName}
+              size={26}
+              className={GUILD_FACILITY_ICON_COLORS[buildingId]}
+            />
+          }
+          title={associationFacilityName(buildingId)}
+          description={associationFacilityRowDescription(rowFor(buildingId))}
+          selected={wide && shown === buildingId}
+          onClick={() => openFacility(buildingId)}
+        />
+      ))}
+    </EntryList>
+  );
+
+  if (wide && shown) {
     return (
       <PageShell spacing="tight">
-        <SubViewHeader
-          title={associationFacilityName(active)}
-          onBack={() => setActive(null)}
-        />
-        {active === "training_ground" && (
-          <GuildTrainingGroundPanel
-            info={{ ok: true, settlementBuildings: { training_ground: 1 } }}
-            localTrainingGround
-            endpoint="/api/v2/guild/training-ground?scope=association"
+        <SubViewHeader title="모험가 협회" onBack={onBack} help={help} />
+        {loading && <p className="text-sm text-zinc-500">협회 시설 확인 중…</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
+        <TwoPane aside={list}>
+          <FacilityDetail
+            title={associationFacilityName(shown)}
+            buildingId={shown}
+            row={rowFor(shown)}
+            view={detailView}
+            onViewChange={setDetailView}
+            onChanged={() => void load()}
           />
-        )}
-        {active === "guild_smithy" && (
-          <GuildWorkshopPanel
-            info={{ ok: true, hasGuildSmithy: true, settlementBuildings: { guild_smithy: 1 } }}
-            localSmithy
-            association
-          />
-        )}
-        {active === "alchemy_workshop" && (
-          <GuildAlchemyWorkshopPanel
-            endpoint="/api/v2/guild/alchemy-workshop?scope=association"
-            title="협회 연금 공방"
-          />
-        )}
-        {active === "dining_hall" && (
-          <GuildDiningHallPanel
-            endpoint="/api/v2/association/dining-hall"
-            title="협회 식당"
-            source="association"
-          />
-        )}
-        {active === "trade_post" && (
-          <GuildTradePostPanel
-            endpoint="/api/v2/association/trade-post"
-            title="협회 교역소"
-            sharedTokens={false}
-          />
-        )}
-        {active === "exploration_hq" && (
-          <section className={`${SURFACE_CARD} p-4 text-sm`}>
-            이 시설의 공공 이용 화면을 준비하고 있습니다.
-          </section>
-        )}
+        </TwoPane>
       </PageShell>
     );
   }
 
-  const byId = new Map(facilities.map((row) => [row.buildingId, row]));
+  if (shown) {
+    return (
+      <PageShell spacing="tight">
+        <SubViewHeader
+          title={associationFacilityName(shown)}
+          onBack={() => setActive(null)}
+        />
+        <FacilityDetail
+          buildingId={shown}
+          row={rowFor(shown)}
+          view={detailView}
+          onViewChange={setDetailView}
+          onChanged={() => void load()}
+        />
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell spacing="tight">
-      <SubViewHeader title="모험가 협회" onBack={onBack} />
-      <section className={`${SURFACE_ACCENT} space-y-1 p-4 text-sm`}>
-        <h2 className="font-bold">무소속 모험가를 위한 공공시설</h2>
-        <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-          시설은 모두 Lv.1부터 개방됩니다. 길드에 가입하지 않은 모험가가 재료와
-          골드를 기부할 수 있으며, 목표를 채우는 즉시 자동으로 승급합니다. 길드
-          창고는 협회 시설에 포함되지 않습니다.
-        </p>
-        <p className="text-xs text-amber-700 dark:text-amber-300">
-          각 시설의 주간 보상은 길드 또는 협회 중 먼저 이용한 한쪽으로 고정됩니다.
-        </p>
-      </section>
+      <SubViewHeader title="모험가 협회" onBack={onBack} help={help} />
       {loading && <p className="text-sm text-zinc-500">협회 시설 확인 중…</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
-      <div className="grid gap-3 md:grid-cols-2">
-        {ADVENTURER_ASSOCIATION_FACILITY_IDS.map((buildingId) => {
-          const row = byId.get(buildingId) ?? {
-            buildingId,
-            level: 1,
-            targetLevel: 2,
-            materials: {},
-            gold: 0,
-            nextUpgrade: null,
-          };
-          const definition = SETTLEMENT_BUILDINGS[buildingId];
-          return (
-            <section key={buildingId} className={`${SURFACE_CARD} space-y-3 p-3`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <GameIcon
-                      name={definition.iconName}
-                      size={20}
-                      className={GUILD_FACILITY_ICON_COLORS[buildingId]}
-                    />
-                    <h3 className="font-bold">{associationFacilityName(buildingId)}</h3>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {DESCRIPTIONS[buildingId]}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                  Lv.{row.level}
-                </span>
-              </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-300">
-                {settlementBuildingUpgradeSummary(
-                  buildingId,
-                  currentFacilityUpgrade(buildingId, row.level),
-                )}
-              </p>
-              {row.nextUpgrade ? (
-                <AssociationFacilityFund
-                  buildingId={buildingId}
-                  progress={row}
-                  next={row.nextUpgrade}
-                  onChanged={() => void load()}
-                />
-              ) : row.level >= 5 ? (
-                <p className="text-center text-xs font-semibold text-emerald-600">최고 레벨</p>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setActive(buildingId)}
-                className="w-full rounded-md bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
-              >
-                시설 이용
-              </button>
-            </section>
-          );
-        })}
-      </div>
+      {list}
     </PageShell>
   );
+}
+
+// 시설 상세 — 현재 효과 요약과 이용 / 공동 기부 전환.
+function FacilityDetail({
+  title,
+  buildingId,
+  row,
+  view,
+  onViewChange,
+  onChanged,
+}: {
+  // PC 2단처럼 화면 머리에 시설 이름이 없을 때 카드 안에 이름을 보여 준다.
+  title?: string;
+  buildingId: AdventurerAssociationFacilityId;
+  row: FacilityRow;
+  view: "use" | "fund";
+  onViewChange: (view: "use" | "fund") => void;
+  onChanged: () => void;
+}) {
+  return (
+    <>
+      <section className={`${SURFACE_CARD} space-y-1 p-4 text-sm`}>
+        <div className="flex items-center justify-between gap-2">
+          {title ? (
+            <h2 className="ui-heading text-base font-bold">
+              {title} <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Lv.{row.level}</span>
+            </h2>
+          ) : (
+            <span className="font-bold">Lv.{row.level}</span>
+          )}
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {settlementBuildingUpgradeSummary(buildingId, currentFacilityUpgrade(buildingId, row.level))}
+          </span>
+        </div>
+        <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          {DESCRIPTIONS[buildingId]}
+        </p>
+      </section>
+      <SegmentedControl
+        options={[
+          { key: "use", label: "이용" },
+          {
+            key: "fund",
+            label: row.nextUpgrade ? `공동 기부 (Lv.${row.nextUpgrade.level})` : "공동 기부",
+          },
+        ]}
+        value={view}
+        onChange={onViewChange}
+        ariaLabel="시설 보기"
+      />
+      {view === "fund" ? (
+        row.nextUpgrade ? (
+          <AssociationFacilityFund
+            key={buildingId}
+            buildingId={buildingId}
+            progress={row}
+            next={row.nextUpgrade}
+            onChanged={onChanged}
+          />
+        ) : (
+          <p className={`${SURFACE_CARD} p-4 text-center text-sm font-semibold text-emerald-700 dark:text-emerald-300`}>
+            최고 레벨입니다.
+          </p>
+        )
+      ) : (
+        <>
+          {buildingId === "training_ground" && (
+            <GuildTrainingGroundPanel
+              info={{ ok: true, settlementBuildings: { training_ground: 1 } }}
+              localTrainingGround
+              endpoint="/api/v2/guild/training-ground?scope=association"
+            />
+          )}
+          {buildingId === "guild_smithy" && (
+            <GuildWorkshopPanel
+              info={{ ok: true, hasGuildSmithy: true, settlementBuildings: { guild_smithy: 1 } }}
+              localSmithy
+              association
+            />
+          )}
+          {buildingId === "alchemy_workshop" && (
+            <GuildAlchemyWorkshopPanel
+              endpoint="/api/v2/guild/alchemy-workshop?scope=association"
+              title="협회 연금 공방"
+            />
+          )}
+          {buildingId === "dining_hall" && (
+            <GuildDiningHallPanel
+              endpoint="/api/v2/association/dining-hall"
+              title="협회 식당"
+              source="association"
+            />
+          )}
+          {buildingId === "trade_post" && (
+            <GuildTradePostPanel
+              endpoint="/api/v2/association/trade-post"
+              title="협회 교역소"
+              sharedTokens={false}
+            />
+          )}
+          {buildingId === "exploration_hq" && (
+            <section className={`${SURFACE_CARD} p-4 text-sm`}>
+              이 시설의 공공 이용 화면을 준비하고 있습니다.
+            </section>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// 목록 행 설명 — 레벨과 지금 적용 중인 효과.
+export function associationFacilityRowDescription(row: {
+  buildingId: AdventurerAssociationFacilityId;
+  level: number;
+}): string {
+  return `Lv.${row.level} · ${settlementBuildingUpgradeSummary(
+    row.buildingId,
+    currentFacilityUpgrade(row.buildingId, row.level),
+  )}`;
 }
 
 function associationFacilityName(id: AdventurerAssociationFacilityId): string {

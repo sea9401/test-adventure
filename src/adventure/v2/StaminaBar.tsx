@@ -49,14 +49,7 @@ export function StaminaBar({
   const display = applyRegen(state, now, max, regenBonusPct);
   const pct = Math.max(0, Math.min(100, (display.current / max) * 100));
   const overcharged = display.current > max; // 포션 초과 비축 상태
-  const nextRegenMs = msUntilNextRegen(display, now, max, regenBonusPct);
-  const regenMsPerPoint = staminaRegenMsPerPoint(regenBonusPct);
-  const fullRegenMs =
-    display.current >= max
-      ? 0
-      : nextRegenMs +
-        Math.max(0, max - display.current - 1) *
-          regenMsPerPoint;
+  const regen = staminaRegenSummary(state, now, max, regenBonusPct);
 
   const showPotionButton = potions > 0 && !!onUsePotion;
 
@@ -99,18 +92,11 @@ export function StaminaBar({
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
         <span>
-          {(regenMsPerPoint / 1000).toLocaleString("ko-KR", {
-            maximumFractionDigits: 1,
-          })}
-          초 마다 1 회복
+          {formatSecondsPerPoint(regen.secondsPerPoint)}초 마다 1 회복
           {regenBonusPct > 0 ? ` · 지원권 +${regenBonusPct}%` : ""}
         </span>
         <span className="tabular-nums">
-          {overcharged
-            ? "초과 비축 중"
-            : display.current >= max
-              ? "회복 완료"
-              : `최대치까지 ${formatRegenTime(fullRegenMs)}`}
+          {regen.full ? regen.untilFull : `최대치까지 ${regen.untilFull}`}
         </span>
       </div>
       {modalOpen && onUsePotion && (
@@ -124,6 +110,27 @@ export function StaminaBar({
       )}
     </div>
   );
+}
+
+/** 회복 속도(초당 1포인트)와 최대치까지 남은 시간 문구. 화면 안 바와 상단 바 창이 함께 쓴다. */
+export function staminaRegenSummary(
+  state: StaminaState,
+  now: number,
+  max: number,
+  regenBonusPct: number,
+): { secondsPerPoint: number; untilFull: string; full: boolean } {
+  const display = applyRegen(state, now, max, regenBonusPct);
+  const regenMsPerPoint = staminaRegenMsPerPoint(regenBonusPct);
+  const secondsPerPoint = regenMsPerPoint / 1000;
+  if (display.current > max) return { secondsPerPoint, untilFull: "초과 비축 중", full: true };
+  if (display.current >= max) return { secondsPerPoint, untilFull: "회복 완료", full: true };
+  const nextRegenMs = msUntilNextRegen(display, now, max, regenBonusPct);
+  const fullRegenMs = nextRegenMs + Math.max(0, max - display.current - 1) * regenMsPerPoint;
+  return { secondsPerPoint, untilFull: formatRegenTime(fullRegenMs), full: false };
+}
+
+function formatSecondsPerPoint(seconds: number): string {
+  return seconds.toLocaleString("ko-KR", { maximumFractionDigits: 1 });
 }
 
 function formatRegenTime(ms: number): string {
@@ -145,12 +152,15 @@ export function StaminaPotionModal({
   potions,
   current,
   max,
+  regen,
   onUse,
   onClose,
 }: {
   potions: number;
   current: number;
   max: number;
+  /** 상단 바에서 열 때 회복 속도와 최대치까지 남은 시간을 함께 보여 준다. */
+  regen?: { secondsPerPoint: number; untilFull: string };
   onUse: (count: number) => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -231,6 +241,16 @@ export function StaminaPotionModal({
               {current.toLocaleString()} / {max.toLocaleString()}
             </span>
           </div>
+          {regen && <>
+            <div className="flex justify-between">
+              <span className="text-zinc-500 dark:text-zinc-400">회복 속도</span>
+              <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{formatSecondsPerPoint(regen.secondsPerPoint)}초마다 1</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500 dark:text-zinc-400">최대치까지</span>
+              <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{regen.untilFull}</span>
+            </div>
+          </>}
         </div>
 
         {unavailable ? (

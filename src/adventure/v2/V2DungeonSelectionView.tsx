@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CloudLightning, Sparkle } from "@phosphor-icons/react";
+import { CloudLightning, LockSimple, Sparkle } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -44,10 +44,12 @@ export function V2DungeonSelectionView() {
         <p className="text-sm">{dungeon.description}</p>
         {errors[dungeon.api] ? <div role="alert"><p>던전 정보를 불러오지 못했습니다.</p><Button onClick={() => setReload((value) => value + 1)}>다시 불러오기</Button></div>
           : !status ? <p role="status">입장 정보를 불러오는 중...</p>
-          : <>
-            <p className="text-sm">{status.unlocked ? `남은 입장 ${status.attemptsLeft} / 3회` : dungeon.unlock}</p>
-            <Button aria-label={`${dungeon.name} 입장`} variant="primary" disabled={!status.unlocked || (!active && status.attemptsLeft === 0 && dungeon.href !== "/battle/storm-expedition")} onClick={() => router.push(dungeon.href)}>{active ? "진행 중인 던전 계속하기" : status.attemptsLeft === 0 && dungeon.href === "/battle/storm-expedition" ? "연습 모드 이용" : "던전 입장"}</Button>
-          </>}
+          : !status.unlocked
+            ? <p data-locked="true" className="flex items-center gap-1.5 text-sm font-semibold text-zinc-600 dark:text-zinc-300"><LockSimple size={16} weight="bold" aria-hidden className="shrink-0" />{dungeon.unlock}</p>
+            : <>
+              <p className="text-sm">{`남은 입장 ${status.attemptsLeft} / 3회`}</p>
+              <Button aria-label={`${dungeon.name} 입장`} variant="primary" disabled={!active && status.attemptsLeft === 0 && dungeon.href !== "/battle/storm-expedition"} onClick={() => router.push(dungeon.href)}>{active ? "진행 중인 던전 계속하기" : status.attemptsLeft === 0 && dungeon.href === "/battle/storm-expedition" ? "연습 모드 이용" : "던전 입장"}</Button>
+            </>}
       </Card>;
     })}
   </PageShell>;

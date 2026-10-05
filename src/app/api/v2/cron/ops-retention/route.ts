@@ -255,8 +255,8 @@ async function archiveAndTrimMarketplace(now: Date): Promise<DeleteResult> {
         count(*)::int,
         sum(quantity)::int,
         sum(price)::numeric,
-        min(round(price::numeric / greatest(quantity, 1)))::int,
-        max(round(price::numeric / greatest(quantity, 1)))::int,
+        min(round(price::numeric / greatest(quantity, 1)))::bigint,
+        max(round(price::numeric / greatest(quantity, 1)))::bigint,
         now()
       FROM due
       WHERE status = 'sold'

@@ -61,6 +61,14 @@ describe("6시간 전 품목 입찰 경매", () => {
     expect(marketplaceNextBidMinimum(400, 401)).toBe(422);
   });
 
+  it("10억 골드를 넘는 입찰도 다음 최소 입찰가를 정확히 계산한다", () => {
+    expect(marketplaceNextBidMinimum(999_999_999, 999_999_999)).toBe(1_049_999_999);
+    expect(marketplaceNextBidMinimum(1, 2_000_000_000)).toBe(2_100_000_000);
+    expect(marketplaceNextBidMinimum(1, MARKETPLACE_V2_PRICE_MAX)).toBe(
+      MARKETPLACE_V2_PRICE_MAX,
+    );
+  });
+
   it("종료 시 최고 입찰가가 시작가와 같아도 낙찰 정산한다", () => {
     const base = {
       status: "active",
@@ -171,8 +179,11 @@ describe("판매세 (sink) — saleProceeds / saleTax", () => {
 });
 
 describe("isValidPrice", () => {
-  it("정수 [1, 999,999,999] 만 통과", () => {
+  it("정수 [1, 9,999,999,999] 만 통과", () => {
+    expect(MARKETPLACE_V2_PRICE_MAX).toBe(9_999_999_999);
     expect(isValidPrice(1)).toBe(true);
+    expect(isValidPrice(1_000_000_000)).toBe(true);
+    expect(isValidPrice(5_000_000_000)).toBe(true);
     expect(isValidPrice(MARKETPLACE_V2_PRICE_MAX)).toBe(true);
     expect(isValidPrice(0)).toBe(false);
     expect(isValidPrice(-5)).toBe(false);

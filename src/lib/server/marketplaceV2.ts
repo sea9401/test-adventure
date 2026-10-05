@@ -1,4 +1,5 @@
 import { isMarketplaceAuctionDuration } from "@/adventure/v2/marketplace/auctionDuration";
+import { MARKETPLACE_V2_PRICE_MAX } from "@/adventure/v2/marketplace/priceLimit";
 // v2 거래소 — 순수 헬퍼 + 상수. DB 트랜잭션은 라우트(/api/v2/marketplace/*)가 보유.
 //   장비 개체(instance) + 재료(스택) 거래. 6/12/24시간 공개 입찰과 종료 임박 연장. 판매세.
 //   V1 marketplace.ts(grade·V1 인벤 모델)와 무관 — v2 전용.
@@ -53,7 +54,7 @@ export const MARKETPLACE_V2_TAX_RATE = 0.1;
 // 판매자당 활성 매물 상한(슬롯).
 export const MARKETPLACE_V2_SLOT_LIMIT = 10;
 export const MARKETPLACE_V2_PRICE_MIN = 1;
-export const MARKETPLACE_V2_PRICE_MAX = 999_999_999; // < 2^31 — integer 컬럼 안전.
+export { MARKETPLACE_V2_PRICE_MAX };
 // 재료 1매물 최대 수량.
 export const MARKETPLACE_V2_MATERIAL_QTY_MAX = 9999;
 // 둘러보기 1회 최대 반환 행.

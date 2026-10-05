@@ -1310,6 +1310,13 @@
       "when": 1790095406445,
       "tag": "0186_chuseok_retroactive_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1791181911958,
+      "tag": "0187_marketplace_bigint_gold",
+      "breakpoints": true
     }
   ]
 }

@@ -43,6 +43,7 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
+import { enchantmentStage } from "../liberation/equipmentLiberationViewModel";
 
 // 슬롯별 아이콘/색 — 카드 좌상단 표식.
 const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
@@ -258,6 +259,21 @@ export function EquipmentCardGrid({
               <EnhanceLevelBadge enhance={inst.enhance} />
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+              {inst.liberation ? (
+                <span
+                  className="rounded bg-violet-100 px-1.5 py-px text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+                  title={`마법부여 ${enchantmentStage(inst.liberation.rank)}단계 · ${inst.liberation.lineCount}줄`}
+                >
+                  마법부여 {inst.liberation.lineCount}줄
+                </span>
+              ) : inst.bound ? (
+                <span
+                  className="rounded bg-sky-100 px-1.5 py-px text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300"
+                  title="귀속 장비: 거래소에 등록할 수 없습니다"
+                >
+                  귀속
+                </span>
+              ) : null}
               {inst.stormRefined ? (
                 <span
                   className="rounded bg-violet-600 px-1.5 py-px text-[10px] font-semibold text-white"

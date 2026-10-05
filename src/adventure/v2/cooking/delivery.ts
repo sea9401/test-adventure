@@ -146,6 +146,17 @@ export function cookingDeliveryScore(
     (food.originator ? 5 : 0) + food.specialtyBonusPct;
 }
 
+/** 남은 목표 점수를 채우는 데 필요한 최대 수량. 초과분은 소모하지 않는다. */
+export function cookingDeliveryUsefulQuantity(
+  food: CookingFoodDefinition,
+  request: CookingDeliveryRequest,
+  progress: number,
+): number {
+  const perDish = cookingDeliveryScore(food, request);
+  if (perDish < 1) return 0;
+  return Math.max(0, Math.ceil((request.targetScore - progress) / perDish));
+}
+
 export function applyCookingDelivery(
   state: CookingStateV2,
   request: CookingDeliveryRequest,
@@ -153,21 +164,24 @@ export function applyCookingDelivery(
   rawQuantity: number,
 ): {
   state: CookingStateV2;
+  quantityUsed: number;
   scoreAdded: number;
   completedNow: boolean;
   rewards: CookingDeliveryRewards | null;
 } {
-  const quantity = Math.floor(Number(rawQuantity) || 0);
-  if (quantity < 1 || quantity > 100) throw new Error("invalid_quantity");
+  const requested = Math.floor(Number(rawQuantity) || 0);
+  if (requested < 1 || requested > 100) throw new Error("invalid_quantity");
   const perDish = cookingDeliveryScore(food, request);
   if (perDish < 1) throw new Error("food_not_eligible");
   if (request.kind === "daily") {
     if (state.daily.completedRequestIds.includes(request.id)) throw new Error("delivery_completed");
     const previous = state.daily.requestScores[request.id] ?? 0;
+    const quantity = Math.min(requested, cookingDeliveryUsefulQuantity(food, request, previous));
     const scoreAdded = perDish * quantity;
     const total = previous + scoreAdded;
     const completedNow = total >= request.targetScore;
     return {
+      quantityUsed: quantity,
       scoreAdded,
       completedNow,
       rewards: completedNow ? request.rewards : null,
@@ -192,10 +206,12 @@ export function applyCookingDelivery(
     };
   }
   if (state.weekly.completed) throw new Error("delivery_completed");
+  const quantity = Math.min(requested, cookingDeliveryUsefulQuantity(food, request, state.weekly.requestScore));
   const scoreAdded = perDish * quantity;
   const total = state.weekly.requestScore + scoreAdded;
   const completedNow = total >= request.targetScore;
   return {
+    quantityUsed: quantity,
     scoreAdded,
     completedNow,
     rewards: completedNow ? request.rewards : null,

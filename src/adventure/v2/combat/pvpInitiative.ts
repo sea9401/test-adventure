@@ -1,8 +1,8 @@
 import { actionRate } from "./combatTimeline";
 
-const BASE_INITIATIVE_WEIGHT = 100;
-const MIN_INITIATIVE_CHANCE = 0.35;
-const MAX_INITIATIVE_CHANCE = 0.65;
+export const BASE_INITIATIVE_WEIGHT = 100;
+export const MIN_INITIATIVE_CHANCE = 0.35;
+export const MAX_INITIATIVE_CHANCE = 0.65;
 
 export type PvPInitiativeActor = "p1" | "p2";
 

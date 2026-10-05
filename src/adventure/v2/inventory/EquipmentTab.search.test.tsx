@@ -13,7 +13,7 @@ const props: ComponentProps<typeof EquipmentTab> = {
     { iid: "3", id: "v2_mithril_sword", locked: true },
   ],
   equippedIid: null, busy: null, sortMode: "default", setSortMode: vi.fn(),
-  lockedOnly: false, setLockedOnly: vi.fn(), sellQualityPct: 40,
+  lockFilter: "all", setLockFilter: vi.fn(), sellQualityPct: 40,
   setSellQualityPct: vi.fn(), pageSize: 1, frontierDepth: 99,
   onBulkSell: vi.fn(), onOpenCard: vi.fn(), onRegisterCodex: vi.fn(),
   selection: { active: false, selectedIids: new Set(), selectedCount: 0,
@@ -26,11 +26,45 @@ it("뒤 페이지에서 검색하면 첫 페이지로 돌아가고 잠금 필터
   rerender(<EquipmentTab {...props} search=" 철검 " />);
   expect(screen.getByRole("button", { name: "1 페이지" }).getAttribute("aria-current")).toBe("page");
   expect(screen.queryByText("미스릴검")).toBeNull();
-  rerender(<EquipmentTab {...props} search="철검" lockedOnly />);
+  rerender(<EquipmentTab {...props} search="철검" lockFilter="locked" />);
   expect(screen.queryByRole("navigation", { name: "페이지 네비게이션" })).toBeNull();
   expect(screen.getByText("철검")).toBeTruthy();
   rerender(<EquipmentTab {...props} search="없는장비" />);
   expect(screen.getByText("검색 결과가 없습니다")).toBeTruthy();
   rerender(<EquipmentTab {...props} search="" />);
   expect(screen.getByRole("button", { name: "3 페이지" })).toBeTruthy();
+});
+
+it("장비 이름이 아니라 세트 이름으로도 검색한다", () => {
+  render(
+    <EquipmentTab
+      {...props}
+      slot="boots"
+      instances={[
+        { iid: "b1", id: "v2_storm_wreckage_boots" },
+        { iid: "b2", id: "v2_leather_boots" },
+      ]}
+      pageSize={20}
+      search="중력성채"
+    />,
+  );
+  expect(screen.getByText("대지닻 장화")).toBeTruthy();
+  expect(screen.queryByText("가죽 신")).toBeNull();
+});
+
+it("잠금 필터는 전체 → 잠금만 → 미잠금만 순서로 바뀌고 미잠금 장비만 거른다", () => {
+  const setLockFilter = vi.fn();
+  const { rerender } = render(<EquipmentTab {...props} pageSize={20} search="" setLockFilter={setLockFilter} />);
+  fireEvent.click(screen.getByRole("button", { name: "잠금만 보기 (2)" }));
+  expect(setLockFilter).toHaveBeenLastCalledWith("locked");
+  rerender(<EquipmentTab {...props} pageSize={20} search="" lockFilter="locked" setLockFilter={setLockFilter} />);
+  fireEvent.click(screen.getByRole("button", { name: "잠금만 보기 (2)" }));
+  expect(setLockFilter).toHaveBeenLastCalledWith("unlocked");
+  rerender(<EquipmentTab {...props} pageSize={20} search="" lockFilter="unlocked" setLockFilter={setLockFilter} />);
+  const unlockedButton = screen.getByRole("button", { name: "미잠금만 보기 (1)" });
+  expect(unlockedButton.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getAllByText("철검")).toHaveLength(1);
+  expect(screen.queryByText("미스릴검")).toBeNull();
+  fireEvent.click(unlockedButton);
+  expect(setLockFilter).toHaveBeenLastCalledWith("all");
 });

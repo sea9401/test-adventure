@@ -31,6 +31,7 @@ import {
   parseFarmState,
   parseFarmStateWithLevelMigration,
   plantCrop,
+  plantCrops,
   rebuildFarmRanchSlot,
   spendSelectedFarmCropItems,
   uprootCrop,
@@ -317,6 +318,66 @@ describe("adventurer farm", () => {
       readyAt: now + 2 * 60 * 60 * 1000,
     });
     expect(state.seeds.wheat).toBe(2);
+  });
+
+  it("plants several plots at once in the given order", () => {
+    const base = emptyFarmState(1_000);
+    const state = {
+      ...base,
+      plots: Array.from({ length: 16 }, (_, i) => ({
+        id: `plot-${i + 1}`,
+        cropId: null,
+        plantedAt: null,
+        readyAt: null,
+      })),
+      seeds: { wheat: 20 },
+    };
+    const plotIds = state.plots.map((plot) => plot.id);
+
+    const result = plantCrops(state, plotIds, "wheat", 1_000);
+
+    expect(result.planted).toBe(16);
+    expect(result.stoppedError).toBeNull();
+    expect(result.state.plots.every((plot) => plot.cropId === "wheat")).toBe(true);
+    expect(result.state.seeds.wheat).toBe(4);
+  });
+
+  it("stops a multi-plot planting when seeds run out and keeps earlier plots", () => {
+    const base = emptyFarmState(1_000);
+    const state = {
+      ...base,
+      plots: Array.from({ length: 4 }, (_, i) => ({
+        id: `plot-${i + 1}`,
+        cropId: null,
+        plantedAt: null,
+        readyAt: null,
+      })),
+      seeds: { wheat: 2 },
+    };
+
+    const result = plantCrops(
+      state,
+      ["plot-1", "plot-2", "plot-3", "plot-4"],
+      "wheat",
+      1_000,
+    );
+
+    expect(result.planted).toBe(2);
+    expect(result.stoppedError).toBe("no_seed");
+    expect(result.state.plots.map((plot) => plot.cropId)).toEqual([
+      "wheat",
+      "wheat",
+      null,
+      null,
+    ]);
+  });
+
+  it("throws when the first plot of a multi-plot planting fails", () => {
+    const state = { ...emptyFarmState(1_000), seeds: {} };
+
+    expect(() => plantCrops(state, ["plot-1", "plot-2"], "wheat", 1_000)).toThrow(
+      "no_seed",
+    );
   });
 
   it("rejects planting without a seed", () => {

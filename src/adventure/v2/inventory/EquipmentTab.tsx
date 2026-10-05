@@ -21,8 +21,16 @@ import {
   type SortMode,
 } from "../v2ItemListShared";
 import { EquipmentCardGrid } from "./EquipmentCardGrid";
-import { matchesItemSearch } from "../itemSearch";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { matchesEquipmentSearch } from "../itemSearch";
+
+export type EquipmentLockFilter = "all" | "locked" | "unlocked";
+
+// 버튼을 누를 때마다 전체 → 잠금만 → 미잠금만 → 전체 순서로 바뀐다.
+const NEXT_LOCK_FILTER: Record<EquipmentLockFilter, EquipmentLockFilter> = {
+  all: "locked",
+  locked: "unlocked",
+  unlocked: "all",
+};
 
 export type EquipmentSaleSelection = {
   active: boolean;
@@ -58,8 +66,8 @@ export function EquipmentTab({
   busy,
   sortMode,
   setSortMode,
-  lockedOnly,
-  setLockedOnly,
+  lockFilter,
+  setLockFilter,
   sellQualityPct,
   setSellQualityPct,
   pageSize,
@@ -77,8 +85,8 @@ export function EquipmentTab({
   busy: string | null;
   sortMode: SortMode;
   setSortMode: Dispatch<SetStateAction<SortMode>>;
-  lockedOnly: boolean;
-  setLockedOnly: Dispatch<SetStateAction<boolean>>;
+  lockFilter: EquipmentLockFilter;
+  setLockFilter: (next: EquipmentLockFilter) => void;
   sellQualityPct: number;
   setSellQualityPct: Dispatch<SetStateAction<number>>;
   pageSize: number;
@@ -103,10 +111,10 @@ export function EquipmentTab({
   const tabInstances = useMemo(
     () =>
       sortedInstances.filter((instance) =>
-        (!lockedOnly || instance.locked === true) &&
-        matchesItemSearch(V2_EQUIPMENT[instance.id]?.name, search),
+        (lockFilter === "all" || (instance.locked === true) === (lockFilter === "locked")) &&
+        matchesEquipmentSearch(instance.id, search),
       ),
-    [lockedOnly, sortedInstances, search],
+    [lockFilter, sortedInstances, search],
   );
   const lockedCount = useMemo(
     () => instances.filter((instance) => instance.locked === true).length,
@@ -118,7 +126,7 @@ export function EquipmentTab({
   const equipPager = usePagination(
     tabInstances,
     pageSize,
-    `${slot}:${sortMode}:${lockedOnly ? "locked" : "all"}:${search}`,
+    `${slot}:${sortMode}:${lockFilter}:${search}`,
   );
   const qualitySellCount = useMemo(
     () =>
@@ -155,13 +163,15 @@ export function EquipmentTab({
             </select>
             <Button
               type="button"
-              onClick={() => setLockedOnly((current) => !current)}
-              aria-pressed={lockedOnly}
-              variant={lockedOnly ? "primary" : "secondary"}
+              onClick={() => setLockFilter(NEXT_LOCK_FILTER[lockFilter])}
+              aria-pressed={lockFilter !== "all"}
+              variant={lockFilter !== "all" ? "primary" : "secondary"}
               size="sm"
               className="shrink-0"
             >
-              잠금만 보기 ({lockedCount})
+              {lockFilter === "unlocked"
+                ? `미잠금만 보기 (${instances.length - lockedCount})`
+                : `잠금만 보기 (${lockedCount})`}
             </Button>
           </div>
           {selection.active ? (
@@ -283,12 +293,14 @@ export function EquipmentTab({
         emptyState={
           search.trim()
             ? { title: "검색 결과가 없습니다", message: "다른 이름으로 검색하거나 검색어를 지워 주세요." }
-            : lockedOnly
+            : lockFilter === "locked"
             ? {
                 title: "잠근 장비가 없습니다",
                 message:
                   "장비 상세에서 잠금을 설정하면 여기에 모아 볼 수 있습니다.",
               }
+            : lockFilter === "unlocked"
+            ? { title: "잠그지 않은 장비가 없습니다", message: "이 부위의 장비는 모두 잠겨 있습니다." }
             : undefined
         }
       />

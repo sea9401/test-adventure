@@ -176,7 +176,8 @@ describe("통합 전투 프리셋 API", () => {
   });
 
   it("잘못된 슬롯과 빈 슬롯 적용을 거부한다", async () => {
-    expect((await POST(request({ action: "save", slot: 5 }))).status).toBe(400);
+    expect((await POST(request({ action: "save", slot: 10 }))).status).toBe(400);
+    expect((await POST(request({ action: "save", slot: 9 }))).status).toBe(200);
 
     const empty = await POST(request({ action: "apply", slot: 0 }));
     expect(empty.status).toBe(404);
@@ -193,7 +194,7 @@ describe("통합 전투 프리셋 API", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.presets).toHaveLength(5);
+    expect(json.presets).toHaveLength(10);
     expect(json.presets[2]).toMatchObject({
       name: "사냥",
       skills: [STRIKE],
@@ -211,7 +212,7 @@ describe("통합 전투 프리셋 API", () => {
     expect((await loaded.json()).activeSlot).toBe(2);
   });
 
-  it("덮어쓰기와 삭제는 지정 슬롯만 바꾸고 다섯 슬롯 위치를 보존한다", async () => {
+  it("덮어쓰기와 삭제는 지정 슬롯만 바꾸고 열 슬롯 위치를 보존한다", async () => {
     await POST(request({ action: "save", slot: 0, name: "첫째" }));
     await POST(request({ action: "save", slot: 2, name: "셋째" }));
 
@@ -226,7 +227,7 @@ describe("통합 전투 프리셋 API", () => {
 
     const deleted = await POST(request({ action: "delete", slot: 2 }));
     const deletedJson = await deleted.json();
-    expect(deletedJson.presets).toHaveLength(5);
+    expect(deletedJson.presets).toHaveLength(10);
     expect(deletedJson.presets[0]?.name).toBe("첫째");
     expect(deletedJson.presets[2]).toBeNull();
   });

@@ -657,6 +657,29 @@ export function rebuildRanchSlot(
   };
 }
 
+/** 두 부지의 동물·사료·진행도·완성품을 통째로 맞바꿔 표시 순서를 바꾼다. 비용·생산량 변화는 없다. */
+export function swapRanchSlots(
+  state: RanchState,
+  fromSlotId: RanchSlotId,
+  toSlotId: RanchSlotId,
+  now = Date.now(),
+): RanchState {
+  if (!isRanchSlotId(fromSlotId) || !isRanchSlotId(toSlotId)) {
+    throw new RanchError("slot_not_found");
+  }
+  if (fromSlotId === toSlotId) throw new RanchError("same_slot");
+  const settled = settleRanch(state, now);
+  const from = settled.slots[fromSlotId];
+  const to = settled.slots[toSlotId];
+  if (!from.unlocked || !from.animalId || !to.unlocked || !to.animalId) {
+    throw new RanchError("slot_locked");
+  }
+  return {
+    ...settled,
+    slots: { ...settled.slots, [fromSlotId]: to, [toSlotId]: from },
+  };
+}
+
 export function ranchReadySlotCount(state: RanchState): number {
   return RANCH_SLOT_DEFINITIONS.filter(
     (definition) => state.slots[definition.id].readyItems > 0,

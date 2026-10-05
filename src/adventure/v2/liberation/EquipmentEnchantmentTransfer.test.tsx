@@ -54,7 +54,7 @@ describe("마법부여 이전 확인 흐름", () => {
     expect(within(dialog).getByText(/스킬 치명타 피해 \+30%p/)).toBeTruthy();
     expect(within(dialog).getByText("Lv.12")).toBeTruthy();
     expect(within(dialog).getByText("Lv.15")).toBeTruthy();
-    expect(within(dialog).getByText(/원본 장비와 귀속은 유지/)).toBeTruthy();
+    expect(within(dialog).getByText(/원본 장비는 유지되며 마법부여가 제거되어 다시 거래할 수 있습니다/)).toBeTruthy();
     expect(within(dialog).getByText(/기존 마법부여는 영구 소멸/)).toBeTruthy();
     expect(within(dialog).getByText(/즉시 귀속/)).toBeTruthy();
     expect(within(dialog).getByText(/기본 비용/).textContent).toContain("50,000,000");

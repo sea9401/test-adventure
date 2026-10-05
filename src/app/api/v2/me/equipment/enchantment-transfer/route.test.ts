@@ -135,10 +135,12 @@ describe("POST enchantment-transfer", () => {
     const first = await POST(request(intent));
     expect(first.status).toBe(200);
     expect(await first.json()).toMatchObject({ ok: true, replayed: false, spentGold: 45_000_000,
-      source: { iid: "source", bound: true, liberationRevision: 9 },
+      source: { iid: "source", liberationRevision: 9 },
       target: { iid: "target", bound: true, liberation: { rank: 2, lineCount: 2, revision: 1 } },
       gold: 55_000_000,
     });
+    const savedSource = (mocks.saves.get("equipment.v2") as { owned: { iid: string; bound?: true }[] }).owned.find(({ iid }) => iid === "source");
+    expect(savedSource?.bound).toBeUndefined();
     const replay = await POST(request(intent));
     expect(await replay.json()).toMatchObject({ ok: true, replayed: true });
     expect(mocks.writes).toBe(2);

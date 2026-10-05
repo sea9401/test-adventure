@@ -215,7 +215,7 @@ export function V2DungeonList({
       <div className="space-y-3">
         {withTitle ? (
           <Card padding="none" className="overflow-hidden">
-            <div aria-hidden className="relative h-28">
+            <div aria-hidden className="ui-hunting-ground-image relative h-28">
               {image}
             </div>
             <div className="px-4 py-3">
@@ -229,7 +229,7 @@ export function V2DungeonList({
           <Card
             padding="none"
             aria-hidden
-            className="relative h-28 overflow-hidden"
+            className="ui-hunting-ground-image relative h-28 overflow-hidden"
           >
             {image}
           </Card>
@@ -387,7 +387,7 @@ export function V2DungeonList({
                   >
                     <span
                       aria-hidden
-                      className="relative block h-20 w-full shrink-0 bg-zinc-100 dark:bg-zinc-800"
+                      className="ui-hunting-ground-image relative block h-20 w-full shrink-0 bg-zinc-100 dark:bg-zinc-800"
                     >
                       <Image
                         src={huntingGroundImageForDepth(startDepth)}

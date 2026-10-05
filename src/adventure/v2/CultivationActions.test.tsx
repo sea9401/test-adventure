@@ -6,7 +6,9 @@ import {
   CultivationJobSelector,
   CultivationMaxConfirmDialog,
   cultivationCompletionMessage,
+  cultivationProfileTotals,
   cultivationRequestInit,
+  filterCultivationJobOptions,
   visitedCultivationJobOptions,
 } from "./CultivationActions";
 
@@ -170,8 +172,8 @@ describe("수행 액션", () => {
 
 describe("수행 성장 직업 선택", () => {
   const options = [
-    { id: "mage", name: "견습 마법사", summary: "지능 +2 · 정신 +2" },
-    { id: "fortressknight", name: "성채기사", summary: "활력 +4 · 힘 +2" },
+    { id: "mage", name: "견습 마법사", summary: "지능 +2 · 정신 +2", profile: { int: 2, spi: 2 } },
+    { id: "fortressknight", name: "성채기사", summary: "활력 +4 · 힘 +2", profile: { vit: 4, str: 2 } },
   ];
 
   it("전달받은 방문 전투직과 선택 직업의 성장 수치를 표시한다", () => {
@@ -238,9 +240,15 @@ describe("수행 성장 직업 선택", () => {
         { id: "swordsaint", name: "검성", visited: false },
         { id: "fisher", name: "낚시꾼", visited: true },
       ]),
-    ).toEqual([
-      { id: "mage", name: "견습 마법사", summary: "지능 +2 · 정신 +2" },
-      { id: "fortressknight", name: "성채기사", summary: "활력 +4 · 힘 +2" },
-    ]);
+    ).toEqual(options);
+  });
+
+  it("증가량 합과 포함 스탯 조건을 모두 만족하는 직업만 남긴다", () => {
+    expect(cultivationProfileTotals(options)).toEqual([4, 6]);
+    expect(filterCultivationJobOptions(options, { total: 4, stats: [] }).map((o) => o.id)).toEqual(["mage"]);
+    expect(filterCultivationJobOptions(options, { total: null, stats: ["vit", "str"] }).map((o) => o.id)).toEqual(["fortressknight"]);
+    expect(filterCultivationJobOptions(options, { total: null, stats: ["int", "str"] })).toEqual([]);
+    expect(filterCultivationJobOptions(options, { total: 6, stats: ["int"] })).toEqual([]);
+    expect(filterCultivationJobOptions(options, { total: null, stats: [] })).toEqual(options);
   });
 });

@@ -27,7 +27,7 @@ const preset: CombatLoadoutPreset = {
 };
 
 describe("통합 전투 프리셋 파싱", () => {
-  it("손상된 값은 비우고 슬롯 위치를 유지하며 다섯 칸을 넘기지 않는다", () => {
+  it("손상된 값은 비우고 슬롯 위치를 유지하며 열 칸을 넘기지 않는다", () => {
     const parsed = parseCombatLoadoutPresets([
       null,
       {
@@ -51,16 +51,17 @@ describe("통합 전투 프리셋 파싱", () => {
       equipment: { weapon: "w-1" },
     });
     expect(parsed[2]).toBeNull();
+    expect(parsed[5]).toMatchObject({ name: "sixth" });
   });
 
-  it("배열이 아닌 저장값은 빈 다섯 칸으로 복구한다", () => {
-    expect(parseCombatLoadoutPresets({ bad: true })).toEqual([
-      null,
-      null,
-      null,
-      null,
-      null,
-    ]);
+  it("전투 프리셋은 스킬 프리셋과 같은 열 칸이다", () => {
+    expect(COMBAT_LOADOUT_PRESET_SLOTS).toBe(10);
+  });
+
+  it("배열이 아닌 저장값은 빈 열 칸으로 복구한다", () => {
+    expect(parseCombatLoadoutPresets({ bad: true })).toEqual(
+      Array.from({ length: 10 }, () => null),
+    );
   });
 
   it("빈 이름은 슬롯 번호 기본 이름으로 바꾸고 이름 길이를 제한한다", () => {

@@ -64,8 +64,10 @@ export function applyEquipmentEnchantmentTransfer(args: EnchantmentTransferInten
   );
   if (!payment.ok) return { ok: false, error: "insufficient_gold", goldCost };
 
-  const nextSource: V2EquipInstance = { ...source, bound: true, liberationRevision: sourceRevision + 1 };
+  // 장비 귀속은 마법부여에서만 생기므로, 마법부여가 빠진 원본은 다시 거래할 수 있게 귀속을 푼다.
+  const nextSource: V2EquipInstance = { ...source, liberationRevision: sourceRevision + 1 };
   delete nextSource.liberation;
+  delete nextSource.bound;
   const nextTarget: V2EquipInstance = {
     ...target,
     bound: true,

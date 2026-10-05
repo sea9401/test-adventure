@@ -10,6 +10,7 @@ import {
   cookingDeliveryConditionText,
   cookingDeliveryFoodTraitsText,
   cookingDeliveryScore,
+  cookingDeliveryUsefulQuantity,
   cookingStandingDeliveryReward,
   type CookingDeliveryRequest,
 } from "./delivery";
@@ -27,13 +28,13 @@ type PendingCookingSale = {
 };
 
 function RequestCard({ request, data, busy, mutate }: { request: CookingDeliveryRequest; data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
-  const [quantity, setQuantity] = useState(1);
+  const progress = request.kind === "daily" ? data.cooking.daily.requestScores[request.id] ?? 0 : data.cooking.weekly.requestScore;
   const foods = Object.entries(data.cookingFoods).flatMap(([id, count]) => {
     const food = data.cookingFoodDefinitions[id as keyof typeof data.cookingFoodDefinitions];
     const score = food ? cookingDeliveryScore(food, request) : 0;
-    return food && score > 0 && (count ?? 0) > 0 ? [{ food, count: count ?? 0, score }] : [];
+    const maxQuantity = food ? Math.min(count ?? 0, cookingDeliveryUsefulQuantity(food, request, progress)) : 0;
+    return food && score > 0 && maxQuantity > 0 ? [{ food, maxQuantity, count: count ?? 0, score }] : [];
   });
-  const progress = request.kind === "daily" ? data.cooking.daily.requestScores[request.id] ?? 0 : data.cooking.weekly.requestScore;
   const complete = request.kind === "daily" ? data.cooking.daily.completedRequestIds.includes(request.id) : data.cooking.weekly.completed;
   const emptyText = request.condition.effectTag
     ? `요리 도감에서 ‘${COOKING_EFFECT_TAG_NAMES[request.condition.effectTag]} 효과’로 검색하면 대상 레시피를 찾을 수 있습니다. ${cookingQualityName(request.condition.minimumQuality)} 이상만 납품할 수 있습니다.`
@@ -46,24 +47,28 @@ function RequestCard({ request, data, busy, mutate }: { request: CookingDelivery
       </div>
       <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">조건: {cookingDeliveryConditionText(request.condition)}</div>
       <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">보상: {request.rewards.gold.toLocaleString()}골드 · 농장 증표 {request.rewards.reputation} · 요리 XP {request.rewards.cookingXp}</div>
-      {!complete && foods.length > 0 ? <div className="mt-3 space-y-2">{foods.map(({ food, count, score }) => (
-        <FoodDeliveryRow key={food.id} food={food} count={count} score={score} quantity={quantity} setQuantity={setQuantity} busy={busy}
-          onDeliver={() => mutate({ action: "deliver", requestId: request.id, foodId: food.id, quantity: Math.min(quantity, count) })} />
+      {!complete && foods.length > 0 ? <div className="mt-3 space-y-2">{foods.map(({ food, count, maxQuantity, score }) => (
+        <FoodDeliveryRow key={food.id} food={food} count={count} maxQuantity={maxQuantity} score={score} busy={busy}
+          onDeliver={(quantity) => mutate({ action: "deliver", requestId: request.id, foodId: food.id, quantity })} />
       ))}</div> : !complete ? <div className="mt-3 text-xs text-zinc-500">{emptyText}</div> : null}
     </article>
   );
 }
 
-function FoodDeliveryRow({ food, count, score, quantity, setQuantity, busy, onDeliver }: {
-  food: CookingFoodDefinition; count: number; score: number; quantity: number;
-  setQuantity: (value: number) => void; busy: boolean; onDeliver: () => void;
+function FoodDeliveryRow({ food, count, maxQuantity, score, busy, onDeliver }: {
+  food: CookingFoodDefinition; count: number; maxQuantity: number; score: number;
+  busy: boolean; onDeliver: (quantity: number) => void;
 }) {
+  const [rawQuantity, setQuantity] = useState(1);
+  // 납품 후 남은 점수가 줄면 상한도 함께 줄어든다.
+  const quantity = Math.min(rawQuantity, maxQuantity);
   return <div className="rounded-md border border-zinc-300 bg-white p-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
     <div className="font-semibold text-zinc-800 dark:text-zinc-100">{food.name} · 보유 {count}개</div>
     <div className="text-zinc-600 dark:text-zinc-300">납품 분류: {cookingDeliveryFoodTraitsText(food)}</div>
-    <div className="text-zinc-500">적용 효과: {cookingEffectText(food.effect)} · 개당 {score}점 · 이번 {score * Math.min(quantity, count)}점</div>
-    <div className="mt-1 flex gap-1"><input type="number" min={1} max={count} value={Math.min(quantity, count)} onChange={(event) => setQuantity(Math.max(1, Math.min(count, Number(event.target.value) || 1)))} className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-950" />
-      <button type="button" disabled={busy} onClick={onDeliver} className="rounded bg-emerald-600 px-2 py-1 font-bold text-white disabled:opacity-50">납품</button></div>
+    <div className="text-zinc-500">적용 효과: {cookingEffectText(food.effect)} · 개당 {score}점 · 이번 {score * quantity}점</div>
+    <div className="mt-1 flex items-center gap-1"><input type="number" min={1} max={maxQuantity} value={quantity} onChange={(event) => setQuantity(Math.max(1, Math.min(maxQuantity, Number(event.target.value) || 1)))} className="w-16 rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-950" />
+      <button type="button" disabled={busy} onClick={() => onDeliver(quantity)} className="rounded bg-emerald-600 px-2 py-1 font-bold text-white disabled:opacity-50">납품</button>
+      <span className="text-zinc-500">최대 {maxQuantity}개</span></div>
   </div>;
 }
 

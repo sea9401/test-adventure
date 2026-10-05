@@ -11,6 +11,11 @@ import {
 } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
+import {
+  V2_STAT_KEYS,
+  V2_STAT_LABELS,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 import { jobCultivationProfile, jobCultivationSummary } from "./jobExplorer";
 
 export type CultivationMode = "once" | "max";
@@ -30,21 +35,57 @@ export type CultivationJobOption = {
   id: string;
   name: string;
   summary: string;
+  /** 수행 1회에 오르는 스탯 한계치. 0인 스탯은 담지 않는다. */
+  profile: Partial<Record<V2StatKey, number>>;
+};
+
+export type CultivationJobFilter = {
+  /** 1회 수행 증가량 합. null이면 전체. */
+  total: number | null;
+  /** 모두 포함해야 하는 스탯. */
+  stats: readonly V2StatKey[];
 };
 
 export function visitedCultivationJobOptions(
   jobs: readonly { id: string; name: string; visited?: boolean }[],
 ): CultivationJobOption[] {
-  return jobs.flatMap((job) =>
-    job.visited && jobCultivationProfile(job.id)
-      ? [
-          {
-            id: job.id,
-            name: job.name,
-            summary: jobCultivationSummary(job.id),
-          },
-        ]
-      : [],
+  return jobs.flatMap((job) => {
+    const profile = job.visited ? jobCultivationProfile(job.id) : undefined;
+    if (!profile) return [];
+    return [
+      {
+        id: job.id,
+        name: job.name,
+        summary: jobCultivationSummary(job.id),
+        profile: Object.fromEntries(
+          V2_STAT_KEYS.flatMap((stat) =>
+            (profile[stat] ?? 0) > 0 ? [[stat, profile[stat]]] : [],
+          ),
+        ),
+      },
+    ];
+  });
+}
+
+function cultivationProfileTotal(option: CultivationJobOption): number {
+  return V2_STAT_KEYS.reduce((sum, stat) => sum + (option.profile[stat] ?? 0), 0);
+}
+
+/** 선택지에 실제로 있는 증가량 합(직업 차수에 대응)을 오름차순으로 돌려준다. */
+export function cultivationProfileTotals(
+  options: readonly CultivationJobOption[],
+): number[] {
+  return [...new Set(options.map(cultivationProfileTotal))].sort((a, b) => a - b);
+}
+
+export function filterCultivationJobOptions(
+  options: readonly CultivationJobOption[],
+  filter: CultivationJobFilter,
+): CultivationJobOption[] {
+  return options.filter(
+    (option) =>
+      (filter.total === null || cultivationProfileTotal(option) === filter.total) &&
+      filter.stats.every((stat) => (option.profile[stat] ?? 0) > 0),
   );
 }
 
@@ -158,6 +199,34 @@ export function CultivationJobSelector({
   );
 }
 
+function FilterChip({
+  label,
+  ariaLabel,
+  pressed,
+  onClick,
+}: {
+  label: string;
+  ariaLabel: string;
+  pressed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`min-h-8 rounded-md border px-2.5 py-1 font-semibold transition-colors ${
+        pressed
+          ? "border-amber-500 bg-amber-50 text-amber-800 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200"
+          : "border-zinc-300 bg-white text-zinc-700 hover:border-amber-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-amber-700"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function CultivationJobPickerDialog({
   options,
   value,
@@ -177,6 +246,20 @@ export function CultivationJobPickerDialog({
       ? value
       : (options[0]?.id ?? ""),
   );
+  const [totalFilter, setTotalFilter] = useState<number | null>(null);
+  const [statFilter, setStatFilter] = useState<V2StatKey[]>([]);
+  const totals = cultivationProfileTotals(options);
+  const visibleOptions = filterCultivationJobOptions(options, {
+    total: totalFilter,
+    stats: statFilter,
+  });
+  const filtering = totalFilter !== null || statFilter.length > 0;
+  const toggleStat = (stat: V2StatKey) =>
+    setStatFilter((current) =>
+      current.includes(stat)
+        ? current.filter((entry) => entry !== stat)
+        : [...current, stat],
+    );
   const closeIfIdle = () => {
     if (!busy) onClose();
   };
@@ -232,12 +315,59 @@ export function CultivationJobPickerDialog({
           </button>
         </div>
 
+        <div className="shrink-0 space-y-2 border-b border-zinc-200 px-3 py-3 text-xs sm:px-4 dark:border-zinc-700">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="w-16 shrink-0 font-semibold text-zinc-600 dark:text-zinc-300">증가량 합</span>
+            {totals.map((total) => (
+              <FilterChip
+                key={total}
+                label={String(total)}
+                ariaLabel={`증가량 합 ${total}`}
+                pressed={totalFilter === total}
+                onClick={() => setTotalFilter((current) => (current === total ? null : total))}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="w-16 shrink-0 font-semibold text-zinc-600 dark:text-zinc-300">포함 스탯</span>
+            {V2_STAT_KEYS.map((stat) => (
+              <FilterChip
+                key={stat}
+                label={V2_STAT_LABELS[stat]}
+                ariaLabel={`${V2_STAT_LABELS[stat]} 포함`}
+                pressed={statFilter.includes(stat)}
+                onClick={() => toggleStat(stat)}
+              />
+            ))}
+          </div>
+          {filtering ? (
+            <div className="flex items-center justify-between gap-2 text-zinc-500 dark:text-zinc-400">
+              <span>{visibleOptions.length}개 직업</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTotalFilter(null);
+                  setStatFilter([]);
+                }}
+                className="font-semibold text-amber-700 hover:underline dark:text-amber-300"
+              >
+                조건 초기화
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         <div
           role="radiogroup"
           aria-label="수행 성장 직업"
           className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 sm:grid sm:grid-cols-2 sm:content-start sm:gap-2 sm:space-y-0 sm:p-4"
         >
-          {options.map((option) => {
+          {visibleOptions.length === 0 ? (
+            <p className="py-6 text-center text-sm text-zinc-500 sm:col-span-2 dark:text-zinc-400">
+              조건에 맞는 직업이 없습니다.
+            </p>
+          ) : null}
+          {visibleOptions.map((option) => {
             const checked = option.id === pendingValue;
             return (
               <button

@@ -541,16 +541,16 @@ export async function POST(req: Request) {
         const deliveryRequest = [...requests.daily, requests.weekly].find((entry) => entry.id === requestId);
         const food = cookingFoodDefinition(foodId);
         if (!deliveryRequest || !food) throw new Error("bad_request");
-        const remaining = removeCookingFood(inventory.cookingFoods, foodId, quantity);
-        if (!remaining) throw new Error("cooked_food_unavailable");
         const applied = applyCookingDelivery(cooking, deliveryRequest, food, quantity);
+        const remaining = removeCookingFood(inventory.cookingFoods, foodId, applied.quantityUsed);
+        if (!remaining) throw new Error("cooked_food_unavailable");
         cooking = applied.state;
         inventory = { ...inventory, cookingFoods: remaining };
         if (applied.rewards) {
           nextCharacter = { ...character, gold: Math.max(0, Math.floor(Number(character.gold) || 0)) + applied.rewards.gold };
           farm = { ...farm, stats: { ...farm.stats, reputation: farm.stats.reputation + applied.rewards.reputation } };
         }
-        result = { action, requestId, foodId, quantity, scoreAdded: applied.scoreAdded, completedNow: applied.completedNow, rewards: applied.rewards };
+        result = { action, requestId, foodId, quantity: applied.quantityUsed, scoreAdded: applied.scoreAdded, completedNow: applied.completedNow, rewards: applied.rewards };
       } else if (action === "standing_delivery") {
         const foodId = (typeof body?.foodId === "string" ? body.foodId : "") as CookingFoodId;
         const quantity = positiveQuantity(body?.quantity ?? 1, COOKING_STANDING_DELIVERY_DAILY_LIMIT);

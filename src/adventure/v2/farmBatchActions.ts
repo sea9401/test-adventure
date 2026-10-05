@@ -3,7 +3,12 @@ export type FarmBatchAction = "plant" | "harvest" | "fertilize";
 type FarmBatchResponse = {
   ok: boolean;
   error?: string;
-  result?: { farmingXpGained?: number; seedReturned?: number };
+  result?: {
+    farmingXpGained?: number;
+    seedReturned?: number;
+    planted?: number;
+    stoppedError?: string | null;
+  };
 };
 
 const FARM_BATCH_ENDPOINT: Record<FarmBatchAction, string> = {
@@ -59,15 +64,47 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
   let seedsReturned = 0;
   let farmingXpGained = 0;
 
+  // 심기는 서버가 한 트랜잭션에서 여러 칸을 처리한다. 칸마다 요청하면 밭이
+  // 많을 때 수확 직후 농사 요청 제한(분당 30회)에 걸려 중간에 멈춘다.
+  if (action === "plant") {
+    try {
+      const response = await request(FARM_BATCH_ENDPOINT.plant, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotIds, cropId }),
+      });
+      const data = (await response.json()) as T;
+      if (!response.ok || data.ok !== true) {
+        return {
+          completed: 0,
+          error: data.error ?? "request_failed",
+          farmingXpGained,
+          seedsReturned,
+        };
+      }
+      onSuccess(data);
+      return {
+        completed: Math.max(0, Math.floor(Number(data.result?.planted) || 0)),
+        error: data.result?.stoppedError ?? null,
+        farmingXpGained,
+        seedsReturned,
+      };
+    } catch (error) {
+      return {
+        completed: 0,
+        error: error instanceof Error ? error.message : "request_failed",
+        farmingXpGained,
+        seedsReturned,
+      };
+    }
+  }
+
   for (const plotId of plotIds) {
     try {
       const response = await request(FARM_BATCH_ENDPOINT[action], {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          plotId,
-          ...(action === "plant" ? { cropId } : {}),
-        }),
+        body: JSON.stringify({ plotId }),
       });
       const data = (await response.json()) as T;
       if (!response.ok || data.ok !== true) {

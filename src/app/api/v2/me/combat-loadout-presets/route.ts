@@ -9,6 +9,7 @@ import {
 import {
   COMBAT_LOADOUT_PRESET_NAME_MAX,
   combatLoadoutPresetMatches,
+  COMBAT_LOADOUT_PRESET_SLOTS,
   eligiblePresetEquipment,
   eligiblePresetSkills,
   parseCombatLoadoutPresets,
@@ -97,7 +98,7 @@ type MutationBody = {
 };
 
 function validSlot(value: unknown): value is number {
-  return Number.isInteger(value) && Number(value) >= 0 && Number(value) < 5;
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) < COMBAT_LOADOUT_PRESET_SLOTS;
 }
 
 function presetName(

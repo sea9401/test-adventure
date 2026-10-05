@@ -1554,6 +1554,20 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   ...UNEXPLORED_SPECIALTY_TAG_SETS,
 ];
 
+/** 장비가 속한 세트 이름(고정 세트 + 태그 세트). 세트가 없으면 빈 배열. */
+export function equipmentSetNames(id: V2EquipmentId): string[] {
+  const item = V2_EQUIPMENT[id];
+  if (!item) return [];
+  return [
+    item.setId
+      ? V2_EQUIP_SETS.find((set) => set.id === item.setId)?.name
+      : undefined,
+    ...(item.setTags ?? []).map(
+      (tag) => V2_EQUIP_TAG_SETS.find((set) => set.id === tag)?.name,
+    ),
+  ].filter((name): name is string => Boolean(name));
+}
+
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
 export function v2EquipmentBySlot(slot: V2EquipSlot): V2Equipment[] {
   return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[])
@@ -2010,7 +2024,7 @@ export function powerWithBonuses(
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
 //   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
-//   bound: 계정 귀속 — 계정 간 거래·이동 제한. 현재 부여처는 없으며 향후 요소용으로 보존.
+//   bound: 계정 귀속 — 계정 간 거래·이동 제한. 마법부여가 부여하며, 마법부여 이전으로 원본에서 빠지면 함께 풀린다.
 export type V2EquipInstance = {
   iid: string;
   id: V2EquipmentId;

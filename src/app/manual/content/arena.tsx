@@ -1,4 +1,15 @@
 import { ARENA_SHOP_CONSUMABLES } from "@/adventure/v2/arenaShop";
+import {
+  actionRate,
+  PLAYER_ACTION_SPD_CAP,
+  RATE_CAP,
+} from "@/adventure/v2/combat/combatTimeline";
+import {
+  BASE_INITIATIVE_WEIGHT,
+  MAX_INITIATIVE_CHANCE,
+  MIN_INITIATIVE_CHANCE,
+  pvpInitiativeChance,
+} from "@/adventure/v2/combat/pvpInitiative";
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
 import {
   ARENA_TOURNAMENT_MIN_MATCHES,
@@ -53,6 +64,20 @@ const ARENA_REWARD_ROWS = [
   ],
 ] as const;
 
+const INITIATIVE_POINT_SPEEDS = [100, 200, 500, 1000] as const;
+const INITIATIVE_EXAMPLES = [
+  [100, 100],
+  [120, 100],
+  [200, 100],
+  [1000, 500],
+  [500, 100],
+] as const;
+
+const formatCount = (value: number) => value.toLocaleString("ko-KR");
+const formatPercent = (chance: number) =>
+  `${Number((chance * 100).toFixed(1))}%`;
+const speedPoints = (spd: number) => Math.round(actionRate(spd));
+
 export function ArenaContent() {
   return (
     <>
@@ -92,6 +117,44 @@ export function ArenaContent() {
         <Em>천하제일</Em>도 지급됩니다.
         메달과 칭호는 캐릭터 스탯을 직접 올리지 않습니다.
       </Note>
+
+      <H2>선공 규칙</H2>
+      <P>
+        투기장 경기는 시작할 때 양쪽 속도를 반영한 확률로 선공을 정합니다.
+        친선 대련과 거점전 같은 다른 1대1 대전도 같은 규칙을 씁니다.
+      </P>
+      <UL>
+        <li>
+          먼저 속도를 <Em>행동 속도 점수</Em>로 바꿉니다.{" "}
+          {INITIATIVE_POINT_SPEEDS.map(
+            (spd) => `속도 ${formatCount(spd)}은 ${formatCount(speedPoints(spd))}점`,
+          ).join(", ")}
+          이고, 속도 {formatCount(PLAYER_ACTION_SPD_CAP)} 이상은 최대{" "}
+          {formatCount(RATE_CAP)}점입니다.
+        </li>
+        <li>
+          내 선공 확률 = ({BASE_INITIATIVE_WEIGHT} + 내 행동 속도 점수) ÷ (
+          {BASE_INITIATIVE_WEIGHT * 2} + 내 행동 속도 점수 + 상대 행동 속도 점수)
+        </li>
+        <li>
+          한쪽으로 너무 쏠리지 않도록 선공 확률은 최소{" "}
+          {formatPercent(MIN_INITIATIVE_CHANCE)}, 최대{" "}
+          {formatPercent(MAX_INITIATIVE_CHANCE)}로 제한됩니다.
+        </li>
+        <li>
+          선공은 첫 행동 순서만 정합니다. 그 뒤로는 각자의 속도에 따라 행동이
+          돌아오므로, 속도가 높으면 선공보다 더 자주 행동하는 이점이 큽니다.
+        </li>
+      </UL>
+      <Table
+        head={["내 속도", "상대 속도", "내 선공 확률"]}
+        rows={INITIATIVE_EXAMPLES.map(([mine, theirs]) => [
+          formatCount(mine),
+          formatCount(theirs),
+          formatPercent(pvpInitiativeChance(mine, theirs)),
+        ])}
+        caption="속도가 같으면 선공 확률은 50%입니다."
+      />
 
       <H2>챔피언십 보상</H2>
       <Table

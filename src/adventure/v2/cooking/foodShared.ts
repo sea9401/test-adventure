@@ -62,14 +62,15 @@ export function parseCookingFoodIdFormat(raw: unknown): CookingFoodVariant | nul
 
 export function isCookingFoodIdFormat(raw: unknown): raw is CookingFoodId { return parseCookingFoodIdFormat(raw) !== null; }
 
+export const COOKING_COMBAT_FLAT_LABELS: Record<CookingCombatFlatKey, string> = { atk: "공격력", magicAtk: "마법공격력", def: "방어력", magicDef: "마법방어력", maxHp: "최대 HP", maxMp: "최대 MP", accuracy: "적중" };
+
 export function cookingEffectText(effect: CookingEffect): string {
   const parts: string[] = [];
   for (const stat of V2_STAT_KEYS) {
     if (effect.primaryFlat?.[stat]) parts.push(`${stat.toUpperCase()} +${effect.primaryFlat[stat]}`);
     if (effect.primaryPct?.[stat]) parts.push(`${stat.toUpperCase()} +${effect.primaryPct[stat]}%`);
   }
-  const labels: Record<CookingCombatFlatKey, string> = { atk: "공격력", magicAtk: "마법공격력", def: "방어력", magicDef: "마법방어력", maxHp: "최대 HP", maxMp: "최대 MP", accuracy: "적중" };
-  for (const [key, value] of Object.entries(effect.combatFlat ?? {})) if (value) parts.push(`${labels[key as CookingCombatFlatKey]} +${value}`);
+  for (const [key, value] of Object.entries(effect.combatFlat ?? {})) if (value) parts.push(`${COOKING_COMBAT_FLAT_LABELS[key as CookingCombatFlatKey]} +${value}`);
   if (effect.huntExpPct) parts.push(`사냥 경험치 +${effect.huntExpPct}%`);
   if (effect.huntGoldPct) parts.push(`사냥 골드 +${effect.huntGoldPct}%`);
   if (effect.cookingXpPct) parts.push(`요리 경험치 +${effect.cookingXpPct}%`);

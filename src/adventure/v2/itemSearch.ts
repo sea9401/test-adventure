@@ -1,6 +1,18 @@
+import {
+  equipmentSetNames,
+  V2_EQUIPMENT,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
+
 export function matchesItemSearch(name: string | undefined, search: string): boolean {
   const query = search.trim().toLocaleLowerCase("ko-KR");
   return !query || (name?.toLocaleLowerCase("ko-KR").includes(query) ?? false);
+}
+
+/** 장비 이름 또는 장비가 속한 세트 이름으로 검색한다. */
+export function matchesEquipmentSearch(id: V2EquipmentId, search: string): boolean {
+  if (matchesItemSearch(V2_EQUIPMENT[id]?.name, search)) return true;
+  return equipmentSetNames(id).some((name) => matchesItemSearch(name, search));
 }
 
 /** Filter display data only; preserve the authoritative counts for item actions. */

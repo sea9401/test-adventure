@@ -65,8 +65,8 @@ describe("첫 빈 프리셋 칸", () => {
     expect(firstEmptyPresetSlot([saved, null, saved, null, null])).toBe(1);
   });
 
-  it("다섯 칸이 모두 차면 null", () => {
-    expect(firstEmptyPresetSlot([saved, saved, saved, saved, saved])).toBeNull();
+  it("열 칸이 모두 차면 null", () => {
+    expect(firstEmptyPresetSlot(Array.from({ length: 10 }, () => saved))).toBeNull();
   });
 });
 
@@ -78,7 +78,7 @@ describe("통합 전투 프리셋 화면", () => {
     expect(html).toContain("보스 사냥");
     expect(html).toContain("적용 중");
     expect(html).toContain("스킬 2 · 패턴 3 · 장비 6/6");
-    expect(html).toContain("빈 칸 4개");
+    expect(html).toContain("빈 칸 9개");
     expect(html).not.toContain("빈 프리셋");
     expect(html).toContain('aria-label="보스 사냥 프리셋 적용"');
     expect(html).toContain('aria-label="보스 사냥 프리셋을 현재 세팅으로 덮어쓰기"');
@@ -89,11 +89,11 @@ describe("통합 전투 프리셋 화면", () => {
     const html = renderList([null, null, null, null, null]);
 
     expect(html).toContain("저장한 프리셋이 없습니다");
-    expect(html).not.toContain("빈 칸 5개");
+    expect(html).not.toContain("빈 칸 10개");
   });
 
-  it("다섯 칸이 모두 차면 저장을 막고 덮어쓰기·삭제를 안내한다", () => {
-    const html = renderList([saved, saved, saved, saved, saved]);
+  it("열 칸이 모두 차면 저장을 막고 덮어쓰기·삭제를 안내한다", () => {
+    const html = renderList(Array.from({ length: 10 }, () => saved));
     const container = document.createElement("div");
     container.innerHTML = html;
     const saveButton = Array.from(container.querySelectorAll("button")).find((button) =>

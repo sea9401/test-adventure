@@ -8,6 +8,7 @@ import {
 } from "@/adventure/v2/dangerousFishingRealtime";
 import { dangerousRealtimeModifiers } from "@/adventure/v2/dangerousFishingRealtimeModifiers";
 import { dangerousBaitRealtimeEffectCopy } from "@/adventure/v2/dangerousFishingBaitCopy";
+import { ArenaContent } from "./content/arena";
 import { CombatContent } from "./content/combat";
 import { CombatFormulasContent } from "./content/combat-formulas";
 import { ControlsContent } from "./content/controls";
@@ -253,6 +254,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("트로피 전시대");
     expect(html).toContain("기본 모드");
     expect(html).toContain("배경 숨김");
+    expect(html).toContain("사냥터 그림");
     expect(html).toContain("은신 모드");
     expect(html).toContain("터미널 모드");
     expect(html).toContain("검은 배경");
@@ -576,7 +578,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("1순위가 확률 판정에 실패하면 2순위");
     expect(html).toContain("서로 다른 스킬은 각각 독립적으로 발동 확률을 판정");
     expect(html).toContain("독립된 재도전 횟수가 늘어나지 않습니다");
-    expect(html).toContain("최대 5개 슬롯");
+    expect(html).toContain("최대 10개 슬롯");
     expect(html).toContain("장착 스킬·전투 패턴·장비");
     expect(html).toContain("교대 사용");
     expect(html).toContain("A → B → A → B");
@@ -827,5 +829,17 @@ describe("최신 게임 안내서 내용", () => {
     expect(controls).toContain("판매세 5%");
     expect(economy).toContain("10,000");
     expect(economy).toContain("시간 회복은 최대치까지만");
+  });
+  it("투기장 선공 확률 계산식과 35~65% 제한을 안내한다", () => {
+    const text = renderToStaticMarkup(<ArenaContent />).replace(/<[^>]*>/g, "");
+
+    expect(text).toContain("선공 규칙");
+    expect(text).toContain(
+      "내 선공 확률 = (100 + 내 행동 속도 점수) ÷ (200 + 내 행동 속도 점수 + 상대 행동 속도 점수)",
+    );
+    expect(text).toContain("최소 35%, 최대 65%");
+    expect(text).toContain("속도 200은 160점");
+    expect(text).toContain("56.6%");
+    expect(text).toContain("첫 행동 순서만 정합니다");
   });
 });

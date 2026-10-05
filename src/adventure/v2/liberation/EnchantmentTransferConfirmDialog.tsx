@@ -54,7 +54,7 @@ export function EnchantmentTransferConfirmDialog({ source, target, busy, onConfi
           <TransferEquipmentSummary candidate={target} label="받을 장비" />
         </div>
         <div id="enchantment-transfer-warning" className={`${SURFACE_ACCENT} mt-4 space-y-2 p-3 text-sm leading-relaxed`}>
-          <p>원본 장비와 귀속은 유지되며, 원본의 마법부여만 제거됩니다.</p>
+          <p>원본 장비는 유지되며 마법부여가 제거되어 다시 거래할 수 있습니다.</p>
           <p>받는 장비는 즉시 귀속되어 거래할 수 없습니다.</p>
           {target.item.liberation ? <p className="font-bold text-rose-800 dark:text-rose-200">받는 장비의 기존 마법부여는 영구 소멸하며 되돌릴 수 없습니다.</p> : null}
         </div>

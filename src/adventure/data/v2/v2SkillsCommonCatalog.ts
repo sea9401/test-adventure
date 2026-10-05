@@ -2507,7 +2507,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "광기 계열의 모든 하위 효과를 계승한다. 치명 피해를 한 번 극복한 뒤 다음 공격을 강화하고 멸왕일도를 재충전한다.",
     detail: {
       mechanics: ["장착 중 하위 광기 효과를 계승하고 패황 전용 광기 효과로 대체한다."],
-      synergies: ["사망 극복이 발동하면 HP를 40%로 회복하고 다음 공격을 강화하며 멸왕일도를 1회 재충전한다. 다음 내 공격이 끝날 때까지 HP는 40% 아래로 내려가지 않는다."],
+      synergies: ["사망 극복이 발동하면 HP를 40%로 회복하고 다음 공격을 강화하며 멸왕일도를 1회 재충전한다. 다음 내 공격이 끝날 때까지 HP는 40% 아래로 내려가지 않는다. 회복·버프 스킬은 공격으로 치지 않으며, 빗나간 공격은 공격으로 친다."],
       limitations: ["동일 계열 광기 효과는 중복 적용되지 않는다."],
     },
     mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 15,

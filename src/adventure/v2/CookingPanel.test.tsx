@@ -195,6 +195,28 @@ describe("개편 요리 연구실", () => {
     expect(html).toContain("적용 효과: DEX +4 · LUK +2 · 방어력 +12");
   });
 
+  it("납품 수량은 음식마다 따로 입력하고 남은 목표 점수만큼으로 제한한다", () => {
+    const data = fixture();
+    const strong = cookingFoodId({ recipeId: "tomato_salad", quality: "masterpiece", originator: true, specialtyBonusPct: 5 });
+    const plain = cookingFoodId({ recipeId: "tomato_salad", quality: "normal", originator: false, specialtyBonusPct: 0 });
+    data.requests.daily = [data.requests.daily[0]];
+    data.requests.weekly = { ...data.requests.weekly, condition: { field: "seafood", minimumQuality: "careful" } };
+    data.cookingFoods = { [strong]: 9, [plain]: 9 };
+    data.cookingFoodDefinitions = {
+      [strong]: cookingFoodDefinition(strong)!,
+      [plain]: cookingFoodDefinition(plain)!,
+    };
+    const mutate = vi.fn(async () => undefined);
+    render(<CookingWorkspace data={data} section="delivery" onSectionChange={vi.fn()} busy={false} mutate={mutate} />);
+    const inputs = screen.getAllByRole("spinbutton");
+    expect(inputs).toHaveLength(2);
+    fireEvent.change(inputs[0], { target: { value: "9" } });
+    expect((inputs[0] as HTMLInputElement).value).toBe("3");
+    expect((inputs[1] as HTMLInputElement).value).toBe("1");
+    fireEvent.click(screen.getAllByRole("button", { name: "납품" })[0]);
+    expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ action: "deliver", foodId: strong, quantity: 3 }));
+  });
+
   it("일일과 주간 납품 카드에 서로 다른 최소 품질 조건을 표시한다", () => {
     const html = renderSection("delivery");
     expect(html).toContain("조건: 화덕 분야 · 일반 이상");

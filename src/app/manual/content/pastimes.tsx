@@ -164,6 +164,10 @@ export function PastimesContent() {
           돼지우리 2,000개이며 돼지우리를 건설하거나 재건축하면 첫 돼지가 포함됩니다.
         </li>
         <li>
+          부지 이름 옆 화살표로 이웃한 축사와 자리를 바꿀 수 있습니다. 사료와
+          생산 진행, 대기 물품은 축사를 따라 함께 옮겨지며 비용은 들지 않습니다.
+        </li>
+        <li>
           돼지우리에는 최대 <Em>{RANCH_ANIMAL_DEFINITIONS.pig.shipmentCapacityCycles}마리</Em>를
           들일 수 있습니다. 돼지 한 마리당 배합 사료 {RANCH_ANIMAL_DEFINITIONS.pig.feedPerCycle}개가
           필요하고 <Em>{RANCH_ANIMAL_DEFINITIONS.pig.cycleMs / (60 * 60 * 1_000)}시간</Em> 뒤

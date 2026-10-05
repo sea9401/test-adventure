@@ -5,6 +5,7 @@ import {
   parseRanchState,
   ranchFeedPlan,
   rebuildRanchSlot as rebuildRanchSlotDomain,
+  swapRanchSlots as swapRanchSlotsDomain,
   unlockRanchSlot,
   type RanchAnimalId,
   type RanchFeedTarget,
@@ -1482,6 +1483,15 @@ export function rebuildFarmRanchSlot(
   };
 }
 
+export function swapFarmRanchSlots(
+  state: FarmState,
+  fromSlotId: RanchSlotId,
+  toSlotId: RanchSlotId,
+  now = Date.now(),
+): FarmState {
+  return { ...state, ranch: swapRanchSlotsDomain(state.ranch, fromSlotId, toSlotId, now) };
+}
+
 export function plantCrop(
   state: FarmState,
   plotId: string,
@@ -1513,6 +1523,29 @@ export function plantCrop(
         : p,
     ),
   };
+}
+
+// 여러 밭을 한 번에 심는다. 앞에서부터 심다가 실패하면 그때까지 심은 상태와
+// 사유를 돌려주고, 첫 칸부터 실패하면 그 오류를 그대로 던진다.
+export function plantCrops(
+  state: FarmState,
+  plotIds: readonly string[],
+  cropId: FarmCropId,
+  now = Date.now(),
+  options: { learnedSkillIds?: Iterable<string> | null } = {},
+): { state: FarmState; planted: number; stoppedError: string | null } {
+  let next = state;
+  let planted = 0;
+  for (const plotId of plotIds) {
+    try {
+      next = plantCrop(next, plotId, cropId, now, options);
+      planted += 1;
+    } catch (e) {
+      if (!(e instanceof FarmError) || planted === 0) throw e;
+      return { state: next, planted, stoppedError: e.code };
+    }
+  }
+  return { state: next, planted, stoppedError: null };
 }
 
 export function uprootCrop(

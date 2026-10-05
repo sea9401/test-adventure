@@ -3921,6 +3921,11 @@ html.ui-discreet-mode .game-scene-background {
   display: none;
 }
 
+/* 사냥터 그림 숨김 — 환경 설정에서 끈 경우 사냥터 목록의 지역 그림 영역을 접는다. */
+html.ui-hunting-images-hidden .ui-hunting-ground-image {
+  display: none;
+}
+
 /* 은신 모드는 눈에 띄는 계정 꾸미기 연출도 추가로 감춘다.
    기능성 이미지와 로딩 상태는 유지해 조작 정보가 사라지지 않게 한다. */
 html.ui-discreet-mode .ui-profile-frame-cosmetic {

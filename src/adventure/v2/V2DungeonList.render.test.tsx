@@ -192,6 +192,12 @@ describe("사냥터 PC 2단", () => {
     const nameCard = main?.querySelector("h2")?.closest(".ui-surface-card");
     expect(nameCard?.querySelector("img")).toBeTruthy();
     expect(main?.querySelectorAll("img")).toHaveLength(1);
+    // 환경 설정에서 사냥터 그림을 끄면 감출 수 있도록 모든 그림 영역에 표식을 단다.
+    const images = Array.from(container.querySelectorAll("img"));
+    expect(images.length).toBeGreaterThan(1);
+    for (const image of images) {
+      expect(image.closest(".ui-hunting-ground-image")).toBeTruthy();
+    }
   });
 
   it("고른 사냥터를 표시 설정에서 숨기면 남은 사냥터로 넘어간다", () => {

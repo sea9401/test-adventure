@@ -24,7 +24,8 @@ import {
   confirmPresetOverwrite,
 } from "./presetConfirmation";
 
-const PRESET_SLOT_COUNT = 5;
+// 화면 번들에 장비 데이터 모듈을 끌어오지 않도록 combatLoadoutPresets.ts 의 COMBAT_LOADOUT_PRESET_SLOTS 와 같은 값을 둔다.
+const PRESET_SLOT_COUNT = 10;
 
 type ExcludedPresetItems = {
   skillIds: string[];

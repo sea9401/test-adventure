@@ -117,6 +117,7 @@ export function AdventurerFarmPanel({
     busyRanchCollect,
     busyRanchUpgradeSlotId,
     busyRanchRebuildSlotId,
+    busyRanchSwap,
     fertilizerBalance,
     notice,
     now,
@@ -147,6 +148,7 @@ export function AdventurerFarmPanel({
     collectRanch,
     buyRanchSlot,
     rebuildRanchSlot,
+    swapRanchSlots,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
   const [activeSection, setActiveSection] = useState<FarmSectionKey>(
@@ -545,6 +547,8 @@ export function AdventurerFarmPanel({
                   onCollect={() => void collectRanch()}
                   onUpgrade={(slotId, animalId) => void buyRanchSlot(slotId, animalId)}
                   onRebuild={(slotId, animalId) => void rebuildRanchSlot(slotId, animalId)}
+                  busySwap={busyRanchSwap}
+                  onSwap={(fromSlotId, toSlotId) => void swapRanchSlots(fromSlotId, toSlotId)}
                   onOpenLifeWorkshop={onOpenLifeWorkshop}
                 />
               </div>

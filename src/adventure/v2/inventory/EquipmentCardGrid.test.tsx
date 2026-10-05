@@ -99,4 +99,32 @@ describe("EquipmentCardGrid", () => {
 
     expect(html.match(/>유니크</g)).toHaveLength(1);
   });
+  it("마법부여 장비는 줄 수를, 마법부여 없는 귀속 장비는 귀속 표식을 목록 카드에 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <EquipmentCardGrid
+        cards={[
+          {
+            inst: {
+              iid: "enchanted",
+              id: "v2_starter_staff",
+              bound: true,
+              liberation: { rank: 2, lineCount: 3, revision: 1, options: [] },
+            },
+            isEquipped: false,
+          },
+          {
+            inst: { iid: "bound", id: "v2_starter_staff", bound: true },
+            isEquipped: false,
+          },
+          {
+            inst: { iid: "plain", id: "v2_starter_staff" },
+            isEquipped: false,
+          },
+        ]}
+        onOpenCard={() => undefined}
+      />,
+    );
+    expect(html.match(/마법부여 3줄/g)).toHaveLength(1);
+    expect(html.match(/>귀속</g)).toHaveLength(1);
+  });
 });

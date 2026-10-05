@@ -14,6 +14,7 @@ import {
   FileText,
   ImageSquare,
   IdentificationCard,
+  MapTrifold,
   Moon,
   Square,
   Sun,
@@ -45,6 +46,11 @@ import {
   storedValueForDisplayMode,
   type DisplayMode,
 } from "./discreetMode";
+import {
+  HUNTING_GROUND_IMAGES_HIDDEN_CLASS,
+  HUNTING_GROUND_IMAGES_HIDDEN_VALUE,
+  HUNTING_GROUND_IMAGES_STORAGE_KEY,
+} from "./huntingGroundImages";
 import {
   GILDED_STYLE_CLASS,
   UI_STYLE_STORAGE_KEY,
@@ -120,6 +126,7 @@ export function V2PreferencesView() {
   const [theme, setTheme] = useState<Theme>("dark");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("default");
   const [uiStyle, setUiStyle] = useState<UiStyle>("classic");
+  const [huntingImagesShown, setHuntingImagesShown] = useState(true);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [notificationSaveError, setNotificationSaveError] = useState(false);
@@ -132,6 +139,7 @@ export function V2PreferencesView() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(root.classList.contains("dark") ? "dark" : "light");
     setUiStyle(root.classList.contains(GILDED_STYLE_CLASS) ? "gilded" : "classic");
+    setHuntingImagesShown(!root.classList.contains(HUNTING_GROUND_IMAGES_HIDDEN_CLASS));
     setDisplayMode(
       root.classList.contains(TERMINAL_MODE_CLASS)
         ? "terminal"
@@ -160,6 +168,19 @@ export function V2PreferencesView() {
     // 기본값을 나중에 바꿔도 직접 고른 스타일이 유지되도록 두 값 모두 저장한다.
     try {
       localStorage.setItem(UI_STYLE_STORAGE_KEY, next);
+    } catch {}
+  };
+
+  const toggleHuntingImages = () => {
+    const nextShown = !huntingImagesShown;
+    setHuntingImagesShown(nextShown);
+    document.documentElement.classList.toggle(
+      HUNTING_GROUND_IMAGES_HIDDEN_CLASS,
+      !nextShown,
+    );
+    try {
+      if (nextShown) localStorage.removeItem(HUNTING_GROUND_IMAGES_STORAGE_KEY);
+      else localStorage.setItem(HUNTING_GROUND_IMAGES_STORAGE_KEY, HUNTING_GROUND_IMAGES_HIDDEN_VALUE);
     } catch {}
   };
 
@@ -418,6 +439,38 @@ export function V2PreferencesView() {
               </button>
             );
           })}
+        </div>
+        <div className={`${SURFACE_INSET} flex items-start gap-3 p-3`}>
+          <MapTrifold
+            size={24}
+            weight={huntingImagesShown ? "fill" : "duotone"}
+            className={`mt-0.5 shrink-0 ${
+              huntingImagesShown
+                ? "text-amber-600 dark:text-amber-300"
+                : "text-zinc-500 dark:text-zinc-400"
+            }`}
+          />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              사냥터 그림
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              사냥터 목록과 사냥터 정보에 지역 그림을 표시합니다.
+            </p>
+            <button
+              type="button"
+              aria-label="사냥터 그림 표시"
+              aria-pressed={huntingImagesShown}
+              onClick={toggleHuntingImages}
+              className={`mt-3 min-h-9 rounded-md border px-3 py-2 text-xs font-semibold transition-colors ${
+                huntingImagesShown
+                  ? "border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950"
+                  : "border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              }`}
+            >
+              {huntingImagesShown ? "표시 켜짐" : "표시 꺼짐"}
+            </button>
+          </div>
         </div>
       </Card>
 

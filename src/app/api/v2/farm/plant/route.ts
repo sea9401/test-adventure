@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import {
   FARM_CROP_LIST,
+  FARM_MAX_PLOT_COUNT,
   FARM_SAVE_KEY,
   FarmError,
   emptyFarmState,
@@ -11,7 +12,7 @@ import {
   isFarmCropId,
   normalizeFarmForDay,
   parseFarmState,
-  plantCrop,
+  plantCrops,
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceFarmingRateLimit } from "@/lib/server/farmingRateLimit";
@@ -22,6 +23,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 
 // POST /api/v2/farm/plant — 빈 밭에 기본 씨앗을 심는다.
+// plotId 하나 또는 plotIds 목록(모두 심기)을 받아 한 트랜잭션에서 처리한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -32,17 +34,18 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as {
     plotId?: unknown;
+    plotIds?: unknown;
     cropId?: unknown;
   } | null;
-  const plotId = typeof body?.plotId === "string" ? body.plotId : "";
+  const plotIds = parsePlotIds(body);
   const cropId = body?.cropId;
-  if (!plotId || !isFarmCropId(cropId)) {
+  if (!plotIds || !isFarmCropId(cropId)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
   try {
     const now = Date.now();
-    const { farm: next, learnedSkillIds } = await db.transaction(async (tx) => {
+    const { farm: next, learnedSkillIds, planted, stoppedError } = await db.transaction(async (tx) => {
       const skills = parseV2SkillsState(
         await lockSaveForUpdate(
           tx,
@@ -57,11 +60,16 @@ export async function POST(req: Request) {
         ),
         now,
       );
-      const planted = plantCrop(farm, plotId, cropId, now, {
+      const result = plantCrops(farm, plotIds, cropId, now, {
         learnedSkillIds: skills.learned,
       });
-      await upsertSave(tx, userId, FARM_SAVE_KEY, planted);
-      return { farm: planted, learnedSkillIds: skills.learned };
+      await upsertSave(tx, userId, FARM_SAVE_KEY, result.state);
+      return {
+        farm: result.state,
+        learnedSkillIds: skills.learned,
+        planted: result.planted,
+        stoppedError: result.stoppedError,
+      };
     });
     return Response.json({
       ok: true,
@@ -73,6 +81,7 @@ export async function POST(req: Request) {
       specialDeliveries: getFarmSpecialDeliveryRequests(),
       weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
       shopItems: getFarmShopItems(),
+      result: { planted, stoppedError },
     });
   } catch (e) {
     if (e instanceof FarmError) {
@@ -80,4 +89,21 @@ export async function POST(req: Request) {
     }
     throw e;
   }
+}
+
+function parsePlotIds(
+  body: { plotId?: unknown; plotIds?: unknown } | null,
+): string[] | null {
+  if (Array.isArray(body?.plotIds)) {
+    const ids = [...new Set(body.plotIds)];
+    if (
+      ids.length === 0 ||
+      ids.length > FARM_MAX_PLOT_COUNT ||
+      !ids.every((id): id is string => typeof id === "string" && id.length > 0)
+    ) {
+      return null;
+    }
+    return ids;
+  }
+  return typeof body?.plotId === "string" && body.plotId ? [body.plotId] : null;
 }

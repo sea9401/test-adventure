@@ -181,6 +181,23 @@ describe("환경 설정 화면", () => {
     expect(localStorage.getItem("ui-style.v1")).toBe("classic");
     expect(classic.getAttribute("aria-pressed")).toBe("true");
   });
+  it("사냥터 그림 표시를 끄고 켜면 루트 클래스와 이 브라우저 저장값을 바꾼다", () => {
+    document.documentElement.classList.remove("ui-hunting-images-hidden");
+    localStorage.removeItem("hunting-ground-images.v1");
+    render(<V2PreferencesView />);
+
+    const toggle = screen.getByRole("button", { name: "사냥터 그림 표시" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(toggle);
+    expect(document.documentElement.classList.contains("ui-hunting-images-hidden")).toBe(true);
+    expect(localStorage.getItem("hunting-ground-images.v1")).toBe("hidden");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(toggle);
+    expect(document.documentElement.classList.contains("ui-hunting-images-hidden")).toBe(false);
+    expect(localStorage.getItem("hunting-ground-images.v1")).toBeNull();
+  });
   it("설정 카드 제목은 모두 공용 섹션 제목을 쓴다", () => {
     render(<V2PreferencesView />);
 

@@ -9,7 +9,7 @@ import {
   type V2CombatPattern,
 } from "@/adventure/v2/combat/combatPattern";
 
-export const COMBAT_LOADOUT_PRESET_SLOTS = 5;
+export const COMBAT_LOADOUT_PRESET_SLOTS = 10;
 export const COMBAT_LOADOUT_PRESET_NAME_MAX = 24;
 
 export const COMBAT_LOADOUT_EQUIPMENT_SLOTS: readonly V2EquipSlot[] = [

@@ -48,7 +48,7 @@ import {
   type V2ItemTabKey,
   type SortMode,
 } from "./v2ItemListShared";
-import { EquipmentTab } from "./inventory/EquipmentTab";
+import { EquipmentTab, type EquipmentLockFilter } from "./inventory/EquipmentTab";
 import { MaterialsTab } from "./inventory/MaterialsTab";
 import { RareMapsTab } from "./inventory/RareMapsTab";
 import { useSystemToast } from "./RewardToastProvider";
@@ -147,7 +147,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     setTab(itemTabFromParam(tabParam));
   }, [tabParam]);
   const [sortMode, setSortMode] = useState<SortMode>("default");
-  const [lockedOnly, setLockedOnly] = useState(false);
+  const [lockFilter, setLockFilter] = useState<EquipmentLockFilter>("all");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
@@ -1164,8 +1164,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               busy={busy}
               sortMode={sortMode}
               setSortMode={setSortMode}
-              lockedOnly={lockedOnly}
-              setLockedOnly={setLockedOnly}
+              lockFilter={lockFilter}
+              setLockFilter={setLockFilter}
               sellQualityPct={sellQualityPct}
               setSellQualityPct={setSellQualityPct}
               pageSize={INVENTORY_PAGE_SIZE}

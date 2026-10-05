@@ -5,6 +5,7 @@ import {
   applyCookingDelivery,
   cookingDeliveryConditionText,
   cookingDeliveryScore,
+  cookingDeliveryUsefulQuantity,
   cookingRequests,
   cookingStandingDeliveryReward,
   type CookingDeliveryRequest,
@@ -98,6 +99,48 @@ describe("condition cooking deliveries", () => {
     expect(second.completedNow).toBe(true);
     expect(second.rewards).toEqual(request.rewards);
     expect(() => applyCookingDelivery(second.state, request, dish, 1)).toThrow("delivery_completed");
+  });
+
+  it("목표 점수를 채우는 데 필요한 수량만 소모한다", () => {
+    const state = emptyCookingState(NOW);
+    const request: CookingDeliveryRequest = {
+      id: "daily-overflow",
+      kind: "daily",
+      title: "화덕식",
+      targetScore: 100,
+      condition: { field: "hearth", minimumQuality: "normal" },
+      rewards: { gold: 5_000, reputation: 3, cookingXp: 40, specialtyXp: 20 },
+    };
+    const dish = food({
+      recipeId: "tomato_salad",
+      quality: "normal",
+      originator: false,
+      specialtyBonusPct: 0,
+    });
+    const first = applyCookingDelivery(state, request, dish, 2);
+    expect(first.quantityUsed).toBe(2);
+    expect(cookingDeliveryUsefulQuantity(dish, request, 40)).toBe(3);
+    const second = applyCookingDelivery(first.state, request, dish, 9);
+    expect(second.quantityUsed).toBe(3);
+    expect(second.scoreAdded).toBe(60);
+    expect(second.completedNow).toBe(true);
+    expect(second.state.daily.requestScores[request.id]).toBe(100);
+  });
+
+  it("주간 납품도 남은 점수만큼만 소모한다", () => {
+    const state = emptyCookingState(NOW);
+    const request = cookingRequests("chef-a", state).weekly;
+    const dish = food({
+      recipeId: "tomato_salad",
+      quality: "careful",
+      originator: false,
+      specialtyBonusPct: 0,
+    });
+    const open = { ...request, condition: { minimumQuality: "careful" as const } };
+    const perDish = cookingDeliveryScore(dish, open);
+    const applied = applyCookingDelivery(state, open, dish, 100);
+    expect(applied.quantityUsed).toBe(Math.ceil(request.targetScore / perDish));
+    expect(applied.state.weekly.completed).toBe(true);
   });
 
   it("상시 납품은 낮은 골드만 주고 수량 제한을 확인한다", () => {

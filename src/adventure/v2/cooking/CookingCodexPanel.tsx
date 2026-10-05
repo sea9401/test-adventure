@@ -15,14 +15,11 @@ import {
 } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName } from "./clientDisplay";
+import { cookingRecipeMatchesSearch, cookingSearchTerms } from "./codexSearch";
 
 const COOKING_CODEX_PAGE_SIZE = 12;
 const COOKING_CRAFT_MAX_QUANTITY = 20;
 type CookingCodexSort = "discovered" | "name" | "level" | "tier";
-
-function normalizeCodexSearch(value: string): string {
-  return value.trim().toLocaleLowerCase("ko-KR");
-}
 
 function cookingEffectTagsText(effectTags: readonly CookingEffectTag[]): string {
   return effectTags
@@ -44,7 +41,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
   const [quantityByRecipe, setQuantityByRecipe] = useState<Record<string, number>>({});
   const prepSetEnabled = usePrepSet && data.cookingPrepSets > 0;
   const visibleRecipes = useMemo(() => {
-    const normalizedQuery = normalizeCodexSearch(query);
+    const terms = cookingSearchTerms(query);
     const favorites = new Set(data.cooking.favoriteRecipeIds);
     const entries = Array.from({ length: data.recipeTotal }, (_, index) => ({
       recipe: data.knownRecipes[index] ?? null,
@@ -52,23 +49,13 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
     }));
     return entries
       .filter(({ recipe }) => {
-        if (!normalizedQuery) return true;
-        if (!recipe) return "미발견 레시피".includes(normalizedQuery);
-        const searchText = [
-          recipe.name,
-          COOKING_FIELD_NAMES[recipe.field],
-          COOKING_METHOD_NAMES[recipe.method],
-          `T${recipe.tier}`,
-          `Lv ${recipe.requiredLevel}`,
-          cookingEffectTagsText(recipe.effectTags),
-          cookingEffectText(recipe.effect),
-          ...recipe.ingredients.map((ingredient) =>
-            cookingIngredientName(data, ingredient.id),
-          ),
-        ]
-          .join(" ")
-          .toLocaleLowerCase("ko-KR");
-        return searchText.includes(normalizedQuery);
+        if (terms.length === 0) return true;
+        if (!recipe) return terms.every((term) => "미발견 레시피".includes(term));
+        return cookingRecipeMatchesSearch(
+          recipe,
+          recipe.ingredients.map((ingredient) => cookingIngredientName(data, ingredient.id)),
+          terms,
+        );
       })
       .sort((left, right) => {
         const discoveredOrder = Number(Boolean(right.recipe)) - Number(Boolean(left.recipe));
@@ -113,7 +100,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
             aria-label="요리 도감 검색"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="요리명·재료·효과 분류 검색"
+            placeholder="요리명·재료·효과 검색 (예: 공격력, 밀)"
             className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-amber-900"
           />
         </label>

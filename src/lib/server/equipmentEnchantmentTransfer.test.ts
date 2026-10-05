@@ -36,14 +36,16 @@ describe("마법부여 전체 이전", () => {
     expect(price.baseGoldCost + price.additionalGoldCost).toBe(cost);
   });
 
-  it("원본 장비·귀속·강화·잠금·장착은 유지하고 옵션 전체를 대상에 이전한다", () => {
+  it("원본 장비·강화·잠금·장착은 유지하고 귀속은 풀며 옵션 전체를 대상에 이전한다", () => {
     const input = args();
     const before = structuredClone(input);
     const result = applyEquipmentEnchantmentTransfer(input);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.source).toMatchObject({ iid: "source", bound: true, locked: true, enhance: source().enhance, liberationRevision: 9 });
+    expect(result.source).toMatchObject({ iid: "source", locked: true, enhance: source().enhance, liberationRevision: 9 });
     expect(result.source.liberation).toBeUndefined();
+    expect(result.source.bound).toBeUndefined();
+    expect(result.equipment.owned.find(({ iid }) => iid === "source")?.bound).toBeUndefined();
     expect(result.target).toMatchObject({ iid: "target", bound: true, enhance: target().enhance, liberationRevision: 1,
       liberation: { ...source().liberation, revision: 1 } });
     expect(result.equipment.owned).toHaveLength(2);

@@ -80,6 +80,7 @@ export type FarmClientState = {
   busyRanchCollect: boolean;
   busyRanchUpgradeSlotId: RanchSlotId | null;
   busyRanchRebuildSlotId: RanchSlotId | null;
+  busyRanchSwap: boolean;
   fertilizerBalance: number;
   error: string | null;
   notice: FarmNotice | null;
@@ -120,6 +121,7 @@ export type FarmClientState = {
   collectRanch: () => Promise<void>;
   buyRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
   rebuildRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
+  swapRanchSlots: (fromSlotId: RanchSlotId, toSlotId: RanchSlotId) => Promise<void>;
 };
 
 export type FarmNotice =
@@ -172,6 +174,7 @@ export function useFarm(): FarmClientState {
     useState<RanchSlotId | null>(null);
   const [busyRanchRebuildSlotId, setBusyRanchRebuildSlotId] =
     useState<RanchSlotId | null>(null);
+  const [busyRanchSwap, setBusyRanchSwap] = useState(false);
   const [fertilizerBalance, setFertilizerBalance] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<FarmNotice | null>(null);
@@ -691,6 +694,27 @@ export function useFarm(): FarmClientState {
     [apply, reportError],
   );
 
+  const swapRanchSlots = useCallback(
+    async (fromSlotId: RanchSlotId, toSlotId: RanchSlotId) => {
+      setBusyRanchSwap(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/ranch/swap", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ fromSlotId, toSlotId }),
+        });
+        const data = (await res.json()) as FarmResponse;
+        apply(data);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyRanchSwap(false);
+      }
+    },
+    [apply, reportError],
+  );
+
   useEffect(() => {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- farm state is loaded from the server on mount.
@@ -725,6 +749,7 @@ export function useFarm(): FarmClientState {
     busyRanchCollect,
     busyRanchUpgradeSlotId,
     busyRanchRebuildSlotId,
+    busyRanchSwap,
     fertilizerBalance,
     error,
     notice,
@@ -765,6 +790,7 @@ export function useFarm(): FarmClientState {
     collectRanch,
     buyRanchSlot,
     rebuildRanchSlot,
+    swapRanchSlots,
   };
 }
 
@@ -800,6 +826,7 @@ function errorMessage(error: unknown): string {
       animal_level_required: "선택한 축사를 건설하려면 농사 레벨이 더 필요합니다.",
       slot_not_empty: "사료와 진행 중인 생산물, 수확 대기 물품을 모두 비워야 재건축할 수 있습니다.",
       same_animal: "현재와 다른 축사 종류를 선택해 주세요.",
+      same_slot: "자리를 바꿀 다른 부지를 선택해 주세요.",
       bad_quantity: "넣을 사료 수량을 확인해 주세요.",
       endgame_shop_locked: "밭과 유료 축사를 모두 열면 농장주의 교환소를 이용할 수 있습니다.",
       already_owned: "이미 보유한 칭호입니다.",

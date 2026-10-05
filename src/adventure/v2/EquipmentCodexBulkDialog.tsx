@@ -2,11 +2,9 @@
 
 import {
   V2_EQUIPMENT,
-  V2_EQUIP_SETS,
-  V2_EQUIP_TAG_SETS,
+  equipmentSetNames,
   V2_SLOT_LABEL,
   craftQualityStars,
-  type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
@@ -15,18 +13,6 @@ import { EquipmentTierBadge, itemNameClass } from "./V2ItemCard";
 import type { EquipmentCodexBulkCandidate } from "./equipmentCodexBulk";
 
 export type { EquipmentCodexBulkCandidate } from "./equipmentCodexBulk";
-
-function setNamesFor(inst: V2EquipInstance): string[] {
-  const item = V2_EQUIPMENT[inst.id];
-  return [
-    item.setId
-      ? V2_EQUIP_SETS.find((set) => set.id === item.setId)?.name
-      : undefined,
-    ...(item.setTags ?? []).map(
-      (tag) => V2_EQUIP_TAG_SETS.find((set) => set.id === tag)?.name,
-    ),
-  ].filter((name): name is string => Boolean(name));
-}
 
 function isRiskyCandidate(candidate: EquipmentCodexBulkCandidate): boolean {
   const { inst, ownedCount } = candidate;
@@ -142,7 +128,7 @@ export function EquipmentCodexBulkDialog({
             const quality = rollQualityPct(item, inst.roll);
             const enhanceLevel = Math.max(0, inst.enhance?.level ?? 0);
             const craftStars = craftQualityStars(inst.craftQuality);
-            const setNames = setNamesFor(inst);
+            const setNames = equipmentSetNames(inst.id);
             return (
               <li key={inst.iid}>
                 <label

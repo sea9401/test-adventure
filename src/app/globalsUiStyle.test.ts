@@ -29,3 +29,11 @@ describe("배경 숨김·은신 모드 바탕", () => {
     );
   });
 });
+
+describe("사냥터 그림 숨김", () => {
+  it("숨김 클래스가 붙으면 사냥터 그림 영역을 감춘다", () => {
+    const start = css.indexOf("html.ui-hunting-images-hidden .ui-hunting-ground-image {");
+    expect(start).toBeGreaterThan(-1);
+    expect(css.slice(start, css.indexOf("}", start))).toContain("display: none;");
+  });
+});

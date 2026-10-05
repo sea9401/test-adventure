@@ -5,54 +5,108 @@ import {
 } from "./farmBatchActions";
 
 describe("runFarmPlotBatch", () => {
-  it("선택한 밭을 입력 순서대로 심고 모든 성공 응답을 전달한다", async () => {
+  it("여러 밭 심기는 요청 1번으로 서버에 묶어 보낸다", async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
-    const farmVersions: number[] = [];
+    const onSuccess = vi.fn();
     const request = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       requests.push({
         url: String(input),
         body: JSON.parse(String(init?.body)),
       });
-      return Response.json({ ok: true, farmVersion: requests.length });
+      return Response.json({
+        ok: true,
+        result: { planted: 3, stoppedError: null },
+      });
     });
 
-    const result = await runFarmPlotBatch<{
-      ok: boolean;
-      farmVersion: number;
-    }>({
+    const result = await runFarmPlotBatch({
       action: "plant",
       plotIds: ["plot-3", "plot-1", "plot-2"],
       cropId: "wheat",
       request,
-      onSuccess: (data) => farmVersions.push(data.farmVersion),
+      onSuccess,
     });
 
     expect(requests).toEqual([
       {
         url: "/api/v2/farm/plant",
-        body: { plotId: "plot-3", cropId: "wheat" },
-      },
-      {
-        url: "/api/v2/farm/plant",
-        body: { plotId: "plot-1", cropId: "wheat" },
-      },
-      {
-        url: "/api/v2/farm/plant",
-        body: { plotId: "plot-2", cropId: "wheat" },
+        body: { plotIds: ["plot-3", "plot-1", "plot-2"], cropId: "wheat" },
       },
     ]);
-    expect(farmVersions).toEqual([1, 2, 3]);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ completed: 3, error: null, seedsReturned: 0, farmingXpGained: 0 });
   });
 
-  it("중간 요청이 실패하면 이후 밭을 처리하지 않는다", async () => {
+  it("24칸 심기도 요청 제한을 한 번만 쓴다", async () => {
+    const plotIds = Array.from({ length: 24 }, (_, i) => `plot-${i + 1}`);
+    const request = vi.fn(async () =>
+      Response.json({ ok: true, result: { planted: 24, stoppedError: null } }),
+    );
+
+    const result = await runFarmPlotBatch({
+      action: "plant",
+      plotIds,
+      cropId: "wheat",
+      request,
+      onSuccess: vi.fn(),
+    });
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(result.completed).toBe(24);
+  });
+
+  it("서버가 일부만 심고 멈추면 심은 칸 수와 사유를 돌려준다", async () => {
+    const onSuccess = vi.fn();
+    const request = vi.fn(async () =>
+      Response.json({ ok: true, result: { planted: 1, stoppedError: "no_seed" } }),
+    );
+
+    const result = await runFarmPlotBatch({
+      action: "plant",
+      plotIds: ["plot-1", "plot-2", "plot-3"],
+      cropId: "wheat",
+      request,
+      onSuccess,
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      completed: 1,
+      error: "no_seed",
+      seedsReturned: 0, farmingXpGained: 0,
+    });
+  });
+
+  it("한 칸도 못 심으면 오류만 돌려준다", async () => {
+    const onSuccess = vi.fn();
+    const request = vi.fn(async () =>
+      Response.json({ ok: false, error: "no_seed" }, { status: 409 }),
+    );
+
+    const result = await runFarmPlotBatch({
+      action: "plant",
+      plotIds: ["plot-1", "plot-2"],
+      cropId: "wheat",
+      request,
+      onSuccess,
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      completed: 0,
+      error: "no_seed",
+      seedsReturned: 0, farmingXpGained: 0,
+    });
+  });
+
+  it("수확은 중간 요청이 실패하면 이후 밭을 처리하지 않는다", async () => {
     const requestedPlotIds: string[] = [];
     const request = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { plotId: string };
       requestedPlotIds.push(body.plotId);
       if (body.plotId === "plot-2") {
         return Response.json(
-          { ok: false, error: "no_seed" },
+          { ok: false, error: "not_ready" },
           { status: 409 },
         );
       }
@@ -60,9 +114,8 @@ describe("runFarmPlotBatch", () => {
     });
 
     const result = await runFarmPlotBatch({
-      action: "plant",
+      action: "harvest",
       plotIds: ["plot-1", "plot-2", "plot-3"],
-      cropId: "wheat",
       request,
       onSuccess: vi.fn(),
     });
@@ -70,7 +123,7 @@ describe("runFarmPlotBatch", () => {
     expect(requestedPlotIds).toEqual(["plot-1", "plot-2"]);
     expect(result).toEqual({
       completed: 1,
-      error: "no_seed",
+      error: "not_ready",
       seedsReturned: 0, farmingXpGained: 0,
     });
   });

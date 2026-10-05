@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, CookingPot, LockKey, PawPrint } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Clock, CookingPot, LockKey, PawPrint } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useState } from "react";
 import { confirmGameAction, type ConfirmGameAction } from "@/components/ui/gameDialog";
@@ -98,6 +98,8 @@ export function FarmRanchPanel({
   onCollect,
   onUpgrade,
   onRebuild,
+  busySwap = false,
+  onSwap,
   onOpenLifeWorkshop,
 }: {
   farm: FarmState;
@@ -111,6 +113,8 @@ export function FarmRanchPanel({
   onCollect: () => void;
   onUpgrade: (slotId: RanchSlotId, animalId: RanchAnimalId) => void;
   onRebuild: (slotId: RanchSlotId, animalId: RanchAnimalId) => void;
+  busySwap?: boolean;
+  onSwap?: (fromSlotId: RanchSlotId, toSlotId: RanchSlotId) => void;
   onOpenLifeWorkshop: () => void;
 }) {
   const [feedAmounts, setFeedAmounts] = useState<
@@ -348,9 +352,35 @@ export function FarmRanchPanel({
                     />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-zinc-900 dark:text-zinc-100">
-                      부지 {index + 1}
-                    </h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-zinc-900 dark:text-zinc-100">
+                        부지 {index + 1}
+                      </h3>
+                      {onSwap ? (
+                        <div className="flex shrink-0 gap-1">
+                          {([
+                            ["앞으로", RANCH_SLOT_DEFINITIONS[index - 1], CaretLeft],
+                            ["뒤로", RANCH_SLOT_DEFINITIONS[index + 1], CaretRight],
+                          ] as const).map(([label, neighbor, Icon]) => {
+                            const neighborSlot = neighbor ? farm.ranch.slots[neighbor.id] : null;
+                            const movable = Boolean(neighborSlot?.unlocked && neighborSlot.animalId);
+                            return (
+                              <button
+                                key={label}
+                                type="button"
+                                aria-label={`부지 ${index + 1} ${label}`}
+                                title={`부지 ${index + 1} ${label}`}
+                                disabled={busySwap || !movable}
+                                onClick={() => neighbor && onSwap(slotDefinition.id, neighbor.id)}
+                                className="grid size-8 place-items-center rounded-md border border-zinc-300 bg-white text-zinc-600 hover:border-amber-400 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                              >
+                                <Icon size={14} weight="bold" aria-hidden />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
                     <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
                       부지 {index + 1} · {animal.buildingName}
                     </p>

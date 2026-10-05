@@ -7,6 +7,7 @@ import {
   parseRanchState,
   rebuildRanchSlot,
   settleRanch,
+  swapRanchSlots,
   unlockRanchSlot,
   type RanchState,
 } from "./ranch";
@@ -396,5 +397,25 @@ describe("adventurer ranch", () => {
       readyCycles: 1,
       shipmentStartedAt: [20_000],
     });
+  });
+  it("swaps two unlocked slots with their feed, progress and ready products intact", () => {
+    let ranch = unlockThrough(3);
+    ranch = rebuildRanchSlot(ranch, "slot-3", "cow", 100, 1_000).ranch;
+    ranch = addRanchFeed(ranch, "slot-1", 2, 1_000);
+    const now = 1_000 + 3 * HOUR;
+    const settled = settleRanch(ranch, now);
+
+    const swapped = swapRanchSlots(ranch, "slot-1", "slot-3", now);
+
+    expect(swapped.slots["slot-1"]).toEqual(settled.slots["slot-3"]);
+    expect(swapped.slots["slot-3"]).toEqual(settled.slots["slot-1"]);
+    expect(swapped.slots["slot-2"]).toEqual(settled.slots["slot-2"]);
+    expect(swapped.stats).toEqual(settled.stats);
+  });
+
+  it("refuses to swap with a locked slot or the same slot", () => {
+    const ranch = unlockThrough(2);
+    expect(() => swapRanchSlots(ranch, "slot-1", "slot-3", 2_000)).toThrow("slot_locked");
+    expect(() => swapRanchSlots(ranch, "slot-1", "slot-1", 2_000)).toThrow("same_slot");
   });
 });

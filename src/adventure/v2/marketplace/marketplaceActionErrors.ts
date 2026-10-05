@@ -2,6 +2,7 @@ import {
   isTradeSuspensionMessagePayload,
   tradeSuspensionMessage,
 } from "@/lib/tradeSuspension";
+import { MARKETPLACE_V2_PRICE_MAX_LABEL } from "./priceLimit";
 
 const ERROR_LABELS: Record<string, string> = {
   slot_full: "활성 매물이 가득 찼어요.",
@@ -18,7 +19,7 @@ const ERROR_LABELS: Record<string, string> = {
   not_found: "매물을 찾을 수 없어요.",
   not_active: "이미 종료된 매물이에요.",
   not_owner: "내 매물이 아니에요.",
-  bad_price: "가격은 1~999,999,999골드 사이여야 해요.",
+  bad_price: `가격은 1~${MARKETPLACE_V2_PRICE_MAX_LABEL}골드 사이여야 해요.`,
   bad_bid: "입찰 금액을 확인해 주세요.",
   bid_too_low: "다음 최소 입찰가 이상을 입력하세요.",
   bidding_closed: "경매 입찰이 종료됐어요.",

@@ -1121,7 +1121,7 @@ export const couponCodes = pgTable(
 //   v2 장비는 개체(instance) 모델({iid,id,roll})·재료는 스택(charSave.materials). grade 개념 없음.
 // kind:  'equip'(장비 개체, quantity=1) | 'material'(재료 스택, quantity=N).
 // itemId: V2EquipmentId | V2MaterialId. itemName/sellerName 은 등록 시점 스냅샷.
-// price:  정수 골드 — listing 전체 가격(단가 아님). 성사 시 판매세 차감분만 판매자에 정산(우편).
+// price:  정수 골드(bigint) — listing 전체 가격(단가 아님). 성사 시 판매세 차감분만 판매자에 정산(우편).
 // instancePayload: equip 인스턴스 roll 스냅샷(V2EquipRoll, iid 제외) — 구매 시 새 개체로 복원. material=null.
 // status: active→sold|cancelled|expired (활성/종료 모두 보관, 감사).
 // 에스크로: 등록 시 판매자 save 에서 빠져 이 행으로 묶임 → 구매=구매자 save 합류, 취소=판매자 반환.
@@ -1137,14 +1137,14 @@ export const marketplaceListingsV2 = pgTable(
     itemId: text("item_id").notNull(),
     itemName: text("item_name").notNull(),
     quantity: integer("quantity").notNull(),
-    price: integer("price").notNull(),
+    price: bigint("price", { mode: "number" }).notNull(),
     auctionModeVersion: integer("auction_mode_version").notNull().default(0),
     instancePayload: jsonb("instance_payload"),
     status: text("status").notNull().default("active"), // 'active'|'sold'|'cancelled'
     createdAt: timestamp("created_at").defaultNow().notNull(),
     bidEndsAt: timestamp("bid_ends_at").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
-    highestBid: integer("highest_bid"),
+    highestBid: bigint("highest_bid", { mode: "number" }),
     highestBidderId: text("highest_bidder_id").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -1201,7 +1201,7 @@ export const marketplaceBidsV2 = pgTable(
     bidderId: text("bidder_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    amount: integer("amount").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
@@ -1284,8 +1284,8 @@ export const marketplacePriceDaily = pgTable(
     grossGold: numeric("gross_gold", { precision: 30, scale: 0 })
       .notNull()
       .default("0"),
-    minUnitPrice: integer("min_unit_price").notNull(),
-    maxUnitPrice: integer("max_unit_price").notNull(),
+    minUnitPrice: bigint("min_unit_price", { mode: "number" }).notNull(),
+    maxUnitPrice: bigint("max_unit_price", { mode: "number" }).notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [
@@ -1323,7 +1323,7 @@ export const marketplacePriceAlertsV2 = pgTable(
     kind: text("kind").notNull(),
     itemId: text("item_id").notNull(),
     itemName: text("item_name").notNull(),
-    targetUnitPrice: integer("target_unit_price").notNull(),
+    targetUnitPrice: bigint("target_unit_price", { mode: "number" }).notNull(),
     status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     triggeredAt: timestamp("triggered_at"),
@@ -2702,7 +2702,7 @@ export const economyEvents = pgTable(
       onDelete: "set null",
     }),
     eventType: text("event_type").notNull(),
-    goldDelta: integer("gold_delta").notNull().default(0),
+    goldDelta: bigint("gold_delta", { mode: "number" }).notNull().default(0),
     itemKind: text("item_kind"),
     itemId: text("item_id"),
     quantity: integer("quantity"),

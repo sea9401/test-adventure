@@ -97,6 +97,10 @@ import {
 } from "./v2ItemListShared";
 import { Card } from "@/components/ui/Card";
 import { parseAmount } from "@/components/ui/NumberInput";
+import {
+  MARKETPLACE_V2_PRICE_MAX,
+  MARKETPLACE_V2_PRICE_MAX_LABEL,
+} from "@/adventure/v2/marketplace/priceLimit";
 import { Pagination } from "@/components/ui/Pagination";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -728,8 +732,8 @@ export function V2MarketplaceView({
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
-    if (!Number.isSafeInteger(price) || price > 999_999_999) {
-      setError("시작 입찰가는 999,999,999골드를 넘을 수 없어요.");
+    if (!Number.isSafeInteger(price) || price > MARKETPLACE_V2_PRICE_MAX) {
+      setError(`시작 입찰가는 ${MARKETPLACE_V2_PRICE_MAX_LABEL}골드를 넘을 수 없어요.`);
       return;
     }
     return act(
@@ -777,8 +781,8 @@ export function V2MarketplaceView({
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
-    if (!Number.isSafeInteger(price) || price > 999_999_999) {
-      setError("시작 입찰가는 999,999,999골드를 넘을 수 없어요.");
+    if (!Number.isSafeInteger(price) || price > MARKETPLACE_V2_PRICE_MAX) {
+      setError(`시작 입찰가는 ${MARKETPLACE_V2_PRICE_MAX_LABEL}골드를 넘을 수 없어요.`);
       return;
     }
     return act(
@@ -806,8 +810,8 @@ export function V2MarketplaceView({
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
-    if (!Number.isSafeInteger(price) || price > 999_999_999) {
-      setError("시작 입찰가는 999,999,999골드를 넘을 수 없어요.");
+    if (!Number.isSafeInteger(price) || price > MARKETPLACE_V2_PRICE_MAX) {
+      setError(`시작 입찰가는 ${MARKETPLACE_V2_PRICE_MAX_LABEL}골드를 넘을 수 없어요.`);
       return;
     }
     const name = cookingFoodDefinitions[itemId]?.name ?? "음식";
@@ -837,8 +841,8 @@ export function V2MarketplaceView({
       setError("수량은 1 이상 정수로 입력하세요.");
       return;
     }
-    if (!Number.isSafeInteger(price) || price > 999_999_999) {
-      setError("시작 입찰가는 999,999,999골드를 넘을 수 없어요.");
+    if (!Number.isSafeInteger(price) || price > MARKETPLACE_V2_PRICE_MAX) {
+      setError(`시작 입찰가는 ${MARKETPLACE_V2_PRICE_MAX_LABEL}골드를 넘을 수 없어요.`);
       return;
     }
     return act(

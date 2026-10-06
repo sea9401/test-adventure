@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   CASH_ITEM_ART_PATHS,
@@ -12,6 +14,7 @@ import {
   limitedBundlePurchaseState,
   supportBenefitsForItem,
   sortCosmeticPreviewEntries,
+  MuseunCoinShopView,
 } from "./MuseunCoinShopView";
 import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
 
@@ -147,5 +150,15 @@ describe("무슨 코인 상점 상품 그룹", () => {
     expect(CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS).toContain("items-end");
     expect(CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS).toContain("sm:items-center");
     expect(CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS).toContain("z-[110]");
+  });
+});
+
+describe("무슨 코인 상점 화면 문구", () => {
+  it("결제 심사와 실제 판매 화면에 미리보기 안내를 표시하지 않는다", () => {
+    const html = renderToStaticMarkup(createElement(MuseunCoinShopView));
+
+    expect(html).toContain("무슨 코인 상점");
+    expect(html).not.toContain("미리보기");
+    expect(html).not.toContain("관리자 전용");
   });
 });

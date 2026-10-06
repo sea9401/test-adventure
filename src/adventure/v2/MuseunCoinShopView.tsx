@@ -413,13 +413,7 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
         <div className="flex items-center gap-3">
           <MuseunCoinMark />
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-              관리자 전용 UI 미리보기
-            </p>
-            <h1 className="mt-0.5 text-xl font-bold">무슨 코인 상점</h1>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              카드 결제는 운영 승인 후 서버 설정이 활성화된 계정에서 이용할 수 있습니다.
-            </p>
+            <h1 className="text-xl font-bold">무슨 코인 상점</h1>
           </div>
         </div>
       </Card>
@@ -433,9 +427,6 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-              미리보기 잔액
-            </span>
             <button
               type="button"
               onClick={() => setChargeOpen(true)}

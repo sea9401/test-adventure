@@ -227,7 +227,7 @@ safer-buffer@2.1.2 | MIT | https://www.npmjs.com/package/safer-buffer | texts: 4
 scheduler@0.27.0 | MIT | https://www.npmjs.com/package/scheduler | texts: da6d3703ed11
 semver@7.8.5 | ISC | https://www.npmjs.com/package/semver | texts: 4ec3d4c66cd8
 sharp@0.35.4 | Apache-2.0 | https://www.npmjs.com/package/sharp | texts: 73ba74dfaa52
-source-map-js@1.2.1 | BSD-3-Clause | https://www.npmjs.com/package/source-map-js | texts: 6cb0631f71c7
+source-map-js@1.2.2 | BSD-3-Clause | https://www.npmjs.com/package/source-map-js | texts: 6cb0631f71c7
 space-separated-tokens@2.0.2 | MIT | https://www.npmjs.com/package/space-separated-tokens | texts: ca4662cb5d1b
 split2@4.2.0 | ISC | https://www.npmjs.com/package/split2 | texts: c372ef2fa1df
 stringify-entities@4.0.4 | MIT | https://www.npmjs.com/package/stringify-entities | texts: 9f084fac69d8
@@ -3420,7 +3420,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ==============================================================================
 TEXT 6cb0631f71c7 (source-map/LICENSE)
-Applies to: next@16.3.8, next@16.3.8, source-map-js@1.2.1
+Applies to: next@16.3.8, next@16.3.8, source-map-js@1.2.2
 ------------------------------------------------------------------------------
 Copyright (c) 2009-2011, Mozilla Foundation and contributors
 All rights reserved.

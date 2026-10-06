@@ -48,5 +48,7 @@ describe("public Museun Coin product page", () => {
     expect(html).toContain("상호 무슨게임");
     expect(html).toContain("사업자등록번호 781-52-01091");
     expect(html).toContain("대표자 홍길동");
+    expect(html).toContain("구매일로부터 1년 동안 사용하거나 취소·환불할 수 있습니다");
+    expect(html).toContain("환불은 결제에 사용한 수단으로 진행합니다");
   });
 });

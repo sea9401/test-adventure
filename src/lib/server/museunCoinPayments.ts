@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
 import { db } from "@/db";
 import {
@@ -103,6 +103,13 @@ function packageById(packageId: string) {
 
 function orderName(coinAmount: number) {
   return `무슨 코인 ${coinAmount.toLocaleString("ko-KR")}개`;
+}
+
+// 결제창만 열고 결제하지 않은 주문은 결제 내역에 남기지 않는다.
+const UNPAID_ORDER_STATUS = "ready";
+
+function shownInPaymentHistory(row: MuseunCoinPaymentOrderRecord) {
+  return row.status !== UNPAID_ORDER_STATUS;
 }
 
 function toDto(row: MuseunCoinPaymentOrderRecord): MuseunCoinPaymentOrderDto {
@@ -215,7 +222,9 @@ export function createMuseunCoinPaymentOperations(input: {
     },
 
     async listOrders(userId: string) {
-      return (await input.repo.listOrders(userId)).map(toDto);
+      return (await input.repo.listOrders(userId))
+        .filter(shownInPaymentHistory)
+        .map(toDto);
     },
 
     async confirmOrder(
@@ -373,7 +382,12 @@ function createDrizzlePaymentRepository(): MuseunCoinPaymentRepository {
       const rows = await db
         .select()
         .from(museunCoinPaymentOrders)
-        .where(eq(museunCoinPaymentOrders.userId, userId))
+        .where(
+          and(
+            eq(museunCoinPaymentOrders.userId, userId),
+            ne(museunCoinPaymentOrders.status, UNPAID_ORDER_STATUS),
+          ),
+        )
         .orderBy(desc(museunCoinPaymentOrders.requestedAt))
         .limit(50);
       return Promise.all(rows.map(hydrateOrder));

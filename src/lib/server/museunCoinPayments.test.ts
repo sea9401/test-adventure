@@ -136,6 +136,23 @@ describe("Museun Coin payment operations", () => {
     expect(toss.confirm).toHaveBeenCalledTimes(1);
   });
 
+  it("hides orders that never reached payment from the payment history", async () => {
+    const { operations } = setup();
+    await operations.createOrder("user-1", "coin_1000", "mc_customer");
+    await operations.createOrder("user-1", "coin_1000", "mc_customer");
+    await operations.confirmOrder("user-1", {
+      orderId: "mc_order1",
+      paymentKey: "pay_demo",
+      amount: 10_000,
+    });
+
+    const history = await operations.listOrders("user-1");
+
+    expect(history.map((order) => [order.orderId, order.status])).toEqual([
+      ["mc_order1", "paid"],
+    ]);
+  });
+
   it("never exposes another user's order", async () => {
     const { operations } = setup();
     await operations.createOrder("user-1", "coin_1000", "mc_customer");

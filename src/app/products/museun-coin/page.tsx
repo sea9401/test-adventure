@@ -79,6 +79,8 @@ export function MuseunCoinProductContent({
           <ul className="mt-4 space-y-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             <li>구매한 코인은 결제에 사용한 게임 계정에만 지급됩니다.</li>
             <li>현금 환전이나 계정 간 이전은 지원하지 않습니다.</li>
+            <li>구매일로부터 1년 동안 사용하거나 취소·환불할 수 있습니다.</li>
+            <li>환불은 결제에 사용한 수단으로 진행합니다.</li>
             <li>
               미사용 유료 코인의 청약철회와 환불 기준은{" "}
               <Link href="/terms" className="font-medium underline underline-offset-2">

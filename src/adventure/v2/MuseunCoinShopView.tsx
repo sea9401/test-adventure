@@ -1540,7 +1540,7 @@ function MuseunCoinChargeDialog({ onClose }: { onClose: () => void }) {
               무슨 코인 충전
             </h2>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              구매한 코인은 만료되지 않습니다.
+              구매일로부터 1년 동안 사용하거나 취소·환불할 수 있습니다.
             </p>
           </div>
           <button

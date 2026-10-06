@@ -45,6 +45,14 @@ describe("공개 정책 페이지", () => {
     expect(privacy).toContain("5년");
   });
 
+  it("충전형 코인의 환불 수단, 양도 금지, 사용·환불 기한과 소멸 기한을 명시한다", () => {
+    const terms = renderToStaticMarkup(<TermsPage />);
+    expect(terms).toContain("환불은 결제에 사용한 수단으로 진행합니다");
+    expect(terms).toContain("유료 코인은 회원 간 양도하거나 다른 계정으로 이전할 수 없습니다");
+    expect(terms).toContain("구매일로부터 1년");
+    expect(terms).toContain("구매일로부터 5년");
+  });
+
   it("12세이용가와 별도로 만 14세 이상 서비스 기준을 안내한다", () => {
     const terms = renderToStaticMarkup(<TermsPage />);
     const privacy = renderToStaticMarkup(<PrivacyPage />);

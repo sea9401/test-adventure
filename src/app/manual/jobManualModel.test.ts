@@ -110,6 +110,20 @@ describe("job manual model", () => {
     expect(buildJobManualEntry("none")?.guide).toBeNull();
   });
 
+  it("explains the golem weight cycle on every golem line page", () => {
+    for (const jobId of [
+      "golem", "rockbrawler", "rockgiant", "irongolem", "mountaingolem", "primevalgolem",
+    ]) {
+      const guide = buildJobManualEntry(jobId)?.guide;
+
+      expect(guide?.overview, `${jobId} overview`).toContain("중량");
+      expect(guide?.rules, `${jobId} rules`).toContain(
+        "중량 1당 직접 물리 스킬 피해 +5%, 유효 속도 −5% (강철 골격 장착 시 −3%)",
+      );
+      expect(guide?.examples.length, `${jobId} examples`).toBeGreaterThan(0);
+    }
+  });
+
   it("lists the exact Sky Ascendant crossover families and both directions", () => {
     const guide = buildJobManualEntry("skyascendant")?.guide;
 

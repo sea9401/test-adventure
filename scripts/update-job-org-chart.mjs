@@ -118,8 +118,13 @@ function tierText(job) {
   return `${job.tier}차`;
 }
 
+// 7차 스킬은 공용 카탈로그가 아니라 별도 카탈로그에 있으므로 합쳐진 런타임 목록을 먼저 본다.
+function skillDef(skillId) {
+  return V2_SKILLS[skillId] ?? V2_COMMON_SKILLS[skillId];
+}
+
 function skillChip(skillId) {
-  const s = V2_COMMON_SKILLS[skillId];
+  const s = skillDef(skillId);
   if (!s) return "";
   const passive = s.category === "passive";
   const cls = passive ? "sk-p" : "sk-a";
@@ -211,7 +216,7 @@ function renderNode(job, children) {
   const kids = ids.map((id) => renderNode(V2_JOB_CATALOG[id], children)).join("");
   const nodeId = chartJobId(job);
   const skillNames = (V2_SKILLS_BY_JOB[job.id] ?? [])
-    .map((skillId) => V2_COMMON_SKILLS[skillId]?.name ?? skillId);
+    .map((skillId) => skillDef(skillId)?.name ?? skillId);
   const searchText = [job.name, nodeId, ...skillNames]
     .join(" ")
     .toLocaleLowerCase("ko-KR");
@@ -237,9 +242,14 @@ function skillTip(def) {
 }
 
 const tips = {};
-for (const [id, rawDef] of Object.entries(V2_COMMON_SKILLS)) {
+const tipSkillIds = new Set([
+  ...Object.keys(V2_COMMON_SKILLS),
+  ...Object.values(V2_SKILLS_BY_JOB).flat(),
+]);
+for (const id of tipSkillIds) {
   // 발동률·피해 계수·SP 리밸런싱까지 적용된 실제 런타임 정의를 표시한다.
-  tips[id] = skillTip(V2_SKILLS[id] ?? rawDef);
+  const def = skillDef(id);
+  if (def) tips[id] = skillTip(def);
 }
 
 const { virtualRoot, children } = buildTree();

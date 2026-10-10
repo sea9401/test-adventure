@@ -757,6 +757,23 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("기록되지 않습니다");
   });
 
+  it("강화 매뉴얼이 단련 촉매 사용 규칙을 안내한다", () => {
+    const html = renderToStaticMarkup(<EnhanceContent />);
+
+    expect(html).toContain("단련 촉매");
+    expect(html).toContain("하락 확률을 최대 10%p");
+    expect(html).toContain("하락이 없는 구간에서는 쓸 수 없습니다");
+  });
+
+  it("탐사 본부 원정 표가 동시 파견 규칙과 길드원 전원 보상을 안내한다", () => {
+    const html = renderToStaticMarkup(<GuildContent />);
+
+    expect(html).not.toContain("원정대는 한 번에 하나만 파견할 수 있으며");
+    expect(html).toContain("Lv.8부터는 서로 다른 원정 두 곳");
+    expect(html).toContain("길드원 전원 스태미나 회복약 1개");
+    expect(html).toContain("길드원 전원 보스 소환서 1장");
+  });
+
   it("길드 토벌전 보스 선택과 보스별 순위·보상을 안내한다", () => {
     const html = renderToStaticMarkup(<GuildContent />);
 

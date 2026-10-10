@@ -142,7 +142,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "pastimes",
     title: "생활 콘텐츠",
-    summary: "현장 기록과 농장·주방·벌목·채광·낚시의 진행 방식과 보상을 안내합니다.",
+    summary: "현장 기록과 농장·주방·벌목·채광·낚시, 생활 축제와 생활 전공의 진행 방식과 보상을 안내합니다.",
     group: "world",
   },
 ];

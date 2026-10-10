@@ -117,10 +117,12 @@ const REBALANCE_LOADOUT = [
   "v2c_shieldman_vitality",
   "v2c_squire_might",
   "v2c_boxer_fortitude",
+  // 골렘 2~6차 추가로 전체 해금 SP가 +3 늘어난 만큼 3 SP를 채워 마지막 스킬 하나만 넘치게 한다.
+  "v2c_rockbrawler_unburden",
   "v2c_monk_spirit",
 ] as const;
 const REBALANCED_EQUIPPED = [
-  ...REBALANCE_LOADOUT.slice(0, 36),
+  ...REBALANCE_LOADOUT.slice(0, 37),
 ] as const;
 const REBALANCED_REMOVED = [
   "v2c_monk_spirit",

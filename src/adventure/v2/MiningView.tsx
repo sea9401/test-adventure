@@ -38,6 +38,8 @@ import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
+import { LifeFestivalBadge } from "./LifeFestivalBadge";
+import { LifeMajorBadge } from "./LifeMajorBadge";
 
 export type MiningLogView = {
   successes: number;
@@ -606,6 +608,8 @@ export function MiningView({
         title={viewMode === "choice" ? "채광장" : `${selectedSpot.shortName} 채광`}
         onBack={onBack}
       />
+      <LifeFestivalBadge activity="mining" />
+      <LifeMajorBadge activity="mining" />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
       <LifeLevelMilestoneNotice activity="mining" level={progression.level} />

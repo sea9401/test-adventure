@@ -60,12 +60,14 @@ function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
     now: NOW,
     cooking,
     level: 20,
+    signature: { unlocked: false, stage: 0, requiredStage: 3, products: { crop: 0, catch: 0 } },
     currentLevelXp: cookingLevelXpThreshold(20),
     nextLevelXp: cookingLevelXpThreshold(21),
     recipeTotal: COOKING_PUBLIC_RECIPES.length,
     knownRecipes: COOKING_SECRET_RECIPES.filter((entry) => cooking.discoveredRecipeIds.includes(entry.id)),
     publicDiscoveries: [],
     failedResearches: [],
+    failedResearchKeys: [],
     requests,
     cookingFoods: { [foodId]: 2 },
     cookingFoodDefinitions: { [foodId]: cookingFoodDefinition(foodId)! },
@@ -126,6 +128,15 @@ describe("개편 요리 연구실", () => {
     ["processing", "주방 상점"],
   ] as const)("%s 화면을 렌더링한다", (section, text) => {
     expect(renderSection(section)).toContain(text);
+  });
+
+  it("명장 요리 탭은 요리 주전공 3단계 이상에게만 보인다", () => {
+    const locked = renderToStaticMarkup(<CookingWorkspace data={fixture()} section="research" onSectionChange={vi.fn()} busy={false} mutate={vi.fn(async () => undefined)} />);
+    expect(locked).not.toContain("명장 요리");
+    const data = { ...fixture(), signature: { unlocked: true, stage: 3, requiredStage: 3, products: { crop: 1, catch: 0 } } };
+    const unlocked = renderToStaticMarkup(<CookingWorkspace data={data} section="signature" onSectionChange={vi.fn()} busy={false} mutate={vi.fn(async () => undefined)} />);
+    expect(unlocked).toContain("명장 요리");
+    expect(unlocked).toContain("걸작 요리 1개와 명장 산물 1개");
   });
 
   it("공개 발견 화면은 요리 이름과 최초 발견자만 공개한다", () => {
@@ -419,6 +430,7 @@ describe("개편 요리 연구실", () => {
         ingredientIds: ["farm:wheat", "farm:milk"],
         createdAt: NOW + 1_000,
       }],
+      failedResearchKeys: ["grill:farm:milk|farm:wheat"],
       failedCookingDishes: initial.failedCookingDishes + 1,
       farmItems: { ...initial.farmItems, wheat: 9, milk: 9 },
       result: {

@@ -1,4 +1,9 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import {
+  grantLifeFestivalTokens,
+  LIFE_FESTIVAL_SAVE_KEY,
+  parseLifeFestivalState,
+} from "@/adventure/v2/lifeFestival";
 import { db } from "@/db";
 import { marketplaceInbox, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -8,6 +13,7 @@ import {
   type SeasonRewardSeason,
 } from "@/lib/server/inboxPayload";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import { kstWeekMondayKey } from "@/lib/kst";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 import {
@@ -186,6 +192,7 @@ export async function POST(req: Request) {
       const coinsBySeason: Record<SeasonRewardSeason, number> = {
         pvp: 0,
         fishing: 0,
+        life_festival: 0,
       };
       const itemsToAdd: AddItem[] = [];
       const instancesToAdd: EquipmentInstance[] = [];
@@ -780,7 +787,7 @@ export async function POST(req: Request) {
       // 시즌 순위 보상 코인 — season 별 지갑(pvp/낚시)에 적립. 단일 유저라
       // character→inventory→crafting 다음에 지갑을 잠가도 교차 데드락 없음.
       const coinsAdded: { season: SeasonRewardSeason; coins: number }[] = [];
-      const WALLET_KEY_BY_SEASON: Record<SeasonRewardSeason, string> = {
+      const WALLET_KEY_BY_SEASON: Record<"pvp" | "fishing", string> = {
         pvp: PVP_WALLET_KEY,
         fishing: FISHING_WALLET_KEY,
       };
@@ -856,6 +863,26 @@ export async function POST(req: Request) {
         if (await grantTitleIfMissingInTx(tx, userId, titleId, Date.now())) {
           titleIdsAdded.push(titleId);
         }
+      }
+
+      // 생활 축제 순위 보상 — 코인 지갑이 아니라 축제 세이브의 증표로 적립한다.
+      // 축제 세이브는 모든 경로에서 마지막에 잠근다(납품·구매 라우트와 같은 순서).
+      if (coinsBySeason.life_festival > 0) {
+        const festivalRaw = await lockSaveForUpdate(
+          tx,
+          userId,
+          LIFE_FESTIVAL_SAVE_KEY,
+          {},
+        );
+        const festival = grantLifeFestivalTokens(
+          parseLifeFestivalState(festivalRaw, kstWeekMondayKey(new Date())),
+          coinsBySeason.life_festival,
+        );
+        await upsertSave(tx, userId, LIFE_FESTIVAL_SAVE_KEY, festival);
+        coinsAdded.push({
+          season: "life_festival",
+          coins: coinsBySeason.life_festival,
+        });
       }
 
       // inbox 마킹.

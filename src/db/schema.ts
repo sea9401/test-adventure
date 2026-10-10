@@ -1849,7 +1849,13 @@ export const guildRaidGuildScores = pgTable(
     stage: integer("stage").notNull().default(1),
     hp: bigint("hp", { mode: "number" }).notNull().default(1_200_000),
     maxHp: bigint("max_hp", { mode: "number" }).notNull().default(1_200_000),
+    // 길드장·관리자가 고른 이번 주 보스. 행이 생기는 순간이 선택이며 이후 바꿀 수 없다.
+    bossKind: text("boss_kind").notNull().default("mountain_chief_hard"),
+    selectedByUserId: text("selected_by_user_id"),
+    selectedAt: timestamp("selected_at"),
     finalRank: integer("final_rank"),
+    // 정산 때 확정한 보상 구간(standard/bonus/floor). 기준값이 바뀌어도 지난 주 보상은 고정.
+    rewardTier: text("reward_tier"),
     settledAt: timestamp("settled_at"),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -1857,7 +1863,12 @@ export const guildRaidGuildScores = pgTable(
     primaryKey({ columns: [t.eventId, t.guildId] }),
     index("guild_raid_guild_scores_rank_idx").on(
       t.eventId,
+      t.bossKind,
       sql`${t.damage} DESC`,
+    ),
+    check(
+      "guild_raid_guild_scores_reward_tier_valid",
+      sql`${t.rewardTier} IS NULL OR ${t.rewardTier} IN ('standard','bonus','floor')`,
     ),
     check("guild_raid_guild_scores_damage_nonnegative", sql`${t.damage} >= 0`),
     check("guild_raid_guild_scores_stage_positive", sql`${t.stage} > 0`),
@@ -1916,6 +1927,7 @@ export const guildRaidAttackLogs = pgTable(
     guildId: integer("guild_id").notNull(),
     requestId: text("request_id").notNull(),
     name: text("name").notNull(),
+    bossKind: text("boss_kind").notNull().default("mountain_chief_hard"),
     damageDealt: bigint("damage_dealt", { mode: "number" }).notNull(),
     damageTaken: bigint("damage_taken", { mode: "number" }).notNull(),
     diedEarly: boolean("died_early").notNull().default(false),
@@ -2210,6 +2222,7 @@ export const guildExplorationWeekly = pgTable("guild_exploration_weekly", {
     .notNull()
     .default(0),
   farmHarvestProgress: integer("farm_harvest_progress").notNull().default(0),
+  raidAttackProgress: integer("raid_attack_progress").notNull().default(0),
   claimed: jsonb("claimed").notNull().default(sql`'[]'::jsonb`),
   content: jsonb("content").notNull().default(sql`'{}'::jsonb`),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -2298,6 +2311,25 @@ export const guildFacilityUpgradeDonations = pgTable(
     buildingId: text("building_id").notNull(),
     targetLevel: integer("target_level").notNull(),
     materials: jsonb("materials").notNull().default({}),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],
+);
+
+// 길드 시설 운영 실적 — Lv.6~10 업그레이드 조건. 길드원이 시설을 이용할 때만
+// 쌓이고, 시설마다 주간 적립 상한이 있다. targetLevel 이 현재 다음 레벨과 다르면
+// 서버가 점수를 0으로 보고 새 목표로 맞춘다. 첫 적립 때 행을 만든다.
+export const guildFacilityOperations = pgTable(
+  "guild_facility_operations",
+  {
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    buildingId: text("building_id").notNull(),
+    targetLevel: integer("target_level").notNull(),
+    points: integer("points").notNull().default(0),
+    weekKey: text("week_key").notNull(),
+    weekPoints: integer("week_points").notNull().default(0),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],
@@ -2522,6 +2554,33 @@ export const fishingSeasons = pgTable("fishing_seasons", {
   rewardsGrantedAt: timestamp("rewards_granted_at"),
   winners: integer("winners").notNull().default(0),
   totalCoins: integer("total_coins").notNull().default(0),
+});
+
+// 생활 축제 주간 점수 — 축제 주문 납품으로 쌓인다. weekId 는 그 주 월요일 KST 날짜(YYYY-MM-DD).
+// 순위는 점수 내림차순, 동점은 updatedAt 이 빠른 쪽이 위.
+export const lifeFestivalScores = pgTable(
+  "life_festival_scores",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    weekId: text("week_id").notNull(),
+    score: integer("score").notNull().default(0),
+    deliveries: integer("deliveries").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.weekId] }),
+    index("life_festival_scores_rank_idx").on(t.weekId, sql`${t.score} DESC`),
+  ],
+);
+
+// 생활 축제 주간 정산 마커 — 순위 보상 우편의 멱등성(주당 1회). id = weekId.
+export const lifeFestivalWeeks = pgTable("life_festival_weeks", {
+  id: text("id").primaryKey(),
+  rewardsGrantedAt: timestamp("rewards_granted_at"),
+  winners: integer("winners").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
 });
 
 // 위험 해역 거대어 — 6시간 동안 서버 전체가 비동기로 체력을 누적해서 깎는다.

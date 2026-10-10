@@ -11,14 +11,19 @@ import {
   ShieldCheck,
   Sword,
 } from "@phosphor-icons/react";
-import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import {
+  GUILD_RAID_BOSSES,
+  type GuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import type { Gender } from "@/adventure/profile/avatars";
 import { useGameIdentityState } from "@/adventure/v2/GameStateProvider";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { GuildRaidBossPicker } from "./GuildRaidBossPicker";
 import type {
   GuildRaidPagination,
   GuildRaidPracticeResult,
@@ -44,6 +49,11 @@ const ERROR_TEXT: Record<string, string> = {
   not_eligible: "개인 참여 조건을 달성하지 못했습니다.",
   already_claimed: "이미 보상을 받았습니다.",
   claim_failed: "보상을 받지 못했습니다.",
+  forbidden: "길드장 또는 관리자만 보스를 선택할 수 있습니다.",
+  already_selected: "이번 주 보스가 이미 선택되었습니다.",
+  boss_not_selected: "이번 주 보스를 먼저 선택해야 합니다.",
+  bad_boss: "보스 정보를 확인할 수 없습니다.",
+  select_failed: "보스를 선택하지 못했습니다.",
 };
 
 const KST_DATE_TIME = new Intl.DateTimeFormat("ko-KR", {
@@ -71,6 +81,7 @@ export function GuildRaidPanel() {
     attacking,
     practicing,
     claiming,
+    selecting,
     error,
     lastAttack,
     lastPractice,
@@ -78,6 +89,8 @@ export function GuildRaidPanel() {
     attack,
     practice,
     claim,
+    selectBoss,
+    setBoard,
     setLeaderboardPage,
     setRecentPage,
   } = useGuildRaid();
@@ -104,12 +117,15 @@ export function GuildRaidPanel() {
       attacking={attacking}
       practicing={practicing}
       claiming={claiming}
+      selecting={selecting}
       error={error}
       lastAttack={lastAttack}
       lastPractice={lastPractice}
       onAttack={() => void attack()}
-      onPractice={() => void practice()}
+      onPractice={(bossId) => void practice(bossId)}
       onClaim={() => void claim()}
+      onSelectBoss={(bossId) => void selectBoss(bossId)}
+      onBoardChange={(bossId) => void setBoard(bossId)}
       viewerGender={viewerGender}
       playerSubtitle={playerSubtitle}
       onLeaderboardPage={(page) => void setLeaderboardPage(page)}
@@ -123,12 +139,15 @@ export function GuildRaidPanelContent({
   attacking,
   practicing = false,
   claiming = false,
+  selecting = false,
   error,
   lastAttack,
   lastPractice = null,
   onAttack,
   onPractice = () => undefined,
   onClaim = () => undefined,
+  onSelectBoss = () => undefined,
+  onBoardChange = () => undefined,
   viewerGender = "male1",
   playerSubtitle,
   onLeaderboardPage = () => undefined,
@@ -138,18 +157,27 @@ export function GuildRaidPanelContent({
   attacking: boolean;
   practicing?: boolean;
   claiming?: boolean;
+  selecting?: boolean;
   error: string | null;
   lastAttack?: { damageDealt: number; stagesCleared: number } | null;
   lastPractice?: GuildRaidPracticeResult | null;
   onAttack: () => void;
-  onPractice?: () => void;
+  onPractice?: (bossId?: GuildRaidBossId) => void;
   onClaim?: () => void;
+  onSelectBoss?: (bossId: GuildRaidBossId) => void;
+  onBoardChange?: (bossId: GuildRaidBossId) => void;
   viewerGender?: Gender;
   playerSubtitle?: string;
   onLeaderboardPage?: (page: number) => void;
   onRecentPage?: (page: number) => void;
 }) {
-  const boss = COOP_BOSSES[state.event.bossKind];
+  const selectedBossId = state.selection?.bossId ?? null;
+  const boss = selectedBossId
+    ? state.bosses.find((entry) => entry.id === selectedBossId) ?? null
+    : null;
+  const stage = state.event.stage ?? 1;
+  const hp = state.event.hp ?? 0;
+  const maxHp = state.event.maxHp ?? 0;
   const active = state.event.phase === "active";
   const settling = state.event.status === "settling";
   const guildLocked =
@@ -158,9 +186,8 @@ export function GuildRaidPanelContent({
   const exhausted = state.my.remainingAttacks <= 0;
   const canAttack = active && !guildLocked && !exhausted;
   const hpPct =
-    state.event.maxHp > 0
-      ? Math.max(0, Math.min(100, (state.event.hp / state.event.maxHp) * 100))
-      : 0;
+    maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
+  const bonusThreshold = boss?.bonusMinGuildDamage ?? null;
   const rankText = state.guild.rank
     ? settling
       ? `정산 중 · 잠정 ${state.guild.rank}위`
@@ -183,89 +210,102 @@ export function GuildRaidPanelContent({
 
   return (
     <section className="space-y-3" aria-label="길드 토벌전">
-      <Card padding="none" className="overflow-hidden">
-        <div className="grid md:grid-cols-[15rem_1fr]">
-          <div className="relative min-h-52 bg-zinc-100 dark:bg-zinc-950">
-            <Image
-              src={boss.base.image ?? "/images/monster/v2/sangoon.webp"}
-              alt={boss.name}
-              fill
-              sizes="(min-width: 768px) 240px, 100vw"
-              className="object-contain p-4 drop-shadow-xl"
-            />
-          </div>
-          <div className="space-y-4 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
-                  주간 길드 토벌전 · {state.event.stage}단계
-                </p>
-                <h2 className="mt-1 text-xl font-black">{boss.name}</h2>
-                <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                  {boss.desc}
-                </p>
-              </div>
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                {rankText}
-              </span>
+      {!boss ? (
+        <GuildRaidBossPicker
+          bosses={state.bosses}
+          canSelect={state.canSelect}
+          selecting={selecting}
+          practicing={practicing}
+          attacking={attacking}
+          endsAtText={formatEndsAt(state.event.endsAt)}
+          onSelect={onSelectBoss}
+          onPractice={onPractice}
+        />
+      ) : (
+        <Card padding="none" className="overflow-hidden">
+          <div className="grid md:grid-cols-[15rem_1fr]">
+            <div className="relative min-h-52 bg-zinc-100 dark:bg-zinc-950">
+              <Image
+                src={boss.image}
+                alt={boss.name}
+                fill
+                sizes="(min-width: 768px) 240px, 100vw"
+                className="object-contain p-4 drop-shadow-xl"
+              />
             </div>
-
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-3 text-xs">
-                <span className="font-semibold">단계 생명력</span>
-                <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                  {formatNumber(state.event.hp)} / {formatNumber(state.event.maxHp)}
+            <div className="space-y-4 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                    주간 길드 토벌전 · {stage}단계
+                  </p>
+                  <h2 className="mt-1 text-xl font-black">{boss.name}</h2>
+                  <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    {boss.desc}
+                  </p>
+                </div>
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  {rankText}
                 </span>
               </div>
-              <div
-                className="h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
-                role="progressbar"
-                aria-label="보스 생명력"
-                aria-valuemin={0}
-                aria-valuemax={state.event.maxHp}
-                aria-valuenow={state.event.hp}
-              >
-                <div
-                  className="h-full rounded-full bg-rose-600 transition-[width]"
-                  style={{ width: `${hpPct}%` }}
-                />
-              </div>
-            </div>
 
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-              <Clock size={15} /> {formatEndsAt(state.event.endsAt)} (KST)
+              <div>
+                <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                  <span className="font-semibold">단계 생명력</span>
+                  <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {formatNumber(hp)} / {formatNumber(maxHp)}
+                  </span>
+                </div>
+                <div
+                  className="h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+                  role="progressbar"
+                  aria-label="보스 생명력"
+                  aria-valuemin={0}
+                  aria-valuemax={maxHp}
+                  aria-valuenow={hp}
+                >
+                  <div
+                    className="h-full rounded-full bg-rose-600 transition-[width]"
+                    style={{ width: `${hpPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <Clock size={15} /> {formatEndsAt(state.event.endsAt)} (KST)
+              </div>
+              <Button
+                variant="danger"
+                size="md"
+                fullWidth
+                loading={attacking}
+                disabled={!canAttack || practicing}
+                onClick={onAttack}
+              >
+                <Sword size={18} weight="fill" /> {actionText}
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
+                loading={practicing}
+                loadingLabel="연습 전투 진행 중"
+                disabled={attacking}
+                onClick={() => onPractice(boss.id)}
+              >
+                <Sword size={18} /> 연습 전투
+              </Button>
+              <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+                토벌전이 끝난 뒤에도 연습할 수 있으며, 공격 횟수와 피해·보상에
+                반영되지 않습니다.
+              </p>
+              <p className="text-center text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                남은 공격 {state.my.remainingAttacks}/{state.my.dailyAttackLimit}
+              </p>
             </div>
-            <Button
-              variant="danger"
-              size="md"
-              fullWidth
-              loading={attacking}
-              disabled={!canAttack || practicing}
-              onClick={onAttack}
-            >
-              <Sword size={18} weight="fill" /> {actionText}
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              fullWidth
-              loading={practicing}
-              loadingLabel="연습 전투 진행 중"
-              disabled={attacking}
-              onClick={onPractice}
-            >
-              <Sword size={18} /> 연습 전투
-            </Button>
-            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-              토벌전이 끝난 뒤에도 연습할 수 있으며, 공격 횟수와 피해·보상에
-              반영되지 않습니다.
-            </p>
-            <p className="text-center text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-              남은 공격 {state.my.remainingAttacks}/{state.my.dailyAttackLimit}
-            </p>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {visibleError && (
         <Card padding="sm" className="border-rose-300 text-sm text-rose-700 dark:border-rose-800 dark:text-rose-300">
@@ -308,7 +348,7 @@ export function GuildRaidPanelContent({
             maxExp={1}
             playerSubtitle={playerSubtitle}
             outcome={lastPractice.diedEarly ? "lose" : undefined}
-            logTitle={`${COOP_BOSSES[lastPractice.bossKind].name} 연습 전투 로그`}
+            logTitle={`${GUILD_RAID_BOSSES[lastPractice.bossKind].definition.name} 연습 전투 로그`}
           />
         </>
       )}
@@ -343,6 +383,12 @@ export function GuildRaidPanelContent({
           <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
             {rankText}
           </p>
+          {bonusThreshold != null && state.my.bonusThresholdMet === false && (
+            <p className="text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+              2배 보상 기준 {formatNumber(state.guild.damage)} /{" "}
+              {formatNumber(bonusThreshold)}
+            </p>
+          )}
           <div className={`${SURFACE_INSET} p-3 text-xs text-zinc-600 dark:text-zinc-300`}>
             {state.my.reward ? (
               <div className="space-y-2">
@@ -378,6 +424,15 @@ export function GuildRaidPanelContent({
 
       <Card padding="md" className="space-y-3">
         <h3 className="text-sm font-bold">길드 순위</h3>
+        <SegmentedControl
+          ariaLabel="순위표 보스"
+          options={state.bosses.map((entry) => ({
+            key: entry.id,
+            label: entry.name,
+          }))}
+          value={state.board}
+          onChange={onBoardChange}
+        />
         {state.leaderboard.length === 0 ? (
           <p className="text-sm text-zinc-500">아직 참여한 길드가 없습니다.</p>
         ) : (

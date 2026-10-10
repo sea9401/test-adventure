@@ -7,8 +7,6 @@ import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/ec
 import {
   associationFacilityLevel,
   canUseAdventurerAssociation,
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySourceSelection,
 } from "@/lib/server/adventurerAssociation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
@@ -40,7 +38,8 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
-  nextTrainingGroundUpgrade,
+  nextSettlementBuildingUpgrade,
+  type TrainingGroundUpgradeDef,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
   settlementBuildingUpgradeCostText,
@@ -58,6 +57,9 @@ import {
   GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
+  GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY,
+  GUILD_TRAINING_WEEKLY_SECOND_BONUS_MIN_LEVEL,
+  GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET,
   guildTrainingDayWindow,
   guildTrainingDrillViews,
   guildTrainingReward,
@@ -66,7 +68,6 @@ import {
   recommendedGuildTrainingDrill,
   todayGuildTrainingWeekKey,
 } from "@/adventure/data/v2/guildTrainingGround";
-import { resolveWeeklyFacilitySourceClaim } from "@/adventure/data/v2/adventurerAssociation";
 
 const TRAINING_SAVE_KEY = "guild-training.v1";
 
@@ -252,18 +253,11 @@ export async function GET(req: Request) {
     profRaw,
     trainingRaw,
     skillsRaw,
-    weeklySourceSelection,
   ] = await Promise.all([
     readSave<CharacterSave | null>(db, userId, "character.v2", null),
     readSave<V2ProficiencyState | null>(db, userId, "proficiency.v2", null),
     readSave<Record<string, unknown> | null>(db, userId, TRAINING_SAVE_KEY, null),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
-    readWeeklyFacilitySourceSelection(
-      db,
-      userId,
-      "training_ground",
-      weekKey,
-    ),
   ]);
   if (!charSave) {
     return Response.json({ ok: false, error: "no_character" }, { status: 400 });
@@ -276,7 +270,11 @@ export async function GET(req: Request) {
     parseV2SkillsState(skillsRaw).learned,
   );
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel));
-  const nextUpgrade = nextTrainingGroundUpgrade(trainingGroundLevel);
+  const nextUpgrade = nextSettlementBuildingUpgrade(
+    "training_ground",
+    trainingGroundLevel,
+    association ? "association" : "guild_facility",
+  ) as TrainingGroundUpgradeDef | null;
   const drills = guildTrainingDrillViews({
     state,
     buildingLevel: trainingGroundLevel,
@@ -290,15 +288,6 @@ export async function GET(req: Request) {
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const remainingClaims = Math.max(0, dailyClaimLimit - claimedCount);
   const recommendedDrill = recommendedGuildTrainingDrill(drills);
-  const weeklySourceEligible = resolveWeeklyFacilitySourceClaim(
-    "training_ground",
-    weeklySourceSelection ?? undefined,
-    {
-      weekKey,
-      source: association ? "association" : "guild",
-      ...(association ? {} : { guildId: access.guildId }),
-    },
-  ).ok;
   return Response.json({
     ok: true,
     dayKey,
@@ -321,10 +310,7 @@ export async function GET(req: Request) {
     claimedCount,
     availableCount,
     remainingClaims,
-    claimableCount: weeklySourceEligible
-      ? Math.min(availableCount, remainingClaims)
-      : 0,
-    weeklySourceEligible,
+    claimableCount: Math.min(availableCount, remainingClaims),
     recommendedDrillId: recommendedDrill?.id ?? null,
     weekly: {
       weekKey,
@@ -334,6 +320,15 @@ export async function GET(req: Request) {
         GUILD_TRAINING_WEEKLY_BONUS_MASTERY +
         trainingBonuses.weeklyBonusMastery,
       bonusClaimed: state.weeklyBonusClaimed === true,
+      ...(trainingGroundLevel >= GUILD_TRAINING_WEEKLY_SECOND_BONUS_MIN_LEVEL
+        ? {
+            second: {
+              target: GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET,
+              bonusMastery: GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY,
+              claimed: state.weeklySecondBonusClaimed === true,
+            },
+          }
+        : {}),
     },
     externalAccess: externalAccessView(access),
     trainingBonuses,
@@ -467,24 +462,6 @@ export async function POST(req: Request) {
         },
       };
     }
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "training_ground",
-      association ? "association" : "guild",
-      weekKey,
-      association ? undefined : access.guildId,
-    );
-    if (!weeklySource.ok) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "weekly_source_conflict",
-          selectedSource: weeklySource.selected,
-        },
-      };
-    }
 
     const reward = guildTrainingReward(
       GUILD_TRAINING_DRILLS[drillId],
@@ -492,10 +469,14 @@ export async function POST(req: Request) {
       trainingBonuses.rewardBonusPct,
       state.rewardBonusRemainderPct ?? 0,
     );
-    const claim = claimGuildTrainingDrill(state, drillId);
+    const claim = claimGuildTrainingDrill(state, drillId, trainingGroundLevel);
+    // 학습 패시브의 주간 보너스 가산은 1단계 보너스에만 붙인다.
+    const firstWeeklyBonusNow =
+      claim.state.weeklyBonusClaimed === true && state.weeklyBonusClaimed !== true;
     const weeklyBonusMastery =
       claim.weeklyBonusMastery > 0
-        ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
+        ? claim.weeklyBonusMastery +
+          (firstWeeklyBonusNow ? trainingBonuses.weeklyBonusMastery : 0)
         : 0;
     const hotTime = await readActiveHotTime(Date.now(), tx);
     const beforeHotTimeMastery = reward.mastery + weeklyBonusMastery;

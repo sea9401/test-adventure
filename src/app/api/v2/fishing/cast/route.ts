@@ -9,6 +9,9 @@ import {
 } from "@/lib/server/activityGuard";
 import { activityVerificationGateResponse } from "@/lib/server/activityGuardServer";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
+import { lifeFestivalBonus } from "@/adventure/v2/lifeFestival";
+import { lifeMajorBonusPct } from "@/adventure/v2/lifeMajor";
+import { readLifeMajorState } from "@/lib/server/lifeMajor";
 import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
@@ -128,7 +131,9 @@ export async function POST(req: Request) {
     specialWeightPct:
       skillBonuses.specialWeightPct +
       progressBonuses.specialWeightPct +
-      (multtaeEffect.specialWeightBonusPct ?? 0),
+      (multtaeEffect.specialWeightBonusPct ?? 0) +
+      lifeFestivalBonus("fishing", new Date(now)).chancePct +
+      lifeMajorBonusPct(await readLifeMajorState(db, userId), "fishing"),
     sizeBonusPct:
       skillBonuses.sizeBonusPct +
       progressBonuses.sizeBonusPct +

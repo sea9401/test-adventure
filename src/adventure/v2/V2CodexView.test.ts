@@ -252,7 +252,25 @@ describe("모험의 서 SP 수집 목록", () => {
         { tier: 1, unlocked: true },
         { tier: 2, unlocked: false },
       ]),
-    ).toEqual({ current: 1, total: 2 });
+    ).toEqual({ current: 1, total: 2, tier7Total: 0 });
+  });
+
+  it("7차 직업 수를 따로 세어 직업 해금 최대치에 체감 없이 더한다", () => {
+    expect(
+      spEligibleJobProgress([
+        { tier: 6, unlocked: true },
+        { tier: 7, unlocked: false },
+        { tier: 7, unlocked: true },
+      ]),
+    ).toEqual({ current: 2, total: 3, tier7Total: 2 });
+    expect(
+      spCollectionSpRange({
+        label: "직업 해금",
+        value: 63,
+        jobUnlockTotal: 158,
+        jobUnlockTier7Total: 9,
+      }),
+    ).toEqual({ current: 63, maximum: 108 });
   });
 
   it("50개를 넘는 직업은 실제 직업 해금 SP 환산 규칙으로 최대치를 표시한다", () => {

@@ -1,0 +1,1 @@
+ALTER TABLE "guild_exploration_weekly" ADD COLUMN "raid_attack_progress" integer DEFAULT 0 NOT NULL;

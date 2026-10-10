@@ -559,6 +559,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [jobUnlockProgress, setJobUnlockProgress] = useState({
     current: 0,
     total: 0,
+    tier7Total: 0,
   });
   const [equipmentCodexProgress, setEquipmentCodexProgress] = useState({
     current: 0,
@@ -909,6 +910,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       value: row.value,
       jobUnlockTotal:
         jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1),
+      jobUnlockTier7Total: jobUnlockProgress.tier7Total,
     });
     return { ...row, progress, progressPct, spRange };
   });

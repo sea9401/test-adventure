@@ -2,11 +2,17 @@ import "server-only";
 
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, guildRaidEvents, guilds } from "@/db/schema";
 import {
-  parseCoopBossKindId,
-  type CoopBossKindId,
-} from "@/adventure/data/v2/coopBosses";
+  guildMembers,
+  guildRaidEvents,
+  guildRaidGuildScores,
+  guilds,
+} from "@/db/schema";
+import {
+  GUILD_RAID_DEFAULT_BOSS_ID,
+  parseGuildRaidBossId,
+  type GuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import { guildRaidWeekKey } from "@/adventure/data/v2/guildRaid";
 import type { GuildRaidPracticeResult } from "@/adventure/v2/guild/guildRaidTypes";
 import {
@@ -16,9 +22,9 @@ import {
 
 type GuildRaidPracticeContext = {
   hasGuild: boolean;
-  event: {
-    bossKind: string;
-  } | null;
+  /** 이번 주 길드가 고른 보스(점수 행의 boss_kind). 고르기 전이면 null. */
+  selectedBossKind: string | null;
+  event: object | null;
 };
 
 type GuildRaidPracticeDependencies = {
@@ -28,7 +34,7 @@ type GuildRaidPracticeDependencies = {
   ): Promise<GuildRaidPracticeContext>;
   simulate(input: {
     userId: string;
-    bossKind: CoopBossKindId;
+    bossId: GuildRaidBossId;
   }): Promise<GuildRaidBattleResult | null>;
 };
 
@@ -44,9 +50,11 @@ export function createGuildRaidPracticeService(
 ) {
   return async function practiceGuildRaid({
     userId,
+    bossId: requestedBossId,
     now = new Date(),
   }: {
     userId: string;
+    bossId?: unknown;
     now?: Date;
   }): Promise<GuildRaidPracticeOutcome> {
     const context = await dependencies.readContext(
@@ -58,9 +66,12 @@ export function createGuildRaidPracticeService(
       return { ok: false, error: "event_ended" };
     }
 
-    const bossKind = parseCoopBossKindId(context.event.bossKind);
+    // 연습은 선택과 무관하게 아무 보스나 가능하다. 지정이 없으면 길드가 고른 보스, 그것도 없으면 기본 보스.
+    const rawBossId =
+      requestedBossId ?? context.selectedBossKind ?? GUILD_RAID_DEFAULT_BOSS_ID;
+    const bossKind = parseGuildRaidBossId(rawBossId);
     if (!bossKind) return { ok: false, error: "bad_boss" };
-    const battle = await dependencies.simulate({ userId, bossKind });
+    const battle = await dependencies.simulate({ userId, bossId: bossKind });
     if (!battle) return { ok: false, error: "no_character" };
 
     return {
@@ -89,23 +100,37 @@ export const practiceGuildRaid = createGuildRaidPracticeService({
         )
         .limit(1),
       db
-        .select({
-          bossKind: guildRaidEvents.bossKind,
-        })
+        .select({ id: guildRaidEvents.id })
         .from(guildRaidEvents)
         .where(eq(guildRaidEvents.weekKey, weekKey))
         .limit(1),
     ]);
+    const guildId = currentGuildRows[0]?.id;
+    const event = eventRows[0] ?? null;
+    const [selection] =
+      guildId != null && event
+        ? await db
+            .select({ bossKind: guildRaidGuildScores.bossKind })
+            .from(guildRaidGuildScores)
+            .where(
+              and(
+                eq(guildRaidGuildScores.eventId, event.id),
+                eq(guildRaidGuildScores.guildId, guildId),
+              ),
+            )
+            .limit(1)
+        : [];
     return {
-      hasGuild: currentGuildRows.length > 0,
-      event: eventRows[0] ?? null,
+      hasGuild: guildId != null,
+      selectedBossKind: selection?.bossKind ?? null,
+      event,
     };
   },
-  simulate({ userId, bossKind }) {
+  simulate({ userId, bossId }) {
     return simulateGuildRaidBattle({
       tx: db,
       userId,
-      bossKind,
+      bossId,
       lockForUpdate: false,
     });
   },

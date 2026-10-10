@@ -37,9 +37,10 @@ const DINING_PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 
 type DiningState = {
   level: number;
   stageLabel: string;
+  // 식당 Lv.8 이상은 효과식 지속 시간이 늘어난다. 협회 응답에는 없다.
+  effectDurationHours?: number;
   weekKey: string;
   eligible: boolean;
-  weeklySource?: DiningFacilitySource | null;
   pantry: { points: number; target: number; remaining: number; ready: boolean };
   tickets: {
     base: number;
@@ -216,13 +217,10 @@ export function GuildDiningHallPanel({
     );
   }
 
-  const sourceConflict =
-    state.weeklySource != null && state.weeklySource !== source;
   const isAssociation = source === "association";
-  const canParticipate = state.eligible && !sourceConflict;
+  const canParticipate = state.eligible;
   const unavailableReasons = guildDiningUnavailableReasons({
     eligible: state.eligible,
-    weeklySource: state.weeklySource,
     currentSource: source,
     pantry: state.pantry,
     contributionPoints: state.contributionPoints,
@@ -506,7 +504,7 @@ export function GuildDiningHallPanel({
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. {isAssociation ? "개인 기여·식권·효과" : "공동 준비·개인 기여·식권·효과"}는 매주 월요일 00:00 KST에 초기화됩니다.
+        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 {state?.effectDurationHours ?? GUILD_DINING_EFFECT_DURATION_HOURS}시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. {isAssociation ? "개인 기여·식권·효과" : "공동 준비·개인 기여·식권·효과"}는 매주 월요일 00:00 KST에 초기화됩니다.
       </p>
     </section>
   );
@@ -529,8 +527,6 @@ function diningErrorText(error?: string): string {
       return "길드 식당을 먼저 개방해야 합니다.";
     case "not_eligible":
       return "다음 주부터 식당을 이용할 수 있습니다.";
-    case "weekly_source_conflict":
-      return "이번 주 식당 보상처를 길드·협회 중 다른 쪽으로 선택했습니다.";
     case "contribution_cap":
       return "개인 기여 한도 또는 공동 준비 목표를 넘습니다.";
     case "insufficient_ingredients":

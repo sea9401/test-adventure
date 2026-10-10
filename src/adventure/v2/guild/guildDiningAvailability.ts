@@ -4,7 +4,6 @@ export type DiningFacilitySource = "guild" | "association";
 
 export type DiningAvailabilityState = {
   eligible: boolean;
-  weeklySource?: DiningFacilitySource | null;
   currentSource: DiningFacilitySource;
   pantry: { ready: boolean; remaining: number };
   contributionPoints: number;
@@ -56,16 +55,8 @@ export function guildDiningUnavailableReasons(
   state: DiningAvailabilityState,
 ): string[] {
   const reasons: string[] = [];
-  const sourceConflict =
-    state.weeklySource != null && state.weeklySource !== state.currentSource;
 
-  if (sourceConflict) {
-    const selectedName =
-      state.weeklySource === "guild" ? "길드 식당" : "협회 식당";
-    reasons.push(
-      `이번 주 식당 이용처를 ${selectedName}으로 이미 선택했습니다. 다음 주 월요일 00:00 KST부터 다시 선택할 수 있습니다.`,
-    );
-  } else if (!state.eligible) {
+  if (!state.eligible) {
     reasons.push(
       "이번 주 공동 준비가 시작된 뒤 길드에 가입하여 다음 주 월요일 00:00 KST부터 이용할 수 있습니다.",
     );

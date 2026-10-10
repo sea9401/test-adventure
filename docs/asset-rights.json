@@ -14,7 +14,7 @@
     {
       "id": "operator-cleared-game-art",
       "releaseStatus": "cleared",
-      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, the simple and staged cooking-expansion rasters added beginning on 2026-08-24, the 53 unexplored-region monster, boss, and equipment rasters added on 2026-08-28 through 2026-08-30, the four Invincible Fortress plus four Skyward Crystal Eye boss and equipment rasters added on 2026-09-01, and the four Immortal Berserker boss and equipment rasters added on 2026-09-02 were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. The unexplored-region variants use only repository-cleared game artwork as style references where their plans note a reference. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
+      "rightsBasis": "The operator confirmed the existing game rasters on 2026-07-29. The nine housing rasters added on 2026-08-06, the nine ranch and cooking rasters added on 2026-08-10, the six Star Grave environment and monster rasters added on 2026-08-14, the 37 dangerous-fishing and ranch/cooking rasters added on 2026-08-15, the six ranch cooking rasters added on 2026-08-16, the 55 cooking-research recipe rasters added on 2026-08-22, the five dangerous-fishing realtime rasters added on 2026-08-22, the nine dangerous-fishing species rasters added on 2026-08-23, the simple and staged cooking-expansion rasters added beginning on 2026-08-24, the 53 unexplored-region monster, boss, and equipment rasters added on 2026-08-28 through 2026-08-30, the four Invincible Fortress plus four Skyward Crystal Eye boss and equipment rasters added on 2026-09-01, the four Immortal Berserker boss and equipment rasters added on 2026-09-02, and the four guild dining Lv.6~10 menu rasters added on 2026-10-10 (operator confirmed 2026-10-11) were generated for this repository in operator-controlled Codex/OpenAI image-generation sessions. The 2026-08-22 boss sheets use cleared repository fish artwork for identity and style; a user-supplied, non-deployed golem sheet served only as a generic spacing/motion-layout reference, with no pixels, character identity, palette, anatomy, or style carried into the deployed assets. The unexplored-region variants use only repository-cleared game artwork as style references where their plans note a reference. No source-unknown downloads, unverified purchased assets, or copied third-party characters or trademarks are included in deployed game art.",
       "evidence": [
         "docs/image-gen-prompt.md",
         "https://github.com/sea9401/test-adventure/pull/232",
@@ -3183,6 +3183,16 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/dining/deep_sea_course.webp",
+      "sha256": "0ef424ff6d8807aee1036909df4399f9f26b375943c3bf4c235a062a7b3548a0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/grand_recovery_feast.webp",
+      "sha256": "8655b8e9be0d26fb153615422a05bf2fecc49f08a8db6ee0ef66aaf232cd67c7",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/dining/guild_grand_feast.webp",
       "sha256": "b6b38987e5870f21de075708f2fd8098050b5ff036b43624a7019bdb0cf381ad",
       "source": "operator-cleared-game-art"
@@ -3193,8 +3203,18 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/dining/heroes_feast.webp",
+      "sha256": "7e5cd48130c7d144c53b1c61a97a7d8738977ea2cd74aad7d0b5ac0614c507d1",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/dining/hunters_barbecue.webp",
       "sha256": "c8b5fe48410c980a522ff0c1a0e776c9752e86488da691962eda05fb74d3b363",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/dining/royal_banquet.webp",
+      "sha256": "8a3d1d9aba929c7174b7f817dd278ea4474a95c6351734b957409b940bc9ae34",
       "source": "operator-cleared-game-art"
     },
     {

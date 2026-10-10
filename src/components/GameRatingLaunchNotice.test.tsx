@@ -26,7 +26,24 @@ describe("게임 최초 진입 등급 고지", () => {
     vi.useRealTimers();
   });
 
-  it("새 탭의 게임 진입 시 3.5초 동안 12세·폭력성 고지를 표시한다", () => {
+  it("법정 최소 3초는 지키되 기존 3.5초보다 짧게 표시한다", () => {
+    expect(GAME_RATING_NOTICE_MS).toBeGreaterThanOrEqual(3_000);
+    expect(GAME_RATING_NOTICE_MS).toBeLessThan(3_500);
+  });
+
+  it("제목·문구 카드 없이 등급·내용정보 마크만 작게 표시한다", () => {
+    render(<GameRatingLaunchNotice />);
+
+    const notice = screen.getByRole("status", { name: "게임 이용등급 안내" });
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.getByAltText("12세이용가")).not.toBeNull();
+    expect(screen.getByAltText("내용정보: 폭력성")).not.toBeNull();
+    expect(notice.querySelector(".sr-only")?.textContent).toContain(
+      "12세 미만은 이용할 수 없습니다",
+    );
+  });
+
+  it("새 탭의 게임 진입 시 정해진 시간 동안 12세·폭력성 고지를 표시한다", () => {
     render(<GameRatingLaunchNotice />);
 
     const notice = screen.getByRole("status", { name: "게임 이용등급 안내" });

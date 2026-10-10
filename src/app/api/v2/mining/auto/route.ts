@@ -1,4 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import {
+  applyLifeMajorProgress,
+  lifeMajorResponse,
+  readLifeMajorState,
+  withMasterProduct,
+} from "@/lib/server/lifeMajor";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -36,6 +43,7 @@ import {
   miningXpForLevel,
 } from "@/adventure/v2/miningProgression";
 import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { lifeFestivalBonus, lifeFestivalBonusXp } from "@/adventure/v2/lifeFestival";
 import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   MINING_AUTO_KEY,
@@ -153,7 +161,9 @@ export async function POST(req: Request) {
       (bonuses.bonusOreChancePct +
         LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
         lifeGatheringBonusPct("mining", workshop, progression.level) +
-        levelBonuses.bonusOreChancePct) /
+        levelBonuses.bonusOreChancePct +
+        lifeFestivalBonus("mining", new Date(now)).chancePct +
+        lifeMajorBonusPct(await readLifeMajorState(db, userId), "mining")) /
         100,
     );
     const baseCycleDurationMs = miningDurationWithPassive(
@@ -376,7 +386,11 @@ export async function POST(req: Request) {
       ),
       new Date(now),
     );
-    const xpGained = settlement.xpGained + diningXp.bonus;
+    const festivalXp = lifeFestivalBonusXp(
+      Math.max(0, settlement.xpGained - environmentXpGained - discoveryRewardXp),
+      lifeFestivalBonus("mining", new Date(now)).xpPct,
+    );
+    const xpGained = settlement.xpGained + diningXp.bonus + festivalXp;
     const appliedXp = applyLifeXpGain({
       xp: currentLog.xp,
       gainedXp: xpGained,
@@ -428,9 +442,23 @@ export async function POST(req: Request) {
       }
     }
     dirtySaves[MINING_AUTO_KEY] = settlement.state;
+    // 생활 전공 — 성공 횟수만큼 산물을 굴리고 character.v2 사본에 합친다.
+    const lifeMajorProgress = await applyLifeMajorProgress(tx, userId, "mining", {
+      overflowXp: lifeXpOverflow({ gained: xpGained, before: currentLog.xp, after: appliedXp.xp }),
+      successes: settlement.successes,
+      rng: Math.random,
+    });
+    if (lifeMajorProgress.productCount > 0) {
+      const charDirty = dirtySaves["character.v2"] as { materials?: unknown };
+      dirtySaves["character.v2"] = {
+        ...charDirty,
+        materials: withMasterProduct(charDirty.materials, lifeMajorProgress),
+      };
+    }
     await upsertSaves(tx, userId, dirtySaves);
     return {
       settlement,
+      lifeMajor: lifeMajorResponse(lifeMajorProgress),
       node,
       materialName: MINING_MATERIALS[node.materialId].name,
       xpGained,
@@ -513,6 +541,7 @@ export async function POST(req: Request) {
     materialsGained: result.settlement.materialsGained,
     byproducts: result.byproducts,
     xpGained: result.xpGained,
+    lifeMajor: result.lifeMajor,
     environmentXpGained: result.environmentXpGained,
     discoveryRewardGained: result.discoveryRewardGained,
     discoveryRewardXp: result.discoveryRewardXp,

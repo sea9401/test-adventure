@@ -63,6 +63,14 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
     "v2c_golem_tectoniccollapse",
     "v2c_golem_stoneskin",
   ],
+  rockbrawler: ["v2c_rockbrawler_boulderroll", "v2c_rockbrawler_unburden"],
+  rockgiant: ["v2c_rockgiant_bedrockslam", "v2c_rockgiant_rampart"],
+  irongolem: ["v2c_irongolem_ironhammer", "v2c_irongolem_ironframe"],
+  mountaingolem: ["v2c_mountaingolem_landslide", "v2c_mountaingolem_mountainbody"],
+  primevalgolem: [
+    "v2c_primevalgolem_primordialcollapse",
+    "v2c_primevalgolem_apex",
+  ],
   // ── 기본 직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
   warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10%)
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)
@@ -218,6 +226,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   aegis: ["v2c_aegis_strike", "v2c_aegis_barrier", "v2c_aegis_guardian"],
   seraphim: ["v2c_seraphim_judgment", "v2c_seraphim_wings", "v2c_seraphim_grace"],
   dragonlord: ["v2c_dragonlord_claw", "v2c_dragonlord_breath", "v2c_dragonlord_heart"],
+  tempest: ["v2c_tempest_frostgale", "v2c_tempest_skystorm", "v2c_tempest_crown"],
+  titan: ["v2c_titan_collapse", "v2c_titan_armor", "v2c_titan_undying"],
+  runelord: ["v2c_runelord_arcanebolt", "v2c_runelord_cycle", "v2c_runelord_sovereign"],
+  bloodheaven: ["v2c_bloodheaven_annihilation", "v2c_bloodheaven_descent", "v2c_bloodheaven_immortal"],
+  behemoth: ["v2c_behemoth_devour", "v2c_behemoth_swallow", "v2c_behemoth_flesh"],
   legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기

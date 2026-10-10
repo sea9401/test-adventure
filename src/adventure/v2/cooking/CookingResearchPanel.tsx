@@ -5,6 +5,7 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { COOKING_METHOD_NAMES, COOKING_METHOD_UNLOCK_LEVEL, type CookingIngredientId, type CookingMethod } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName, cookingResearchIngredients } from "./clientDisplay";
+import { cookingResearchAttemptKey } from "./researchKey";
 
 const RESEARCH_TIME_FORMAT = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
@@ -13,13 +14,6 @@ const RESEARCH_TIME_FORMAT = new Intl.DateTimeFormat("ko-KR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function researchAttemptKey(
-  method: CookingMethod,
-  ingredientIds: readonly CookingIngredientId[],
-): string {
-  return `${method}:${[...ingredientIds].sort().join("|")}`;
-}
 
 export function CookingResearchPanel({ data, busy, mutate }: {
   data: CookingResponse;
@@ -36,15 +30,25 @@ export function CookingResearchPanel({ data, busy, mutate }: {
   const maxSlots = data.level >= 35 ? 5 : data.level >= 20 ? 4 : data.level >= 10 ? 3 : 2;
   const ingredients = useMemo(() => cookingResearchIngredients(data), [data]);
   const failedAttemptKeys = useMemo(
-    () => new Set(data.failedResearches.map((entry) =>
-      researchAttemptKey(entry.method, entry.ingredientIds))),
-    [data.failedResearches],
+    () => new Set(data.failedResearchKeys),
+    [data.failedResearchKeys],
   );
-  const selectedAttemptKey = researchAttemptKey(method, selected);
-  const duplicateFailure = selected.length >= 2 && (
+  const knownRecipeByAttemptKey = useMemo(
+    () => new Map(data.knownRecipes.map((recipe) => [
+      cookingResearchAttemptKey(recipe.method, recipe.ingredients.map((ingredient) => ingredient.id)),
+      recipe,
+    ])),
+    [data.knownRecipes],
+  );
+  const selectedAttemptKey = cookingResearchAttemptKey(method, selected);
+  const knownRecipe = selected.length >= 2
+    ? knownRecipeByAttemptKey.get(selectedAttemptKey) ?? null
+    : null;
+  const duplicateFailure = selected.length >= 2 && !knownRecipe && (
     failedAttemptKeys.has(selectedAttemptKey) ||
     rejectedAttemptKeys.has(selectedAttemptKey)
   );
+  const blocked = duplicateFailure || knownRecipe !== null;
   const [previousIngredients, setPreviousIngredients] = useState(ingredients);
   if (ingredients !== previousIngredients) {
     const available = new Set(ingredients);
@@ -78,10 +82,10 @@ export function CookingResearchPanel({ data, busy, mutate }: {
             ))}
           </div>
           <div className="mt-3 text-xs text-zinc-500">선택 {selected.length}/{maxSlots}</div>
-          <button type="button" disabled={busy || selected.length < 2 || duplicateFailure}
+          <button type="button" disabled={busy || selected.length < 2 || blocked}
             onClick={async () => {
-              if (!duplicateFailure) {
-                const attemptKey = researchAttemptKey(method, selected);
+              if (!blocked) {
+                const attemptKey = cookingResearchAttemptKey(method, selected);
                 const result = await mutate({ action: "research", method, ingredientIds: selected });
                 if (result?.error === "duplicate_combination") {
                   setRejectedAttemptKeys((current) => new Set(current).add(attemptKey));
@@ -89,10 +93,14 @@ export function CookingResearchPanel({ data, busy, mutate }: {
               }
             }}
             className="mt-2 w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
-            {busy ? "연구 중…" : duplicateFailure ? "이미 실패한 조합" : "이 조합 연구"}
+            {busy ? "연구 중…" : knownRecipe ? "이미 발견한 레시피" : duplicateFailure ? "이미 실패한 조합" : "이 조합 연구"}
           </button>
-          {duplicateFailure ? (
-            <div role="status" className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+          {knownRecipe ? (
+            <div role="status" className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+              {knownRecipe.name} 조합입니다. 요리 도감에서 바로 조리할 수 있습니다.
+            </div>
+          ) : duplicateFailure ? (
+            <div role="status" className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
               첫 실패 때 재료가 소비된 조합입니다. 같은 조합은 다시 연구하거나 추가로 재료를 소비할 수 없습니다.
             </div>
           ) : (
@@ -136,7 +144,7 @@ export function CookingResearchPanel({ data, busy, mutate }: {
           <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
             {data.failedResearches.map((entry) => (
               <li
-                key={`${researchAttemptKey(entry.method, entry.ingredientIds)}:${entry.createdAt}`}
+                key={`${cookingResearchAttemptKey(entry.method, entry.ingredientIds)}:${entry.createdAt}`}
                 className={`${SURFACE_CARD} p-3 text-xs`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">

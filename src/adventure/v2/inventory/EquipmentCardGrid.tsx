@@ -55,29 +55,37 @@ const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
   necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
 };
 
-// 카드 스탯줄 — 개체 굴림 반영 기본 전투 스탯 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
+// 카드 스탯 목록 — 개체 굴림 반영 기본 전투 스탯 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
 //   치명피해). 티어 숫자 표기는 제거(이름·전투 스탯·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
-function cardStatLine(
+//   한 줄 말줄임은 옵션을 가려(건의 2026-10-06) 옵션 단위로 줄바꿈해 모두 보여준다.
+type CardStat = { label: string; value: string };
+
+function cardStats(
   item: V2Equipment,
   roll?: V2EquipRoll,
   enhance?: V2EnhanceState,
   craftQuality?: V2CraftQualityState,
-): string {
+): CardStat[] {
   const eff = effectiveStats(item, roll);
   const powerLabel = v2EquipPowerLabel(item);
-  const parts = [
-    `${powerLabel} ${equipmentPowerDisplayValue(
-      powerWithBonuses(eff.power, enhance, craftQuality),
-    )}`,
+  const stats: CardStat[] = [
+    {
+      label: powerLabel,
+      value: String(
+        equipmentPowerDisplayValue(
+          powerWithBonuses(eff.power, enhance, craftQuality),
+        ),
+      ),
+    },
   ];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
-    parts.push(V2_ELEMENT_LABEL[item.element]);
+    stats.push({ label: V2_ELEMENT_LABEL[item.element], value: "" });
   }
   for (const row of v2EquipStatRows(item, roll, enhance, craftQuality)) {
     if (row.label === powerLabel || row.label === "무게") continue;
-    parts.push(`${row.label} ${row.value}`);
+    stats.push({ label: row.label, value: String(row.value) });
   }
-  return parts.join(" · ");
+  return stats;
 }
 
 export type EquipmentCard = {
@@ -292,9 +300,26 @@ export function EquipmentCardGrid({
                 </span>
               ) : null}
             </div>
-            <div className="pointer-events-none relative z-10 line-clamp-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-              {cardStatLine(item, inst.roll, inst.enhance, inst.craftQuality)}
-            </div>
+            <ul
+              aria-label="장비 옵션"
+              className="pointer-events-none relative z-10 flex flex-wrap gap-x-2 gap-y-0.5 text-xs leading-snug text-zinc-500 dark:text-zinc-400"
+            >
+              {cardStats(item, inst.roll, inst.enhance, inst.craftQuality).map(
+                (stat) => (
+                  <li key={stat.label} className="whitespace-nowrap">
+                    {stat.label}
+                    {stat.value ? (
+                      <>
+                        {" "}
+                        <span className="font-medium text-zinc-700 tabular-nums dark:text-zinc-200">
+                          {stat.value}
+                        </span>
+                      </>
+                    ) : null}
+                  </li>
+                ),
+              )}
+            </ul>
           </div>
         );
       })}

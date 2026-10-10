@@ -29,6 +29,7 @@ export const V2_NOTIFICATION_TYPES = [
   "farm_ready",
   "codex_research_trophy",
   "auction_won",
+  "master_product",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -46,8 +47,23 @@ export function auctionWonNotificationText(
 }
 
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
+// master_product — 생활 전공으로 명장 산물 획득. name 은 지급 시점 스냅샷.
+export type MasterProductNotificationPayload = {
+  activity: string;
+  materialId: string;
+  name: string;
+  count: number;
+};
+
+export function masterProductNotificationText(
+  payload: MasterProductNotificationPayload,
+): string {
+  return `명장 산물 ${payload.name} ${payload.count.toLocaleString("ko-KR")}개를 얻었습니다.`;
+}
+
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
+  | MasterProductNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.
   | {
       outpostId: string;

@@ -57,6 +57,8 @@ import { useFarm } from "./useFarm";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
+import { LifeFestivalBadge } from "./LifeFestivalBadge";
+import { LifeMajorBadge } from "./LifeMajorBadge";
 
 type FarmSectionKey = "home" | "grow" | "ranch" | "delivery" | "shop";
 
@@ -436,6 +438,8 @@ export function AdventurerFarmPanel({
           </button>
         }
       />
+      <LifeFestivalBadge activity="farming" />
+      <LifeMajorBadge activity="farming" />
 
       <ProductionJobAdvanceNotice
         refreshKey={farm ? farmingLevelForState(farm) : 0}

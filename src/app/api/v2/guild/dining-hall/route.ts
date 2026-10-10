@@ -2,10 +2,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import {
+  GUILD_DINING_EFFECT_DURATION_HOURS,
   GUILD_DINING_INGREDIENTS,
   GUILD_DINING_MENUS,
   GUILD_DINING_USER_SAVE_KEY,
   activeEffectForMenu,
+  guildDiningEffectDurationMultiplier,
+  guildDiningMenuDescription,
   guildDiningDonationPoints,
   guildDiningIngredient,
   guildDiningMenu,
@@ -32,10 +35,6 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
-import {
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySource,
-} from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -79,7 +78,7 @@ async function diningView(args: {
   inventory?: InventorySave;
 }) {
   const { tx, userId, guildId, level, weekly } = args;
-  const [ingredientBalances, inventoryRaw, diningRaw, weeklySource] = await Promise.all([
+  const [ingredientBalances, inventoryRaw, diningRaw] = await Promise.all([
     readGuildDiningIngredientBalances(tx, userId),
     args.inventory
       ? Promise.resolve(args.inventory)
@@ -92,7 +91,6 @@ async function diningView(args: {
           GUILD_DINING_USER_SAVE_KEY,
           {},
         ),
-    readWeeklyFacilitySource(tx, userId, "dining_hall", weekly.weekKey),
   ]);
   const inventory = inventoryRaw as InventorySave;
   const userState =
@@ -115,7 +113,6 @@ async function diningView(args: {
     stageLabel: upgrade.label,
     weekKey: weekly.weekKey,
     eligible: true,
-    weeklySource,
     pantry: {
       points: weekly.pantryPoints,
       target: weekly.targetPoints,
@@ -130,8 +127,15 @@ async function diningView(args: {
     })),
     menus: GUILD_DINING_MENUS.map((menu) => ({
       ...menu,
+      description: guildDiningMenuDescription(
+        menu,
+        guildDiningEffectDurationMultiplier(level),
+      ),
       unlocked: level >= menu.minFacilityLevel,
     })),
+    effectDurationHours:
+      GUILD_DINING_EFFECT_DURATION_HOURS *
+      guildDiningEffectDurationMultiplier(level),
     activeEffect: userState.activeEffect
       ? {
           ...userState.activeEffect,
@@ -257,24 +261,6 @@ export async function POST(req: Request) {
       if (sourceInventory.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_ingredients" } };
       }
-      const weeklySource = await claimWeeklyFacilitySource(
-        tx,
-        userId,
-        "dining_hall",
-        "guild",
-        weekKey,
-        guildId,
-      );
-      if (!weeklySource.ok) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "weekly_source_conflict",
-            selectedSource: weeklySource.selected,
-          },
-        };
-      }
       const nextUserState = {
         ...userState,
         contributionPoints: userState.contributionPoints + points,
@@ -296,6 +282,7 @@ export async function POST(req: Request) {
           quantity,
           contributionPoints,
         },
+        operationAmount: points,
       });
       return {
         status: 200,
@@ -349,24 +336,6 @@ export async function POST(req: Request) {
     if (tickets.available <= 0) {
       return { status: 409, body: { ok: false as const, error: "no_meal_ticket" } };
     }
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "dining_hall",
-      "guild",
-      weekKey,
-      guildId,
-    );
-    if (!weeklySource.ok) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "weekly_source_conflict",
-          selectedSource: weeklySource.selected,
-        },
-      };
-    }
 
     const nextInventory = { ...inventory };
     let recovery = { hp: 0, mp: 0 };
@@ -393,6 +362,7 @@ export async function POST(req: Request) {
               currentEffect: userState.activeEffect,
               now,
               weekKey,
+              durationMultiplier: guildDiningEffectDurationMultiplier(level),
             }),
     };
     if (menu.effect.kind === "recovery") {

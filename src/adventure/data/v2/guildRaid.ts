@@ -1,11 +1,9 @@
-import { COOP_BOSSES, type CoopBossKindId } from "./coopBosses";
+import { GUILD_RAID_BOSSES, type GuildRaidBossId } from "./guildRaidBosses";
 import { kstDayKey, kstWeekMondayKey } from "@/lib/kst";
 
 export const GUILD_RAID_DAILY_ATTACKS = 3;
 export const GUILD_RAID_ELIGIBLE_ATTACKS = 3;
 export const GUILD_RAID_PAGE_SIZE = 8;
-export const GUILD_RAID_PILOT_BOSS_KIND =
-  "mountain_chief_hard" satisfies CoopBossKindId;
 export const GUILD_RAID_STAGE_HP_GROWTH = 1.25;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -41,6 +39,39 @@ export function guildRaidRewardForRank(rank: number): GuildRaidReward {
     return { gold: 1_000_000, masteryCertificates: 100 };
   }
   return { gold: 500_000, masteryCertificates: 50 };
+}
+
+export type GuildRaidRewardTier = "standard" | "bonus" | "floor";
+
+const GUILD_RAID_FLOOR_REWARD: GuildRaidReward = {
+  gold: 500_000,
+  masteryCertificates: 50,
+};
+
+export function resolveGuildRaidRewardTier(
+  bossId: GuildRaidBossId,
+  guildDamage: number,
+): GuildRaidRewardTier {
+  const threshold = GUILD_RAID_BOSSES[bossId].bonusMinGuildDamage;
+  if (threshold == null) return "standard";
+  return guildDamage >= threshold ? "bonus" : "floor";
+}
+
+export function guildRaidRewardFor(
+  rank: number,
+  tier: GuildRaidRewardTier,
+): GuildRaidReward {
+  if (tier === "floor") return { ...GUILD_RAID_FLOOR_REWARD };
+  const reward = guildRaidRewardForRank(rank);
+  if (tier === "standard") return reward;
+  return {
+    gold: reward.gold * 2,
+    masteryCertificates: reward.masteryCertificates * 2,
+  };
+}
+
+export function parseGuildRaidRewardTier(raw: unknown): GuildRaidRewardTier {
+  return raw === "bonus" || raw === "floor" ? raw : "standard";
 }
 
 export function normalizeGuildRaidPage(page: unknown, total: number) {
@@ -79,9 +110,9 @@ export type GuildRaidDamageResult = GuildRaidStageState & {
   stagesCleared: number;
 };
 
-export function guildRaidMaxHp(stage: number): number {
+export function guildRaidMaxHp(bossId: GuildRaidBossId, stage: number): number {
   const normalizedStage = Math.max(1, Math.floor(stage));
-  const base = COOP_BOSSES[GUILD_RAID_PILOT_BOSS_KIND].sharedMaxHp;
+  const base = GUILD_RAID_BOSSES[bossId].stageBaseHp;
   return Math.max(
     1,
     Math.min(
@@ -94,7 +125,7 @@ export function guildRaidMaxHp(stage: number): number {
 export function applyGuildRaidDamage(
   state: GuildRaidStageState,
   rawDamage: number,
-  maxHpForStage: (stage: number) => number = guildRaidMaxHp,
+  maxHpForStage: (stage: number) => number,
 ): GuildRaidDamageResult {
   let stage = Math.max(1, Math.floor(state.stage));
   let maxHp = Math.max(1, Math.floor(state.maxHp));
@@ -140,4 +171,16 @@ export function rankGuildRaidScores<T extends { guildId: number; damage: number 
     previousRank = rank;
     return { ...row, rank };
   });
+}
+
+export function rankGuildRaidScoresByBoss<
+  T extends { guildId: number; damage: number; bossKind: GuildRaidBossId },
+>(rows: readonly T[]): Array<T & { rank: number }> {
+  const byBoss = new Map<GuildRaidBossId, T[]>();
+  for (const row of rows) {
+    const group = byBoss.get(row.bossKind) ?? [];
+    group.push(row);
+    byBoss.set(row.bossKind, group);
+  }
+  return [...byBoss.values()].flatMap((group) => rankGuildRaidScores(group));
 }

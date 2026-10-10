@@ -6,9 +6,19 @@ export type JobSpRebalanceState = {
   active: boolean;
 };
 
-export function jobUnlockSpForCount(unlockedJobCount: number): number {
+// 해금 직업 SP: 첫 50개는 하나당 +1, 이후 두 직업당 +1. 단 7차는 달성 기간이 길어
+// 체감 구간에서 빼고 하나당 +1을 그대로 더한다(7차 외 직업에만 체감식 적용).
+export function jobUnlockSpForCount(
+  unlockedJobCount: number,
+  unlockedTier7Count = 0,
+): number {
   const count = Math.max(0, Math.floor(Number(unlockedJobCount) || 0));
-  return Math.min(count, 50) + Math.floor(Math.max(0, count - 50) / 2);
+  const tier7 = Math.min(
+    count,
+    Math.max(0, Math.floor(Number(unlockedTier7Count) || 0)),
+  );
+  const others = count - tier7;
+  return Math.min(others, 50) + Math.floor(Math.max(0, others - 50) / 2) + tier7;
 }
 
 export function jobSpRebalanceState(

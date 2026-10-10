@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { guildActivityLog, guildContributionEvents } from "@/db/schema";
+
+const { accrueOperations } = vi.hoisted(() => ({
+  accrueOperations: vi.fn(async () => 0),
+}));
+vi.mock("@/lib/server/guildFacilityOperations", () => ({
+  accrueGuildFacilityOperations: accrueOperations,
+}));
+
 import { logGuildActivity } from "./guildActivityLog";
 
 function transactionDouble() {
@@ -96,5 +104,37 @@ describe("길드 활동·기여 원장 동시 기록", () => {
 
     expect(fixture.activityRows).toHaveLength(1);
     expect(fixture.contributionRows).toHaveLength(0);
+  });
+});
+
+describe("시설 운영 실적 적립 연결", () => {
+  it("연성 활동은 사용한 연성력만큼 공방 실적을 적립한다", async () => {
+    accrueOperations.mockClear();
+    const fixture = transactionDouble();
+    await logGuildActivity(fixture.tx as never, {
+      guildId: 7,
+      type: "alchemy_craft",
+      actorUserId: "u1",
+      meta: { itemName: "정제 충전액" },
+      operationAmount: 14,
+    });
+    expect(accrueOperations).toHaveBeenCalledWith(fixture.tx, {
+      guildId: 7,
+      buildingId: "alchemy_workshop",
+      points: 14,
+    });
+    expect(fixture.activityRows[0]).not.toHaveProperty("operationAmount");
+  });
+
+  it("시설 이용이 아닌 활동은 실적을 적립하지 않는다", async () => {
+    accrueOperations.mockClear();
+    const fixture = transactionDouble();
+    await logGuildActivity(fixture.tx as never, {
+      guildId: 7,
+      type: "gold_deposit",
+      actorUserId: "u1",
+      meta: { amount: 250_000 },
+    });
+    expect(accrueOperations).not.toHaveBeenCalled();
   });
 });

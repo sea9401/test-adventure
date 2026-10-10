@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FilmStrip, Sword } from "@phosphor-icons/react";
-import { COOP_BOSSES, type CoopBossKindId } from "@/adventure/data/v2/coopBosses";
+import {
+  GUILD_RAID_BOSSES,
+  type GuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Avatar, Gender } from "@/adventure/profile/avatars";
@@ -29,7 +32,7 @@ type GuildRaidAttackLog = {
 };
 
 type GuildRaidAttackLogResponse =
-  | { ok: true; bossKind: CoopBossKindId; attack: GuildRaidAttackLog }
+  | { ok: true; bossKind: GuildRaidBossId; attack: GuildRaidAttackLog }
   | { ok?: false; error?: string };
 
 function formatKst(timestamp: number): string {
@@ -125,7 +128,7 @@ export function GuildRaidAttackLogContent({
   onRetry: () => void;
 }) {
   const attack = data?.attack ?? null;
-  const boss = data ? COOP_BOSSES[data.bossKind] : null;
+  const boss = data ? GUILD_RAID_BOSSES[data.bossKind].definition : null;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">

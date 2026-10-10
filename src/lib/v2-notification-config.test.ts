@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  masterProductNotificationText,
   V2_NOTIFICATION_TYPES,
   unreadV2Notifications,
   type V2NotificationEntry,
@@ -30,5 +31,18 @@ describe("unreadV2Notifications", () => {
         notification(3, null),
       ]).map((entry) => entry.id),
     ).toEqual([1, 3]);
+  });
+});
+
+describe("명장 산물 알림 문구", () => {
+  it("산물 이름과 수량을 알린다", () => {
+    expect(
+      masterProductNotificationText({
+        activity: "mining",
+        materialId: "v2_master_alloy",
+        name: "명장 합금",
+        count: 3,
+      }),
+    ).toBe("명장 산물 명장 합금 3개를 얻었습니다.");
   });
 });

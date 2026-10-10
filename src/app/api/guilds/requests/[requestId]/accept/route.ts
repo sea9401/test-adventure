@@ -15,7 +15,7 @@ import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { convertSoloTilesToGuild } from "@/lib/server/tileOccupation";
-import { addGuildMemberWithFacilityReconciliation } from "@/lib/server/guildFacilityMembership";
+import { addGuildMember } from "@/lib/server/guildMemberJoin";
 import { guildMemberCap } from "@/adventure/data/guild";
 
 // POST /api/guilds/requests/[requestId]/accept — 마스터가 가입 신청 수락 → 멤버로 추가.
@@ -105,7 +105,7 @@ export async function POST(
         return { error: "guild_full", status: 409 as const };
       }
 
-      await addGuildMemberWithFacilityReconciliation(
+      await addGuildMember(
         tx,
         applicantId,
         guild.id,

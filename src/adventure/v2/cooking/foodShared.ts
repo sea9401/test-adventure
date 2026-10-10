@@ -2,22 +2,29 @@ import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { CookingCombatFlatKey, CookingEffect, CookingRecipePublic } from "./types";
 
 export const COOKING_BUFF_DURATION_MS = 12 * 60 * 60 * 1_000;
-export type CookingQuality = "normal" | "careful" | "masterpiece";
+/** 명장 요리(생활 전공) 버프 지속시간 배수. */
+export const COOKING_SIGNATURE_DURATION_MULTIPLIER = 2;
+export type CookingQuality = "normal" | "careful" | "masterpiece" | "signature";
 export type CookingFoodId = `food2:${string}:${CookingQuality}:o${0 | 1}:s${0 | 1 | 2 | 3 | 4 | 5}`;
 export type CookingFoodInventory = Partial<Record<CookingFoodId, number>>;
 export type CookingFoodVariant = { id: CookingFoodId; recipeId: string; quality: CookingQuality; originator: boolean; specialtyBonusPct: 0 | 1 | 2 | 3 | 4 | 5 };
-export type CookingFoodDefinition = CookingFoodVariant & { recipe: CookingRecipePublic; name: string; performancePct: number; deliveryScorePct: 100 | 125 | 160; durationMs: number; effect: CookingEffect };
+export type CookingFoodDefinition = CookingFoodVariant & { recipe: CookingRecipePublic; name: string; performancePct: number; deliveryScorePct: 100 | 125 | 160 | 200; durationMs: number; effect: CookingEffect };
 export type CookingFoodDefinitionMap = Partial<Record<CookingFoodId, CookingFoodDefinition>>;
 export type ActiveCookingBuff = { recipeId: string; recipeName: string; quality: CookingQuality; effect: CookingEffect; expiresAt: number };
 
 export function cookingQualityName(quality: CookingQuality): string {
+  if (quality === "signature") return "명장";
   if (quality === "masterpiece") return "걸작";
   if (quality === "careful") return "정성작";
   return "일반";
 }
 
-const QUALITY_PERFORMANCE: Record<CookingQuality, number> = { normal: 0, careful: 10, masterpiece: 20 };
-export const COOKING_QUALITY_DELIVERY: Record<CookingQuality, 100 | 125 | 160> = { normal: 100, careful: 125, masterpiece: 160 };
+const QUALITY_PERFORMANCE: Record<CookingQuality, number> = { normal: 0, careful: 10, masterpiece: 20, signature: 35 };
+export const COOKING_QUALITY_DELIVERY: Record<CookingQuality, 100 | 125 | 160 | 200> = { normal: 100, careful: 125, masterpiece: 160, signature: 200 };
+/** 품질 순서 — 조건의 "○○ 이상" 판정에 공용으로 쓴다. */
+export const COOKING_QUALITY_RANK: Record<CookingQuality, number> = { normal: 0, careful: 1, masterpiece: 2, signature: 3 };
+// 걸작까지는 기존 상한 135, 명장만 150까지 오른다.
+const PERFORMANCE_CAP: Record<CookingQuality, number> = { normal: 135, careful: 135, masterpiece: 135, signature: 150 };
 const COMBAT_CAPS: Record<CookingCombatFlatKey, number> = { atk: 300, magicAtk: 300, def: 300, magicDef: 300, maxHp: 3_000, maxMp: 1_000, accuracy: 300 };
 
 function boundedInt(raw: unknown, cap: number): number { return Math.min(cap, Math.max(0, Math.round(Number(raw) || 0))); }
@@ -32,7 +39,7 @@ function scaledRecord<K extends string>(source: Partial<Record<K, number>> | und
 }
 
 export function cookingPerformancePct(args: { quality: CookingQuality; originator: boolean; specialtyBonusPct: number }): number {
-  return Math.min(135, 100 + QUALITY_PERFORMANCE[args.quality] + (args.originator ? 10 : 0) + Math.min(5, Math.max(0, Math.floor(args.specialtyBonusPct))));
+  return Math.min(PERFORMANCE_CAP[args.quality], 100 + QUALITY_PERFORMANCE[args.quality] + (args.originator ? 10 : 0) + Math.min(5, Math.max(0, Math.floor(args.specialtyBonusPct))));
 }
 
 export function scaleCookingEffect(effect: CookingEffect, args: { quality: CookingQuality; originator: boolean; specialtyBonusPct: number }): CookingEffect {
@@ -55,7 +62,7 @@ export function parseCookingFoodIdFormat(raw: unknown): CookingFoodVariant | nul
   if (typeof raw !== "string") return null;
   const [prefix, recipeId, qualityRaw, originRaw, specialtyRaw, extra] = raw.split(":");
   if (prefix !== "food2" || !recipeId || extra !== undefined) return null;
-  const quality: CookingQuality | null = qualityRaw === "normal" || qualityRaw === "careful" || qualityRaw === "masterpiece" ? qualityRaw : null;
+  const quality: CookingQuality | null = qualityRaw === "normal" || qualityRaw === "careful" || qualityRaw === "masterpiece" || qualityRaw === "signature" ? qualityRaw : null;
   if (!quality || (originRaw !== "o0" && originRaw !== "o1") || !/^s[0-5]$/.test(specialtyRaw)) return null;
   return { id: raw as CookingFoodId, recipeId, quality, originator: originRaw === "o1", specialtyBonusPct: Number(specialtyRaw.slice(1)) as 0 | 1 | 2 | 3 | 4 | 5 };
 }

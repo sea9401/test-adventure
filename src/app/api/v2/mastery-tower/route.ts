@@ -27,7 +27,10 @@ import {
   parseStaminaFromSave,
   staminaConfigForCharacter,
 } from "@/adventure/v2/stamina";
-import { masteryCertificateJobs } from "@/lib/server/masteryCertificateStatus";
+import {
+  masteryCertificateCurrentJobId,
+  masteryCertificateJobs,
+} from "@/lib/server/masteryCertificateStatus";
 import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
 
 const STATUS_KEYS = [
@@ -144,5 +147,6 @@ export async function GET() {
       })),
     },
     jobs,
+    currentJobId: masteryCertificateCurrentJobId(charSave),
   });
 }

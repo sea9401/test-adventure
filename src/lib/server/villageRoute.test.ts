@@ -729,6 +729,20 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
     ).toEqual({ id: "guild_smithy", level: 2 });
   });
 
+  it("옛 마을 경로로는 Lv.5 시설을 Lv.6으로 올릴 수 없다", async () => {
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      buildings: { "0": { id: "trade_post", level: 5 } },
+    });
+    guildGold.set(MY_GUILD, 10_000_000_000);
+    guildFame.set(MY_GUILD, 1_000_000);
+    const res = await upgradeBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as AnyJson).error).toBe("max_level");
+  });
+
   it("레거시 문자열 대장간도 Lv1로 해석해 업그레이드한다", async () => {
     seedBuiltVillage(FARM_OUTPOST, {
       unlockedSlots: 1,

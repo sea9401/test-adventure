@@ -22,6 +22,7 @@ import {
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
   claimGuildExplorationExpedition,
   claimGuildExplorationWeeklyMission,
+  guildExplorationConcurrentLimit,
   guildExplorationWeeklyMissionViews,
   isGuildExplorationEventChoiceId,
   isGuildExplorationExpeditionId,
@@ -31,6 +32,10 @@ import {
   startGuildExplorationExpedition,
 } from "@/adventure/data/v2/guildExploration";
 import { explorationHqUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import {
+  guildMemberIds,
+  lockGuildMemberGrant,
+} from "@/lib/server/guildMemberGrant";
 
 export async function GET() {
   const userId = await ensureUser();
@@ -62,6 +67,7 @@ export async function GET() {
         explorationHqLevel: level,
         weeklyMissionCount: upgrade.weeklyMissionCount,
         progressBonusPct: upgrade.missionProgressBonusPct,
+        concurrentLimit: guildExplorationConcurrentLimit(level),
         state,
         content: state.content,
         expeditions: GUILD_EXPLORATION_EXPEDITIONS,
@@ -154,6 +160,7 @@ export async function POST(req: Request) {
       explorationHqLevel: level,
       weeklyMissionCount: upgrade.weeklyMissionCount,
       progressBonusPct: upgrade.missionProgressBonusPct,
+      concurrentLimit: guildExplorationConcurrentLimit(level),
       expeditions: GUILD_EXPLORATION_EXPEDITIONS,
       events: GUILD_EXPLORATION_EVENTS,
       mapFragmentTarget: GUILD_EXPLORATION_MAP_FRAGMENT_TARGET,
@@ -180,7 +187,13 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "level_required" as const },
         };
       }
-      if (state.content.activeExpedition) {
+      const nextState = startGuildExplorationExpedition(
+        state,
+        expeditionId,
+        new Date(),
+        level,
+      );
+      if (!nextState) {
         return {
           status: 409,
           body: { ok: false as const, error: "expedition_active" as const },
@@ -193,11 +206,6 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "insufficient_gold" as const },
         };
       }
-      const nextState = startGuildExplorationExpedition(
-        state,
-        expeditionId,
-        new Date(),
-      );
       await upsertGuildResources(tx, guildId, {
         gold: resources.gold - def.costGold,
       });
@@ -227,7 +235,13 @@ export async function POST(req: Request) {
     }
 
     if (action === "claim_expedition") {
-      const claimed = claimGuildExplorationExpedition(state, new Date());
+      const claimed = claimGuildExplorationExpedition(
+        state,
+        new Date(),
+        isGuildExplorationExpeditionId(body.expeditionId)
+          ? body.expeditionId
+          : undefined,
+      );
       if (!claimed) {
         return {
           status: 409,
@@ -241,12 +255,7 @@ export async function POST(req: Request) {
           },
         };
       }
-      const resources = await lockGuildResources(tx, guildId);
-      await upsertGuildResources(tx, guildId, {
-        gold: resources.gold + claimed.reward.rewardGold,
-      });
-      await addGuildFame(tx, guildId, claimed.reward.rewardFame);
-      await saveGuildExplorationWeeklyState(tx, guildId, claimed.state);
+      // 운영 실적 적립(활동 로그)이 길드 금고보다 먼저 잠그도록 순서를 고정한다(업그레이드·교역소와 같은 순서).
       await logGuildActivity(tx, {
         guildId,
         type: "exploration_expedition_claim",
@@ -259,6 +268,25 @@ export async function POST(req: Request) {
           mapFragments: claimed.reward.mapFragments,
         },
       });
+      const resources = await lockGuildResources(tx, guildId);
+      await upsertGuildResources(tx, guildId, {
+        gold: resources.gold + claimed.reward.rewardGold,
+      });
+      await addGuildFame(tx, guildId, claimed.reward.rewardFame);
+      // 상위 원정의 길드원 보상은 회수 시점 길드원 전원이 받는다. 모두 잠근 뒤 적용한다.
+      const memberReward =
+        GUILD_EXPLORATION_EXPEDITIONS[claimed.reward.expeditionId].memberReward;
+      let memberRewardRecipients = 0;
+      if (memberReward) {
+        const recipients = await guildMemberIds(tx, guildId);
+        const grants: Array<() => Promise<void>> = [];
+        for (const recipient of recipients) {
+          grants.push(await lockGuildMemberGrant(tx, recipient, memberReward));
+        }
+        for (const apply of grants) await apply();
+        memberRewardRecipients = recipients.length;
+      }
+      await saveGuildExplorationWeeklyState(tx, guildId, claimed.state);
       return {
         status: 200,
         body: {
@@ -273,6 +301,7 @@ export async function POST(req: Request) {
           rewardGold: claimed.reward.rewardGold,
           rewardFame: claimed.reward.rewardFame,
           mapFragments: claimed.reward.mapFragments,
+          memberRewardRecipients,
         },
       };
     }
@@ -284,7 +313,7 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "not_authorized" as const },
         };
       }
-      const nextState = restoreGuildExplorationMap(state);
+      const nextState = restoreGuildExplorationMap(state, level);
       if (!nextState) {
         return {
           status: 409,
@@ -331,14 +360,7 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "invalid_event_choice" as const },
         };
       }
-      const resources = await lockGuildResources(tx, guildId);
-      await upsertGuildResources(tx, guildId, {
-        gold: resources.gold + (resolved.choice.rewardGold ?? 0),
-      });
-      if (resolved.choice.rewardFame) {
-        await addGuildFame(tx, guildId, resolved.choice.rewardFame);
-      }
-      await saveGuildExplorationWeeklyState(tx, guildId, resolved.state);
+      // 운영 실적 적립(활동 로그)이 길드 금고보다 먼저 잠그도록 순서를 고정한다(업그레이드·교역소와 같은 순서).
       await logGuildActivity(tx, {
         guildId,
         type: "exploration_event_resolve",
@@ -350,6 +372,14 @@ export async function POST(req: Request) {
           rewardFame: resolved.choice.rewardFame,
         },
       });
+      const resources = await lockGuildResources(tx, guildId);
+      await upsertGuildResources(tx, guildId, {
+        gold: resources.gold + (resolved.choice.rewardGold ?? 0),
+      });
+      if (resolved.choice.rewardFame) {
+        await addGuildFame(tx, guildId, resolved.choice.rewardFame);
+      }
+      await saveGuildExplorationWeeklyState(tx, guildId, resolved.state);
       return {
         status: 200,
         body: {
@@ -397,12 +427,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const resources = await lockGuildResources(tx, guildId);
-    await upsertGuildResources(tx, guildId, {
-      gold: resources.gold + view.rewardGold,
-    });
-    const nextState = claimGuildExplorationWeeklyMission(state, view.id);
-    await saveGuildExplorationWeeklyState(tx, guildId, nextState);
+    // 운영 실적 적립(활동 로그)이 길드 금고보다 먼저 잠그도록 순서를 고정한다(업그레이드·교역소와 같은 순서).
     await logGuildActivity(tx, {
       guildId,
       type: "exploration_weekly_claim",
@@ -413,6 +438,12 @@ export async function POST(req: Request) {
         mapFragments: view.rewardMapFragments,
       },
     });
+    const resources = await lockGuildResources(tx, guildId);
+    await upsertGuildResources(tx, guildId, {
+      gold: resources.gold + view.rewardGold,
+    });
+    const nextState = claimGuildExplorationWeeklyMission(state, view.id);
+    await saveGuildExplorationWeeklyState(tx, guildId, nextState);
 
     return {
       status: 200,

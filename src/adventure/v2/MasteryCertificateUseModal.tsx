@@ -30,6 +30,14 @@ const JOB_GROUP_LABELS: Record<string, string> = {
   mutant: "변이자",
 };
 
+// 현재 직업이 증서 대상이면 그 직업을, 아니면 목록 첫 직업을 기본 선택한다.
+function defaultCertificateJob(
+  status: MasteryCertificateStatus | null,
+): MasteryCertificateJob | undefined {
+  const jobs = status?.jobs ?? [];
+  return jobs.find((job) => job.id === status?.currentJobId) ?? jobs[0];
+}
+
 export function masteryCertificateErrorLabel(error: string | undefined): string {
   if (error === "no_certificate") return "보유한 숙련 증서가 없습니다.";
   if (error === "job_locked" || error === "bad_job") {
@@ -107,11 +115,13 @@ function OpenMasteryCertificateUseModal({
   );
   const [mode, setMode] = useState<CertificateUseMode>("mastery");
   const [selectedJobId, setSelectedJobId] = useState(
-    initialStatus?.jobs[0]?.id ?? "",
+    defaultCertificateJob(initialStatus)?.id ?? "",
   );
   const [selectedGroup, setSelectedGroup] = useState(
-    initialStatus?.jobs[0]?.group ?? "",
+    defaultCertificateJob(initialStatus)?.group ?? "",
   );
+  // 이용자가 직접 고른 직업은 상태를 다시 불러와도 유지한다.
+  const userPickedRef = useRef(false);
   const [amount, setAmount] = useState(
     formatThousands(String(initialStatus?.certificates ?? 0)),
   );
@@ -134,17 +144,22 @@ function OpenMasteryCertificateUseModal({
         setError(masteryCertificateErrorLabel(json?.error));
         return null;
       }
-      const next = { certificates: json.certificates, jobs: json.jobs };
+      const next = {
+        certificates: json.certificates,
+        jobs: json.jobs,
+        currentJobId: json.currentJobId ?? null,
+      };
+      const fallback = defaultCertificateJob(next);
       setStatus(next);
       setSelectedJobId((previous) =>
-        next.jobs.some((job) => job.id === previous)
+        userPickedRef.current && next.jobs.some((job) => job.id === previous)
           ? previous
-          : (next.jobs[0]?.id ?? ""),
+          : (fallback?.id ?? ""),
       );
       setSelectedGroup((previous) =>
-        next.jobs.some((job) => job.group === previous)
+        userPickedRef.current && next.jobs.some((job) => job.group === previous)
           ? previous
-          : (next.jobs[0]?.group ?? ""),
+          : (fallback?.group ?? ""),
       );
       setAmount(formatThousands(String(next.certificates)));
       setError(null);
@@ -327,6 +342,7 @@ function OpenMasteryCertificateUseModal({
                   tabs={groups}
                   active={selectedGroup}
                   onChange={(group) => {
+                    userPickedRef.current = true;
                     setSelectedGroup(group);
                     const first = status?.jobs.find((job) => job.group === group);
                     if (first) setSelectedJobId(first.id);
@@ -340,7 +356,11 @@ function OpenMasteryCertificateUseModal({
                       key={job.id}
                       job={job}
                       selected={job.id === selectedJobId}
-                      onSelect={() => setSelectedJobId(job.id)}
+                      current={job.id === status?.currentJobId}
+                      onSelect={() => {
+                        userPickedRef.current = true;
+                        setSelectedJobId(job.id);
+                      }}
                     />
                   ))}
                 </div>
@@ -400,10 +420,12 @@ function OpenMasteryCertificateUseModal({
 function JobButton({
   job,
   selected,
+  current,
   onSelect,
 }: {
   job: MasteryCertificateJob;
   selected: boolean;
+  current: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -423,8 +445,15 @@ function JobButton({
           {job.tier > 0 ? `${job.tier}차` : "기본"}
         </span>
       </span>
-      <span className="mt-1 block text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-        숙련도 {job.mastery.toLocaleString("ko-KR")}
+      <span className="mt-1 flex items-baseline justify-between gap-2 text-xs">
+        <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+          숙련도 {job.mastery.toLocaleString("ko-KR")}
+        </span>
+        {current && (
+          <span className="shrink-0 font-medium text-amber-700 dark:text-amber-300">
+            현재 직업
+          </span>
+        )}
       </span>
     </button>
   );

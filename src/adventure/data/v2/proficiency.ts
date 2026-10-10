@@ -179,6 +179,11 @@ export const V2_SPECIALIZED_CULTIVATE_PROFILE: Record<
   bloodtracker: { str: 2, dex: 2 },
   predator: { str: 3, dex: 2 },
   primalpredator: { str: 3, dex: 2, vit: 1 },
+  rockbrawler: { vit: 2, str: 2 },
+  rockgiant: { vit: 2, str: 2 },
+  irongolem: { vit: 2, str: 2 },
+  mountaingolem: { vit: 3, str: 2 },
+  primevalgolem: { vit: 3, str: 2, spi: 1 },
 };
 
 // 캐릭터의 실효 수행 프로필 — 전문 계보, 고차 직업, 하이브리드 순으로 직업 전용값을 사용한다.

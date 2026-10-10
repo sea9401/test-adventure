@@ -25,7 +25,12 @@ import {
   restoreGuildExplorationMap,
   startGuildExplorationExpedition,
   claimGuildExplorationExpedition,
+  guildExplorationConcurrentLimit,
+  guildExplorationDurationMinutes,
+  guildExplorationEventIdsForLevel,
+  parseGuildExplorationContentState,
 } from "./guildExploration";
+import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 
 describe("guild exploration weekly missions", () => {
   it("uses EPIC+ coop contribution 30 times as the default boss mission", () => {
@@ -50,6 +55,7 @@ describe("guild exploration weekly missions", () => {
       "weekly_woodcutting_success_80",
       "weekly_farm_harvest_40",
       "weekly_deep_hunt_win_100",
+      "weekly_raid_attack_60",
     ]);
     expect(GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_hunt_win_500).toMatchObject({
       metric: "huntWins",
@@ -110,7 +116,7 @@ describe("guild exploration weekly missions", () => {
     );
     expect(progressed.content.mapFragments).toBe(0);
     const views = guildExplorationWeeklyMissionViews(progressed, 1);
-    expect(views).toHaveLength(6);
+    expect(views).toHaveLength(7);
     expect(views[0]).toMatchObject({
       progress: 135,
       progressText: "1.35",
@@ -163,15 +169,16 @@ describe("guild exploration weekly missions", () => {
         "weekly_woodcutting_success_80",
         "weekly_farm_harvest_40",
         "weekly_deep_hunt_win_100",
+        "weekly_raid_attack_60",
       ]);
     expect(
       guildExplorationWeeklyMissionViews(harvested, 2).map((v) => v.unlocked),
-    ).toEqual([true, true, false, false, false, false]);
+    ).toEqual([true, true, false, false, false, false, false]);
     expect(
       guildExplorationWeeklyMissionViews(harvested, 6).map(
         (view) => view.category,
       ),
-    ).toEqual(["combat", "combat", "life", "life", "life", "combat"]);
+    ).toEqual(["combat", "combat", "life", "life", "life", "combat", "combat"]);
   });
 
   it("marks the coop mission claimable at 30 contribution units and claims once", () => {
@@ -184,6 +191,7 @@ describe("guild exploration weekly missions", () => {
       fishingCatchProgress: 0,
       woodcuttingSuccessProgress: 0,
       farmHarvestProgress: 0,
+      raidAttackProgress: 0,
       claimed: [],
       content: parseGuildExplorationWeeklyState(null, "2026-W27").content,
     };
@@ -231,6 +239,8 @@ describe("guild exploration weekly missions", () => {
       "red_canyon",
       "sunken_archive",
       "starlight_citadel",
+      "frozen_peak",
+      "abyss_corridor",
     ]);
     expect(GUILD_EXPLORATION_EXPEDITIONS.ancient_ruins).toMatchObject({
       minLevel: 1,
@@ -274,12 +284,12 @@ describe("guild exploration weekly missions", () => {
     });
   });
 
-  it("opens one expedition at every exploration HQ level", () => {
+  it("opens expeditions at levels 1-6 and 9", () => {
     expect(
       GUILD_EXPLORATION_EXPEDITION_IDS.map(
         (id) => GUILD_EXPLORATION_EXPEDITIONS[id].minLevel,
       ),
-    ).toEqual([1, 2, 3, 4, 5]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 9]);
   });
 
   it("starts and claims expedition rewards after the end time", () => {
@@ -288,9 +298,9 @@ describe("guild exploration weekly missions", () => {
       base,
       "ancient_ruins",
       new Date("2026-07-01T00:00:00Z"),
-    );
+    )!;
 
-    expect(started.content.activeExpedition?.expeditionId).toBe(
+    expect(started.content.activeExpeditions[0]?.expeditionId).toBe(
       "ancient_ruins",
     );
     expect(
@@ -310,7 +320,7 @@ describe("guild exploration weekly missions", () => {
       rewardFame: 20,
       mapFragments: 12,
     });
-    expect(claimed?.state.content.activeExpedition).toBeNull();
+    expect(claimed?.state.content.activeExpeditions).toEqual([]);
     expect(claimed?.state.content.mapFragments).toBe(12);
   });
 
@@ -320,9 +330,10 @@ describe("guild exploration weekly missions", () => {
       base,
       "starlight_citadel",
       new Date("2026-07-01T00:00:00Z"),
-    );
+      5,
+    )!;
 
-    expect(started.content.activeExpedition).toMatchObject({
+    expect(started.content.activeExpeditions[0]).toMatchObject({
       expeditionId: "starlight_citadel",
       endsAt: "2026-07-01T12:00:00.000Z",
     });
@@ -339,5 +350,151 @@ describe("guild exploration weekly missions", () => {
       mapFragments: 80,
     });
     expect(claimed?.state.content.mapFragments).toBe(80);
+  });
+});
+
+describe("탐사 본부 Lv.6~10", () => {
+  const now = new Date("2026-10-13T00:00:00Z");
+  const empty = parseGuildExplorationWeeklyState(null, "2026-10-12");
+
+  it("옛 단일 원정 저장값을 배열로 읽는다", () => {
+    const s = parseGuildExplorationContentState({
+      mapFragments: 0,
+      restoredMaps: 0,
+      activeExpedition: {
+        expeditionId: "mist_forest",
+        startedAt: "2026-10-10T00:00:00.000Z",
+        endsAt: "2026-10-10T04:00:00.000Z",
+      },
+    });
+    expect(s.activeExpeditions).toHaveLength(1);
+    expect(s.activeExpeditions[0].expeditionId).toBe("mist_forest");
+    const claimed = claimGuildExplorationExpedition(
+      { ...empty, content: s },
+      new Date("2026-10-10T05:00:00.000Z"),
+    );
+    expect(claimed?.reward.expeditionId).toBe("mist_forest");
+  });
+
+  it("Lv.8부터 동시 2개, 같은 원정 중복 금지", () => {
+    expect(guildExplorationConcurrentLimit(7)).toBe(1);
+    expect(guildExplorationConcurrentLimit(8)).toBe(2);
+    const one = startGuildExplorationExpedition(empty, "ancient_ruins", now, 8)!;
+    expect(startGuildExplorationExpedition(one, "ancient_ruins", now, 8)).toBeNull();
+    expect(
+      startGuildExplorationExpedition(one, "mist_forest", now, 8)?.content.activeExpeditions,
+    ).toHaveLength(2);
+    expect(startGuildExplorationExpedition(one, "mist_forest", now, 7)).toBeNull();
+  });
+
+  it("지정한 원정만 회수한다", () => {
+    const one = startGuildExplorationExpedition(empty, "ancient_ruins", now, 8)!;
+    const two = startGuildExplorationExpedition(one, "mist_forest", now, 8)!;
+    const later = new Date(now.getTime() + 5 * 3600_000);
+    const claimed = claimGuildExplorationExpedition(two, later, "mist_forest");
+    expect(claimed?.reward.expeditionId).toBe("mist_forest");
+    expect(claimed?.state.content.activeExpeditions.map((a) => a.expeditionId)).toEqual([
+      "ancient_ruins",
+    ]);
+  });
+
+  it("Lv.10 원정 시간 -10%", () => {
+    const abyss = GUILD_EXPLORATION_EXPEDITIONS.abyss_corridor;
+    expect(guildExplorationDurationMinutes(abyss, 10)).toBe(1296);
+    expect(guildExplorationDurationMinutes(abyss, 9)).toBe(1440);
+    const started = startGuildExplorationExpedition(empty, "abyss_corridor", now, 10)!;
+    expect(started.content.activeExpeditions[0].endsAt).toBe(
+      new Date(now.getTime() + 1296 * 60_000).toISOString(),
+    );
+  });
+
+  it("새 원정 정의", () => {
+    expect(GUILD_EXPLORATION_EXPEDITIONS.frozen_peak).toMatchObject({
+      minLevel: 6,
+      durationMinutes: 900,
+      costGold: 6_000_000,
+      rewardGold: 9_000_000,
+      rewardFame: 200,
+      mapFragments: 110,
+      memberReward: { kind: "stamina_potion", count: 1 },
+    });
+    expect(GUILD_EXPLORATION_EXPEDITIONS.abyss_corridor).toMatchObject({
+      minLevel: 9,
+      durationMinutes: 1440,
+      costGold: 10_000_000,
+      rewardGold: 15_000_000,
+      rewardFame: 320,
+      mapFragments: 170,
+      memberReward: { kind: "material", materialId: SUMMON_SCROLL_MATERIAL_ID, count: 1 },
+    });
+  });
+
+  it("레벨 미달 원정은 시작할 수 없다", () => {
+    expect(startGuildExplorationExpedition(empty, "abyss_corridor", now, 8)).toBeNull();
+  });
+
+  it("Lv.10에서만 새 사건이 순환에 들어간다", () => {
+    expect(guildExplorationEventIdsForLevel(9)).toHaveLength(3);
+    expect(guildExplorationEventIdsForLevel(10)).toEqual([
+      "collapsed_bridge",
+      "ancient_device",
+      "abandoned_cache",
+      "sealed_library",
+      "starlit_altar",
+      "lost_caravan",
+    ]);
+    const ready = {
+      ...empty,
+      content: { ...empty.content, mapFragments: 100, restoredMaps: 4 },
+    };
+    expect(restoreGuildExplorationMap(ready, 10)?.content.pendingEvent?.eventId).toBe(
+      "starlit_altar",
+    );
+    expect(restoreGuildExplorationMap(ready, 9)?.content.pendingEvent?.eventId).toBe(
+      "ancient_device",
+    );
+    expect(GUILD_EXPLORATION_EVENTS.sealed_library.choices.map((c) => c.id)).toEqual([
+      "decode",
+      "sell_books",
+    ]);
+  });
+
+  it("토벌전 의뢰는 7번째 의뢰이고 토벌 공격으로 진행된다", () => {
+    expect(GUILD_EXPLORATION_WEEKLY_MISSION_IDS[6]).toBe("weekly_raid_attack_60");
+    expect(GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_raid_attack_60).toMatchObject({
+      metric: "raidAttacks",
+      goal: 60,
+      rewardGold: 4_000_000,
+      rewardMapFragments: 30,
+      category: "combat",
+    });
+    const next = addGuildExplorationProgress(empty, "raidAttacks", 45, 2);
+    expect(next.raidAttackProgress).toBe(290);
+    const views = guildExplorationWeeklyMissionViews(next, 7);
+    expect(views.find((v) => v.id === "weekly_raid_attack_60")?.unlocked).toBe(true);
+    expect(
+      guildExplorationWeeklyMissionViews(next, 6).find((v) => v.id === "weekly_raid_attack_60")?.unlocked,
+    ).toBe(false);
+  });
+});
+
+describe("주차가 바뀌어도 진행 중인 원정은 유지", () => {
+  it("다른 주차 저장값은 진척을 초기화하되 원정은 남긴다", () => {
+    const prev = {
+      weekKey: "2026-10-05",
+      huntWinProgress: 500,
+      claimed: ["weekly_hunt_win_500"],
+      content: {
+        mapFragments: 40,
+        restoredMaps: 1,
+        activeExpeditions: [
+          { expeditionId: "abyss_corridor", startedAt: "2026-10-11T12:00:00.000Z", endsAt: "2026-10-12T12:00:00.000Z" },
+        ],
+      },
+    };
+    const next = parseGuildExplorationWeeklyState(prev, "2026-10-12");
+    expect(next.huntWinProgress).toBe(0);
+    expect(next.claimed).toEqual([]);
+    expect(next.content.activeExpeditions.map((a) => a.expeditionId)).toEqual(["abyss_corridor"]);
   });
 });

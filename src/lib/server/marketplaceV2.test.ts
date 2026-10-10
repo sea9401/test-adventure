@@ -327,7 +327,8 @@ describe("tradable 판정 + 이름 스냅샷", () => {
   });
 
   it("채광·생활 가공 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(123);
+    // 2026-10-10: 생활 전공 명장 산물 4종 추가(123 → 127). 2026-10-11: 단련 촉매(→ 128).
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(128);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",

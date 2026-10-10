@@ -14,6 +14,7 @@ const LIFE_PATH_PREFIXES = [
   "/town/logging",
   "/town/mining",
   "/town/kitchen",
+  "/town/festival",
 ] as const;
 
 export function gameTabForPath(pathname: string): GameTabId {

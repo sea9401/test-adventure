@@ -340,6 +340,16 @@ export type V2CommonSkillId =
   | "v2c_golem_rocksmash"
   | "v2c_golem_tectoniccollapse"
   | "v2c_golem_stoneskin"
+  | "v2c_rockbrawler_boulderroll"
+  | "v2c_rockbrawler_unburden"
+  | "v2c_rockgiant_bedrockslam"
+  | "v2c_rockgiant_rampart"
+  | "v2c_irongolem_ironhammer"
+  | "v2c_irongolem_ironframe"
+  | "v2c_mountaingolem_landslide"
+  | "v2c_mountaingolem_mountainbody"
+  | "v2c_primevalgolem_primordialcollapse"
+  | "v2c_primevalgolem_apex"
   // ── 내부 7차 전투 패키지 — 직업 카탈로그 공개 전 전투 검증용 ──
   | "v2c_shadowblade_afterimage"
   | "v2c_shadowblade_traceless"
@@ -494,6 +504,132 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_golem_stoneskin", name: "돌가죽", stat: "vit", category: "passive", tier: 1,
     description: "중량이 쌓일수록 몸이 단단해져 방어력이 오른다.", mpCost: 0, cooldown: 0,
     effects: [], passive: { stoneskinDefPctPerWeight: 6 },
+  },
+  v2c_rockbrawler_boulderroll: {
+    id: "v2c_rockbrawler_boulderroll", name: "바위 굴리기", stat: "vit", category: "attack", tier: 2,
+    description: "몸을 둥글게 굳혀 굴러 들이받고 무게를 다시 끌어모은다.", mpCost: 34, cooldown: 0, procChance: 35, tempo: "control",
+    effects: [dmg(0.85, 61, "def")],
+    weightCycle: { gain: { amount: 1, amountFromEmpty: 2 } },
+    defaultPattern: {
+      priority: 450,
+      condition: { kind: "self_resource", resource: "weight", op: "atMost", value: 0 },
+    },
+    detail: {
+      mechanics: ["방어력에 비례한 피해를 준 뒤 중량을 1 얻는다. 시전 전 중량이 0이면 중량을 2 얻는다."],
+      synergies: ["해방 스킬로 중량을 비운 직후 사용하면 다시 무게를 빠르게 쌓을 수 있다."],
+      limitations: ["중량은 최대 3까지만 쌓이며, 이번 피해에는 새로 얻은 중량이 반영되지 않는다."],
+    },
+  },
+  v2c_rockbrawler_unburden: {
+    id: "v2c_rockbrawler_unburden", name: "짐 벗기", stat: "vit", category: "passive", tier: 2,
+    description: "쌓인 무게를 털어 낸 직후 몸이 가벼워져 다음 움직임이 빨라진다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: {},
+    weightCycle: { onRelease: { hastePctPerStack: 5, hasteMaxPct: 15 } },
+    detail: {
+      mechanics: ["중량을 모두 소모하는 스킬을 사용하면 소모한 중량 1당 다음 행동이 5% 빨라지며 최대 15%까지 빨라진다."],
+      synergies: ["지각 붕괴를 포함한 모든 해방 스킬에서 발동하므로 해방 스킬과 함께 장착해야 효과가 난다."],
+      limitations: ["소모한 중량이 0이면 발동하지 않는다."],
+    },
+  },
+  v2c_rockgiant_bedrockslam: {
+    id: "v2c_rockgiant_bedrockslam", name: "암반 내려찍기", stat: "vit", category: "attack", tier: 3,
+    description: "쌓인 무게를 모두 실어 내려찍어 적의 발을 묶는다.", mpCost: 46, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(0.60, 96, "def")],
+    weightCycle: { release: { damagePctPerStack: 15, enemyDelayPctPerStack: 6, enemyDelayMaxPct: 18 } },
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    },
+    detail: {
+      mechanics: ["중량을 모두 소모하고 소모한 중량 1당 최종 피해가 15% 증가한다. 명중하면 소모한 중량 1당 적의 다음 행동을 6% 늦추며 최대 18%까지 늦춘다."],
+      synergies: ["중량을 3까지 쌓은 뒤 사용하면 피해와 지연 효과가 가장 커진다."],
+      limitations: ["중량이 0이면 기본 피해만 주고, 빗나가면 적의 행동을 늦추지 않는다."],
+    },
+  },
+  v2c_rockgiant_rampart: {
+    id: "v2c_rockgiant_rampart", name: "암벽 갑주", stat: "vit", category: "passive", tier: 3,
+    description: "무게를 풀어낼 때 떨어져 나온 바위가 몸을 감싸 막아 준다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { vit: 10 } },
+    weightCycle: { onRelease: { shieldMaxHpPctPerStack: 3 } },
+    detail: {
+      mechanics: ["활력이 10% 증가한다. 중량을 모두 소모하는 스킬을 사용하면 소모한 중량 1당 최대 HP의 3%만큼 보호막을 얻는다."],
+      synergies: ["지각 붕괴를 포함한 모든 해방 스킬에서 발동하며 중량 3을 소모하면 최대 HP 9%의 보호막을 얻는다."],
+      limitations: ["소모한 중량이 0이면 보호막을 얻지 않는다."],
+    },
+  },
+  v2c_irongolem_ironhammer: {
+    id: "v2c_irongolem_ironhammer", name: "강철 망치", stat: "vit", category: "attack", tier: 3,
+    description: "강철 팔로 내리쳐 무게를 더하고, 이미 가득하면 그 무게로 방어를 꿰뚫는다.", mpCost: 50, cooldown: 0, procChance: 35, tempo: "control",
+    effects: [dmg(0.82, 75, "def")],
+    weightCycle: { gain: { amount: 1, overloadPenetrationPct: 10 } },
+    detail: {
+      mechanics: ["방어력에 비례한 피해를 준 뒤 중량을 1 얻는다. 시전 전 중량이 3이면 중량을 더 얻지 않고 이 공격의 방어 관통이 10%p 증가한다."],
+      synergies: ["중량이 가득 찬 상태에서도 낭비 없이 사용할 수 있어 해방 스킬을 기다리는 동안 쓰기 좋다."],
+      limitations: ["관통 증가는 시전 전 중량이 3일 때만 적용된다."],
+    },
+  },
+  v2c_irongolem_ironframe: {
+    id: "v2c_irongolem_ironframe", name: "강철 골격", stat: "vit", category: "passive", tier: 3,
+    description: "강철로 바뀐 뼈대가 무게를 버텨 무거워져도 덜 느려진다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { str: 12 } },
+    weightCycle: { speedPenaltyPctPerStack: 3 },
+    detail: {
+      mechanics: ["힘이 12% 증가한다. 중량 1당 줄어드는 속도가 5%에서 3%로 완화된다."],
+      synergies: ["중량을 오래 유지하는 빌드에서 속도 손해를 줄여 준다."],
+      limitations: ["중량이 없을 때는 속도에 영향을 주지 않으며 기존 속도 하한을 넘지 않는다."],
+    },
+  },
+  v2c_mountaingolem_landslide: {
+    id: "v2c_mountaingolem_landslide", name: "산사태", stat: "vit", category: "attack", tier: 3,
+    description: "산 같은 몸을 무너뜨려 적을 덮치고 가득 찬 무게만큼 기력을 되찾는다.", mpCost: 54, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(1.11, 135, "def")],
+    weightCycle: { release: { damagePctPerStack: 18, fullActualDamageHealPct: 14 } },
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    },
+    detail: {
+      mechanics: ["중량을 모두 소모하고 소모한 중량 1당 최종 피해가 18% 증가한다. 중량 3을 소모하고 실제 피해를 주면 그 피해의 14%만큼 HP를 회복한다."],
+      synergies: ["중량을 3까지 쌓은 뒤 사용하면 피해와 회복을 함께 얻는다."],
+      limitations: ["중량을 3보다 적게 소모하거나 실제 피해가 0이면 회복하지 않는다."],
+    },
+  },
+  v2c_mountaingolem_mountainbody: {
+    id: "v2c_mountaingolem_mountainbody", name: "산맥의 몸", stat: "vit", category: "passive", tier: 3,
+    description: "무너진 바위가 곧바로 다시 붙어 몸의 무게가 끊기지 않는다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { vit: 12 }, maxHpPct: 12 },
+    weightCycle: { onRelease: { regainWeight: 1 } },
+    detail: {
+      mechanics: ["활력이 12%, 최대 HP가 12% 증가한다. 중량을 모두 소모하는 스킬을 사용한 직후 중량을 1 얻는다."],
+      synergies: ["지각 붕괴를 포함한 모든 해방 스킬에서 발동해 다음 축적을 한 단계 앞에서 시작하게 한다."],
+      limitations: ["소모한 중량이 0이면 발동하지 않으며, 다시 얻은 중량은 그 해방 공격의 피해에 반영되지 않는다."],
+    },
+  },
+  v2c_primevalgolem_primordialcollapse: {
+    id: "v2c_primevalgolem_primordialcollapse", name: "태고의 붕괴", stat: "vit", category: "attack", tier: 3,
+    description: "태고의 대지처럼 무너져 내려 가득 찬 무게로 방어를 부수고 다시 일어선다.", mpCost: 60, cooldown: 0, procChance: 35, tempo: "payoff",
+    effects: [dmg(0.98, 128, "def")],
+    weightCycle: { release: { damagePctPerStack: 20, fullPenetrationPct: 12, fullCastHastePct: 15 } },
+    defaultPattern: {
+      priority: 500,
+      condition: { kind: "self_resource", resource: "weight", op: "atLeast", value: 3 },
+    },
+    detail: {
+      mechanics: ["중량을 모두 소모하고 소모한 중량 1당 최종 피해가 20% 증가한다. 중량 3을 소모하면 방어 관통이 12%p 증가하고 시전 뒤 다음 행동이 15% 빨라진다."],
+      synergies: ["짐 벗기와 함께 장착하면 중량 3 해방 뒤 다음 행동이 합계 30% 빨라진다."],
+      limitations: ["중량을 3보다 적게 소모하면 관통과 행동 가속이 적용되지 않는다."],
+    },
+  },
+  v2c_primevalgolem_apex: {
+    id: "v2c_primevalgolem_apex", name: "대지의 정점", stat: "vit", category: "passive", tier: 3,
+    description: "가장 무거운 몸에 이르면 더 세게 치고 덜 다친다.", mpCost: 0, cooldown: 0,
+    effects: [], passive: { statPct: { vit: 24, str: 18 }, maxHpPct: 16 },
+    weightCycle: { fullWeightDirectPhysicalDamagePct: 10, fullWeightDamageTakenReductionPct: 8 },
+    detail: {
+      mechanics: ["활력이 24%, 힘이 18%, 최대 HP가 16% 증가한다. 중량이 3일 때 직접 물리 스킬 피해가 10% 증가하고 받는 직접 피해가 8% 감소한다."],
+      synergies: ["축적 스킬로 중량을 3까지 채워 유지할수록 공격과 방어 보너스를 오래 받는다."],
+      limitations: ["중량이 3보다 낮으면 피해 증가와 받는 피해 감소가 적용되지 않는다."],
+    },
   },
   // ═══ 전사 (STR · 물리) — 정직한 파워 ═══
   v2c_warrior_strike: {
@@ -1305,7 +1441,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomancer_corrosion3: {
     id: "v2c_venomancer_corrosion3", name: "부식 II", stat: "luk", category: "passive", tier: 3,
-    description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어와 중독 피해를 더 크게 흔든다.",
+    description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어를 더 크게 흔든다.",
     mpCost: 0, cooldown: 0, spCost: 4,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 7 },
@@ -1660,7 +1796,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomlord_sovereign: {
     id: "v2c_venomlord_sovereign", name: "부식 III", stat: "luk", category: "passive", tier: 3,
-    description: "독을 다스리는 정점. 중독된 적의 방어와 독 피해 저항을 크게 무너뜨린다.",
+    description: "독을 다스리는 정점. 중독된 적의 방어를 크게 무너뜨린다.",
     mpCost: 0, cooldown: 0, spCost: 4,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 9 },
@@ -2294,7 +2430,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_plaguebringer_decay: {
     id: "v2c_plaguebringer_decay", name: "부식 IV", stat: "luk", category: "passive", tier: 3,
-    description: "독이 갑옷과 살을 함께 무너뜨려 중독 피해를 더 깊게 남긴다.",
+    description: "독이 갑옷을 깊이 무너뜨리고, 기본 공격의 치명타 피해를 높인다.",
     mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 6,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 12, critDmgPct: 10 },

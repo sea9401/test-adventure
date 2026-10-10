@@ -14,6 +14,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import { LifeActivityIcon } from "./LifeActivityIcons";
+import { LifeMajorCard } from "./LifeMajorCard";
 import type {
   LifeActivityId,
   LifeActivitySummary,
@@ -155,6 +156,8 @@ export function V2LifeRecordView({
       {summary ? (
         <>
           <LifeMasteryOverview summary={summary} />
+
+          {preview ? null : <LifeMajorCard />}
 
           <section aria-labelledby="life-mastery-heading" className="space-y-2">
             <div>

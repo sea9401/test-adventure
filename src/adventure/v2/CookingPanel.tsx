@@ -16,11 +16,12 @@ import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
 import type { CookingMutation, CookingResponse } from "./cooking/clientTypes";
 import { cookingQualityName, type CookingQuality } from "./cooking/foodShared";
+import { CookingSignaturePanel } from "./cooking/CookingSignaturePanel";
 import { COOKING_FIELD_NAMES } from "./cooking/types";
 
 export { SurplusCropLabel } from "./SurplusExchangePanel";
 
-type CookingSection = "research" | "codex" | "public" | "specialty" | "delivery" | "processing";
+type CookingSection = "research" | "codex" | "public" | "specialty" | "delivery" | "processing" | "signature";
 
 const ERROR_TEXT: Record<string, string> = {
   duplicate_combination: "이미 실패한 조합입니다. 추가 재료는 소비하지 않았습니다.",
@@ -43,6 +44,9 @@ const ERROR_TEXT: Record<string, string> = {
   cooked_food_unavailable: "선택한 완성 음식을 보유하고 있지 않습니다.",
   standing_delivery_limit: "오늘의 상시 납품 한도를 모두 사용했습니다.",
   rate_limited: "요리 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  signature_locked: "요리 주전공 명장 3단계부터 명장 요리를 만들 수 있습니다.",
+  not_masterpiece: "걸작 요리만 명장 요리로 만들 수 있습니다.",
+  not_enough_master_product: "필요한 명장 산물이 부족합니다.",
 };
 
 export function cookingErrorText(code: string): string {
@@ -70,6 +74,7 @@ const COOKING_QUALITY_ORDER: readonly CookingQuality[] = [
   "normal",
   "careful",
   "masterpiece",
+  "signature",
 ];
 
 function isCookingQuality(value: unknown): value is CookingQuality {
@@ -111,6 +116,7 @@ export function cookingResultMessage(data: CookingResponse): string {
   if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;
+  if (result.action === "signature") return `${String(result.recipeName ?? "요리")} 명장 요리를 만들었습니다.`;
   if (result.action === "buy_pantry") return "주방 재료를 구매했습니다.";
   if (result.action === "process") return "주방 재료 가공을 마쳤습니다.";
   return "주방 상태를 갱신했습니다.";
@@ -136,6 +142,7 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
     </section>
     <div className={`${SURFACE_CARD} px-1`}><TabBar tabs={[
       { key: "research", label: "연구" }, { key: "codex", label: "도감" }, { key: "public", label: "공개 발견" }, { key: "specialty", label: "전문 분야" }, { key: "delivery", label: "납품" }, { key: "processing", label: "재료 가공" },
+      ...(data.signature?.unlocked ? [{ key: "signature" as const, label: "명장 요리" }] : []),
     ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" scrollable /></div>
     {section === "research" ? <CookingResearchPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "codex" ? <CookingCodexPanel data={data} busy={busy} mutate={mutate} /> : null}
@@ -143,6 +150,7 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
     {section === "specialty" ? <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "delivery" ? <CookingDeliveryPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "processing" ? <CookingProcessingPanel data={data} busy={busy} mutate={mutate} /> : null}
+    {section === "signature" && data.signature?.unlocked ? <CookingSignaturePanel data={data} busy={busy} mutate={mutate} /> : null}
   </div>;
 }
 

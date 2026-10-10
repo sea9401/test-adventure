@@ -42,6 +42,18 @@ const {
   };
 });
 
+const { pickFishIdSpy } = vi.hoisted(() => ({ pickFishIdSpy: vi.fn() }));
+const { masterProductNotify } = vi.hoisted(() => ({
+  masterProductNotify: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/server/v2Notifications", () => ({
+  insertNotificationWith: masterProductNotify,
+}));
+vi.mock("@/adventure/data/v2/fish", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/adventure/data/v2/fish")>();
+  pickFishIdSpy.mockImplementation(actual.pickFishId);
+  return { ...actual, pickFishId: pickFishIdSpy };
+});
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
@@ -90,6 +102,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/fishing/reel/route";
+import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { POST as CAST } from "@/app/api/v2/fishing/cast/route";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { FISHING_ANTI_MACRO_KEY } from "@/adventure/v2/fishingAntiMacro";
@@ -116,6 +129,19 @@ import {
 import { REPEAT_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 import { MINING_AUTO_KEY } from "@/adventure/v2/autoGathering";
 import { FISH } from "@/adventure/data/v2/fish";
+import { LIFE_MAJOR_SAVE_KEY, lifeMajorStageXp } from "@/adventure/v2/lifeMajor";
+
+const { festivalBonus } = vi.hoisted(() => ({
+  festivalBonus: vi.fn(),
+}));
+vi.mock("@/adventure/v2/lifeFestival", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/v2/lifeFestival")>()),
+  lifeFestivalBonus: festivalBonus,
+}));
+beforeEach(() => {
+  festivalBonus.mockReset();
+  festivalBonus.mockReturnValue({ themeId: null, chancePct: 0, xpPct: 0 });
+});
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -782,4 +808,99 @@ describe("POST /api/v2/fishing/reel", () => {
       nextActionAt: null,
     });
   });
+  it("풍어제 주간에는 챔질 경험치가 25% 오른다", async () => {
+    festivalBonus.mockReturnValue({ themeId: "fishing", chancePct: 2, xpPct: 25 });
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "calm-0",
+      biteAt: now - 100,
+      expiresAt: now + 10_000,
+      fishId: "carp",
+      size: 42,
+      lifeEnvironmentId: "fishing_calm_water",
+    });
+
+    const res = await POST(reelReq({ castId: "calm-0", reactionMs: 200 }));
+
+    expect(festivalBonus).toHaveBeenCalledWith("fishing", expect.any(Date));
+    await expect(res.json()).resolves.toMatchObject({
+      caught: true,
+      fishingXpGained: 5,
+    });
+  });
+
+  it("풍어제 주간에는 던질 때 특수 어종 가중치가 2%p 오른다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.delete(FISHING_SESSION_KEY);
+    const castReq = () =>
+      new Request("http://t/api/v2/fishing/cast", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    const base = await CAST(castReq());
+    expect(base.status).toBe(200);
+    const baseWeight = pickFishIdSpy.mock.calls.at(-1)?.[2]?.specialWeightBonusPct;
+    seedFisherSession(now);
+    store.delete(FISHING_SESSION_KEY);
+    resetUserRateLimitForTests();
+    festivalBonus.mockReturnValue({ themeId: "fishing", chancePct: 2, xpPct: 25 });
+    const boosted = await CAST(castReq());
+    expect(boosted.status).toBe(200);
+    expect(pickFishIdSpy.mock.calls.at(-1)?.[2]?.specialWeightBonusPct).toBe(
+      (baseWeight ?? 0) + 2,
+    );
+  });
+
+  describe("생활 전공", () => {
+    const MAJOR = () => ({
+      major: "fishing",
+      masteryXp: { fishing: lifeMajorStageXp("fishing", 3) },
+    });
+
+    it("챔질 — Lv.100 주전공은 넘친 경험치를 쌓고 명장 어획을 받는다", async () => {
+      const now = Date.now();
+      seedFisherSession(now);
+      store.set(FISHING_PROGRESS_KEY, {
+        ...emptyFishingProgression(),
+        levelCurveVersion: 2,
+        xp: fishingLevelXpThreshold(100),
+      });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      vi.spyOn(Math, "random").mockReturnValue(0.001);
+
+      const json = await (await POST(reelReq({ castId: "cast-1", reactionMs: 200 }))).json();
+
+      expect(json.caught).toBe(true);
+      expect(json.lifeMajor).toEqual({
+        masteryXpGained: json.fishingXpGained,
+        masterProduct: { materialId: "v2_master_catch", name: "명장 어획", count: 1 },
+      });
+      expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_catch: 1 } });
+      expect(masterProductNotify).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        "master_product",
+        { activity: "fishing", materialId: "v2_master_catch", name: "명장 어획", count: 1 },
+      );
+    });
+
+    it("던질 때 주전공 단계만큼 특수 어종 가중치를 더한다", async () => {
+      const now = Date.now();
+      seedFisherSession(now);
+      store.delete(FISHING_SESSION_KEY);
+      const castReq = () =>
+        new Request("http://t/api/v2/fishing/cast", { method: "POST", body: JSON.stringify({}) });
+      expect((await CAST(castReq())).status).toBe(200);
+      const baseWeight = pickFishIdSpy.mock.calls.at(-1)?.[2]?.specialWeightBonusPct ?? 0;
+      seedFisherSession(now);
+      store.delete(FISHING_SESSION_KEY);
+      resetUserRateLimitForTests();
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      expect((await CAST(castReq())).status).toBe(200);
+      expect(pickFishIdSpy.mock.calls.at(-1)?.[2]?.specialWeightBonusPct).toBe(baseWeight + 3);
+    });
+  });
+
 });

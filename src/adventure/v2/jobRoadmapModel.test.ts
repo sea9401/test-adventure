@@ -28,6 +28,13 @@ describe("job roadmap model", () => {
       beastkin?.children[0]?.children[0]?.children[0]?.children[0]?.children[0]
         ?.id,
     ).toBe("primalpredator");
+    const golem = mutant?.children.find((node) => node.id === "golem");
+    expect(golem?.children.map((node) => node.id)).toEqual(["rockbrawler"]);
+    expect(golem?.children[0]?.prereqText).toBe("골렘 숙련도 1000");
+    expect(
+      golem?.children[0]?.children[0]?.children[0]?.children[0]?.children[0]
+        ?.id,
+    ).toBe("primevalgolem");
     expect(nodes.find((node) => node.id === "squire")?.prereqText).toContain(
       "숙련도",
     );
@@ -54,7 +61,7 @@ describe("job roadmap model", () => {
     ]);
   });
 
-  it("공개된 아홉 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {
+  it("공개된 열네 7차를 실제 로드맵에 한 번씩 배치하고 두 선행 계보를 보존한다", () => {
     const nodes = flatten(buildJobRoadmap());
     const tier7Ids = nodes
       .filter((node) => node.tier === 7)
@@ -62,14 +69,19 @@ describe("job roadmap model", () => {
       .sort();
     expect(tier7Ids).toEqual([
       "aegis",
+      "behemoth",
+      "bloodheaven",
       "dragonlord",
       "dreadnought",
       "paragon",
       "primordialsage",
       "ruinblade",
+      "runelord",
       "seraphim",
       "shadowblade",
       "skyascendant",
+      "tempest",
+      "titan",
     ]);
 
     const node = nodes.find(

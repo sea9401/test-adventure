@@ -4,6 +4,7 @@ import {
   ENHANCE_OUTCOME_TABLE,
   demoteEnhance,
   enhanceBonusPct,
+  enhanceCatalystUsable,
   enhancedPower,
   enhanceGoldCost,
   enhanceOutcomeRow,
@@ -174,3 +175,33 @@ describe("세이브 왕복 + resolve 반영", () => {
     expect(owned[0].enhance).toBeUndefined();
   });
 });
+
+describe("단련 촉매", () => {
+  it("강화석 변환 뒤 하락에서 최대 10%p를 유지로 옮기고 합은 100", () => {
+    expect(enhanceOutcomeRow(9, "none", { catalyst: true })).toEqual([18, 52, 17, 13]);
+    expect(enhanceOutcomeRow(9, "blue", { catalyst: true })).toEqual([18, 62, 20, 0]);
+    expect(enhanceOutcomeRow(5, "none", { catalyst: true })).toEqual([50, 50, 0, 0]);
+    for (let level = 0; level <= 25; level += 1) {
+      for (const choice of ["none", "red", "blue"] as const) {
+        const row = enhanceOutcomeRow(level, choice, { catalyst: true });
+        expect(row.reduce((sum, value) => sum + value, 0)).toBe(100);
+        expect(row.every((value) => value >= 0)).toBe(true);
+      }
+    }
+  });
+
+  it("하락이 없는 구간(+0~+4, +10 체크포인트)에서는 쓸 수 없다", () => {
+    expect(enhanceCatalystUsable(4, "none")).toBe(false);
+    expect(enhanceCatalystUsable(5, "none")).toBe(true);
+    expect(enhanceCatalystUsable(10, "red")).toBe(false);
+    expect(enhanceCatalystUsable(11, "red")).toBe(true);
+  });
+
+  it("굴림도 촉매 결과표를 따른다", () => {
+    // +6 골드만 [40,42,18,0] → 촉매 [40,52,8,0]: r=0.95 는 하락 → 유지
+    expect(rollEnhanceOutcome(6, "none", () => 0.95)).toBe("demote");
+    expect(rollEnhanceOutcome(6, "none", () => 0.91, { catalyst: true })).toBe("keep");
+    expect(rollEnhanceOutcome(6, "none", () => 0.93, { catalyst: true })).toBe("demote");
+  });
+});
+

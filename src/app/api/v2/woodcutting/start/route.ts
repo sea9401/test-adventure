@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { lifeMajorBonusPct } from "@/adventure/v2/lifeMajor";
+import { readLifeMajorState } from "@/lib/server/lifeMajor";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -29,6 +31,7 @@ import {
   woodcuttingFailureRate,
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
+import { lifeFestivalBonus } from "@/adventure/v2/lifeFestival";
 import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   activeAutoGatheringActivity,
@@ -75,13 +78,14 @@ export async function POST(req: Request) {
   const treeId = pickWoodcuttingTreeId(spotId);
   const tree = WOODCUTTING_TREES[treeId];
   const now = Date.now();
-  const [charSave, logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures] = await Promise.all([
+  const [charSave, logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures, lifeMajor] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
     readSave(db, userId, "skills.v2", {}),
     readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readLifeFieldFeatureSettings(),
+    readLifeMajorState(db, userId),
   ]);
   const verificationRequired = activityVerificationGateResponse(
     parseActivityGuardState(guardRaw),
@@ -107,6 +111,8 @@ export async function POST(req: Request) {
       LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
       lifeGatheringBonusPct("woodcutting", workshop, progression.level) +
       levelBonuses.bonusLogChancePct +
+      lifeFestivalBonus("woodcutting", new Date(now)).chancePct +
+      lifeMajorBonusPct(lifeMajor, "woodcutting") +
       (aidApplies ? aidSpec?.bonusPct ?? 0 : 0),
   );
   const baseAdjustedDurationMs = woodcuttingDurationWithPassive(

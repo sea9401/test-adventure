@@ -157,6 +157,27 @@ describe("MailDetailModal 장문 가독성", () => {
 
     expect(html).toContain("숙련 증서 x750");
   });
+
+  it("생활 축제 순위 보상을 축제 증표로 표시한다", () => {
+    const html = renderToStaticMarkup(
+      createElement(MailDetailModal, {
+        item: inboxItem({
+          kind: "season_reward",
+          payload: { season: "life_festival", coins: 30, rank: 5 },
+          hasReward: true,
+          claimState: "claimable",
+        }),
+        busy: false,
+        onClose: vi.fn(),
+        onClaim: vi.fn(),
+        onRespondInvite: vi.fn(),
+        onBlocked: vi.fn(),
+        onDelete: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain("축제 증표 x30");
+  });
 });
 
 describe("InboxMailCard 상태 표시", () => {

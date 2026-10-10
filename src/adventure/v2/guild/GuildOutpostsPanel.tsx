@@ -211,7 +211,7 @@ export function GuildFacilitiesPanel({
           {rows.map((row) => {
             const next =
               row.count > 0
-                ? nextSettlementBuildingUpgrade(row.id, row.level)
+                ? nextSettlementBuildingUpgrade(row.id, row.level, "guild_facility")
                 : null;
             return (
               <div
@@ -273,6 +273,7 @@ export function GuildFacilitiesPanel({
                     buildingId={row.id}
                     next={next}
                     progress={info?.facilityUpgradeDonations?.[row.id]}
+                    operations={info?.facilityOperations?.[row.id]}
                     guildGold={guildGold}
                     guildFame={guildFame}
                     canComplete={canManage}
@@ -334,6 +335,8 @@ function facilityUpgradeErrorText(error?: string): string {
       return "길드 금고 골드가 부족합니다.";
     case "insufficient_fame":
       return "사용 가능한 길드 명성이 부족합니다.";
+    case "operations_incomplete":
+      return "운영 실적이 아직 부족합니다.";
     default:
       return "시설 업그레이드에 실패했습니다.";
   }

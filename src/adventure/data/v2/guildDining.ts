@@ -7,6 +7,15 @@ export const GUILD_DINING_POINTS_PER_TICKET = 4;
 export const GUILD_DINING_POINTS_PER_MEMBER_TARGET = 20;
 export const ASSOCIATION_DINING_POINTS_PER_TICKET = 20;
 export const GUILD_DINING_EFFECT_DURATION_HOURS = 3;
+// 식당 Lv.8 이상에서 효과식 지속 시간 배율(식권 1장당 4.5시간).
+export const GUILD_DINING_LONG_EFFECT_MIN_LEVEL = 8;
+export const GUILD_DINING_LONG_EFFECT_MULTIPLIER = 1.5;
+
+export function guildDiningEffectDurationMultiplier(level: number): number {
+  return level >= GUILD_DINING_LONG_EFFECT_MIN_LEVEL
+    ? GUILD_DINING_LONG_EFFECT_MULTIPLIER
+    : 1;
+}
 export const GUILD_DINING_EFFECT_DURATION_MS =
   GUILD_DINING_EFFECT_DURATION_HOURS * 60 * 60 * 1000;
 
@@ -113,7 +122,11 @@ export type GuildDiningMenuId =
   | "worker_lunch"
   | "hunters_barbecue"
   | "artisan_seafood_rice"
-  | "guild_grand_feast";
+  | "guild_grand_feast"
+  | "deep_sea_course"
+  | "heroes_feast"
+  | "grand_recovery_feast"
+  | "royal_banquet";
 
 export type GuildDiningMenu = {
   id: GuildDiningMenuId;
@@ -209,7 +222,74 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
       durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
     },
   },
+  // Lv.6~10 메뉴.
+  {
+    id: "deep_sea_course",
+    name: "심해 진미 정식",
+    icon: "🦑",
+    imageSrc: "/images/items/dining/deep_sea_course.webp",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 생활 경험치가 25% 증가합니다.`,
+    minFacilityLevel: 6,
+    effect: {
+      kind: "life_xp",
+      bonusPct: 25,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
+  },
+  {
+    id: "heroes_feast",
+    name: "용사의 만찬",
+    icon: "🍗",
+    imageSrc: "/images/items/dining/heroes_feast.webp",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 75% 증가합니다.`,
+    minFacilityLevel: 7,
+    effect: {
+      kind: "hunt_exp",
+      bonusPct: 75,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
+  },
+  {
+    id: "grand_recovery_feast",
+    name: "회복 대연회",
+    icon: "🥘",
+    imageSrc: "/images/items/dining/grand_recovery_feast.webp",
+    description: "HP·MP 충전량을 각각 1,000,000 즉시 채웁니다.",
+    minFacilityLevel: 9,
+    effect: { kind: "recovery", hp: 1_000_000, mp: 1_000_000 },
+  },
+  {
+    id: "royal_banquet",
+    name: "왕실 대연회",
+    icon: "👑",
+    imageSrc: "/images/items/dining/royal_banquet.webp",
+    description: `${GUILD_DINING_EFFECT_DURATION_HOURS}시간 동안 사냥 경험치가 90%, 생활 경험치가 30% 증가합니다.`,
+    minFacilityLevel: 10,
+    effect: {
+      kind: "all_xp",
+      bonusPct: 90,
+      lifeBonusPct: 30,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
+  },
 ];
+
+// 지속 시간 배율을 반영한 메뉴 설명. 즉시 회복 메뉴는 그대로 둔다.
+export function guildDiningMenuDescription(
+  menu: GuildDiningMenu,
+  durationMultiplier: number,
+): string {
+  if (menu.effect.kind === "recovery" || durationMultiplier <= 1) {
+    return menu.description;
+  }
+  const hours = Number(
+    (menu.effect.durationHours * durationMultiplier).toFixed(1),
+  );
+  return menu.description.replace(
+    `${menu.effect.durationHours}시간`,
+    `${hours}시간`,
+  );
+}
 
 export function guildDiningMenu(raw: unknown): GuildDiningMenu | null {
   if (typeof raw !== "string") return null;
@@ -246,6 +326,8 @@ export type GuildDiningUserState = {
   contributionPoints: number;
   mealsUsed: number;
   activeEffect: GuildDiningActiveEffect | null;
+  // 길드를 나와 협회 식당을 쓸 때, 그 주에 길드에서 쌓은 기여·식사 기록을 협회 식권 계산에서 뺀다.
+  associationOffset?: { contributionPoints: number; mealsUsed: number };
 };
 
 function nonNegativeInt(raw: unknown): number {
@@ -307,22 +389,44 @@ export function parseGuildDiningUserState(
       activeEffect: null,
     };
   }
-  const sameGuild = Number(value.guildId) === args.guildId;
-  const associationToGuild = Number(value.guildId) === 0 && args.guildId > 0;
+  // 길드를 옮기거나 협회와 오가도 같은 주의 기여도·식권 사용량·음식 효과는 계정 단위로 이어진다.
+  const contributionPoints = nonNegativeInt(value.contributionPoints);
+  const mealsUsed = nonNegativeInt(value.mealsUsed);
+  const associationOffset =
+    args.guildId === 0
+      ? nonNegativeInt(value.guildId) > 0
+        ? { contributionPoints, mealsUsed }
+        : parseAssociationOffset(value.associationOffset, {
+            contributionPoints,
+            mealsUsed,
+          })
+      : undefined;
   return {
     version: 1,
     weekKey: args.weekKey,
     guildId: args.guildId,
-    contributionPoints:
-      sameGuild || associationToGuild
-        ? nonNegativeInt(value.contributionPoints)
-        : 0,
-    // 길드 이동으로 식권을 다시 받지 못하게 사용량과 이미 먹은 음식 효과는 주차 단위로 유지한다.
-    mealsUsed: nonNegativeInt(value.mealsUsed),
+    contributionPoints,
+    mealsUsed,
     activeEffect: parseActiveEffect(value.activeEffect, {
       weekKey: args.weekKey,
       now: args.now ?? new Date(),
     }),
+    ...(associationOffset ? { associationOffset } : {}),
+  };
+}
+
+function parseAssociationOffset(
+  raw: unknown,
+  totals: { contributionPoints: number; mealsUsed: number },
+): GuildDiningUserState["associationOffset"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  return {
+    contributionPoints: Math.min(
+      totals.contributionPoints,
+      nonNegativeInt(value.contributionPoints),
+    ),
+    mealsUsed: Math.min(totals.mealsUsed, nonNegativeInt(value.mealsUsed)),
   };
 }
 
@@ -359,6 +463,15 @@ export function guildDiningTicketProgress(
   };
 }
 
+export function associationDiningContributionPoints(
+  state: GuildDiningUserState,
+): number {
+  return Math.max(
+    0,
+    state.contributionPoints - (state.associationOffset?.contributionPoints ?? 0),
+  );
+}
+
 export function associationDiningTicketProgress(
   state: GuildDiningUserState,
 ): {
@@ -370,14 +483,19 @@ export function associationDiningTicketProgress(
   contributionCap: null;
 } {
   const earned = Math.floor(
-    state.contributionPoints / ASSOCIATION_DINING_POINTS_PER_TICKET,
+    associationDiningContributionPoints(state) /
+      ASSOCIATION_DINING_POINTS_PER_TICKET,
+  );
+  const used = Math.max(
+    0,
+    state.mealsUsed - (state.associationOffset?.mealsUsed ?? 0),
   );
   return {
     base: 0,
     contributionEarned: earned,
     earned,
-    used: state.mealsUsed,
-    available: Math.max(0, earned - state.mealsUsed),
+    used,
+    available: Math.max(0, earned - used),
     contributionCap: null,
   };
 }
@@ -398,6 +516,7 @@ export function activeEffectForMenu(
     currentEffect: GuildDiningActiveEffect | null;
     now: Date;
     weekKey: string;
+    durationMultiplier?: number;
   },
 ): GuildDiningActiveEffect | null {
   if (menu.effect.kind === "recovery") return null;
@@ -414,7 +533,12 @@ export function activeEffectForMenu(
     lifeBonusPct:
       menu.effect.kind === "all_xp" ? menu.effect.lifeBonusPct : undefined,
     expiresAt: Math.min(
-      startsAt + menu.effect.durationHours * 60 * 60 * 1000,
+      startsAt +
+        menu.effect.durationHours *
+          Math.max(1, args.durationMultiplier ?? 1) *
+          60 *
+          60 *
+          1000,
       guildDiningWeekEndsAt(args.weekKey),
     ),
     roundingRemainder: currentEffect?.roundingRemainder ?? 0,

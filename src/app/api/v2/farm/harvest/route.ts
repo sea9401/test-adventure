@@ -1,4 +1,12 @@
 import { db } from "@/db";
+import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import {
+  applyLifeMajorProgress,
+  lifeMajorResponse,
+  readLifeMajorState,
+  withMasterProduct,
+} from "@/lib/server/lifeMajor";
+import { lifeFestivalBonus, lifeFestivalBonusXp } from "@/adventure/v2/lifeFestival";
 import {
   FARM_CROP_LIST,
   FARM_SAVE_KEY,
@@ -63,7 +71,7 @@ export async function POST(req: Request) {
 
   try {
     const now = Date.now();
-    const { farm, result, farmJobId, masteryGained, masteryAfter, blueprintRecipeId, fertilizerBalance, levelCurveMigrated } =
+    const { lifeMajor, farm, result, farmJobId, masteryGained, masteryAfter, blueprintRecipeId, fertilizerBalance, levelCurveMigrated } =
       await db.transaction(async (tx) => {
         // 자정/주간 경계 뒤 첫 수확도 반복 퀘스트에 포함되도록, 농장 누적치를
         // 변경하기 전에 새 주기의 baseline 을 확정한다.
@@ -97,12 +105,18 @@ export async function POST(req: Request) {
           ...parsedFarm,
           ranch: settleRanch(parsedFarm.ranch, now),
         };
-        const harvested = harvestPlot(
-          farm,
-          plotId,
-          now,
-          Math.random,
-          farmBonuses,
+        const festival = lifeFestivalBonus("farming", new Date(now));
+        const majorBonusPct = lifeMajorBonusPct(
+          await readLifeMajorState(tx, userId),
+          "farming",
+        );
+        const harvested = harvestPlot(farm, plotId, now, Math.random, {
+          ...farmBonuses,
+          yieldBonusPct: farmBonuses.yieldBonusPct + festival.chancePct + majorBonusPct,
+        });
+        const festivalXp = lifeFestivalBonusXp(
+          harvested.result.farmingXpGained,
+          festival.xpPct,
         );
         const diningXp = await consumeGuildDiningEffect(
           tx,
@@ -113,20 +127,20 @@ export async function POST(req: Request) {
         );
         const farmingXp = applyLifeXpGain({
           xp: harvested.result.farmingXp,
-          gainedXp: diningXp.bonus,
+          gainedXp: diningXp.bonus + festivalXp,
           legacyThreshold: farmingLevelXpThreshold,
         }).xp;
         const farmingXpGained =
-          harvested.result.farmingXpGained + diningXp.bonus;
+          harvested.result.farmingXpGained + diningXp.bonus + festivalXp;
         const harvestedState =
-          diningXp.bonus > 0
+          diningXp.bonus + festivalXp > 0
             ? {
                 ...harvested.state,
                 stats: { ...harvested.state.stats, farmingXp },
               }
             : harvested.state;
         const harvestResult =
-          diningXp.bonus > 0
+          diningXp.bonus + festivalXp > 0
             ? {
                 ...harvested.result,
                 farmingXp,
@@ -183,7 +197,26 @@ export async function POST(req: Request) {
         workshop = { ...workshop, crafting: blueprint.state };
         await upsertSave(tx, userId, LIFE_WORKSHOP_SAVE_KEY, workshop);
 
+        // 생활 전공 — 다른 세이브 잠금 뒤에 life-major.v1 을 잠근다. 이 라우트는
+        // character.v2 를 잠그기만 하므로 산물이 있을 때만 그 사본에 합쳐 저장한다.
+        const lifeMajorProgress = await applyLifeMajorProgress(tx, userId, "farming", {
+          overflowXp: lifeXpOverflow({
+            gained: harvestResult.farmingXpGained,
+            before: farm.stats.farmingXp,
+            after: harvestedState.stats.farmingXp,
+          }),
+          successes: 1,
+          rng: Math.random,
+        });
+        if (lifeMajorProgress.productCount > 0) {
+          await upsertSave(tx, userId, "character.v2", {
+            ...charSave,
+            materials: withMasterProduct(charSave.materials, lifeMajorProgress),
+          });
+        }
+
         return {
+          lifeMajor: lifeMajorResponse(lifeMajorProgress),
           farm: harvestedState,
           result: harvestResult,
           farmJobId,
@@ -237,6 +270,7 @@ export async function POST(req: Request) {
       weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
       shopItems: getFarmShopItems(),
       result,
+      lifeMajor,
       fertilizerBalance,
       ...(levelCurveMigrated ? { levelCurveMigrated: true } : {}),
     });

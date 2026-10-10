@@ -58,6 +58,53 @@ describe("MasteryCertificateUseModal", () => {
     expect(html).not.toContain("<span>mutant</span>");
   });
 
+  it("현재 직업을 기본 선택하고 해당 직업군 탭을 연다", () => {
+    const html = renderToStaticMarkup(
+      <MasteryCertificateUseModal
+        open
+        initialStatus={{
+          certificates: 5,
+          currentJobId: "beastkin",
+          jobs: [
+            warriorJob,
+            {
+              id: "beastkin",
+              name: "수인",
+              tier: 2,
+              group: "mutant",
+              mastery: 7,
+            },
+          ],
+        }}
+        onClose={vi.fn()}
+        onUsed={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("현재 직업");
+    expect(html).toMatch(/aria-pressed="true"[^>]*>(?:(?!<\/button>).)*수인/);
+    expect(html).not.toContain("전사에 투자합니다");
+    expect(html).toContain("수인에 투자합니다");
+  });
+
+  it("현재 직업이 대상이 아니면 첫 직업을 선택한다", () => {
+    const html = renderToStaticMarkup(
+      <MasteryCertificateUseModal
+        open
+        initialStatus={{
+          certificates: 5,
+          currentJobId: "fisher",
+          jobs: [warriorJob],
+        }}
+        onClose={vi.fn()}
+        onUsed={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("전사에 투자합니다");
+    expect(html).not.toContain("현재 직업");
+  });
+
   it("닫힌 상태에서는 아무것도 렌더하지 않는다", () => {
     expect(
       renderToStaticMarkup(

@@ -92,7 +92,9 @@ export type Tier7Mechanic =
       pvpDamagePct: number;
       pvpPenetrationPct: number;
       pvpHastePct: number;
-    };
+    }
+  /** 고유 규칙 없이 공통 효과만 쓰는 7차 공격의 PvP 직접 피해 배율. 사냥 피해에는 쓰지 않는다. */
+  | { kind: "pvpDirectDamage"; pvpDirectDamagePct: number };
 
 export function tier7PvpDirectDamagePct(
   mechanic: Tier7Mechanic | undefined,
@@ -102,6 +104,7 @@ export function tier7PvpDirectDamagePct(
     case "shadowRefine":
     case "intentStrike":
     case "chargedFinisher":
+    case "pvpDirectDamage":
       return mechanic.pvpDirectDamagePct;
     default:
       return 100;
@@ -188,6 +191,10 @@ export function tier7MechanicPower(mechanic: Tier7Mechanic): number {
         (mechanic.directDamagePct / 10) * 0.5 +
         (mechanic.penetrationPct / 20) * 0.75 +
         (mechanic.hastePct / 20) * 0.4;
+      break;
+    case "pvpDirectDamage":
+      // PvP 전용 하향 보정이라 사냥 기준 성능 점수에는 더하거나 빼지 않는다.
+      value = 0;
       break;
   }
   return round2(value);

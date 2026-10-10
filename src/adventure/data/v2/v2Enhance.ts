@@ -73,9 +73,17 @@ function baseEnhanceOutcomeRow(level: number): [number, number, number, number] 
 //     🔵 푸른: +12 도전까지 파괴 완전 방어. +13 도전부터 파괴 −10%p,
 //       하락 +5%p, 유지 +5%p로 완화.
 //   +10 체크포인트: +10→+11 시도의 하락은 유지로 바뀌어 +9로 내려가지 않는다.
+export type EnhanceOptions = {
+  /** 단련 촉매(생활 전공 채광 제작품) — 강화석·체크포인트 처리 뒤 하락 최대 10%p 를 유지로. */
+  catalyst?: boolean;
+};
+
+export const ENHANCE_CATALYST_DEMOTE_SHIFT = 10;
+
 export function enhanceOutcomeRow(
   level: number,
   choice: EnhanceChoice,
+  options: EnhanceOptions = {},
 ): readonly [number, number, number, number] {
   const safeLevel = Math.max(0, Math.floor(level));
   let [s, k, d, x] = baseEnhanceOutcomeRow(safeLevel);
@@ -115,7 +123,17 @@ export function enhanceOutcomeRow(
     k += d;
     d = 0;
   }
+  if (options.catalyst) {
+    const moved = Math.min(ENHANCE_CATALYST_DEMOTE_SHIFT, d);
+    d -= moved;
+    k += moved;
+  }
   return [s, k, d, x];
+}
+
+/** 단련 촉매는 (강화석 적용 뒤) 하락 확률이 있는 시도에서만 쓸 수 있다. */
+export function enhanceCatalystUsable(level: number, choice: EnhanceChoice): boolean {
+  return enhanceOutcomeRow(level, choice)[2] > 0;
 }
 
 // 시도 결과 롤 — rng() ∈ [0,1). 서버 권위.
@@ -123,8 +141,9 @@ export function rollEnhanceOutcome(
   level: number,
   choice: EnhanceChoice,
   rng: () => number,
+  options: EnhanceOptions = {},
 ): EnhanceOutcome {
-  const [s, k, d] = enhanceOutcomeRow(level, choice);
+  const [s, k, d] = enhanceOutcomeRow(level, choice, options);
   const r = rng() * 100;
   if (r < s) return "success";
   if (r < s + k) return "keep";

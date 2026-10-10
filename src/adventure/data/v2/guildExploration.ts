@@ -1,8 +1,10 @@
 import {
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
+  SUMMON_SCROLL_MATERIAL_ID,
   type CoopRewardTier,
 } from "./coopBosses";
+import type { GuildMemberGrantOutput } from "./guildMemberGrant";
 
 export type GuildExplorationWeeklyMissionId =
   | "weekly_coop_epic_30"
@@ -10,7 +12,8 @@ export type GuildExplorationWeeklyMissionId =
   | "weekly_fishing_catch_120"
   | "weekly_woodcutting_success_80"
   | "weekly_farm_harvest_40"
-  | "weekly_deep_hunt_win_100";
+  | "weekly_deep_hunt_win_100"
+  | "weekly_raid_attack_60";
 
 export type GuildExplorationWeeklyMetric =
   | "coopBossTierClaims"
@@ -18,7 +21,8 @@ export type GuildExplorationWeeklyMetric =
   | "deepHuntWins"
   | "fishingCatches"
   | "woodcuttingSuccesses"
-  | "farmHarvests";
+  | "farmHarvests"
+  | "raidAttacks";
 
 export type GuildExplorationWeeklyMissionCategory = "combat" | "life";
 
@@ -41,6 +45,7 @@ export type GuildExplorationWeeklyState = {
   fishingCatchProgress: number;
   woodcuttingSuccessProgress: number;
   farmHarvestProgress: number;
+  raidAttackProgress: number;
   claimed: GuildExplorationWeeklyMissionId[];
   content: GuildExplorationContentState;
 };
@@ -61,7 +66,9 @@ export type GuildExplorationExpeditionId =
   | "mist_forest"
   | "red_canyon"
   | "sunken_archive"
-  | "starlight_citadel";
+  | "starlight_citadel"
+  | "frozen_peak"
+  | "abyss_corridor";
 
 export type GuildExplorationExpeditionDef = {
   id: GuildExplorationExpeditionId;
@@ -73,12 +80,18 @@ export type GuildExplorationExpeditionDef = {
   rewardFame: number;
   mapFragments: number;
   minLevel: number;
+  // 귀환 보상을 회수할 때 그 시점의 길드원 전원에게 주는 보상.
+  memberReward?: GuildMemberGrantOutput;
+  memberRewardName?: string;
 };
 
 export type GuildExplorationEventId =
   | "collapsed_bridge"
   | "ancient_device"
-  | "abandoned_cache";
+  | "abandoned_cache"
+  | "sealed_library"
+  | "starlit_altar"
+  | "lost_caravan";
 
 export type GuildExplorationEventChoiceId =
   | "safe_route"
@@ -86,7 +99,13 @@ export type GuildExplorationEventChoiceId =
   | "study"
   | "salvage"
   | "secure"
-  | "share";
+  | "share"
+  | "decode"
+  | "sell_books"
+  | "restore_altar"
+  | "collect_offerings"
+  | "secure_cargo"
+  | "record_route";
 
 export type GuildExplorationEventChoice = {
   id: GuildExplorationEventChoiceId;
@@ -116,7 +135,7 @@ export type GuildExplorationPendingEvent = {
 export type GuildExplorationContentState = {
   mapFragments: number;
   restoredMaps: number;
-  activeExpedition: GuildExplorationActiveExpedition | null;
+  activeExpeditions: GuildExplorationActiveExpedition[];
   pendingEvent: GuildExplorationPendingEvent | null;
   resolvedEvents: GuildExplorationEventId[];
 };
@@ -136,6 +155,10 @@ export const GUILD_EXPLORATION_WOODCUTTING_WEEKLY_TARGET = 80;
 export const GUILD_EXPLORATION_FARM_HARVEST_WEEKLY_TARGET = 40;
 export const GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH = 49;
 export const GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET = 2_500;
+export const GUILD_EXPLORATION_RAID_ATTACK_WEEKLY_TARGET = 60;
+export const GUILD_EXPLORATION_CONCURRENT_MIN_LEVEL = 8;
+export const GUILD_EXPLORATION_FAST_EXPEDITION_MIN_LEVEL = 10;
+export const GUILD_EXPLORATION_EXPANDED_EVENT_MIN_LEVEL = 10;
 export const GUILD_EXPLORATION_PROGRESS_UNIT = 100;
 export const GUILD_EXPLORATION_MAP_FRAGMENT_TARGET = 100;
 
@@ -197,6 +220,15 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     goal: GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
     rewardGold: 3_000_000,
     rewardMapFragments: 25,
+  },
+  weekly_raid_attack_60: {
+    id: "weekly_raid_attack_60",
+    title: `길드 토벌전 유효 공격 ${GUILD_EXPLORATION_RAID_ATTACK_WEEKLY_TARGET}회`,
+    metric: "raidAttacks",
+    category: "combat",
+    goal: GUILD_EXPLORATION_RAID_ATTACK_WEEKLY_TARGET,
+    rewardGold: 4_000_000,
+    rewardMapFragments: 30,
   },
 };
 
@@ -262,6 +294,32 @@ export const GUILD_EXPLORATION_EXPEDITIONS: Record<
     rewardFame: 140,
     mapFragments: 80,
     minLevel: 5,
+  },
+  frozen_peak: {
+    id: "frozen_peak",
+    name: "얼어붙은 봉우리",
+    desc: "고산 원정. 눈보라 속 옛 관측소를 수색하고 길드원에게 보급품을 나눕니다.",
+    durationMinutes: 900,
+    costGold: 6_000_000,
+    rewardGold: 9_000_000,
+    rewardFame: 200,
+    mapFragments: 110,
+    minLevel: 6,
+    memberReward: { kind: "stamina_potion", count: 1 },
+    memberRewardName: "스태미나 회복약 1개",
+  },
+  abyss_corridor: {
+    id: "abyss_corridor",
+    name: "심연 회랑",
+    desc: "하루가 걸리는 심층 원정. 봉인된 회랑에서 보스 소환서를 찾아옵니다.",
+    durationMinutes: 1440,
+    costGold: 10_000_000,
+    rewardGold: 15_000_000,
+    rewardFame: 320,
+    mapFragments: 170,
+    minLevel: 9,
+    memberReward: { kind: "material", materialId: SUMMON_SCROLL_MATERIAL_ID, count: 1 },
+    memberRewardName: "보스 소환서 1장",
   },
 };
 
@@ -330,6 +388,33 @@ export const GUILD_EXPLORATION_EVENTS: Record<
       },
     ],
   },
+  sealed_library: {
+    id: "sealed_library",
+    title: "봉인된 서고",
+    desc: "지도 끝에서 오래 봉인된 서고가 발견됐습니다. 기록을 어떻게 다룰지 정해야 합니다.",
+    choices: [
+      { id: "decode", label: "기록 해독", desc: "남은 기록을 해독해 길드 명성을 얻습니다.", rewardFame: 200 },
+      { id: "sell_books", label: "장서 매각", desc: "보존 상태가 좋은 장서를 팔아 금고에 넣습니다.", rewardGold: 6_000_000 },
+    ],
+  },
+  starlit_altar: {
+    id: "starlit_altar",
+    title: "별빛 제단",
+    desc: "별빛이 내려앉는 제단이 남아 있습니다. 복원하거나 공물을 회수할 수 있습니다.",
+    choices: [
+      { id: "restore_altar", label: "제단 복원", desc: "제단을 복원해 길드 명성을 얻습니다.", rewardFame: 250 },
+      { id: "collect_offerings", label: "공물 회수", desc: "남은 공물을 정리해 금고에 넣습니다.", rewardGold: 7_000_000 },
+    ],
+  },
+  lost_caravan: {
+    id: "lost_caravan",
+    title: "잊힌 상단 행렬",
+    desc: "길을 잃은 상단의 마차 행렬이 발견됐습니다. 화물과 행로 중 하나를 챙길 수 있습니다.",
+    choices: [
+      { id: "secure_cargo", label: "화물 확보", desc: "남은 화물을 금고 수익으로 바꿉니다.", rewardGold: 6_500_000 },
+      { id: "record_route", label: "행로 기록", desc: "상단의 행로를 기록해 길드 명성을 얻습니다.", rewardFame: 220 },
+    ],
+  },
 };
 
 export const GUILD_EXPLORATION_EVENT_IDS = Object.keys(
@@ -389,7 +474,7 @@ function emptyExplorationContentState(): GuildExplorationContentState {
   return {
     mapFragments: 0,
     restoredMaps: 0,
-    activeExpedition: null,
+    activeExpeditions: [],
     pendingEvent: null,
     resolvedEvents: [],
   };
@@ -402,21 +487,26 @@ export function parseGuildExplorationContentState(
     return emptyExplorationContentState();
   }
   const obj = raw as Record<string, unknown>;
-  const active =
-    obj.activeExpedition != null &&
-    typeof obj.activeExpedition === "object" &&
-    !Array.isArray(obj.activeExpedition)
-      ? (obj.activeExpedition as Record<string, unknown>)
-      : null;
-  const activeExpedition =
-    active && isGuildExplorationExpeditionId(active.expeditionId)
-      ? {
-          expeditionId: active.expeditionId,
-          startedAt:
-            typeof active.startedAt === "string" ? active.startedAt : "",
-          endsAt: typeof active.endsAt === "string" ? active.endsAt : "",
-        }
-      : null;
+  // 2026-10 이전 저장값은 activeExpedition 단일 값이다. 배열로 읽어 진행 중인 원정을 보존한다.
+  const rawActive: unknown[] = Array.isArray(obj.activeExpeditions)
+    ? obj.activeExpeditions
+    : obj.activeExpedition != null
+      ? [obj.activeExpedition]
+      : [];
+  const activeExpeditions: GuildExplorationActiveExpedition[] = [];
+  for (const item of rawActive) {
+    if (item == null || typeof item !== "object" || Array.isArray(item)) continue;
+    const active = item as Record<string, unknown>;
+    if (!isGuildExplorationExpeditionId(active.expeditionId)) continue;
+    if (activeExpeditions.some((a) => a.expeditionId === active.expeditionId)) {
+      continue;
+    }
+    activeExpeditions.push({
+      expeditionId: active.expeditionId,
+      startedAt: typeof active.startedAt === "string" ? active.startedAt : "",
+      endsAt: typeof active.endsAt === "string" ? active.endsAt : "",
+    });
+  }
   const pending =
     obj.pendingEvent != null &&
     typeof obj.pendingEvent === "object" &&
@@ -430,7 +520,7 @@ export function parseGuildExplorationContentState(
   return {
     mapFragments: asNonNegativeInt(obj.mapFragments),
     restoredMaps: asNonNegativeInt(obj.restoredMaps),
-    activeExpedition,
+    activeExpeditions,
     pendingEvent,
     resolvedEvents: Array.isArray(obj.resolvedEvents)
       ? obj.resolvedEvents.filter(isGuildExplorationEventId)
@@ -449,6 +539,7 @@ function emptyExplorationWeeklyState(
     fishingCatchProgress: 0,
     woodcuttingSuccessProgress: 0,
     farmHarvestProgress: 0,
+    raidAttackProgress: 0,
     claimed: [],
     content: emptyExplorationContentState(),
   };
@@ -467,7 +558,16 @@ export function parseGuildExplorationWeeklyState(
       ? obj.weekKey
       : currentWeekKey;
   if (weekKey !== obj.weekKey) {
-    return emptyExplorationWeeklyState(weekKey);
+    // 주간 진척은 초기화하지만, 금고 골드를 내고 보낸 원정은 주가 바뀌어도 귀환을 기다린다.
+    const empty = emptyExplorationWeeklyState(weekKey);
+    return {
+      ...empty,
+      content: {
+        ...empty.content,
+        activeExpeditions:
+          parseGuildExplorationContentState(obj.content).activeExpeditions,
+      },
+    };
   }
   const claimed = Array.isArray(obj.claimed)
     ? obj.claimed.filter(isGuildExplorationWeeklyMissionId)
@@ -497,6 +597,10 @@ export function parseGuildExplorationWeeklyState(
     farmHarvestProgress: Math.max(
       0,
       Math.floor(Number(obj.farmHarvestProgress) || 0),
+    ),
+    raidAttackProgress: Math.max(
+      0,
+      Math.floor(Number(obj.raidAttackProgress) || 0),
     ),
     claimed,
     content: parseGuildExplorationContentState(obj.content),
@@ -537,6 +641,7 @@ function progressForMetric(
     return state.woodcuttingSuccessProgress;
   }
   if (metric === "farmHarvests") return state.farmHarvestProgress;
+  if (metric === "raidAttacks") return state.raidAttackProgress;
   return 0;
 }
 
@@ -627,6 +732,12 @@ export function addGuildExplorationProgress(
       deepHuntWinProgress: state.deepHuntWinProgress + amount,
     };
   }
+  if (metric === "raidAttacks") {
+    return {
+      ...state,
+      raidAttackProgress: state.raidAttackProgress + amount,
+    };
+  }
   return state;
 }
 
@@ -652,42 +763,83 @@ export function claimGuildExplorationWeeklyMission(
   );
 }
 
+export function guildExplorationConcurrentLimit(level: number): number {
+  return level >= GUILD_EXPLORATION_CONCURRENT_MIN_LEVEL ? 2 : 1;
+}
+
+export function guildExplorationDurationMinutes(
+  def: GuildExplorationExpeditionDef,
+  level: number,
+): number {
+  return level >= GUILD_EXPLORATION_FAST_EXPEDITION_MIN_LEVEL
+    ? Math.round(def.durationMinutes * 0.9)
+    : def.durationMinutes;
+}
+
+export function guildExplorationEventIdsForLevel(
+  level: number,
+): GuildExplorationEventId[] {
+  return level >= GUILD_EXPLORATION_EXPANDED_EVENT_MIN_LEVEL
+    ? GUILD_EXPLORATION_EVENT_IDS
+    : GUILD_EXPLORATION_EVENT_IDS.slice(0, 3);
+}
+
+// 시설 레벨 미달, 같은 원정 중복, 동시 파견 한도 초과면 null.
 export function startGuildExplorationExpedition(
   state: GuildExplorationWeeklyState,
   expeditionId: GuildExplorationExpeditionId,
   now: Date,
-): GuildExplorationWeeklyState {
+  level = 1,
+): GuildExplorationWeeklyState | null {
   const def = GUILD_EXPLORATION_EXPEDITIONS[expeditionId];
+  const active = state.content.activeExpeditions;
+  if (
+    level < def.minLevel ||
+    active.some((item) => item.expeditionId === expeditionId) ||
+    active.length >= guildExplorationConcurrentLimit(level)
+  ) {
+    return null;
+  }
   const startedAt = now.toISOString();
   const endsAt = new Date(
-    now.getTime() + def.durationMinutes * 60_000,
+    now.getTime() + guildExplorationDurationMinutes(def, level) * 60_000,
   ).toISOString();
   return {
     ...state,
     content: {
       ...state.content,
-      activeExpedition: { expeditionId, startedAt, endsAt },
+      activeExpeditions: [...active, { expeditionId, startedAt, endsAt }],
     },
   };
 }
 
+// expeditionId 를 주지 않으면 귀환한 원정 중 가장 먼저 끝난 것을 회수한다.
 export function claimGuildExplorationExpedition(
   state: GuildExplorationWeeklyState,
   now: Date,
+  expeditionId?: GuildExplorationExpeditionId,
 ):
   | { state: GuildExplorationWeeklyState; reward: GuildExplorationExpeditionReward }
   | null {
-  const active = state.content.activeExpedition;
+  const returned = state.content.activeExpeditions
+    .filter((item) => {
+      const endsAt = new Date(item.endsAt).getTime();
+      return !Number.isNaN(endsAt) && endsAt <= now.getTime();
+    })
+    .sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime());
+  const active = expeditionId
+    ? returned.find((item) => item.expeditionId === expeditionId)
+    : returned[0];
   if (!active) return null;
-  const endsAt = new Date(active.endsAt).getTime();
-  if (Number.isNaN(endsAt) || endsAt > now.getTime()) return null;
   const def = GUILD_EXPLORATION_EXPEDITIONS[active.expeditionId];
   const next = withMapFragments(
     {
       ...state,
       content: {
         ...state.content,
-        activeExpedition: null,
+        activeExpeditions: state.content.activeExpeditions.filter(
+          (item) => item.expeditionId !== active.expeditionId,
+        ),
       },
     },
     def.mapFragments,
@@ -705,15 +857,14 @@ export function claimGuildExplorationExpedition(
 
 export function restoreGuildExplorationMap(
   state: GuildExplorationWeeklyState,
+  level = 1,
 ): GuildExplorationWeeklyState | null {
   if (state.content.pendingEvent) return null;
   if (state.content.mapFragments < GUILD_EXPLORATION_MAP_FRAGMENT_TARGET) {
     return null;
   }
-  const eventId =
-    GUILD_EXPLORATION_EVENT_IDS[
-      state.content.restoredMaps % GUILD_EXPLORATION_EVENT_IDS.length
-    ];
+  const eventIds = guildExplorationEventIdsForLevel(level);
+  const eventId = eventIds[state.content.restoredMaps % eventIds.length];
   return {
     ...state,
     content: {

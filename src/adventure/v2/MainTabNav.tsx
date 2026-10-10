@@ -26,6 +26,7 @@ import {
   Sparkle,
   Storefront,
   Sword,
+  Tent,
   Target,
   TestTube,
   Toolbox,
@@ -145,6 +146,7 @@ export const LIFE_MENU_ITEMS = [
   { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
   { label: "낚시", href: "/town/fishing", Icon: Fish, color: "text-sky-500" },
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
+  { label: "생활 축제", href: "/town/festival", Icon: Tent, color: "text-rose-500" },
 ] satisfies SubItem[];
 
 function activityMenuText(

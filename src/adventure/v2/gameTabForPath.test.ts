@@ -10,6 +10,7 @@ describe("게임 경로의 메인 탭 분류", () => {
     "/town/logging",
     "/town/mining",
     "/town/kitchen",
+    "/town/festival",
   ])("%s를 생활 탭으로 분류한다", (path) => {
     expect(gameTabForPath(path)).toBe("life");
   });

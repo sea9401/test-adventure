@@ -1,6 +1,7 @@
 import { type PvPSide } from "./engine.pvpState";
 import { ironWallDamageReductionPct } from "./fortressKnight";
 import { lowHpDamageReductionPct } from "./signatureEffects";
+import { weightFullDamageTakenReductionPct } from "./mutationCombat";
 
 export function pvpSideDamageTakenReductionPct(side: PvPSide): number {
   const activePct =
@@ -17,6 +18,7 @@ export function pvpSideDamageTakenReductionPct(side: PvPSide): number {
     (side.player.passiveDamageTakenReductionPct ?? 0) +
       activePct +
       ironWallDamageReductionPct(side.stacks.ironWallReflectCharges) +
-      signaturePct,
+      signaturePct +
+      weightFullDamageTakenReductionPct(side.stacks.mutationWeight, side.v2Skills?.equipped),
   );
 }

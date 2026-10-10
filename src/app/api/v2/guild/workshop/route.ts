@@ -52,7 +52,6 @@ import { V2_EQUIPMENT, isUnique, parseEquipmentSave } from "@/adventure/data/v2/
 import { mintEquipInstance, mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { db } from "@/db";
-import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
 import { snapshotStaleArtisanLeaderboards } from "@/lib/server/artisanLeaderboardSnapshots";
 import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
@@ -477,24 +476,6 @@ export async function POST(req: Request) {
     const craftPayment = spendGold(fee.gold, fee.bankedGold, craftGoldCost);
     if (!craftPayment.ok) {
       throw new Error("guild workshop gold preflight drifted");
-    }
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "guild_smithy",
-      association ? "association" : "guild",
-      week.key,
-      association ? undefined : guildId,
-    );
-    if (!weeklySource.ok) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "weekly_source_conflict" as const,
-          selectedSource: weeklySource.selected,
-        },
-      };
     }
     const paidCharRaw = {
       ...(fee.charSave as CharacterSaveWithMaterials),

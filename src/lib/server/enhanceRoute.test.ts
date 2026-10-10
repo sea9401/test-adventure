@@ -393,4 +393,45 @@ describe("POST /api/v2/me/enhance", () => {
       enhanceGoldCostForEquipment(V2_EQUIPMENT[uniqueId], 200, 0) * 2,
     );
   });
+
+  describe("단련 촉매", () => {
+    const CATALYST = "v2_tempering_catalyst";
+    const at6 = () =>
+      store.set("equipment.v2", {
+        owned: [{ iid: "w1", id: WEAPON, enhance: { level: 6, bonusPct: 10 } }],
+        equipped: {},
+      });
+
+    it("촉매를 쓰면 1개 소모하고 하락 구간 일부가 유지로 바뀐다", async () => {
+      seed({ materials: { [RED]: 50, [BLUE]: 50, [CATALYST]: 2 } });
+      at6();
+      vi.spyOn(Math, "random").mockReturnValue(0.91); // 골드만 하락 → 촉매로 유지
+      const json = (await (await POST(req({ iid: "w1", stone: "none", catalyst: true }))).json()) as {
+        outcome: string;
+        outcomeRow: number[];
+        catalysts: number;
+      };
+      expect(json.outcome).toBe("keep");
+      expect(json.outcomeRow).toEqual([40, 52, 8, 0]);
+      expect(json.catalysts).toBe(1);
+      expect((store.get("character.v2") as CharSave).materials[CATALYST]).toBe(1);
+    });
+
+    it("보유 0이면 409, 하락 없는 구간이면 400 이고 아무것도 바뀌지 않는다", async () => {
+      seed({ materials: { [RED]: 50, [BLUE]: 50 } });
+      at6();
+      const before = JSON.stringify([...store.entries()]);
+      const none = await POST(req({ iid: "w1", stone: "none", catalyst: true }));
+      expect(none.status).toBe(409);
+      expect(await none.json()).toMatchObject({ error: "insufficient_catalyst" });
+      expect(JSON.stringify([...store.entries()])).toBe(before);
+
+      seed({ materials: { [CATALYST]: 3 } });
+      const low = await POST(req({ iid: "w1", stone: "none", catalyst: true }));
+      expect(low.status).toBe(400);
+      expect(await low.json()).toMatchObject({ error: "catalyst_not_needed" });
+      expect((store.get("character.v2") as CharSave).materials[CATALYST]).toBe(3);
+    });
+  });
+
 });

@@ -8,7 +8,6 @@ import {
 
 const available = {
   eligible: true,
-  weeklySource: null,
   currentSource: "guild" as const,
   pantry: { ready: true, remaining: 0 },
   contributionPoints: 0,
@@ -18,17 +17,6 @@ const available = {
 describe("guild dining availability", () => {
   it("모든 주문 조건을 충족하면 제한 사유가 없다", () => {
     expect(guildDiningUnavailableReasons(available)).toEqual([]);
-  });
-
-  it("다른 식당을 먼저 선택했다면 선택한 이용처와 다음 이용 시점을 안내한다", () => {
-    expect(
-      guildDiningUnavailableReasons({
-        ...available,
-        weeklySource: "association",
-      }),
-    ).toEqual([
-      "이번 주 식당 이용처를 협회 식당으로 이미 선택했습니다. 다음 주 월요일 00:00 KST부터 다시 선택할 수 있습니다.",
-    ]);
   });
 
   it("주간 참여 대상이 아니면 다음 이용 시점을 안내한다", () => {

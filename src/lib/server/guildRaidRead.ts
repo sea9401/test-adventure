@@ -5,7 +5,6 @@ import { db } from "@/db";
 import {
   guildMembers,
   guildRaidAttackLogs,
-  guildRaidEvents,
   guildRaidGuildScores,
   guildRaidParticipants,
   guilds,
@@ -14,13 +13,24 @@ import {
   GUILD_RAID_DAILY_ATTACKS,
   GUILD_RAID_ELIGIBLE_ATTACKS,
   guildRaidDayKey,
-  guildRaidMaxHp,
   guildRaidPhase,
-  guildRaidRewardForRank,
+  guildRaidRewardFor,
   normalizeGuildRaidPage,
+  parseGuildRaidRewardTier,
+  resolveGuildRaidRewardTier,
 } from "@/adventure/data/v2/guildRaid";
-import { parseCoopBossKindId } from "@/adventure/data/v2/coopBosses";
+import {
+  GUILD_RAID_BOSS_IDS,
+  GUILD_RAID_BOSSES,
+  GUILD_RAID_DEFAULT_BOSS_ID,
+  parseGuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type {
+  GuildRaidBossSummary,
+  GuildRaidState,
+} from "@/adventure/v2/guild/guildRaidTypes";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import {
   ensureCurrentGuildRaid,
   readGuildRaidLeaderboard,
@@ -29,6 +39,21 @@ import {
   readMuseunCosmeticAppearanceMap,
   readProfileAvatarMap,
 } from "@/lib/server/museunCosmetics";
+
+const GUILD_RAID_BOSS_SUMMARIES: GuildRaidBossSummary[] = GUILD_RAID_BOSS_IDS.map(
+  (id) => {
+    const boss = GUILD_RAID_BOSSES[id];
+    return {
+      id,
+      name: boss.definition.name,
+      desc: boss.definition.desc,
+      image: boss.definition.base.image ?? "/images/monster/v2/sangoon.webp",
+      traits: boss.definition.traits,
+      rewardMultiplier: boss.rewardMultiplier,
+      bonusMinGuildDamage: boss.bonusMinGuildDamage,
+    };
+  },
+);
 
 function parseReplayPayload(raw: unknown): ReplayPayload | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -43,7 +68,7 @@ function parseReplayPayload(raw: unknown): ReplayPayload | null {
 export async function readGuildRaidState(
   userId: string,
   now = new Date(),
-  pages: { leaderboardPage?: unknown; recentPage?: unknown } = {},
+  pages: { leaderboardPage?: unknown; recentPage?: unknown; board?: unknown } = {},
 ) {
   const event = await ensureCurrentGuildRaid(now);
   const [participantRows, currentGuildRows] = await Promise.all([
@@ -71,17 +96,25 @@ export async function readGuildRaidState(
     return { ok: false as const, error: "no_guild" as const };
   }
 
-  const [scoreRows, recentCountRows, leaderboard] = await Promise.all([
-    db
-      .select()
-      .from(guildRaidGuildScores)
-      .where(
-        and(
-          eq(guildRaidGuildScores.eventId, event.id),
-          eq(guildRaidGuildScores.guildId, raidGuildId),
-        ),
-      )
-      .limit(1),
+  const [score] = await db
+    .select()
+    .from(guildRaidGuildScores)
+    .where(
+      and(
+        eq(guildRaidGuildScores.eventId, event.id),
+        eq(guildRaidGuildScores.guildId, raidGuildId),
+      ),
+    )
+    .limit(1);
+  const selectedBossId = score
+    ? parseGuildRaidBossId(score.bossKind) ?? GUILD_RAID_DEFAULT_BOSS_ID
+    : null;
+  const board =
+    parseGuildRaidBossId(pages.board) ??
+    selectedBossId ??
+    GUILD_RAID_DEFAULT_BOSS_ID;
+  const currentGuildMatches = currentGuild?.id === raidGuildId;
+  const [recentCountRows, leaderboard, canManage] = await Promise.all([
     db
       .select({ total: count() })
       .from(guildRaidAttackLogs)
@@ -93,11 +126,14 @@ export async function readGuildRaidState(
       ),
     readGuildRaidLeaderboard(
       event.id,
+      board,
       raidGuildId,
       pages.leaderboardPage,
     ),
+    currentGuildMatches && !score
+      ? isGuildMasterOrManager(db, raidGuildId, userId)
+      : Promise.resolve(false),
   ]);
-  const score = scoreRows[0] ?? null;
   const recentTotal = recentCountRows[0]?.total ?? 0;
   const recentPage = normalizeGuildRaidPage(pages.recentPage, recentTotal);
   const [memberRows, recentRows] = await Promise.all([
@@ -135,34 +171,55 @@ export async function readGuildRaidState(
   const today = guildRaidDayKey(now);
   const dailyAttackCount =
     participant?.dayKey === today ? participant.dailyAttackCount : 0;
-  const bossKind = parseCoopBossKindId(event.bossKind);
-  if (!bossKind) {
-    return { ok: false as const, error: "bad_boss" as const };
-  }
   const phase = guildRaidPhase(now, event);
   const eligible =
     participant?.eligibleAtSettlement ??
     ((participant?.attackCount ?? 0) >= GUILD_RAID_ELIGIBLE_ATTACKS &&
       (participant?.damage ?? 0) >= 1);
   const rank = leaderboard.viewer?.rank ?? null;
-  const reward = rank == null ? null : guildRaidRewardForRank(rank);
-  const initialMaxHp = guildRaidMaxHp(1);
-  const currentGuildMatches = currentGuild?.id === raidGuildId;
+  const guildDamage = score?.damage ?? 0;
+  const settledTier =
+    score?.finalRank != null ? parseGuildRaidRewardTier(score.rewardTier) : null;
+  const rewardTier =
+    settledTier ??
+    (selectedBossId ? resolveGuildRaidRewardTier(selectedBossId, guildDamage) : null);
+  const reward =
+    rank == null || rewardTier == null ? null : guildRaidRewardFor(rank, rewardTier);
+  const bonusThreshold = selectedBossId
+    ? GUILD_RAID_BOSSES[selectedBossId].bonusMinGuildDamage
+    : null;
+  const bonusThresholdMet =
+    bonusThreshold == null
+      ? null
+      : settledTier
+        ? settledTier === "bonus"
+        : guildDamage >= bonusThreshold;
+  const eventActive = event.status === "active" && phase === "active";
 
   return {
     ok: true as const,
     event: {
       id: event.id,
-      bossKind,
+      bossKind: selectedBossId,
       status: event.status,
       phase,
-      stage: score?.stage ?? 1,
-      hp: score?.hp ?? initialMaxHp,
-      maxHp: score?.maxHp ?? initialMaxHp,
+      stage: score?.stage ?? null,
+      hp: score?.hp ?? null,
+      maxHp: score?.maxHp ?? null,
       startsAt: event.startsAt.getTime(),
       endsAt: event.endsAt.getTime(),
       settledAt: event.settledAt?.getTime() ?? null,
     },
+    selection:
+      score && selectedBossId
+        ? {
+            bossId: selectedBossId,
+            selectedAt: (score.selectedAt ?? score.updatedAt).getTime(),
+          }
+        : null,
+    canSelect: !score && eventActive && canManage,
+    bosses: GUILD_RAID_BOSS_SUMMARIES,
+    board,
     my: {
       lockedGuildId: participant?.guildId ?? null,
       damage: participant?.damage ?? 0,
@@ -173,6 +230,7 @@ export async function readGuildRaidState(
       eligible,
       rewardClaimedAt: participant?.rewardClaimedAt?.getTime() ?? null,
       reward,
+      bonusThresholdMet,
       canClaim:
         phase === "claim" &&
         eligible &&
@@ -221,7 +279,7 @@ export async function readGuildRaidState(
       totalPages: recentPage.totalPages,
       total: recentTotal,
     },
-  };
+  } satisfies GuildRaidState;
 }
 
 export async function readGuildRaidReplay(userId: string, attackId: number) {
@@ -242,14 +300,13 @@ export async function readGuildRaidReplay(userId: string, attackId: number) {
       diedEarly: guildRaidAttackLogs.diedEarly,
       replay: guildRaidAttackLogs.replay,
       createdAt: guildRaidAttackLogs.createdAt,
-      bossKind: guildRaidEvents.bossKind,
+      bossKind: guildRaidAttackLogs.bossKind,
     })
     .from(guildRaidAttackLogs)
-    .innerJoin(guildRaidEvents, eq(guildRaidEvents.id, guildRaidAttackLogs.eventId))
     .where(eq(guildRaidAttackLogs.id, attackId))
     .limit(1);
   const replay = row ? parseReplayPayload(row.replay) : null;
-  const bossKind = row ? parseCoopBossKindId(row.bossKind) : null;
+  const bossKind = row ? parseGuildRaidBossId(row.bossKind) : null;
   if (!row || !replay || !bossKind) return null;
   const [avatarByUser, cosmeticByUser] = await Promise.all([
     readProfileAvatarMap([row.userId]),

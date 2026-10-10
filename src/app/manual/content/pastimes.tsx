@@ -53,6 +53,26 @@ import {
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { COOKING_BUFF_DURATION_MS } from "@/adventure/v2/cooking/food";
 import { COOKING_DAILY_REQUEST_COUNT, COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "@/adventure/v2/cooking/state";
+import {
+  LIFE_FESTIVAL_RANK_REWARDS,
+  LIFE_FESTIVAL_RANKING_SIZE,
+  LIFE_FESTIVAL_THEMES,
+} from "@/adventure/data/v2/lifeFestival";
+import {
+  LIFE_FESTIVAL_GENERAL_ORDER_COUNT,
+  LIFE_FESTIVAL_THEME_ORDER_COUNT,
+} from "@/adventure/v2/lifeFestival";
+import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
+import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/foodShared";
+import {
+  LIFE_MAJOR_CHANGE_COOLDOWN_MS,
+  LIFE_MAJOR_CRAFT_MIN_STAGE,
+  LIFE_MAJOR_MAJOR_BONUS_PER_STAGE,
+  LIFE_MAJOR_MAX_STAGE,
+  LIFE_MAJOR_PRODUCT_BASE_PCT,
+  LIFE_MAJOR_PRODUCT_PER_STAGE_PCT,
+  LIFE_MAJOR_PRODUCTS,
+} from "@/adventure/v2/lifeMajor";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
@@ -68,12 +88,22 @@ function chanceText(value: number) {
   return `${(value * 100).toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`;
 }
 
+function rankRewardText(): string {
+  let previous = 0;
+  return LIFE_FESTIVAL_RANK_REWARDS.map((tier) => {
+    const label =
+      tier.maxRank === previous + 1 ? `${tier.maxRank}위` : `${previous + 1}~${tier.maxRank}위`;
+    previous = tier.maxRank;
+    return `${label} ${tier.tokens}개`;
+  }).join(", ");
+}
+
 export function PastimesContent() {
   return (
     <>
       <H2>생활 콘텐츠 한눈에 보기</H2>
       <P>
-        생활 콘텐츠에는 <Em>농장·요리·벌목·채광·낚시</Em>가 있습니다. 각 콘텐츠는
+        생활 콘텐츠에는 <Em>농장·요리·벌목·채광·낚시</Em>와 매주 열리는 <Em>생활 축제</Em>가 있습니다. 각 콘텐츠는
         별도의 레벨과 기록을 쌓으며, 얻은 작물·원목·광석은 길드 시설과 제작,
         거래소에서 사용합니다. 낚시는 별도 코인과 어보, 주간 최대어 기록을
         중심으로 진행됩니다.
@@ -123,6 +153,86 @@ export function PastimesContent() {
         ])}
         caption="흔적 후보와 어울리는 오늘의 현장에서 작업하면 해당 판정의 발견 확률이 1.5배가 됩니다. 누적 실패 횟수는 날짜가 바뀌어도 유지되고, 흔적을 찾으면 0으로 초기화됩니다."
       />
+
+      <H2>생활 축제</H2>
+      <P>
+        생활 탭의 <Em>생활 축제</Em>에서는 매주 월요일 00:00 KST에 테마가 바뀝니다.
+        테마 활동에는 아래 보너스가 붙고, 해당 작업 화면 위쪽에 축제 진행 중
+        표시가 나타납니다.
+      </P>
+      <Table
+        head={["테마", "활동", "효과"]}
+        rows={LIFE_FESTIVAL_THEMES.map((theme) => [
+          theme.name,
+          theme.activityName,
+          theme.effectText,
+        ])}
+        caption="벌목·채광의 추가 재료 확률은 작업을 시작할 때 정해집니다."
+      />
+      <UL>
+        <li>
+          매주 축제 주문 {LIFE_FESTIVAL_THEME_ORDER_COUNT + LIFE_FESTIVAL_GENERAL_ORDER_COUNT}건이
+          열립니다. 요리, 다듬은 목재·금속괴 같은 가공재, 달걀·우유·돼지고기,
+          생활 보조품을 받습니다.
+        </li>
+        <li>
+          같은 주문은 횟수 제한 없이 반복해서 납품할 수 있습니다. 그 주의
+          6번째부터 50%, 16번째부터 20%의 증표와 점수를 받습니다.
+        </li>
+        <li>
+          주간 점수 상위 {LIFE_FESTIVAL_RANKING_SIZE}명은 다음 주 월요일에 우편으로
+          축제 증표를 받습니다: {rankRewardText()}.
+        </li>
+        <li>
+          축제 증표는 주가 바뀌어도 사라지지 않습니다. 축제 상점에서 생활 보조품,
+          배합 사료, 숙련 증서, 스태미나 포션, 미스릴 조각, 축제 칭호로 교환합니다.
+        </li>
+      </UL>
+
+      <H2>생활 전공과 명장 단계</H2>
+      <P>
+        Lv.100을 달성한 생활 중 <Em>주전공 1개</Em>와 <Em>부전공 1개</Em>를 생활 기록
+        화면에서 고를 수 있습니다. 고르지 않은 생활은 지금과 똑같이 이용할 수 있습니다.
+      </P>
+      <UL>
+        <li>
+          전공 생활에서 Lv.100을 넘겨 쌓이지 못하던 경험치가 명장 경험치로 쌓여
+          명장 {LIFE_MAJOR_MAX_STAGE}단계까지 오릅니다.
+        </li>
+        <li>
+          명장 단계마다 주전공은 그 생활의 주력 수치가 {LIFE_MAJOR_MAJOR_BONUS_PER_STAGE}%p(농사
+          수확량은 {LIFE_MAJOR_MAJOR_BONUS_PER_STAGE}%)씩 오르고, 부전공은 절반만 오릅니다. 주력
+          수치는 농사 수확량, 벌목 추가 원목 확률, 채광 추가 광석 확률, 낚시 특수 어종 가중치,
+          요리 걸작 확률입니다.
+        </li>
+        <li>
+          농사·벌목·채광·낚시 전공은 작업에 성공할 때 일정 확률로 명장 산물을 얻습니다:{" "}
+          {Object.values(LIFE_MAJOR_PRODUCTS).map((product) => product.name).join(", ")}.
+          확률은 주전공 {LIFE_MAJOR_PRODUCT_BASE_PCT}%에서 단계마다{" "}
+          {LIFE_MAJOR_PRODUCT_PER_STAGE_PCT}%씩 오르며 부전공은 절반입니다. 명장 산물은
+          거래소에서 거래할 수 있고, 얻으면 알림으로 알려 드립니다.
+        </li>
+        <li>
+          처음 지정은 언제든 할 수 있습니다. 지정한 전공을 바꾸거나 비우면{" "}
+          {LIFE_MAJOR_CHANGE_COOLDOWN_MS / 86_400_000}일 동안 다시 바꿀 수 없습니다. 쌓은
+          명장 단계는 생활별로 남지만, 전공일 때만 오르고 효과가 붙습니다.
+        </li>
+      </UL>
+      <UL>
+        <li>
+          <Em>명장 요리</Em>: 요리 주전공 명장 {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 주방의 명장
+          요리 탭에서 만듭니다. 보유한 걸작 요리 1개와 명장 작물 1개(해산물 요리는 명장 어획)를
+          쓰며, 효과가 걸작보다 크고{" "}
+          {(COOKING_BUFF_DURATION_MS * COOKING_SIGNATURE_DURATION_MULTIPLIER) / 3_600_000}시간
+          지속됩니다. 납품에서도 걸작 이상 조건을 채웁니다.
+        </li>
+        <li>
+          <Em>단련 촉매</Em>: 채광 주전공 명장 {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 생활 기록의
+          생활 전공 카드에서 만듭니다. 1개에 명장 합금 2개와 명장 목재 1개가 들고, 장비 강화
+          1회에 쓰면 하락 확률을 최대 {ENHANCE_CATALYST_DEMOTE_SHIFT}%p 유지로 바꿉니다.
+          강화석과 함께 쓸 수 있고, 하락하지 않는 단계에서는 쓸 수 없습니다.
+        </li>
+      </UL>
 
       <H2>농장</H2>
       <UL>
@@ -189,12 +299,15 @@ export function PastimesContent() {
         재료는 선택 수량만큼 필요하고, 품질은 음식마다 독립적으로 판정됩니다.
         한 번에 만들었다고 모두 같은 품질이 되거나 품질 확률이 달라지지는 않습니다.
         미발견 요리는 이름이나 검색 결과로 미리 공개되지 않습니다.
+        기본 정렬은 최근 발견순이라 방금 찾은 레시피가 즐겨찾기 다음에 먼저 보이고,
+        조리법별로 도감을 걸러 볼 수 있습니다.
       </P>
       <UL>
         <li>
           주방의 <Em>연구</Em> 탭에서 조리법과 서로 다른 재료 2~5개를 직접 골라 숨은
           레시피를 찾습니다. 재료 순서는 관계없으며 오답은 선택한 재료를 1개씩 소비합니다.
-          같은 오답은 다시 시도해도 재료를 소비하지 않고, 정답 조합에 관한 힌트는 제공하지 않습니다.
+          이미 실패한 조합과 이미 발견한 레시피의 조합은 연구 버튼이 잠겨 다시 시도할 수 없고,
+          정답 조합에 관한 힌트는 제공하지 않습니다.
           현재 레시피는 기본 6종을 포함해 총 <Em>{COOKING_PUBLIC_RECIPES.length}종</Em>입니다.
         </li>
         <li>

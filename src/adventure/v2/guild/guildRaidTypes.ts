@@ -1,21 +1,38 @@
-import type { CoopBossKindId } from "@/adventure/data/v2/coopBosses";
 import type { GuildRaidReward } from "@/adventure/data/v2/guildRaid";
+import type { GuildRaidBossId } from "@/adventure/data/v2/guildRaidBosses";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+
+export type GuildRaidBossSummary = {
+  id: GuildRaidBossId;
+  name: string;
+  desc: string;
+  image: string;
+  traits: string[];
+  rewardMultiplier: 1 | 2;
+  bonusMinGuildDamage: number | null;
+};
 
 export type GuildRaidState = {
   ok: true;
   event: {
     id: string;
-    bossKind: CoopBossKindId;
+    /** 우리 길드가 고른 보스. 고르기 전이면 null이고 단계·체력도 null. */
+    bossKind: GuildRaidBossId | null;
     status: string;
     phase: "active" | "claim" | "expired";
-    stage: number;
-    hp: number;
-    maxHp: number;
+    stage: number | null;
+    hp: number | null;
+    maxHp: number | null;
     startsAt: number;
     endsAt: number;
     settledAt: number | null;
   };
+  selection: { bossId: GuildRaidBossId; selectedAt: number } | null;
+  /** 길드장·관리자이고 전투 기간이며 아직 고르지 않았을 때만 true. */
+  canSelect: boolean;
+  bosses: GuildRaidBossSummary[];
+  /** 지금 보여 주는 순위표의 보스. */
+  board: GuildRaidBossId;
   my: {
     lockedGuildId: number | null;
     damage: number;
@@ -26,6 +43,8 @@ export type GuildRaidState = {
     eligible: boolean;
     rewardClaimedAt: number | null;
     reward: GuildRaidReward | null;
+    /** 2배 보상 기준이 있는 보스를 골랐을 때만 boolean. */
+    bonusThresholdMet: boolean | null;
     canClaim: boolean;
   };
   guild: {
@@ -88,7 +107,7 @@ export type GuildRaidAttackResult = {
 export type GuildRaidPracticeResult = {
   ok: true;
   practice: true;
-  bossKind: CoopBossKindId;
+  bossKind: GuildRaidBossId;
   playerName: string;
   damageDealt: number;
   damageTaken: number;

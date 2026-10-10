@@ -4,6 +4,7 @@ import {
   GUILD_DINING_MENUS,
   GUILD_DINING_USER_SAVE_KEY,
   activeEffectForMenu,
+  associationDiningContributionPoints,
   associationDiningTicketProgress,
   guildDiningDonationPoints,
   guildDiningIngredient,
@@ -16,8 +17,6 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import {
   associationFacilityLevel,
   canUseAdventurerAssociation,
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
 import {
   lockGuildDiningIngredient,
@@ -46,7 +45,7 @@ async function diningView(args: {
   userState?: GuildDiningUserState;
   inventory?: InventorySave;
 }) {
-  const [balances, inventoryRaw, diningRaw, weeklySource] = await Promise.all([
+  const [balances, inventoryRaw, diningRaw] = await Promise.all([
     readGuildDiningIngredientBalances(args.tx, args.userId),
     args.inventory ?? readSave<InventorySave>(args.tx, args.userId, "inventory.v2", {}),
     args.userState
@@ -57,12 +56,6 @@ async function diningView(args: {
           GUILD_DINING_USER_SAVE_KEY,
           {},
         ),
-    readWeeklyFacilitySource(
-      args.tx,
-      args.userId,
-      "dining_hall",
-      args.weekKey,
-    ),
   ]);
   const userState =
     args.userState ??
@@ -80,8 +73,7 @@ async function diningView(args: {
     level: args.level,
     stageLabel: upgrade.label,
     weekKey: args.weekKey,
-    weeklySource,
-    eligible: weeklySource !== "guild",
+    eligible: true,
     pantry: {
       points: 0,
       target: 0,
@@ -89,7 +81,7 @@ async function diningView(args: {
       ready: true,
     },
     tickets: associationDiningTicketProgress(userState),
-    contributionPoints: userState.contributionPoints,
+    contributionPoints: associationDiningContributionPoints(userState),
     ingredients: GUILD_DINING_INGREDIENTS.map((ingredient) => ({
       ...ingredient,
       owned: balances[ingredient.id] ?? 0,
@@ -187,19 +179,6 @@ export async function POST(req: Request) {
       if (sourceInventory.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_ingredients" } };
       }
-      const weeklySource = await claimWeeklyFacilitySource(
-        tx,
-        userId,
-        "dining_hall",
-        "association",
-        weekKey,
-      );
-      if (!weeklySource.ok) {
-        return {
-          status: 409,
-          body: { ok: false as const, error: "weekly_source_conflict", selectedSource: weeklySource.selected },
-        };
-      }
       const nextState = { ...state, contributionPoints: state.contributionPoints + points };
       await sourceInventory.consume(quantity);
       await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, nextState);
@@ -231,19 +210,6 @@ export async function POST(req: Request) {
     });
     if (associationDiningTicketProgress(state).available <= 0) {
       return { status: 409, body: { ok: false as const, error: "no_meal_ticket" } };
-    }
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "dining_hall",
-      "association",
-      weekKey,
-    );
-    if (!weeklySource.ok) {
-      return {
-        status: 409,
-        body: { ok: false as const, error: "weekly_source_conflict", selectedSource: weeklySource.selected },
-      };
     }
     const nextInventory = { ...inventory };
     let recovery = { hp: 0, mp: 0 };

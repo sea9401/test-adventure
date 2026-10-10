@@ -44,6 +44,8 @@ import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
+import { LifeFestivalBadge } from "./LifeFestivalBadge";
+import { LifeMajorBadge } from "./LifeMajorBadge";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -1169,6 +1171,8 @@ export function WoodcuttingView({
         title={viewMode === "choice" ? "벌목장" : `${selectedSpot.shortName} 벌목`}
         onBack={onBack}
       />
+      <LifeFestivalBadge activity="woodcutting" />
+      <LifeMajorBadge activity="woodcutting" />
 
       <ProductionJobAdvanceNotice refreshKey={progression.level} />
       <LifeLevelMilestoneNotice

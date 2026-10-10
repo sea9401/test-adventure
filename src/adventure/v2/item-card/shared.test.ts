@@ -70,6 +70,28 @@ describe("itemNameClass", () => {
     expect(venomDagger.signature).toBeDefined();
     expect(itemNameClass(venomDagger)).toBe("ui-item-name-signature");
   });
+
+  // 색약 건의: 황색·주황·장미·빨강 4단계가 구분되지 않아 따뜻한 색을 황금·진홍 2단계로 줄였다.
+  it("splits high power into gold and deep red only", () => {
+    const plainWeapon = Object.values(V2_EQUIPMENT).find(
+      (item) =>
+        item.slot === "weapon" &&
+        !item.setId &&
+        !item.signature &&
+        item.rarity !== "unique",
+    )!;
+    const nameAt = (power: number) =>
+      itemNameClass({ ...plainWeapon, power });
+    const gold = "text-amber-600 dark:text-amber-400";
+    const deepRed = "text-red-700 dark:text-red-500";
+
+    expect(nameAt(599)).toBe("text-violet-600 dark:text-violet-400");
+    expect(nameAt(600)).toBe(gold);
+    expect(nameAt(854)).toBe(gold);
+    expect(nameAt(999)).toBe(gold);
+    expect(nameAt(1000)).toBe(deepRed);
+    expect(nameAt(1300)).toBe(deepRed);
+  });
 });
 
 describe("QualityPctText", () => {

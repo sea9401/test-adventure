@@ -17,7 +17,7 @@ import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engi
 import { appendLog, appendSkillCastLog, playerPveEvasionReductionPct } from "./engineSupport";
 import { consumeReactiveDefenseCharges, ironWallDamageReductionPct, resolveFortressReaction } from "./fortressKnight";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage, type MagicBarrierDamageResult } from "./magicBarrier";
-import { effectiveMutationDef } from "./mutationCombat";
+import { effectiveMutationDef, weightFullDamageTakenReductionPct } from "./mutationCombat";
 import { applyNextAttackDamageDown, consumeNextAttackDamageDown } from "./paragonCombat";
 import { healToShield, lowHpDamageReductionPct, onDodgeSpeedBuff, statusBlockOnce } from "./signatureEffects";
 import { applyTier6UniquePveEvent } from "./tier6UniquePveAdapter";
@@ -122,7 +122,7 @@ export function reduceIncomingEnemySkillDamage(
     (player.passiveDamageTakenReductionPct ?? 0) +
     activeReductionPct +
     ironWallDamageReductionPct(state.stacks.ironWallReflectCharges) +
-    lowHpReductionPct;
+    lowHpReductionPct + weightFullDamageTakenReductionPct(state.stacks.mutationWeight, state.v2Skills?.equipped);
   const openingMagicReductionPct =
     result.magicEnemyDamage > 0 &&
     state.turn.enemyPhasesCompleted <

@@ -40,6 +40,8 @@ import {
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LifeFestivalBadge } from "./LifeFestivalBadge";
+import { LifeMajorBadge } from "./LifeMajorBadge";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -641,6 +643,8 @@ export function FishingView({
     <>
     <main className={`${SURFACE_CARD} mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl p-3 text-zinc-900 shadow-lg dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5`}>
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
+        <LifeFestivalBadge activity="fishing" />
+        <LifeMajorBadge activity="fishing" />
 
         <ProductionJobAdvanceNotice refreshKey={progression?.catches ?? 0} />
         {progression ? (

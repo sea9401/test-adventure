@@ -944,17 +944,26 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     );
   });
 
+  it("방어 무시 추가 피해가 있는 직접 피해는 피해 칩에 추가 비율을 함께 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_infernomancer_collapse)).toContain(
+      "피해 마법 공격력×3 + 지능×3 · 방어 무시 추가 피해 +20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_stormbringer_burst)).toContain(
+      "피해 마법 공격력×3.5 + 지능×3.5",
+    );
+  });
+
   it("6차 순수형과 혼합형 모두 직접 스탯 계수 상향을 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_swordsaint_flash)).toContain(
-      "피해 공격력×1.3 + 힘×3",
+      "피해 공격력×1.3 + 힘×3 · 방어 무시 추가 피해 +15%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_archmage_collapse)).toContain(
-      "피해 마법 공격력×1.68 + 지능×0.68",
+      "피해 마법 공격력×1.68 + 지능×0.68 · 방어 무시 추가 피해 +12%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_heavenlybow_orbit)).toEqual(
       expect.arrayContaining([
-        "피해 공격력×0.4 + 민첩×0.58",
-        "피해 공격력×0.4 + 민첩×0.71",
+        "피해 공격력×0.4 + 민첩×0.58 · 방어 무시 추가 피해 +22%",
+        "피해 공격력×0.4 + 민첩×0.71 · 방어 무시 추가 피해 +34%",
       ]),
     );
   });

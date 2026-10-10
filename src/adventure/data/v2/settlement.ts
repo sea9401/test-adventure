@@ -314,7 +314,39 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_warehouse",
 ];
 
-export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
+// 저장값 정규화 상한. 시설별 실제 상한은 settlementBuildingMaxLevel 이 정한다.
+export const MAX_SETTLEMENT_BUILDING_LEVEL = 10;
+export const BASE_SETTLEMENT_BUILDING_MAX_LEVEL = 5;
+
+// 길드에서 Lv.6~10까지 여는 시설(1차). 제작소·창고는 Lv.5에 머문다.
+export const GUILD_FACILITY_EXPANDED_IDS = [
+  "training_ground",
+  "exploration_hq",
+  "alchemy_workshop",
+  "dining_hall",
+  "trade_post",
+] as const satisfies readonly SettlementBuildingId[];
+
+export type GuildFacilityExpandedId = (typeof GUILD_FACILITY_EXPANDED_IDS)[number];
+
+export function isGuildFacilityExpandedId(
+  id: string,
+): id is GuildFacilityExpandedId {
+  return (GUILD_FACILITY_EXPANDED_IDS as readonly string[]).includes(id);
+}
+
+// guild_facility = 길드 시설 화면·라우트, association = 모험가 협회 공공시설,
+// village = 옛 영지 마을 건축물. Lv.6 이상은 운영 실적 조건이 있는 길드 시설 경로에서만 연다.
+export type SettlementUpgradeScope = "guild_facility" | "association" | "village";
+
+export function settlementBuildingMaxLevel(
+  buildingId: SettlementBuildingId,
+  scope: SettlementUpgradeScope,
+): number {
+  return scope === "guild_facility" && isGuildFacilityExpandedId(buildingId)
+    ? MAX_SETTLEMENT_BUILDING_LEVEL
+    : BASE_SETTLEMENT_BUILDING_MAX_LEVEL;
+}
 
 export type SettlementBuildingUpgradeCost = Partial<
   Record<SettlementResourceKey, number>
@@ -331,9 +363,39 @@ export type SettlementBuildingUpgradeDef = {
   label: string;
 };
 
+type FacilityUpgradeLevel = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+// Lv.6~10은 길드 시설 확장 5종 전용 단계다(설계 2026-10-10). 상위 길드가 쌓아 둔
+// 최상위 원목·광석을 소모하도록 참나무·금 이상만 요구한다.
+const EXPANDED_FACILITY_RESOURCE_COST: Record<
+  6 | 7 | 8 | 9 | 10,
+  { oakGold: number; cedarMythril: number; cypressAdamantite: number }
+> = {
+  6: { oakGold: 3000, cedarMythril: 2500, cypressAdamantite: 2000 },
+  7: { oakGold: 3500, cedarMythril: 3500, cypressAdamantite: 3000 },
+  8: { oakGold: 3000, cedarMythril: 4500, cypressAdamantite: 4500 },
+  9: { oakGold: 0, cedarMythril: 6000, cypressAdamantite: 6000 },
+  10: { oakGold: 0, cedarMythril: 7500, cypressAdamantite: 7500 },
+};
+
 function facilityResourceCostForLevel(
-  level: 2 | 3 | 4 | 5,
+  level: FacilityUpgradeLevel,
 ): Partial<Record<SettlementResourceKey, number>> {
+  if (level >= 6) {
+    const cost = EXPANDED_FACILITY_RESOURCE_COST[level as 6 | 7 | 8 | 9 | 10];
+    return {
+      ...(cost.oakGold > 0
+        ? {
+            [WOODCUTTING_MATERIAL_ID.oak]: cost.oakGold,
+            [MINING_MATERIAL_ID.gold]: cost.oakGold,
+          }
+        : {}),
+      [WOODCUTTING_MATERIAL_ID.cedar]: cost.cedarMythril,
+      [MINING_MATERIAL_ID.mythril]: cost.cedarMythril,
+      [WOODCUTTING_MATERIAL_ID.cypress]: cost.cypressAdamantite,
+      [MINING_MATERIAL_ID.adamantite]: cost.cypressAdamantite,
+    };
+  }
   if (level === 2) {
     return { crop: 500, ore: 500 };
   }
@@ -368,11 +430,29 @@ function facilityResourceCostForLevel(
 }
 
 function facilityUpgradeCost(
-  level: 2 | 3 | 4 | 5,
+  level: FacilityUpgradeLevel,
   gold: number,
   fame: number,
 ): SettlementBuildingUpgradeCost {
   return { ...facilityResourceCostForLevel(level), gold, fame };
+}
+
+const EXPANDED_FACILITY_GOLD_FAME: Record<
+  6 | 7 | 8 | 9 | 10,
+  { gold: number; fame: number }
+> = {
+  6: { gold: 400_000_000, fame: 4000 },
+  7: { gold: 600_000_000, fame: 5500 },
+  8: { gold: 800_000_000, fame: 7000 },
+  9: { gold: 1_000_000_000, fame: 8500 },
+  10: { gold: 1_200_000_000, fame: 10_000 },
+};
+
+function expandedFacilityUpgradeCost(
+  level: 6 | 7 | 8 | 9 | 10,
+): SettlementBuildingUpgradeCost {
+  const { gold, fame } = EXPANDED_FACILITY_GOLD_FAME[level];
+  return facilityUpgradeCost(level, gold, fame);
 }
 
 export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
@@ -456,6 +536,41 @@ export const TRAINING_GROUND_UPGRADES: readonly TrainingGroundUpgradeDef[] = [
     trainingRewardBonusPct: 50,
     unlockedDrillCount: 3,
     label: "정예 훈련소",
+  },
+  {
+    level: 6,
+    cost: expandedFacilityUpgradeCost(6),
+    trainingRewardBonusPct: 60,
+    unlockedDrillCount: 3,
+    label: "합동 훈련장",
+  },
+  {
+    level: 7,
+    cost: expandedFacilityUpgradeCost(7),
+    trainingRewardBonusPct: 70,
+    unlockedDrillCount: 4,
+    label: "교관 숙소",
+  },
+  {
+    level: 8,
+    cost: expandedFacilityUpgradeCost(8),
+    trainingRewardBonusPct: 80,
+    unlockedDrillCount: 4,
+    label: "직군 수련관",
+  },
+  {
+    level: 9,
+    cost: expandedFacilityUpgradeCost(9),
+    trainingRewardBonusPct: 90,
+    unlockedDrillCount: 4,
+    label: "명예 훈련관",
+  },
+  {
+    level: 10,
+    cost: expandedFacilityUpgradeCost(10),
+    trainingRewardBonusPct: 100,
+    unlockedDrillCount: 5,
+    label: "전설의 훈련소",
   },
 ];
 
@@ -575,6 +690,41 @@ export const EXPLORATION_HQ_UPGRADES: readonly ExplorationHqUpgradeDef[] = [
     missionProgressBonusPct: 35,
     label: "대륙 탐사 본부",
   },
+  {
+    level: 6,
+    cost: expandedFacilityUpgradeCost(6),
+    weeklyMissionCount: 6,
+    missionProgressBonusPct: 40,
+    label: "고산 전진기지",
+  },
+  {
+    level: 7,
+    cost: expandedFacilityUpgradeCost(7),
+    weeklyMissionCount: 7,
+    missionProgressBonusPct: 45,
+    label: "토벌 정찰소",
+  },
+  {
+    level: 8,
+    cost: expandedFacilityUpgradeCost(8),
+    weeklyMissionCount: 7,
+    missionProgressBonusPct: 50,
+    label: "쌍둥이 원정 막사",
+  },
+  {
+    level: 9,
+    cost: expandedFacilityUpgradeCost(9),
+    weeklyMissionCount: 7,
+    missionProgressBonusPct: 55,
+    label: "심연 관측소",
+  },
+  {
+    level: 10,
+    cost: expandedFacilityUpgradeCost(10),
+    weeklyMissionCount: 7,
+    missionProgressBonusPct: 60,
+    label: "대륙 지도 회랑",
+  },
 ];
 
 export const ALCHEMY_WORKSHOP_UPGRADES: readonly AlchemyWorkshopUpgradeDef[] = [
@@ -608,6 +758,36 @@ export const ALCHEMY_WORKSHOP_UPGRADES: readonly AlchemyWorkshopUpgradeDef[] = [
     weeklyEnergy: 30,
     label: "대연금 연구소",
   },
+  {
+    level: 6,
+    cost: expandedFacilityUpgradeCost(6),
+    weeklyEnergy: 34,
+    label: "정제 촉매실",
+  },
+  {
+    level: 7,
+    cost: expandedFacilityUpgradeCost(7),
+    weeklyEnergy: 38,
+    label: "잉크 농축실",
+  },
+  {
+    level: 8,
+    cost: expandedFacilityUpgradeCost(8),
+    weeklyEnergy: 42,
+    label: "초월 증류탑",
+  },
+  {
+    level: 9,
+    cost: expandedFacilityUpgradeCost(9),
+    weeklyEnergy: 46,
+    label: "결정 연성로",
+  },
+  {
+    level: 10,
+    cost: expandedFacilityUpgradeCost(10),
+    weeklyEnergy: 50,
+    label: "현자의 탑",
+  },
 ];
 
 export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
@@ -640,6 +820,36 @@ export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
     weeklyMealTickets: 20,
     label: "길드 대연회장",
+  },
+  {
+    level: 6,
+    cost: expandedFacilityUpgradeCost(6),
+    weeklyMealTickets: 24,
+    label: "심해 주방",
+  },
+  {
+    level: 7,
+    cost: expandedFacilityUpgradeCost(7),
+    weeklyMealTickets: 28,
+    label: "용사의 식탁",
+  },
+  {
+    level: 8,
+    cost: expandedFacilityUpgradeCost(8),
+    weeklyMealTickets: 28,
+    label: "장기 숙성고",
+  },
+  {
+    level: 9,
+    cost: expandedFacilityUpgradeCost(9),
+    weeklyMealTickets: 32,
+    label: "회복 연회장",
+  },
+  {
+    level: 10,
+    cost: expandedFacilityUpgradeCost(10),
+    weeklyMealTickets: 36,
+    label: "왕실 연회장",
   },
 ];
 
@@ -688,6 +898,51 @@ export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
     tokenYieldBonusPct: 220,
     completionRewardBonusPct: 100,
     label: "왕립 교역 연합소",
+  },
+  {
+    level: 6,
+    cost: expandedFacilityUpgradeCost(6),
+    weeklyContractCount: 5,
+    personalContributionCap: 750,
+    tokenYieldBonusPct: 260,
+    completionRewardBonusPct: 110,
+    label: "상단 연합 지부",
+  },
+  {
+    level: 7,
+    cost: expandedFacilityUpgradeCost(7),
+    weeklyContractCount: 6,
+    personalContributionCap: 900,
+    tokenYieldBonusPct: 290,
+    completionRewardBonusPct: 130,
+    label: "대륙 교역 거점",
+  },
+  {
+    level: 8,
+    cost: expandedFacilityUpgradeCost(8),
+    weeklyContractCount: 6,
+    personalContributionCap: 1050,
+    tokenYieldBonusPct: 320,
+    completionRewardBonusPct: 150,
+    label: "왕립 물류 본부",
+  },
+  {
+    level: 9,
+    cost: expandedFacilityUpgradeCost(9),
+    weeklyContractCount: 6,
+    personalContributionCap: 1200,
+    tokenYieldBonusPct: 340,
+    completionRewardBonusPct: 175,
+    label: "연합 교역 의회",
+  },
+  {
+    level: 10,
+    cost: expandedFacilityUpgradeCost(10),
+    weeklyContractCount: 7,
+    personalContributionCap: 1400,
+    tokenYieldBonusPct: 400,
+    completionRewardBonusPct: 200,
+    label: "대륙 교역 연합",
   },
 ];
 
@@ -909,7 +1164,14 @@ export function nextMapWorkshopUpgrade(
 export function nextSettlementBuildingUpgrade(
   buildingId: SettlementBuildingId,
   level: number,
+  scope: SettlementUpgradeScope = "village",
 ): AnySettlementBuildingUpgradeDef | null {
+  if (
+    clampSettlementBuildingLevel(level) >=
+    settlementBuildingMaxLevel(buildingId, scope)
+  ) {
+    return null;
+  }
   if (buildingId === "training_ground") {
     return nextTrainingGroundUpgrade(level);
   }

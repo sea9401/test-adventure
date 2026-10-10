@@ -14,12 +14,14 @@ import {
   type SettlementDonationMaterialId,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
+import type { GuildFacilityOperationsView } from "@/adventure/data/v2/guildFacilityOperations";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 
 export function GuildFacilityUpgradeFund({
   buildingId,
   next,
   progress,
+  operations,
   guildGold,
   guildFame,
   canComplete = false,
@@ -30,6 +32,7 @@ export function GuildFacilityUpgradeFund({
   buildingId: SettlementBuildingId;
   next: AnySettlementBuildingUpgradeDef;
   progress?: GuildFacilityDonationProgress;
+  operations?: GuildFacilityOperationsView;
   guildGold: number;
   guildFame: number;
   canComplete?: boolean;
@@ -79,6 +82,12 @@ export function GuildFacilityUpgradeFund({
   const fameCost = Math.max(0, next.cost.fame ?? 0);
   const treasuryReady = guildGold >= goldCost;
   const fameReady = guildFame >= fameCost;
+  const activeOperations =
+    operations?.targetLevel === next.level && operations.required > 0
+      ? operations
+      : null;
+  const operationsReady =
+    !activeOperations || activeOperations.points >= activeOperations.required;
   const canSubmit = rows.some((row) => {
     const amount = Math.floor(Number(draft[row.materialId]) || 0);
     return (
@@ -214,6 +223,35 @@ export function GuildFacilityUpgradeFund({
           );
         })}
       </div>
+
+      {activeOperations && (
+        <div className="text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-zinc-600 dark:text-zinc-300">운영 실적</span>
+            <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+              {activeOperations.points.toLocaleString()} /{" "}
+              {activeOperations.required.toLocaleString()}
+            </span>
+          </div>
+          <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+            <div
+              className="h-full rounded-full bg-sky-500 transition-[width]"
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.floor(
+                    (activeOperations.points / activeOperations.required) * 100,
+                  ),
+                )}%`,
+              }}
+            />
+          </div>
+          <p className="mt-0.5 text-right tabular-nums text-zinc-500 dark:text-zinc-400">
+            이번 주 +{activeOperations.weekPoints.toLocaleString()} /{" "}
+            {activeOperations.weeklyCap.toLocaleString()}
+          </p>
+        </div>
+      )}
 
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
         업그레이드 비용 · 길드 금고에서 {goldCost.toLocaleString()}G 차감
@@ -372,7 +410,9 @@ export function GuildFacilityUpgradeFund({
           <button
             type="button"
             onClick={onComplete}
-            disabled={completing || !treasuryReady || !fameReady}
+            disabled={
+              completing || !treasuryReady || !fameReady || !operationsReady
+            }
             className="mx-auto block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {completing ? "업그레이드 중…" : "업그레이드하기"}
@@ -381,6 +421,11 @@ export function GuildFacilityUpgradeFund({
             <p className="text-[11px] text-red-500">
               길드 금고 잔액이 부족합니다. 필요 {goldCost.toLocaleString()}G · 보유{" "}
               {guildGold.toLocaleString()}G
+            </p>
+          )}
+          {!operationsReady && (
+            <p className="text-xs text-red-500">
+              운영 실적이 아직 부족합니다.
             </p>
           )}
           {treasuryReady && !fameReady && (

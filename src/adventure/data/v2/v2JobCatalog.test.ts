@@ -111,6 +111,13 @@ const BEASTKIN_LINE = [
     { str: 26, dex: 10, vit: 4 },
   ],
 ] as const;
+const GOLEM_LINE = [
+  ["rockbrawler", "바위투사", 2, "golem", TIER2_UNLOCK_CUMLEVEL, { vit: 2, str: 2 }, { vit: 12, str: 6 }],
+  ["rockgiant", "암석거인", 3, "rockbrawler", TIER3_UNLOCK_CUMLEVEL, { vit: 2, str: 2 }, { vit: 13, str: 7 }],
+  ["irongolem", "강철골렘", 4, "rockgiant", TIER4_UNLOCK_CUMLEVEL, { vit: 2, str: 2 }, { vit: 14, str: 8 }],
+  ["mountaingolem", "산맥골렘", 5, "irongolem", TIER5_UNLOCK_CUMLEVEL, { vit: 3, str: 2 }, { vit: 17, str: 9 }],
+  ["primevalgolem", "태고골렘", 6, "mountaingolem", TIER6_UNLOCK_CUMLEVEL, { vit: 3, str: 2, spi: 1 }, { vit: 26, str: 10, spi: 4 }],
+] as const;
 const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
@@ -237,7 +244,7 @@ describe("jobUnlockSpBonus", () => {
     );
   });
 
-  it("현재 직업을 모두 해금하면 51개째부터 두 직업당 SP +1을 준다", () => {
+  it("현재 직업을 모두 해금하면 51개째부터 두 직업당 SP +1, 7차는 하나당 SP +1을 준다", () => {
     const proficiency = emptyProficiency();
     const completedQuestIds = new Set<string>();
     const killCounts: Record<string, number> = {};
@@ -270,25 +277,31 @@ describe("jobUnlockSpBonus", () => {
       woodcuttingLevel: 1_000,
       miningLevel: 1_000,
     };
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(99);
+    // 골렘 2~6차 5종이 기존 99에 +3을 더한다(51개째부터 두 직업당 +1).
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(99 + 3);
+
+    // 7차는 하나당 +1(골렘 2~6차 포함 기준 102에서 시작).
+    proficiency.jobHistory = [TIER7_COMBAT_JOB_IDS[0]];
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(103);
 
     proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(104);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(102 + TIER7_COMBAT_JOB_IDS.length);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("화염·바람·대지 5·6차와 선공개 7차를 포함한 161개 직업을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(161);
+  it("화염·바람·대지 5·6차, 골렘 2~6차와 7차를 포함한 전체 직업 수를 정의한다", () => {
+    // 7차 5종 추가 후 166개에 골렘 2~6차를 더한다.
+    expect(V2_JOB_LIST).toHaveLength(166 + GOLEM_LINE.length);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
-    expect(byTier(2)).toBe(19);
-    expect(byTier(3)).toBe(27);
-    expect(byTier(4)).toBe(33);
-    expect(byTier(5)).toBe(32);
-    expect(byTier(6)).toBe(32);
-    expect(byTier(7)).toBe(9);
+    expect(byTier(2)).toBe(20);
+    expect(byTier(3)).toBe(28);
+    expect(byTier(4)).toBe(34);
+    expect(byTier(5)).toBe(33);
+    expect(byTier(6)).toBe(33);
+    expect(byTier(7)).toBe(14);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -365,6 +378,41 @@ describe("released tier-7 boundary", () => {
       prereqs: {grandchampion:100_000,absolute:100_000},
       legacy: {class:"warrior",spec:"paragon"},
     },
+    {
+      id: "tempest", name: "템페스트",
+      cultivateProfile: { int: 4, spi: 2, dex: 1 },
+      jobBonus: { int: 32, spi: 10, dex: 6 },
+      prereqs: { stormbringer: 100_000, frostsovereign: 100_000 },
+      legacy: { class: "mage", spec: "tempest" },
+    },
+    {
+      id: "titan", name: "타이탄",
+      cultivateProfile: { vit: 4, int: 2, spi: 1 },
+      jobBonus: { vit: 28, int: 14, spi: 6 },
+      prereqs: { tectomancer: 100_000, eternal: 100_000 },
+      legacy: { class: "mage", spec: "titan" },
+    },
+    {
+      id: "runelord", name: "룬로드",
+      cultivateProfile: { int: 5, spi: 2 },
+      jobBonus: { int: 34, spi: 14 },
+      prereqs: { lawweaver: 100_000, archmage: 100_000 },
+      legacy: { class: "mage", spec: "runelord" },
+    },
+    {
+      id: "bloodheaven", name: "혈천마신",
+      cultivateProfile: { str: 4, vit: 2, spi: 1 },
+      jobBonus: { str: 30, vit: 12, spi: 6 },
+      prereqs: { blooddemon: 100_000, absolute: 100_000 },
+      legacy: { class: "warrior", spec: "bloodheaven" },
+    },
+    {
+      id: "behemoth", name: "베히모스",
+      cultivateProfile: { str: 4, dex: 2, vit: 1 },
+      jobBonus: { str: 30, dex: 12, vit: 6 },
+      prereqs: { primalpredator: 100_000, celestialdragon: 100_000 },
+      legacy: { class: "mutant", spec: "behemoth" },
+    },
   ] as const;
 
   it.each(released)(
@@ -387,7 +435,7 @@ describe("released tier-7 boundary", () => {
     },
   );
 
-  it("승인된 아홉 직업만 7차로 공개한다", () => {
+  it("승인된 열네 직업만 7차로 공개한다", () => {
     expect(V2_JOB_LIST.filter((job) => job.tier === 7).map((job) => job.id)).toEqual([
       "dreadnought",
       "shadowblade",
@@ -398,6 +446,11 @@ describe("released tier-7 boundary", () => {
       "aegis",
       "seraphim",
       "dragonlord",
+      "tempest",
+      "titan",
+      "runelord",
+      "bloodheaven",
+      "behemoth",
     ]);
     expect(TIER7_COMBAT_JOB_IDS).toEqual([
       "shadowblade",
@@ -409,6 +462,11 @@ describe("released tier-7 boundary", () => {
       "aegis",
       "seraphim",
       "dragonlord",
+      "tempest",
+      "titan",
+      "runelord",
+      "bloodheaven",
+      "behemoth",
     ]);
   });
 
@@ -1085,7 +1143,7 @@ describe("해금 트리", () => {
 });
 
 describe("isJobUnlocked / unlockedJobs", () => {
-  it.each(BEASTKIN_LINE)(
+  it.each([...BEASTKIN_LINE, ...GOLEM_LINE])(
     "%s 직업 데이터와 선행 숙련도 경계를 지킨다",
     (id, name, tier, parent, required, cultivateProfile, jobBonus) => {
       const definition = V2_JOB_CATALOG[id];
@@ -1121,6 +1179,18 @@ describe("isJobUnlocked / unlockedJobs", () => {
     expect(isJobUnlocked(V2_JOB_CATALOG.beastwarrior, rightSource)).toBe(
       true,
     );
+  });
+
+  it("바위투사는 변이자·수인 계보가 아니라 골렘 직업 숙련도로만 열린다", () => {
+    const wrongSource = profWith({ mutant: 999_999 });
+    wrongSource.jobCumLevel = { beastkin: 999_999, beastwarrior: 999_999 };
+    expect(isJobUnlocked(V2_JOB_CATALOG.rockbrawler, wrongSource)).toBe(false);
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.rockbrawler, {
+        ...wrongSource,
+        jobCumLevel: { golem: TIER2_UNLOCK_CUMLEVEL },
+      }),
+    ).toBe(true);
   });
 
   it("빈 숙련도에서 기본 직업은 해금, 상위 직업은 잠김", () => {
@@ -1676,7 +1746,7 @@ describe("cumLevelForJob (직업별 숙련도 — 전직 화면 표기)", () => 
 });
 
 describe("수인 2~6차 레거시 브리지", () => {
-  it.each(BEASTKIN_LINE)("%s 를 mutant spec 으로 왕복한다", (id) => {
+  it.each([...BEASTKIN_LINE, ...GOLEM_LINE])("%s 를 mutant spec 으로 왕복한다", (id) => {
     expect(LEGACY_CLASS_SPEC_BY_JOB[id]).toEqual({
       class: "mutant",
       spec: id,

@@ -6,6 +6,7 @@ import type {
 import type { Avatar } from "@/adventure/profile/avatars";
 import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { GuildContributionCategory } from "@/adventure/data/v2/guildContribution";
+import type { GuildFacilityOperationsView } from "@/adventure/data/v2/guildFacilityOperations";
 
 // V2GuildHome 탭 분리 — 탭 패널들이 공유하는 타입·순수 헬퍼.
 
@@ -83,6 +84,8 @@ export type GuildInfoResponse = {
   settlementResources?: SettlementResources;
   // 다음 시설 레벨을 위해 길드원들이 함께 채운 재료.
   facilityUpgradeDonations?: GuildFacilityDonationProgressMap;
+  // Lv.6 이상 목표가 있는 시설의 운영 실적.
+  facilityOperations?: Partial<Record<SettlementBuildingId, GuildFacilityOperationsView>>;
   hasGuildSmithy?: boolean;
   hasTrainingGround?: boolean;
   hasMapWorkshop?: boolean;

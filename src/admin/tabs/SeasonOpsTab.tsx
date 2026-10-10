@@ -13,7 +13,8 @@ type SeasonOp =
   | "war-rollover"
   | "pvp-rollover"
   | "pvp-rewards"
-  | "fishing-rewards";
+  | "fishing-rewards"
+  | "life-festival-rewards";
 
 type OpDef = {
   op: SeasonOp;
@@ -55,6 +56,13 @@ const OPS: OpDef[] = [
       "끝난 낚시 시즌 중 미지급 보상을 종별 순위 코인으로 지급합니다. 시즌당 1회 멱등.",
     danger: false,
   },
+  {
+    op: "life-festival-rewards",
+    label: "생활 축제 순위 보상 지급",
+    description:
+      "끝난 생활 축제 주차 중 미지급 순위 보상을 축제 증표 우편으로 지급합니다. 주차당 1회 멱등.",
+    danger: false,
+  },
 ];
 
 function formatSummary(op: SeasonOp, s: Record<string, unknown>): string {
@@ -66,6 +74,7 @@ function formatSummary(op: SeasonOp, s: Record<string, unknown>): string {
       return `닫은 시즌 ${n("closed")} · 현재 시즌 ${s.currentSeasonId ?? "?"}`;
     case "pvp-rewards":
     case "fishing-rewards":
+    case "life-festival-rewards":
       return `처리 시즌 ${n("seasonsProcessed")} · 지급 ${n("granted")}`;
   }
 }

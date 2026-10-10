@@ -14,16 +14,11 @@ import {
   SURFACE_CARD,
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
-import {
-  weeklyFacilityActionLimit,
-  weeklyFacilityConflictNotice,
-} from "./weeklyFacilityClient";
 
 type WorkshopState = {
   level: number;
   stageLabel: string;
   weekKey: string;
-  weeklySourceEligible?: boolean;
   weeklyEnergy: { used: number; limit: number; remaining: number };
   materials: { herb: number; silverleaf: number };
   charges: { hp: number; mp: number; max: number };
@@ -104,7 +99,7 @@ export function GuildAlchemyWorkshopPanel({
   }, [load]);
 
   async function craft(recipe: GuildAlchemyRecipe) {
-    if (!state || busyRecipeId || state.weeklySourceEligible === false) return;
+    if (!state || busyRecipeId) return;
     const maxQuantity = maxCraftQuantity(state, recipe, target);
     const quantity = Math.max(1, Math.min(maxQuantity, quantities[recipe.id] ?? 1));
     if (maxQuantity <= 0) return;
@@ -213,12 +208,6 @@ export function GuildAlchemyWorkshopPanel({
           </div>
         </div>
       </section>
-
-      {state.weeklySourceEligible === false && (
-        <div className={`${SURFACE_INSET} px-3 py-2 text-xs text-amber-800 dark:text-amber-200`}>
-          {weeklyFacilityConflictNotice("연금 공방")}
-        </div>
-      )}
 
       <section className="grid gap-2 sm:grid-cols-3">
         <ChargeSummary label="HP 충전약" current={state.charges.hp} max={state.charges.max} color="bg-red-500" />
@@ -410,17 +399,13 @@ function maxCraftQuantity(
   target: GuildAlchemyChargeTarget,
 ): number {
   if (recipe.unlocked === false) return 0;
-  if (state.weeklySourceEligible === false) return 0;
   let max = Math.floor(state.weeklyEnergy.remaining / recipe.energyCost);
   max = Math.min(max, Math.floor(state.materials.herb / recipe.ingredients.herb));
   if (recipe.ingredients.silverleaf > 0) {
     max = Math.min(max, Math.floor(state.materials.silverleaf / recipe.ingredients.silverleaf));
   }
   if (recipe.output !== "charge") {
-    return weeklyFacilityActionLimit(
-      state.weeklySourceEligible,
-      Math.min(15, max),
-    );
+    return Math.max(0, Math.min(15, max));
   }
   const hpRoom = state.charges.max - state.charges.hp;
   const mpRoom = state.charges.max - state.charges.mp;
@@ -431,10 +416,7 @@ function maxCraftQuantity(
     const mpEach = recipe.chargeAmount - hpEach;
     max = Math.min(max, Math.floor(hpRoom / hpEach), Math.floor(mpRoom / mpEach));
   }
-  return weeklyFacilityActionLimit(
-    state.weeklySourceEligible,
-    Math.min(15, max),
-  );
+  return Math.max(0, Math.min(15, max));
 }
 
 function alchemyErrorText(error?: string): string {
@@ -451,8 +433,6 @@ function alchemyErrorText(error?: string): string {
       return "허브 또는 은빛잎이 부족합니다.";
     case "charge_capacity":
       return "충전약 보유 한도를 넘습니다. 일부를 사용한 뒤 다시 조제해 주세요.";
-    case "weekly_source_conflict":
-      return "이번 주 연금 공방 보상처를 이미 다른 곳으로 선택했습니다.";
     case "rate_limited":
       return "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.";
     default:

@@ -18,8 +18,19 @@ import {
 } from "@/lib/server/guildFacilityUpgradeDonations";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import {
+  lockGuildFacilityOperations,
+  saveGuildFacilityOperations,
+} from "@/lib/server/guildFacilityOperations";
+import {
+  guildFacilityOperationsComplete,
+  guildFacilityOperationsRequired,
+  normalizeGuildFacilityOperationsState,
+  type GuildFacilityOperationsState,
+} from "@/adventure/data/v2/guildFacilityOperations";
+import {
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_BUILDINGS,
+  isGuildFacilityExpandedId,
   isSettlementBuildingId,
   nextSettlementBuildingUpgrade,
   settlementBuildingLevelOf,
@@ -79,6 +90,7 @@ export async function POST(_req: Request, { params }: Ctx) {
       const nextUpgrade = nextSettlementBuildingUpgrade(
         buildingId,
         settlementBuildingLevelOf(building),
+        "guild_facility",
       );
       if (!nextUpgrade) {
         return { status: 409, body: { ok: false as const, error: "max_level" } };
@@ -99,6 +111,33 @@ export async function POST(_req: Request, { params }: Ctx) {
             progress: donated,
           },
         };
+      }
+
+      // Lv.6 이상은 운영 실적도 채워야 한다(설계 2026-10-10).
+      let operations: GuildFacilityOperationsState | null = null;
+      if (
+        isGuildFacilityExpandedId(buildingId) &&
+        guildFacilityOperationsRequired(nextUpgrade.level) > 0
+      ) {
+        operations = await lockGuildFacilityOperations(
+          tx,
+          guildId,
+          buildingId,
+          nextUpgrade.level - 1,
+        );
+        if (!guildFacilityOperationsComplete(operations)) {
+          return {
+            status: 409,
+            body: {
+              ok: false as const,
+              error: "operations_incomplete",
+              operations: {
+                points: operations.points,
+                required: guildFacilityOperationsRequired(nextUpgrade.level),
+              },
+            },
+          };
+        }
       }
 
       const goldCost = Math.max(0, Math.floor(nextUpgrade.cost.gold ?? 0));
@@ -148,6 +187,17 @@ export async function POST(_req: Request, { params }: Ctx) {
         nextUpgrade.level,
       );
       await clearGuildFacilityDonationProgress(tx, guildId, buildingId);
+      if (operations && isGuildFacilityExpandedId(buildingId)) {
+        await saveGuildFacilityOperations(
+          tx,
+          guildId,
+          buildingId,
+          normalizeGuildFacilityOperationsState(operations, {
+            currentLevel: nextUpgrade.level,
+            weekKey: operations.weekKey,
+          }),
+        );
+      }
       if (goldCost > 0) {
         await upsertGuildResources(tx, guildId, { gold: nextGold });
       }

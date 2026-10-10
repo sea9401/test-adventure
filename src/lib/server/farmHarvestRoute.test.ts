@@ -19,6 +19,12 @@ const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialT
   ),
 }));
 
+const { masterProductNotify } = vi.hoisted(() => ({
+  masterProductNotify: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/server/v2Notifications", () => ({
+  insertNotificationWith: masterProductNotify,
+}));
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
@@ -62,6 +68,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/farm/harvest/route";
+import { LIFE_MAJOR_SAVE_KEY, lifeMajorStageXp } from "@/adventure/v2/lifeMajor";
 import {
   FARM_CROPS,
   FARM_SAVE_KEY,
@@ -82,6 +89,18 @@ import {
   buildRepeatSignals,
 } from "@/lib/server/v2QuestContext";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+
+const { festivalBonus } = vi.hoisted(() => ({
+  festivalBonus: vi.fn(),
+}));
+vi.mock("@/adventure/v2/lifeFestival", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/v2/lifeFestival")>()),
+  lifeFestivalBonus: festivalBonus,
+}));
+beforeEach(() => {
+  festivalBonus.mockReset();
+  festivalBonus.mockReturnValue({ themeId: null, chancePct: 0, xpPct: 0 });
+});
 
 const NOW = 1_800_014_400_000;
 
@@ -320,4 +339,102 @@ describe("POST /api/v2/farm/harvest", () => {
     const body = (await response.json()) as { farm: FarmState };
     expect(ranchReadySlotCount(body.farm.ranch)).toBe(2);
   });
+  it("수확제 주간에는 수확량 보너스 10%와 농사 경험치 25%를 더한다", async () => {
+    const harvest = async () => {
+      store.set(
+        FARM_SAVE_KEY,
+        plantCrop(emptyFarmState(NOW), "plot-1", "wheat", NOW - FARM_CROPS.wheat.growMs - 1),
+      );
+      store.set("character.v2", {});
+      store.set("skills.v2", {});
+      resetUserRateLimitForTests();
+      const response = await POST(new Request("http://test.local/api/v2/farm/harvest", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotId: "plot-1" }),
+      }));
+      expect(response.status).toBe(200);
+      return {
+        json: await response.json(),
+        farm: store.get(FARM_SAVE_KEY) as { stats: { farmingXp: number; yieldBonusRemainderPct: number } },
+      };
+    };
+    const base = await harvest();
+    store.clear();
+    festivalBonus.mockReturnValue({ themeId: "harvest", chancePct: 10, xpPct: 25 });
+    const boosted = await harvest();
+
+    expect(festivalBonus).toHaveBeenCalledWith("farming", new Date(NOW));
+    const baseGain = base.json.result.farmingXpGained;
+    expect(boosted.json.result.farmingXpGained).toBe(baseGain + Math.floor(baseGain * 0.25));
+    expect(boosted.farm.stats.farmingXp).toBe(base.farm.stats.farmingXp + Math.floor(baseGain * 0.25));
+    expect(boosted.json.result.quantity * 100 + boosted.farm.stats.yieldBonusRemainderPct).toBeGreaterThan(
+      base.json.result.quantity * 100 + base.farm.stats.yieldBonusRemainderPct,
+    );
+  });
+
+
+  describe("생활 전공", () => {
+    const harvestAtCap = async (lifeMajor: unknown) => {
+      store.clear();
+      resetUserRateLimitForTests();
+      const planted = plantCrop(emptyFarmState(NOW), "plot-1", "wheat", NOW - FARM_CROPS.wheat.growMs - 1);
+      store.set(FARM_SAVE_KEY, {
+        ...planted,
+        levelCurveVersion: 2,
+        stats: { ...planted.stats, farmingXp: farmingLevelXpThreshold(100) },
+      });
+      store.set("character.v2", { materials: { v2_master_crop: 1 } });
+      store.set("skills.v2", {});
+      if (lifeMajor) store.set(LIFE_MAJOR_SAVE_KEY, lifeMajor);
+      const response = await POST(new Request("http://test.local/api/v2/farm/harvest", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plotId: "plot-1" }),
+      }));
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+
+    it("농사 주전공이면 Lv.100에서 넘친 경험치를 명장 경험치로 쌓고 명장 작물을 지급한다", async () => {
+      vi.mocked(Math.random).mockReturnValue(0);
+      const stage3 = lifeMajorStageXp("farming", 3);
+      const json = await harvestAtCap({ major: "farming", masteryXp: { farming: stage3 } });
+
+      const gained = json.result.farmingXpGained;
+      expect(gained).toBeGreaterThan(0);
+      expect(json.lifeMajor).toEqual({
+        masteryXpGained: gained,
+        masterProduct: { materialId: "v2_master_crop", name: "명장 작물", count: 1 },
+      });
+      expect(store.get(LIFE_MAJOR_SAVE_KEY)).toMatchObject({ masteryXp: { farming: stage3 + gained } });
+      expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_crop: 2 } });
+      expect(masterProductNotify).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        "master_product",
+        { activity: "farming", materialId: "v2_master_crop", name: "명장 작물", count: 1 },
+      );
+    });
+
+    it("비전공이면 명장 경험치와 산물이 없다", async () => {
+      vi.mocked(Math.random).mockReturnValue(0);
+      const json = await harvestAtCap({ major: "fishing", masteryXp: { fishing: 10 } });
+      expect(json.lifeMajor).toEqual({ masteryXpGained: 0, masterProduct: null });
+      expect(store.get("character.v2")).toEqual({ materials: { v2_master_crop: 1 } });
+    });
+
+    it("주전공 단계만큼 수확량 보너스를 더한다", async () => {
+      const remainder = async (lifeMajor: unknown) => {
+        await harvestAtCap(lifeMajor);
+        return (store.get(FARM_SAVE_KEY) as { stats: { yieldBonusRemainderPct: number } }).stats
+          .yieldBonusRemainderPct;
+      };
+      const base = await remainder(null);
+      const boosted = await remainder({
+        major: "farming",
+        masteryXp: { farming: lifeMajorStageXp("farming", 3) },
+      });
+      expect(boosted).toBeGreaterThan(base);
+    });
+  });
+
 });

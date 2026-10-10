@@ -1,25 +1,22 @@
 import { db } from "@/db";
 import {
   ASSOCIATION_TRADE_SHOP_ITEMS,
+  ASSOCIATION_TRADE_USER_SAVE_KEY,
+  GUILD_TRADE_USER_SAVE_KEY,
   associationTradeShopItem,
   guildTradeCompletionReward,
   guildTradeItem,
   guildTradeTokenReward,
+  guildTradeWeeklyContributionPoints,
   parseGuildTradeUserState,
   type GuildTradeShopItem,
   type GuildTradeUserState,
 } from "@/adventure/data/v2/guildTrade";
 import { tradePostUpgradeForLevel } from "@/adventure/data/v2/settlement";
-import {
-  grantStaminaPotions,
-  STAMINA_POTIONS_KEY,
-} from "@/adventure/v2/staminaPotions";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   associationFacilityLevel,
   canUseAdventurerAssociation,
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySource,
 } from "@/lib/server/adventurerAssociation";
 import {
   lockAssociationTradeWeekly,
@@ -27,11 +24,14 @@ import {
   type AssociationTradeWeekly,
 } from "@/lib/server/adventurerAssociationTrade";
 import { lockGuildTradeItem, readGuildTradeItemBalances } from "@/lib/server/guildTradeInventory";
+import {
+  isGuildMemberGrantOutput,
+  lockGuildMemberGrant,
+} from "@/lib/server/guildMemberGrant";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { kstWeekMondayKey } from "@/lib/kst";
 
-const ASSOCIATION_TRADE_SAVE_KEY = "association-trade-user.v1";
 const ASSOCIATION_OWNER_ID = 0;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type TradeBody = { action?: unknown; contractId?: unknown; batches?: unknown; shopItemId?: unknown };
@@ -76,10 +76,22 @@ async function lockUserState(
   const raw = await lockSaveForUpdate<Record<string, unknown>>(
     tx,
     userId,
-    ASSOCIATION_TRADE_SAVE_KEY,
+    ASSOCIATION_TRADE_USER_SAVE_KEY,
     {},
   );
   return parseAssociationTradeUserState(raw, weekKey);
+}
+
+// 같은 주에 길드 교역소에서 납품한 점수도 협회 개인 납품 한도에 합산한다.
+async function readGuildTradeContribution(
+  tx: Tx,
+  userId: string,
+  weekKey: string,
+): Promise<number> {
+  return guildTradeWeeklyContributionPoints(
+    await readSave(tx, userId, GUILD_TRADE_USER_SAVE_KEY, {}),
+    weekKey,
+  );
 }
 
 async function tradeView(args: {
@@ -95,15 +107,12 @@ async function tradeView(args: {
     .map(guildTradeItem)
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
   const balances = await readGuildTradeItemBalances(args.tx, args.userId, items, args.now);
-  const weeklySource = await readWeeklyFacilitySource(
-    args.tx,
-    args.userId,
-    "trade_post",
-    args.weekly.weekKey,
-  );
+  const personalPoints =
+    args.userState.contributionPoints +
+    (await readGuildTradeContribution(args.tx, args.userId, args.weekly.weekKey));
   const personalRemaining = Math.max(
     0,
-    upgrade.personalContributionCap - args.userState.contributionPoints,
+    upgrade.personalContributionCap - personalPoints,
   );
   const reward = guildTradeCompletionReward(upgrade.completionRewardBonusPct);
   const completionTokenReward = Math.floor(
@@ -113,15 +122,14 @@ async function tradeView(args: {
     level: args.level,
     stageLabel: upgrade.label,
     weekKey: args.weekly.weekKey,
-    weeklySource,
-    eligible: weeklySource !== "guild",
+    eligible: true,
     isMaster: false,
     memberPurchasesEnabled: true,
     canPurchase: true,
     rewardBonusPct: upgrade.completionRewardBonusPct,
     tokenYieldBonusPct: upgrade.tokenYieldBonusPct,
     contribution: {
-      points: args.userState.contributionPoints,
+      points: personalPoints,
       cap: upgrade.personalContributionCap,
       remaining: personalRemaining,
     },
@@ -191,7 +199,7 @@ export async function GET() {
     const raw = await readSave<Record<string, unknown>>(
       tx,
       userId,
-      ASSOCIATION_TRADE_SAVE_KEY,
+      ASSOCIATION_TRADE_USER_SAVE_KEY,
       {},
     );
     const userState = parseAssociationTradeUserState(raw, weekKey);
@@ -243,16 +251,6 @@ export async function POST(req: Request) {
       if (claimableIds.length === 0) {
         return { status: 409, body: { ok: false as const, error: "no_claimable_reward" } };
       }
-      const weeklySource = await claimWeeklyFacilitySource(
-        tx,
-        userId,
-        "trade_post",
-        "association",
-        weekKey,
-      );
-      if (!weeklySource.ok) {
-        return { status: 409, body: { ok: false as const, error: "weekly_source_conflict", selectedSource: weeklySource.selected } };
-      }
       const each = Math.floor((10 * (100 + upgrade.completionRewardBonusPct)) / 100);
       const tokensGained = each * claimableIds.length;
       const nextUserState = {
@@ -260,7 +258,7 @@ export async function POST(req: Request) {
         tokens: userState.tokens + tokensGained,
         claimedCompletionIds: [...userState.claimedCompletionIds, ...claimableIds],
       };
-      await upsertSave(tx, userId, ASSOCIATION_TRADE_SAVE_KEY, nextUserState);
+      await upsertSave(tx, userId, ASSOCIATION_TRADE_USER_SAVE_KEY, nextUserState);
       return {
         status: 200,
         body: {
@@ -284,21 +282,15 @@ export async function POST(req: Request) {
       if (!source) return { status: 409, body: { ok: false as const, error: "source_unavailable" } };
       const quantity = item.batchSize * batches;
       const points = item.pointValue * batches;
-      if (userState.contributionPoints + points > upgrade.personalContributionCap) {
+      const guildPoints = await readGuildTradeContribution(tx, userId, weekKey);
+      if (
+        userState.contributionPoints + guildPoints + points >
+        upgrade.personalContributionCap
+      ) {
         return { status: 409, body: { ok: false as const, error: "contribution_cap" } };
       }
       if (source.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_items" } };
-      }
-      const weeklySource = await claimWeeklyFacilitySource(
-        tx,
-        userId,
-        "trade_post",
-        "association",
-        weekKey,
-      );
-      if (!weeklySource.ok) {
-        return { status: 409, body: { ok: false as const, error: "weekly_source_conflict", selectedSource: weeklySource.selected } };
       }
       const tokensGained = guildTradeTokenReward(
         userState.contributionPoints,
@@ -322,7 +314,7 @@ export async function POST(req: Request) {
         },
       };
       await source.consume(quantity);
-      await upsertSave(tx, userId, ASSOCIATION_TRADE_SAVE_KEY, nextUserState);
+      await upsertSave(tx, userId, ASSOCIATION_TRADE_USER_SAVE_KEY, nextUserState);
       await saveAssociationTradeWeekly(tx, nextWeekly);
       return {
         status: 200,
@@ -345,16 +337,6 @@ export async function POST(req: Request) {
       return { status: 409, body: { ok: false as const, error: "insufficient_tokens" } };
     }
     const grant = await lockShopGrant(tx, userId, item);
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "trade_post",
-      "association",
-      weekKey,
-    );
-    if (!weeklySource.ok) {
-      return { status: 409, body: { ok: false as const, error: "weekly_source_conflict", selectedSource: weeklySource.selected } };
-    }
     const nextUserState = {
       ...userState,
       tokens: userState.tokens - item.tokenCost,
@@ -364,7 +346,7 @@ export async function POST(req: Request) {
       },
     };
     await grant();
-    await upsertSave(tx, userId, ASSOCIATION_TRADE_SAVE_KEY, nextUserState);
+    await upsertSave(tx, userId, ASSOCIATION_TRADE_USER_SAVE_KEY, nextUserState);
     return {
       status: 200,
       body: {
@@ -383,25 +365,13 @@ export async function POST(req: Request) {
   return Response.json(result.body, { status: result.status });
 }
 
-async function lockShopGrant(tx: Tx, userId: string, item: GuildTradeShopItem): Promise<() => Promise<void>> {
-  const output = item.output;
-  if (output.kind === "material") {
-    const char = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "character.v2", {});
-    const materials = char.materials && typeof char.materials === "object"
-      ? { ...(char.materials as Record<string, unknown>) }
-      : {};
-    materials[output.materialId] = Math.max(0, Math.floor(Number(materials[output.materialId]) || 0)) + output.count;
-    return () => upsertSave(tx, userId, "character.v2", { ...char, materials });
+async function lockShopGrant(
+  tx: Tx,
+  userId: string,
+  item: GuildTradeShopItem,
+): Promise<() => Promise<void>> {
+  if (!isGuildMemberGrantOutput(item.output)) {
+    throw new Error(`guild_reward_unavailable_in_association:${item.id}`);
   }
-  if (output.kind === "stamina_potion") {
-    const raw = await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, {});
-    const next = grantStaminaPotions(raw, output.count, { bound: true });
-    return () => upsertSave(tx, userId, STAMINA_POTIONS_KEY, next);
-  }
-  if (output.kind === "mastery_certificate") {
-    const inventory = await lockSaveForUpdate<Record<string, unknown>>(tx, userId, "inventory.v2", {});
-    const count = Math.max(0, Math.floor(Number(inventory[output.itemKey]) || 0));
-    return () => upsertSave(tx, userId, "inventory.v2", { ...inventory, [output.itemKey]: count + output.count });
-  }
-  throw new Error(`guild_reward_unavailable_in_association:${item.id}`);
+  return lockGuildMemberGrant(tx, userId, item.output);
 }

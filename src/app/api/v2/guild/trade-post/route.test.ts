@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GUILD_TRADE_USER_SAVE_KEY } from "@/adventure/data/v2/guildTrade";
+import {
+  ASSOCIATION_TRADE_USER_SAVE_KEY,
+  GUILD_TRADE_USER_SAVE_KEY,
+} from "@/adventure/data/v2/guildTrade";
+import { tradePostUpgradeForLevel } from "@/adventure/data/v2/settlement";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { kstWeekMondayKey } from "@/lib/kst";
 
@@ -111,9 +115,6 @@ vi.mock("@/lib/server/v2GuildFame", () => ({
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
-vi.mock("@/lib/server/adventurerAssociation", () => ({
-  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
-}));
 vi.mock("@/lib/server/guildAdmin", () => ({
   isGuildMasterOrManager: vi.fn(async () => true),
 }));
@@ -131,7 +132,7 @@ import {
   readGuildTradeItemBalances,
 } from "@/lib/server/guildTradeInventory";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { upsertGuildResources } from "@/lib/server/v2GuildResources";
 import { lockGuildSettlementBuilding } from "@/lib/server/v2Settlement";
@@ -142,6 +143,9 @@ import {
 } from "@/lib/server/guildFacilityUpgradeDonations";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { buildingLevelFromSlots } from "@/lib/server/settlementBuildingAccess";
+import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
+import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 import { GET, POST } from "./route";
 
 const CONTRACT_ID = "material:v2_timber";
@@ -211,6 +215,9 @@ beforeEach(() => {
     if (key === GUILD_TRADE_USER_SAVE_KEY) return userState();
     return {};
   });
+  vi.mocked(readSave).mockImplementation(
+    async (_tx, _userId, _key, fallback) => fallback,
+  );
 });
 
 describe("길드 교역소", () => {
@@ -686,6 +693,51 @@ describe("길드 교역소", () => {
     expect(consume).not.toHaveBeenCalled();
   });
 
+  it("다른 길드에서 같은 주에 납품한 개인 점수를 이어받아 한도를 다시 주지 않는다", async () => {
+    const cap = tradePostUpgradeForLevel(3).personalContributionCap;
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) =>
+      key === GUILD_TRADE_USER_SAVE_KEY
+        ? userState({ guildId: 3, contributionPoints: cap })
+        : {},
+    );
+
+    const response = await POST(
+      request({ action: "deliver", contractId: CONTRACT_ID, batches: 1 }),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("contribution_cap");
+    expect(consume).not.toHaveBeenCalled();
+  });
+
+  it("협회 교역소에서 같은 주에 납품한 점수만큼 길드 개인 납품 한도가 줄어든다", async () => {
+    const cap = tradePostUpgradeForLevel(3).personalContributionCap;
+    vi.mocked(readSave).mockImplementation(async (_tx, _userId, key, fallback) =>
+      key === ASSOCIATION_TRADE_USER_SAVE_KEY
+        ? { guildId: 0, weekKey: kstWeekMondayKey(), contributionPoints: cap - 1 }
+        : fallback,
+    );
+
+    const view = await (await GET()).json();
+    expect(view.contribution).toMatchObject({ points: cap - 1, remaining: 1 });
+
+    const blocked = await POST(
+      request({ action: "deliver", contractId: CONTRACT_ID, batches: 2 }),
+    );
+    expect(blocked.status).toBe(409);
+    expect((await blocked.json()).error).toBe("contribution_cap");
+    expect(consume).not.toHaveBeenCalled();
+
+    const delivered = await POST(
+      request({ action: "deliver", contractId: CONTRACT_ID, batches: 1 }),
+    );
+    expect(delivered.status).toBe(200);
+    expect((await delivered.json()).contribution).toMatchObject({
+      points: cap,
+      remaining: 0,
+    });
+  });
+
   it("공동 구매 횟수와 전원 지급 인원을 길드 활동에 기록한다", async () => {
     vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 100));
     vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
@@ -768,5 +820,63 @@ describe("길드 교역소", () => {
       GUILD_TRADE_USER_SAVE_KEY,
       expect.objectContaining({ tokens: 0 }),
     );
+  });
+});
+
+describe("교역소 Lv.10 품목", () => {
+  const cypress = WOODCUTTING_MATERIAL_ID.cypress;
+  const adamantite = MINING_MATERIAL_ID.adamantite;
+
+  beforeEach(() => {
+    vi.mocked(buildingLevelFromSlots).mockImplementation(
+      (_buildings: unknown, buildingId: string) =>
+        buildingId === "trade_post" ? 10 : buildingId === "dining_hall" ? 5 : 0,
+    );
+    vi.mocked(lockGuildSettlementBuilding).mockResolvedValue({
+      slot: 0,
+      village: { buildings: { 0: { id: "dining_hall", level: 5 } } },
+    } as unknown as Awaited<ReturnType<typeof lockGuildSettlementBuilding>>);
+  });
+
+  it("상위 시설 지원 물자를 편백나무·아다만타이트로 적용한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 1000));
+    vi.mocked(lockGuildFacilityDonationProgress).mockResolvedValue({ [cypress]: 1950 });
+    const response = await POST(
+      request({ action: "buy", shopItemId: "advanced_facility_supplies", facilityId: "dining_hall" }),
+    );
+    const json = await response.json();
+    expect(response.status).toBe(200);
+    expect(setGuildFacilityDonationProgress).toHaveBeenCalledWith(
+      expect.anything(),
+      7,
+      "dining_hall",
+      6,
+      { [cypress]: 2000, [adamantite]: 150 },
+    );
+    expect(json.purchased.facilitySupport).toMatchObject({
+      buildingId: "dining_hall",
+      targetLevel: 6,
+      supportKind: "advanced",
+      crop: 50,
+      ore: 150,
+    });
+  });
+
+  it("길드 명성 대문서는 명성 300을 더한다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(0, 1000));
+    const response = await POST(request({ action: "buy", shopItemId: "grand_fame_document" }));
+    expect(response.status).toBe(200);
+    expect(addGuildFame).toHaveBeenCalledWith(expect.anything(), 7, 300);
+  });
+
+  it("상위 지원 대상 목록을 따로 보여준다", async () => {
+    vi.mocked(readGuildFacilityDonationProgress).mockResolvedValue({
+      dining_hall: { targetLevel: 6, materials: { [cypress]: 1950 } },
+    });
+    const json = await (await GET()).json();
+    const target = json.advancedFacilitySupportTargets.find(
+      (t: { buildingId: string }) => t.buildingId === "dining_hall",
+    );
+    expect(target).toMatchObject({ eligible: true, supportKind: "advanced", crop: { grant: 50 }, ore: { grant: 150 } });
   });
 });

@@ -92,7 +92,7 @@ type Candidate = {
   rankingPower: number;
 };
 
-type SimPlayer = Candidate & {
+export type SimPlayer = Candidate & {
   combat: NonNullable<ReturnType<typeof derivePlayerCombatV2FromSaves>>;
   skills: V2SkillsState;
   job: string;
@@ -431,7 +431,7 @@ function preparePlayer(candidate: Candidate): SimPlayer | null {
   };
 }
 
-async function loadTopPlayers(pool: Pool): Promise<SimPlayer[]> {
+export async function loadTopPlayers(pool: Pool): Promise<SimPlayer[]> {
   const result = await pool.query<DbRow>(
     `
       SELECT

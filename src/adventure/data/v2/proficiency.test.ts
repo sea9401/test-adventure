@@ -54,6 +54,11 @@ describe("변이자 수행 프로필", () => {
     ["bloodtracker", { str: 2, dex: 2 }],
     ["predator", { str: 3, dex: 2 }],
     ["primalpredator", { str: 3, dex: 2, vit: 1 }],
+    ["rockbrawler", { vit: 2, str: 2 }],
+    ["rockgiant", { vit: 2, str: 2 }],
+    ["irongolem", { vit: 2, str: 2 }],
+    ["mountaingolem", { vit: 3, str: 2 }],
+    ["primevalgolem", { vit: 3, str: 2, spi: 1 }],
   ] as const)("%s 계보는 승인된 수행 프로필을 사용한다", (id, profile) => {
     expect(effectiveCultivateProfile("mutant", id)).toEqual(profile);
   });

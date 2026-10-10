@@ -14,7 +14,7 @@ import { type BattleLogEntry, type BattleState, type PlayerCombat } from "./engi
 import { appendLog, playerPveEvasionReductionPct } from "./engineSupport";
 import { consumeReactiveDefenseCharges, ironWallDamageReductionPct, resolveFortressReaction } from "./fortressKnight";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
-import { effectiveMutationDef } from "./mutationCombat";
+import { effectiveMutationDef, weightFullDamageTakenReductionPct } from "./mutationCombat";
 import { applyNextAttackDamageDown, consumeNextAttackDamageDown } from "./paragonCombat";
 import { recordChargeHpLoss } from "./ruinBladeCombat";
 import { releaseSwordShadow } from "./shadowBladeCombat";
@@ -1057,7 +1057,8 @@ function resolveEnemyPhaseHit(
     openingMagicReducePct +
     buffReducePct +
     ironWallReducePct +
-    sigReducePct;
+    sigReducePct +
+    weightFullDamageTakenReductionPct(state.stacks.mutationWeight, state.v2Skills?.equipped);
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
   const guard = player.guard;

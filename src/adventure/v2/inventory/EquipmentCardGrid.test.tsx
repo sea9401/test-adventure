@@ -76,8 +76,46 @@ describe("EquipmentCardGrid", () => {
       />,
     );
 
-    expect(html).toContain("회피도 286");
-    expect(html).not.toContain("회피도 285.6");
+    const text = html.replace(/<[^>]+>/g, "");
+    expect(text).toContain("회피도 286");
+    expect(text).not.toContain("회피도 285.6");
+  });
+
+  it("장비 옵션을 말줄임 없이 옵션 단위로 줄바꿈해 모두 보여준다", () => {
+    const html = renderToStaticMarkup(
+      <EquipmentCardGrid
+        cards={[
+          {
+            inst: {
+              iid: "many-options",
+              id: "v2_storm_sanctuary_armor",
+              roll: {
+                power: 255,
+                weight: 0,
+                options: {
+                  hp: 1_178,
+                  mp: 330,
+                  magicDef: 156,
+                  healPowerPct: 18,
+                },
+              },
+            },
+            isEquipped: false,
+          },
+        ]}
+        onOpenCard={() => undefined}
+      />,
+    );
+
+    const statList = html.match(
+      /<ul aria-label="장비 옵션"[^>]*>(.*?)<\/ul>/,
+    );
+    expect(statList).not.toBeNull();
+    expect(statList![0]).not.toContain("line-clamp");
+    expect(statList![0]).toContain("flex-wrap");
+    const items = statList![1].match(/<li class="[^"]*whitespace-nowrap[^"]*">/g);
+    expect(items!.length).toBeGreaterThanOrEqual(5);
+    expect(html).not.toContain(" · ");
   });
 
   it("실제 유니크 장비에만 유니크 배지를 표시한다", () => {

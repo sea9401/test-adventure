@@ -64,7 +64,7 @@ export function nextAssociationFacilityUpgrade(
   buildingId: AdventurerAssociationFacilityId,
   level: number,
 ): (AnySettlementBuildingUpgradeDef & { associationCost: SettlementBuildingUpgradeCost }) | null {
-  const next = nextSettlementBuildingUpgrade(buildingId, level);
+  const next = nextSettlementBuildingUpgrade(buildingId, level, "association");
   return next ? { ...next, associationCost: associationUpgradeCost(next) } : null;
 }
 
@@ -77,111 +77,4 @@ export function associationFacilityMaterialsComplete(
       Math.max(0, Math.floor(donated[key] ?? 0)) >=
       Math.max(0, Math.floor(required[key] ?? 0)),
   );
-}
-
-export type WeeklyFacilitySource = "guild" | "association";
-
-export type WeeklyFacilitySourceSelection = {
-  weekKey: string;
-  source: WeeklyFacilitySource;
-  guildId?: number;
-};
-
-export const WEEKLY_FACILITY_SOURCE_SAVE_KEY =
-  "facility-weekly-source.v1" as const;
-
-export type WeeklyFacilitySourceState = Partial<
-  Record<AdventurerAssociationFacilityId, WeeklyFacilitySourceSelection>
->;
-
-const ASSOCIATION_TO_GUILD_TRANSFER_FACILITIES = new Set<AdventurerAssociationFacilityId>([
-  "guild_smithy",
-  "training_ground",
-  "alchemy_workshop",
-  "dining_hall",
-]);
-
-function positiveInt(value: unknown): number | undefined {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-export function parseWeeklyFacilitySourceState(
-  raw: unknown,
-): WeeklyFacilitySourceState {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const result: WeeklyFacilitySourceState = {};
-  for (const facilityId of ADVENTURER_ASSOCIATION_FACILITY_IDS) {
-    const value = (raw as Record<string, unknown>)[facilityId];
-    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
-    const row = value as Record<string, unknown>;
-    if (
-      typeof row.weekKey === "string" &&
-      (row.source === "guild" || row.source === "association")
-    ) {
-      const guildId = row.source === "guild" ? positiveInt(row.guildId) : undefined;
-      result[facilityId] = {
-        weekKey: row.weekKey,
-        source: row.source,
-        ...(guildId ? { guildId } : {}),
-      };
-    }
-  }
-  return result;
-}
-
-export function resolveWeeklyFacilitySourceClaim(
-  facilityId: AdventurerAssociationFacilityId,
-  current: WeeklyFacilitySourceSelection | undefined,
-  request: WeeklyFacilitySourceSelection,
-):
-  | { ok: true; selection: WeeklyFacilitySourceSelection }
-  | { ok: false; selected: WeeklyFacilitySource } {
-  const requestedGuildId =
-    request.source === "guild" ? positiveInt(request.guildId) : undefined;
-  const selection: WeeklyFacilitySourceSelection = {
-    weekKey: request.weekKey,
-    source: request.source,
-    ...(requestedGuildId ? { guildId: requestedGuildId } : {}),
-  };
-  if (!current || current.weekKey !== request.weekKey) {
-    return { ok: true, selection };
-  }
-  if (current.source === request.source) {
-    if (
-      request.source === "guild" &&
-      current.guildId != null &&
-      requestedGuildId !== current.guildId
-    ) {
-      return { ok: false, selected: current.source };
-    }
-    return { ok: true, selection: { ...current, ...selection } };
-  }
-  if (
-    current.source === "association" &&
-    request.source === "guild" &&
-    ASSOCIATION_TO_GUILD_TRANSFER_FACILITIES.has(facilityId)
-  ) {
-    return { ok: true, selection };
-  }
-  return { ok: false, selected: current.source };
-}
-
-export function weeklyFacilitySourcesAfterGuildJoin(
-  state: WeeklyFacilitySourceState,
-  weekKey: string,
-  guildId: number,
-): {
-  state: WeeklyFacilitySourceState;
-  transferred: AdventurerAssociationFacilityId[];
-} {
-  const next = { ...state };
-  const transferred: AdventurerAssociationFacilityId[] = [];
-  for (const facilityId of ASSOCIATION_TO_GUILD_TRANSFER_FACILITIES) {
-    const current = state[facilityId];
-    if (current?.weekKey !== weekKey || current.source !== "association") continue;
-    next[facilityId] = { weekKey, source: "guild", guildId };
-    transferred.push(facilityId);
-  }
-  return { state: next, transferred };
 }

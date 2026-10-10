@@ -10,6 +10,7 @@ export async function GET(req: Request) {
   const result = await readGuildRaidState(userId, new Date(), {
     leaderboardPage: url.searchParams.get("leaderboardPage") ?? 1,
     recentPage: url.searchParams.get("recentPage") ?? 1,
+    board: url.searchParams.get("board") ?? undefined,
   });
   if (!result.ok) {
     const status = result.error === "no_guild" ? 403 : 500;

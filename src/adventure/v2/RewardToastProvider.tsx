@@ -115,10 +115,12 @@ export function RewardToastProvider({ children }: { children: ReactNode }) {
   return (
     <RewardToastContext.Provider value={value}>
       {children}
+      {/* 모바일도 하단에 띄운다. 상단 메뉴 높이는 전광판·줄바꿈으로 바뀌어 고정 오프셋이면
+          메뉴를 가린다(건의 #767). 우하단 채팅 버튼(하단 4.75rem + 3rem) 위에 둔다. */}
       <div
         aria-live="polite"
         aria-atomic="false"
-        className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+7.25rem)] z-[120] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:top-auto sm:bottom-5 sm:left-5 sm:w-[23rem]"
+        className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+8.25rem)] z-[120] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[23rem]"
       >
         {toasts.map((toast) => (
           <div

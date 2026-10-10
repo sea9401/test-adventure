@@ -1,5 +1,4 @@
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
-import { weeklyFacilityActionLimit } from "./weeklyFacilityClient";
 
 export type TrainingDrillView = {
   id: GuildTrainingDrillId;
@@ -41,7 +40,6 @@ export type TrainingState = {
   availableCount?: number;
   remainingClaims?: number;
   claimableCount?: number;
-  weeklySourceEligible?: boolean;
   recommendedDrillId?: GuildTrainingDrillId | null;
   weekly?: {
     weekKey: string;
@@ -49,6 +47,8 @@ export type TrainingState = {
     target: number;
     bonusMastery: number;
     bonusClaimed: boolean;
+    // 훈련장 Lv.9 이상에서만 내려오는 주간 2단계 보너스.
+    second?: { target: number; bonusMastery: number; claimed: boolean };
   };
   trainingBonuses?: {
     rewardBonusPct: number;
@@ -78,10 +78,7 @@ export function trainingClaimableCountOf(
 ): number | null {
   if (!state?.ok) return null;
   if (typeof state.claimableCount === "number") {
-    return weeklyFacilityActionLimit(
-      state.weeklySourceEligible,
-      state.claimableCount,
-    );
+    return nonNegativeCount(state.claimableCount);
   }
   const availableCount =
     typeof state.availableCount === "number"
@@ -91,18 +88,13 @@ export function trainingClaimableCountOf(
         : null;
   if (availableCount == null) return null;
   if (typeof state.remainingClaims === "number") {
-    return weeklyFacilityActionLimit(
-      state.weeklySourceEligible,
-      Math.min(
-        availableCount,
-        Math.max(0, Math.floor(state.remainingClaims)),
-      ),
-    );
+    return Math.min(availableCount, nonNegativeCount(state.remainingClaims));
   }
-  return weeklyFacilityActionLimit(
-    state.weeklySourceEligible,
-    availableCount,
-  );
+  return availableCount;
+}
+
+function nonNegativeCount(value: number): number {
+  return Math.max(0, Math.floor(Number(value) || 0));
 }
 
 export async function fetchGuildTrainingClaimableCount(
@@ -119,4 +111,16 @@ export async function fetchGuildTrainingClaimableCount(
   } catch {
     return null;
   }
+}
+
+type GuildTrainingWeekly = NonNullable<TrainingState["weekly"]>;
+
+export function guildTrainingWeeklyHint(weekly: GuildTrainingWeekly): string | null {
+  if (!weekly.bonusClaimed) {
+    return `이번 주 ${weekly.target.toLocaleString()}회 훈련 완료 시 숙련도 +${weekly.bonusMastery.toLocaleString()}`;
+  }
+  if (weekly.second && !weekly.second.claimed) {
+    return `이번 주 ${weekly.second.target.toLocaleString()}회 훈련 완료 시 숙련도 +${weekly.second.bonusMastery.toLocaleString()} 추가`;
+  }
+  return null;
 }

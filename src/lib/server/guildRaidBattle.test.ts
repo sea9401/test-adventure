@@ -44,7 +44,7 @@ describe("길드 토벌전 전투 어댑터", () => {
     const result = await simulateGuildRaidBattle({
       tx: {} as never,
       userId: "u1",
-      bossKind: "mountain_chief_hard",
+      bossId: "mountain_chief_hard",
     });
 
     expect(result).toMatchObject({
@@ -69,7 +69,7 @@ describe("길드 토벌전 전투 어댑터", () => {
     prepareV2BattleActor.mockResolvedValue(null);
 
     await expect(
-      simulateGuildRaidBattle({ tx: {} as never, userId: "u1", bossKind: "mountain_chief_hard" }),
+      simulateGuildRaidBattle({ tx: {} as never, userId: "u1", bossId: "mountain_chief_hard" }),
     ).resolves.toBeNull();
     expect(resolveBattle).not.toHaveBeenCalled();
   });
@@ -80,7 +80,7 @@ describe("길드 토벌전 전투 어댑터", () => {
     await simulateGuildRaidBattle({
       tx,
       userId: "u1",
-      bossKind: "mountain_chief_hard",
+      bossId: "mountain_chief_hard",
       lockForUpdate: false,
     });
 

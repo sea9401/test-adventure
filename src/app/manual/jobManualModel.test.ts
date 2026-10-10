@@ -23,6 +23,18 @@ describe("job manual model", () => {
     );
   });
 
+  it("links the golem lineage under the mutant line", () => {
+    const golem = buildJobManualEntry("golem");
+    expect(golem!.nextJobs.map((job) => job.name)).toEqual(["바위투사"]);
+    const primeval = buildJobManualEntry("primevalgolem");
+    expect(primeval!.classification.line).toBe("mutant");
+    expect(primeval!.prerequisites.map((job) => job.name)).toEqual(["산맥골렘"]);
+    expect(primeval!.skills.map((skill) => skill.name)).toEqual([
+      "태고의 붕괴",
+      "대지의 정점",
+    ]);
+  });
+
   it("builds forward and reverse links for a hybrid job", () => {
     const templar = buildJobManualEntry("templar");
 

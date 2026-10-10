@@ -29,6 +29,12 @@ const { store, incrementGuildExplorationProgressForUser, rewardReferralTutorialT
   };
 });
 
+const { masterProductNotify } = vi.hoisted(() => ({
+  masterProductNotify: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/server/v2Notifications", () => ({
+  insertNotificationWith: masterProductNotify,
+}));
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
@@ -105,6 +111,19 @@ import {
 } from "@/adventure/v2/autoGathering";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
+import { LIFE_MAJOR_SAVE_KEY, lifeMajorStageXp } from "@/adventure/v2/lifeMajor";
+
+const { festivalBonus } = vi.hoisted(() => ({
+  festivalBonus: vi.fn(),
+}));
+vi.mock("@/adventure/v2/lifeFestival", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/v2/lifeFestival")>()),
+  lifeFestivalBonus: festivalBonus,
+}));
+beforeEach(() => {
+  festivalBonus.mockReset();
+  festivalBonus.mockReturnValue({ themeId: null, chancePct: 0, xpPct: 0 });
+});
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -881,6 +900,158 @@ describe("woodcutting routes", () => {
     store.set("skills.v2", { learned: ["v2c_lumberjack_woodreading"], equipped: ["v2c_lumberjack_woodreading"] });
     const json = await (await STATUS()).json();
     expect(json.failureReductionPct).toBe(20);
+  });
+
+  it("start — 숲의 축제 주간에는 추가 원목 확률이 10%p 오른다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set("character.v2", { materials: {} });
+    const base = await (await START(startReq("pine_grove"))).json();
+    store.clear();
+    resetUserRateLimitForTests();
+    store.set("character.v2", { materials: {} });
+    festivalBonus.mockReturnValue({ themeId: "forest", chancePct: 10, xpPct: 25 });
+    const boosted = await (await START(startReq("pine_grove"))).json();
+    expect(festivalBonus).toHaveBeenCalledWith("woodcutting", new Date(NOW));
+    expect(boosted.bonusLogChancePct).toBe(base.bonusLogChancePct + 10);
+  });
+
+  it("chop — 숲의 축제 주간에는 벌목 경험치가 25% 오른다", async () => {
+    festivalBonus.mockReturnValue({ themeId: "forest", chancePct: 10, xpPct: 25 });
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "cut-done",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+    });
+    store.set("character.v2", { materials: {} });
+    const json = await (await CHOP(chopReq("cut-done"))).json();
+    expect(json.success).toBe(true);
+    expect(json.xpGained).toBe(12);
+    expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({ xp: 12 });
+  });
+
+  it("자동 벌목 정산에도 숲의 축제 경험치 보너스를 더한다", async () => {
+    festivalBonus.mockReturnValue({ themeId: "forest", chancePct: 10, xpPct: 25 });
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-auto",
+        sourceId: "oak",
+        sourceName: "참나무",
+        materialId: OAK,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 1,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set("character.v2", { materials: {} });
+    const json = await (
+      await AUTO(
+        new Request("http://test.local/api/v2/woodcutting/auto", {
+          method: "POST",
+          body: JSON.stringify({ action: "cancel" }),
+        }),
+      )
+    ).json();
+    expect(json).toMatchObject({ ok: true, xpGained: 875 });
+  });
+
+  describe("생활 전공", () => {
+    const MAJOR = () => ({
+      major: "woodcutting",
+      masteryXp: { woodcutting: lifeMajorStageXp("woodcutting", 3) },
+    });
+    const capLog = () => ({ levelCurveVersion: 2, cuts: 10, xp: woodcuttingXpForLevel(100) });
+
+    it("start — 주전공 단계만큼 추가 원목 확률을 더한다", async () => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW);
+      store.set("character.v2", { materials: {} });
+      const base = await (await START(startReq("pine_grove"))).json();
+      store.clear();
+      resetUserRateLimitForTests();
+      store.set("character.v2", { materials: {} });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      const boosted = await (await START(startReq("pine_grove"))).json();
+      expect(boosted.bonusLogChancePct).toBe(base.bonusLogChancePct + 3);
+    });
+
+    it("chop — Lv.100 주전공은 넘친 경험치를 쌓고 명장 목재를 받는다", async () => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+      vi.mocked(Math.random).mockReturnValue(0.001);
+      store.set(WOODCUTTING_SESSION_KEY, {
+        sessionId: "cut-done",
+        spotId: "oak_grove",
+        treeId: "oak",
+        readyAt: NOW + 4_500,
+        expiresAt: NOW + 34_500,
+        failureRate: 0,
+      });
+      store.set(WOODCUTTING_LOG_KEY, capLog());
+      store.set("character.v2", { materials: {} });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+
+      const json = await (await CHOP(chopReq("cut-done"))).json();
+
+      expect(json.success).toBe(true);
+      expect(json.lifeMajor).toEqual({
+        masteryXpGained: json.xpGained,
+        masterProduct: { materialId: "v2_master_wood", name: "명장 목재", count: 1 },
+      });
+      expect(charOf().materials?.v2_master_wood).toBe(1);
+      expect(masterProductNotify).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        "master_product",
+        { activity: "woodcutting", materialId: "v2_master_wood", name: "명장 목재", count: 1 },
+      );
+      expect(store.get(LIFE_MAJOR_SAVE_KEY)).toMatchObject({
+        masteryXp: { woodcutting: lifeMajorStageXp("woodcutting", 3) + json.xpGained },
+      });
+    });
+
+    it("자동 벌목 정산은 성공 횟수만큼 산물을 굴리고 넘친 경험치를 쌓는다", async () => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+      vi.mocked(Math.random).mockReturnValue(0.001);
+      store.set(WOODCUTTING_AUTO_KEY, {
+        session: {
+          sessionId: "wood-auto",
+          sourceId: "oak",
+          sourceName: "참나무",
+          materialId: OAK,
+          startedAt: NOW,
+          readyAt: NOW + 30 * 60_000,
+          cycleDurationMs: 9_000,
+          attempts: 200,
+          successRate: 1,
+          bonusMaterialRate: 0,
+          baseXp: 10,
+        },
+      });
+      store.set(WOODCUTTING_LOG_KEY, capLog());
+      store.set("character.v2", { materials: {} });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      const json = await (
+        await AUTO(
+          new Request("http://test.local/api/v2/woodcutting/auto", {
+            method: "POST",
+            body: JSON.stringify({ action: "cancel" }),
+          }),
+        )
+      ).json();
+      expect(json.lifeMajor.masteryXpGained).toBe(json.xpGained);
+      expect(json.lifeMajor.masterProduct).toEqual({
+        materialId: "v2_master_wood",
+        name: "명장 목재",
+        count: json.successes,
+      });
+      expect(charOf().materials?.v2_master_wood).toBe(json.successes);
+    });
   });
 
 });

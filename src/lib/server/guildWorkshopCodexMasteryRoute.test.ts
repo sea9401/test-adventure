@@ -38,7 +38,6 @@ vi.mock("@/lib/server/savesKv", () => ({
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   canUseAdventurerAssociation: vi.fn(async () => true),
   associationFacilityLevel: vi.fn(async () => 5),
-  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("@/lib/server/settlementBuildingAccess", () => ({
   outpostIdFromRequest: vi.fn(() => null),

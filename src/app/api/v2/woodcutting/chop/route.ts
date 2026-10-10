@@ -1,4 +1,10 @@
 import { db } from "@/db";
+import { lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import {
+  applyLifeMajorProgress,
+  lifeMajorResponse,
+  withMasterProduct,
+} from "@/lib/server/lifeMajor";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import {
@@ -63,6 +69,7 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { rollWoodcuttingSeedDrop } from "@/adventure/v2/woodcuttingSeedDrops";
+import { lifeFestivalBonus, lifeFestivalBonusXp } from "@/adventure/v2/lifeFestival";
 import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
@@ -305,8 +312,16 @@ export async function POST(req: Request) {
           lifeFieldSessionRoll(session.sessionId, "xp-bonus"),
         )
       : 0;
+    const festivalXp = lifeFestivalBonusXp(
+      tree.xp,
+      lifeFestivalBonus("woodcutting", new Date(now)).xpPct,
+    );
     const xpGained =
-      tree.xp + diningXp.bonus + environmentXpGained + discoveryRewardXp;
+      tree.xp +
+      diningXp.bonus +
+      festivalXp +
+      environmentXpGained +
+      discoveryRewardXp;
     const log = recordWoodcuttingSuccess(currentLog, {
       treeId: session.treeId,
       timber: materialGained,
@@ -361,9 +376,24 @@ export async function POST(req: Request) {
       1,
       new Date(now),
     );
+    // 생활 전공 — 다른 세이브 잠금 뒤에 life-major.v1 을 잠그고, 산물은 이번에 저장할
+    // character.v2 사본에 합친다.
+    const lifeMajorProgress = await applyLifeMajorProgress(tx, userId, "woodcutting", {
+      overflowXp: lifeXpOverflow({ gained: xpGained, before: currentLog.xp, after: log.xp }),
+      successes: 1,
+      rng: Math.random,
+    });
+    if (lifeMajorProgress.productCount > 0) {
+      const charDirty = dirtySaves["character.v2"] as { materials?: unknown };
+      dirtySaves["character.v2"] = {
+        ...charDirty,
+        materials: withMasterProduct(charDirty.materials, lifeMajorProgress),
+      };
+    }
     await upsertSaves(tx, userId, dirtySaves);
     return {
       success: true as const,
+      lifeMajor: lifeMajorResponse(lifeMajorProgress),
       tree,
       materialId,
       materialName: WOODCUTTING_MATERIALS[materialId].name,

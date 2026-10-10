@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { TEMPERING_CATALYST } from "@/adventure/v2/lifeMajorProducts";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -19,6 +20,7 @@ import {
   ENHANCE_UNIQUE_COST_MULT,
   demoteEnhance,
   enhanceBonusPct,
+  enhanceCatalystUsable,
   enhanceOutcomeRow,
   enhanceStoneCost,
   rollEnhanceOutcome,
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { iid?: unknown; stone?: unknown; feedIid?: unknown };
+  let body: { iid?: unknown; stone?: unknown; feedIid?: unknown; catalyst?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -80,6 +82,7 @@ export async function POST(req: Request) {
     typeof body.feedIid === "string" && body.feedIid.length > 0
       ? body.feedIid
       : null;
+  const useCatalyst = body.catalyst === true;
   if (!iid || (stone as string) === "invalid") {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
@@ -170,6 +173,20 @@ export async function POST(req: Request) {
         },
       };
     }
+    // 단련 촉매 — 하락 확률이 있는 시도에서만, 1개 소모.
+    const haveCatalysts = Math.max(0, Math.floor(Number(mats[TEMPERING_CATALYST.id]) || 0));
+    if (useCatalyst && !enhanceCatalystUsable(level, stone)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "catalyst_not_needed" as const },
+      };
+    }
+    if (useCatalyst && haveCatalysts < 1) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "insufficient_catalyst" as const },
+      };
+    }
     const spend = spendGold(haveGold, bankedGold, goldCost);
     if (!spend.ok) {
       return {
@@ -192,8 +209,13 @@ export async function POST(req: Request) {
     const nextBankedGold = spend.bankedGold;
 
     // 결과 롤 — 서버 권위. 4결과(성공/유지/하락/파괴).
-    const outcomeRow = enhanceOutcomeRow(level, stone);
-    const outcome = rollEnhanceOutcome(level, stone, Math.random);
+    if (useCatalyst) {
+      if (haveCatalysts > 1) mats[TEMPERING_CATALYST.id] = haveCatalysts - 1;
+      else delete mats[TEMPERING_CATALYST.id];
+    }
+    const enhanceOptions = { catalyst: useCatalyst };
+    const outcomeRow = enhanceOutcomeRow(level, stone, enhanceOptions);
+    const outcome = rollEnhanceOutcome(level, stone, Math.random, enhanceOptions);
 
     let nextOwned = owned;
     if (feed) {
@@ -291,6 +313,7 @@ export async function POST(req: Request) {
           ),
         },
         feedUsed: !!feed,
+        catalysts: Math.max(0, Math.floor(Number(mats[TEMPERING_CATALYST.id]) || 0)),
       },
     };
   });

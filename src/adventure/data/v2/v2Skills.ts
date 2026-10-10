@@ -31,6 +31,7 @@ import { EARTH_MAGE_SKILLS, type EarthMageSkillId } from "./earthMageSkills";
 import { FIRE_MAGE_SKILLS, type FireMageSkillId } from "./fireMageSkills";
 import { DRAGON_KNIGHT_SKILLS, type DragonKnightSkillId } from "./dragonKnightSkills";
 import { TIER7_EXPANSION_SKILLS, type Tier7ExpansionSkillId } from "./tier7ExpansionSkills";
+import { TIER7_SECOND_EXPANSION_SKILLS, type Tier7SecondExpansionSkillId } from "./tier7SecondExpansionSkills";
 import { passiveForJob, type LineagePassiveBonus } from "./lineagePassives";
 import {
   MARKSMAN_INSIGHT_ACCURACY_THRESHOLD,
@@ -65,6 +66,11 @@ import {
   bleedHuntPowerValue,
   type BleedHuntMechanic,
 } from "./bleedHunt";
+import {
+  describeWeightCycle,
+  weightCyclePowerValue,
+  type WeightCycleMechanic,
+} from "./weightCycle";
 import {
   tier7CombatJobIdForSkillId,
   tier7MechanicPower,
@@ -324,7 +330,8 @@ export type V2SkillId =
   | ParagonSkillId
   | DarkPriestSkillId
   | EarthMageSkillId
-  | Tier7ExpansionSkillId;
+  | Tier7ExpansionSkillId
+  | Tier7SecondExpansionSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -656,6 +663,8 @@ export type V2SkillDefinition = {
   tier7Mechanic?: Tier7Mechanic;
   /** 출혈 유지형 수인 계보. 전투·표기·성능 점수가 같은 선언을 읽는다. */
   bleedHunt?: BleedHuntMechanic;
+  /** 중량 축적·해방형 골렘 계보. 전투·표기·성능 점수가 같은 선언을 읽는다. */
+  weightCycle?: WeightCycleMechanic;
 };
 
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
@@ -1000,6 +1009,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     return (
       mag +
       bleedHuntPowerValue(def.bleedHunt) +
+      weightCyclePowerValue(def.weightCycle, 0) +
       (def.tier7Mechanic ? tier7MechanicPower(def.tier7Mechanic) : 0)
     );
   }
@@ -1074,6 +1084,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   raw += (def.skillCritChancePct ?? 0) / 20;
   raw += (def.accuracyBonusPct ?? 0) / 30;
   raw += bleedHuntPowerValue(def.bleedHunt);
+  raw += weightCyclePowerValue(def.weightCycle, raw);
   // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.35): 저확률 스킬에
   //   의미 있는 할인을 주되 최강 누크가 최저가가 되지 않게. 10%→0.56 · 30%→0.71 · 100%→1.0.
   const proc = Math.min(1, Math.max(0, (def.procChance ?? 100) / 100));
@@ -1251,6 +1262,11 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   bloodtracker: "steady",
   predator: "steady",
   primalpredator: "steady",
+  rockbrawler: "steady",
+  rockgiant: "steady",
+  irongolem: "steady",
+  mountaingolem: "steady",
+  primevalgolem: "steady",
   // 큰 한 방·처형·광전 — 한 번의 위력이 높은 대신 조금 덜 발동.
   mage: "burst",
   caster: "burst",
@@ -1570,6 +1586,7 @@ const RAW_V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...EARTH_MAGE_SKILLS,
   ...DARK_PRIEST_SKILLS,
   ...TIER7_EXPANSION_SKILLS,
+  ...TIER7_SECOND_EXPANSION_SKILLS,
 };
 
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = Object.fromEntries(
@@ -2366,7 +2383,8 @@ function describeV2Effect(
 ): string {
   switch (e.kind) {
     case "damage":
-      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)}`;
+      // 관통분은 방어 전 피해 기준이라 저방어 대상에서는 계수 표기보다 그만큼 더 들어간다.
+      return `피해 ${damageFormulaChip(e, tier, directDamageEffectCount, monsterOnly)}${e.pierceDamagePct ? ` · 방어 무시 추가 피해 +${e.pierceDamagePct}%` : ""}`;
     case "heal":
       return `${[
         e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
@@ -2694,6 +2712,8 @@ function describeTier7Mechanic(mechanic: Tier7Mechanic): string[] {
         `완전식: 직접 최종 피해 +${mechanic.directDamagePct}% · 관통 +${mechanic.penetrationPct}% · 행동 가속 ${mechanic.hastePct}%`,
         `PvP: 직접 최종 피해 +${mechanic.pvpDamagePct}% · 관통 +${mechanic.pvpPenetrationPct}% · 행동 가속 ${mechanic.pvpHastePct}%`,
       ];
+    case "pvpDirectDamage":
+      return [`PvP 직접 피해 ${mechanic.pvpDirectDamagePct}% 적용`];
   }
   const _exhaustive: never = mechanic;
   return _exhaustive;
@@ -2872,6 +2892,7 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
     : describeV2SkillEffects(skill, skill.effects);
   chips.push(...describeBerserkerLineageRules(skill));
   chips.push(...describeBleedHunt(skill));
+  if (skill.weightCycle) chips.push(...describeWeightCycle(skill.weightCycle));
   if (skill.lineageBonus) {
     const { label, passive } = skill.lineageBonus;
     chips.push(...describePassive(passive).map(chip => `${label}: ${chip}`));

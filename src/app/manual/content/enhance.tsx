@@ -1,3 +1,4 @@
+import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
 export function EnhanceContent() {
@@ -41,8 +42,16 @@ export function EnhanceContent() {
           나와도 +9로 내려가지 않습니다.
         </li>
         <li>
-          강화석은 <Em>사냥 드랍</Em>으로 얻고, <Em>거래소</Em>에서 사고팔 수
-          있습니다. 인벤토리 일괄 정리 대상은 아닙니다.
+          강화석은 <Em>사냥 드랍</Em>과 길드 <Em>연금 공방</Em>·<Em>교역소</Em>{" "}
+          보급으로 얻고, <Em>거래소</Em>에서 사고팔 수 있습니다. 인벤토리 일괄
+          정리 대상은 아닙니다.
+        </li>
+        <li>
+          채광 주전공 명장이 만드는 <Em>단련 촉매</Em>를 함께 쓰면 그 시도의
+          하락 확률을 최대 {ENHANCE_CATALYST_DEMOTE_SHIFT}%p까지 유지로 바꿉니다.
+          시도 1회에 1개를 쓰고 강화석과 함께 쓸 수 있으며, 하락이 없는
+          구간에서는 쓸 수 없습니다. 만드는 법은 생활 매뉴얼의 생활 전공을
+          참고하세요.
         </li>
       </UL>
 

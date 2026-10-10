@@ -16,6 +16,7 @@ import {
 } from "@/adventure/data/v2/guildCombatSupply";
 import {
   GUILD_EXPLORATION_EXPEDITION_IDS,
+  GUILD_EXPLORATION_CONCURRENT_MIN_LEVEL,
   GUILD_EXPLORATION_EXPEDITIONS,
   GUILD_EXPLORATION_WEEKLY_MISSION_IDS,
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
@@ -407,10 +408,10 @@ export function GuildContent() {
             <Em key={id}>{expedition.name}</Em>,
             `Lv.${expedition.minLevel}`,
             `${expedition.durationMinutes / 60}시간 · ${expedition.costGold.toLocaleString("ko-KR")} G`,
-            `길드 금고 ${expedition.rewardGold.toLocaleString("ko-KR")} G · 명성 ${expedition.rewardFame.toLocaleString("ko-KR")} · 지도 조각 +${expedition.mapFragments.toLocaleString("ko-KR")}`,
+            `길드 금고 ${expedition.rewardGold.toLocaleString("ko-KR")} G · 명성 ${expedition.rewardFame.toLocaleString("ko-KR")} · 지도 조각 +${expedition.mapFragments.toLocaleString("ko-KR")}${expedition.memberRewardName ? ` · 길드원 전원 ${expedition.memberRewardName}` : ""}`,
           ];
         })}
-        caption="원정대는 한 번에 하나만 파견할 수 있으며, 마스터 또는 관리자가 길드 금고 골드를 사용해 출발시킵니다. 귀환 시간이 지난 뒤에는 길드원 누구나 보상을 회수할 수 있습니다."
+        caption={`원정대는 한 번에 하나씩 보내며, 탐사 본부 Lv.${GUILD_EXPLORATION_CONCURRENT_MIN_LEVEL}부터는 서로 다른 원정 두 곳에 동시에 보낼 수 있습니다. 마스터 또는 관리자가 길드 금고 골드를 사용해 출발시키고, 귀환 시간이 지난 뒤에는 길드원 누구나 보상을 회수할 수 있습니다. 길드원 전원 보상은 회수하는 시점의 길드원에게 지급됩니다.`}
       />
 
       <H2>연금 공방</H2>

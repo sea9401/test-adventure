@@ -6,6 +6,31 @@ export type JobManualGuide = {
   examples: string[];
 };
 
+const GOLEM_LINE_GUIDE: JobManualGuide = {
+  overview:
+    "중량을 쌓는 공격과 쌓인 중량을 모두 소모하는 공격을 번갈아 쓰는 골렘 계열입니다.",
+  rules: [
+    "중량은 0~3이며 전투를 시작할 때 0이고 전투가 끝나면 사라집니다.",
+    "중량 1당 직접 물리 스킬 피해 +5%, 유효 속도 −5% (강철 골격 장착 시 −3%)",
+    "암석 강타·바위 굴리기·강철 망치는 중량을 얻고, 지각 붕괴·암반 내려찍기·산사태·태고의 붕괴는 중량을 모두 소모해 소모한 만큼 강해집니다.",
+    "한 공격으로 새로 얻은 중량은 그 공격의 피해에 반영되지 않고 다음 공격부터 적용됩니다.",
+    "짐 벗기·암벽 갑주·산맥의 몸의 해방 효과는 실제로 중량을 1 이상 소모했을 때만 발동합니다.",
+    "산사태의 회복, 태고의 붕괴의 관통·가속, 대지의 정점의 피해 증가·감소는 중량 3일 때만 적용됩니다.",
+  ],
+  examples: [
+    "중량 0 → 바위 굴리기(중량 2) → 암석 강타(중량 3) → 태고의 붕괴(3 소모: 관통·가속) → 산맥의 몸으로 중량 1부터 다시 축적",
+  ],
+};
+
+const GOLEM_LINE_JOB_IDS = [
+  "golem",
+  "rockbrawler",
+  "rockgiant",
+  "irongolem",
+  "mountaingolem",
+  "primevalgolem",
+] as const;
+
 const JOB_MANUAL_GUIDES: Record<string, JobManualGuide> = {
   radiantknight: {
   "overview": "성역으로 회복하며 성력을 모으고 여명의 심판으로 소비하는 성기사 계열입니다.",
@@ -235,5 +260,8 @@ const JOB_MANUAL_GUIDES: Record<string, JobManualGuide> = {
 };
 
 export function jobManualGuideFor(jobId: string): JobManualGuide | null {
+  if ((GOLEM_LINE_JOB_IDS as readonly string[]).includes(jobId)) {
+    return GOLEM_LINE_GUIDE;
+  }
   return JOB_MANUAL_EXPANSION_GUIDES[jobId] ?? JOB_MANUAL_GUIDES[jobId] ?? null;
 }

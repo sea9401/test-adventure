@@ -8,6 +8,11 @@ export const TIER7_COMBAT_JOB_IDS = [
   "aegis",
   "seraphim",
   "dragonlord",
+  "tempest",
+  "titan",
+  "runelord",
+  "bloodheaven",
+  "behemoth",
 ] as const;
 
 export type Tier7CombatJobId = (typeof TIER7_COMBAT_JOB_IDS)[number];
@@ -22,6 +27,11 @@ export const TIER7_COMBAT_JOB_NAMES: Record<Tier7CombatJobId, string> = {
   aegis: "이지스",
   seraphim: "세라핌",
   dragonlord: "드래곤로드",
+  tempest: "템페스트",
+  titan: "타이탄",
+  runelord: "룬로드",
+  bloodheaven: "혈천마신",
+  behemoth: "베히모스",
 };
 
 export const TIER7_COMBAT_JOB_PREREQS: Record<
@@ -37,6 +47,11 @@ export const TIER7_COMBAT_JOB_PREREQS: Record<
   aegis: ["fortressknight", "lawguardian"],
   seraphim: ["savior", "dawnpaladin"],
   dragonlord: ["dragonsovereign", "infernomancer"],
+  tempest: ["stormbringer", "frostsovereign"],
+  titan: ["tectomancer", "eternal"],
+  runelord: ["lawweaver", "archmage"],
+  bloodheaven: ["blooddemon", "absolute"],
+  behemoth: ["primalpredator", "celestialdragon"],
 };
 
 export function isTier7CombatJobId(value: string): value is Tier7CombatJobId {

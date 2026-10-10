@@ -56,3 +56,24 @@ describe("guildFacilitySupport", () => {
     ).toEqual({ crop: 500, ore: 260, v2_birch_log: 25 });
   });
 });
+
+describe("상위 시설 지원 물자", () => {
+  it("편백나무·아다만타이트에 같은 배분 규칙을 적용한다", async () => {
+    const { WOODCUTTING_MATERIAL_ID } = await import("./woodcuttingSpots");
+    const { MINING_MATERIAL_ID } = await import("./miningSpots");
+    const cypress = WOODCUTTING_MATERIAL_ID.cypress;
+    const adamantite = MINING_MATERIAL_ID.adamantite;
+    const cost = { [cypress]: 2000, [adamantite]: 2000, crop: 0 };
+    expect(guildFacilitySupportAllocation(cost, { [cypress]: 1950 }, "advanced")).toEqual({
+      crop: 50,
+      ore: 150,
+      total: 200,
+    });
+    expect(
+      guildFacilitySupportAllocation(cost, { [cypress]: 2000, [adamantite]: 1900 }, "advanced"),
+    ).toBeNull();
+    expect(
+      applyGuildFacilitySupport({ [cypress]: 1950 }, { crop: 50, ore: 150, total: 200 }, "advanced"),
+    ).toEqual({ [cypress]: 2000, [adamantite]: 150 });
+  });
+});

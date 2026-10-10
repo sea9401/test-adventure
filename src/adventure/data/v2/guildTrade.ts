@@ -10,7 +10,10 @@ import {
 } from "./woodcuttingSpots";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { MASTERY_CERTIFICATE_KEY } from "./masteryTower";
-import type { SettlementBuildingId } from "./settlement";
+import {
+  BASE_SETTLEMENT_BUILDING_MAX_LEVEL,
+  type SettlementBuildingId,
+} from "./settlement";
 import {
   FARM_ITEMS,
   type FarmItemId,
@@ -20,8 +23,14 @@ import {
   type FishingCatchItemId,
 } from "@/adventure/v2/fishingStock";
 import type { GameIconName } from "./gameIcon";
+import type { GuildMemberGrantOutput } from "./guildMemberGrant";
+import type { GuildFacilitySupportKind } from "./guildFacilitySupport";
+import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
+import { TORN_MAP_FRAGMENT_MATERIAL_ID } from "./scavengedCrafting";
+import { ENHANCE_STONE_MATERIAL_ID } from "./v2Enhance";
 
 export const GUILD_TRADE_USER_SAVE_KEY = "guild-trade-user.v1";
+export const ASSOCIATION_TRADE_USER_SAVE_KEY = "association-trade-user.v1";
 export const GUILD_TRADE_BASE_TARGET = 40;
 export const GUILD_TRADE_TARGET_PER_EXTRA_MEMBER = 10;
 export const GUILD_TRADE_MAX_TARGET_MEMBERS = 20;
@@ -204,7 +213,8 @@ export function guildTradeItemsForWeek(
   guildId: number,
   count: number,
 ): GuildTradeItem[] {
-  const safeCount = Math.max(1, Math.min(5, Math.floor(count)));
+  // Lv.1~5 최대 5건, 교역소 Lv.7 6건·Lv.10 7건. 5건째부터는 서로 다른 고급 품목을 더한다.
+  const safeCount = Math.max(1, Math.min(7, Math.floor(count)));
   const byCategory = (category: GuildTradeItemCategory) =>
     GUILD_TRADE_ITEMS.filter((item) => item.category === category);
   const foodOrder: GuildTradeItemCategory[] =
@@ -219,12 +229,18 @@ export function guildTradeItemsForWeek(
   const picked = categories.slice(0, Math.min(4, safeCount)).map((category, index) =>
     pickFrom(byCategory(category), `${weekKey}:${guildId}:${category}:${index}`),
   );
-  if (safeCount >= 5) {
+  for (let slot = 5; slot <= safeCount; slot += 1) {
     const selectedIds = new Set(picked.map((item) => item.id));
     const premium = GUILD_TRADE_ITEMS.filter(
       (item) => item.pointValue >= 2 && !selectedIds.has(item.id),
     );
-    picked.push(pickFrom(premium, `${weekKey}:${guildId}:premium`));
+    if (premium.length === 0) break;
+    // 5건째 시드는 기존과 같게 두어 이미 만들어진 주간 계약과 결과가 바뀌지 않게 한다.
+    const seed =
+      slot === 5
+        ? `${weekKey}:${guildId}:premium`
+        : `${weekKey}:${guildId}:premium:${slot}`;
+    picked.push(pickFrom(premium, seed));
   }
   return picked;
 }
@@ -277,7 +293,12 @@ export type GuildTradeShopItemId =
   | "sunstone"
   | "settlement_supplies"
   | "trade_support_fund"
-  | "guild_fame_document";
+  | "guild_fame_document"
+  | "summon_scroll_bundle"
+  | "map_fragment_bundle"
+  | "grand_fame_document"
+  | "blue_stone_supply"
+  | "advanced_facility_supplies";
 
 export type GuildTradeShopItem = {
   id: GuildTradeShopItemId;
@@ -290,10 +311,13 @@ export type GuildTradeShopItem = {
   minFacilityLevel: number;
   target: "members" | "guild";
   output:
-    | { kind: "material"; materialId: string; count: number }
-    | { kind: "stamina_potion"; count: number }
-    | { kind: "mastery_certificate"; itemKey: string; count: number }
-    | { kind: "guild_facility_support"; count: number }
+    | GuildMemberGrantOutput
+    | {
+        kind: "guild_facility_support";
+        count: number;
+        // 없으면 기본(통나무·철광석) 지원 물자.
+        supportKind?: GuildFacilitySupportKind;
+      }
     | { kind: "guild_gold"; count: number }
     | { kind: "guild_fame"; count: number };
 };
@@ -309,6 +333,8 @@ export type GuildFacilitySupportTarget = {
     | "materials_not_required"
     | "remaining_below_200"
     | null;
+  supportKind: GuildFacilitySupportKind;
+  // 지원 종류의 첫째·둘째 재료(기본 = 통나무·철광석, 상위 = 편백나무·아다만타이트).
   crop: { current: number; required: number; grant: number; after: number };
   ore: { current: number; required: number; grant: number; after: number };
 };
@@ -427,10 +453,76 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     target: "guild",
     output: { kind: "guild_fame", count: 100 },
   },
+  {
+    id: "summon_scroll_bundle",
+    name: "소환서 꾸러미",
+    description: "현재 길드원 전원에게 보스 소환서를 1장씩 나눕니다.",
+    icon: "📜",
+    iconName: "Scroll",
+    tokenCost: 150,
+    weeklyLimit: 2,
+    minFacilityLevel: 6,
+    target: "members",
+    output: { kind: "material", materialId: SUMMON_SCROLL_MATERIAL_ID, count: 1 },
+  },
+  {
+    id: "map_fragment_bundle",
+    name: "지도 조각 꾸러미",
+    description: "현재 길드원 전원에게 찢어진 지도 조각을 1개씩 나눕니다.",
+    icon: "🗺️",
+    iconName: "MapTrifold",
+    tokenCost: 180,
+    weeklyLimit: 1,
+    minFacilityLevel: 7,
+    target: "members",
+    output: { kind: "material", materialId: TORN_MAP_FRAGMENT_MATERIAL_ID, count: 1 },
+  },
+  {
+    id: "grand_fame_document",
+    name: "길드 명성 대문서",
+    description: "길드 누적 명성과 사용 가능 명성을 300 올립니다.",
+    icon: "📯",
+    iconName: "Trophy",
+    tokenCost: 400,
+    weeklyLimit: 2,
+    minFacilityLevel: 8,
+    target: "guild",
+    output: { kind: "guild_fame", count: 300 },
+  },
+  {
+    id: "blue_stone_supply",
+    name: "푸른 강화석 보급",
+    description: "현재 길드원 전원에게 푸른 강화석을 1개씩 나눕니다.",
+    icon: "🔷",
+    iconName: "Diamond",
+    tokenCost: 350,
+    weeklyLimit: 1,
+    minFacilityLevel: 9,
+    target: "members",
+    output: { kind: "material", materialId: ENHANCE_STONE_MATERIAL_ID.blue, count: 1 },
+  },
+  {
+    id: "advanced_facility_supplies",
+    name: "상위 시설 지원 물자",
+    description:
+      "선택한 길드 시설의 다음 업그레이드에 편백나무와 아다만타이트를 합계 200개 지원합니다.",
+    icon: "🏗️",
+    iconName: "Cube",
+    tokenCost: 300,
+    weeklyLimit: 2,
+    minFacilityLevel: 10,
+    target: "guild",
+    output: { kind: "guild_facility_support", count: 200, supportKind: "advanced" },
+  },
 ];
 
+// 협회 교역소는 Lv.5가 최대라 Lv.6 이상 품목은 목록에서 뺀다.
 export const ASSOCIATION_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] =
-  GUILD_TRADE_SHOP_ITEMS.filter((item) => item.target === "members");
+  GUILD_TRADE_SHOP_ITEMS.filter(
+    (item) =>
+      item.target === "members" &&
+      item.minFacilityLevel <= BASE_SETTLEMENT_BUILDING_MAX_LEVEL,
+  );
 
 export function guildTradeShopItem(raw: unknown): GuildTradeShopItem | null {
   if (typeof raw !== "string") return null;
@@ -462,9 +554,9 @@ export function parseGuildTradeUserState(
 ): GuildTradeUserState {
   const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const sameGuild = nonNegativeInt(value.guildId) === args.guildId;
-  const sameWeek = sameGuild && value.weekKey === args.weekKey;
+  const sameWeek = value.weekKey === args.weekKey;
   const purchaseRaw =
-    sameWeek && value.purchases && typeof value.purchases === "object"
+    sameGuild && sameWeek && value.purchases && typeof value.purchases === "object"
       ? (value.purchases as Record<string, unknown>)
       : {};
   const purchases: GuildTradeUserState["purchases"] = {};
@@ -477,7 +569,17 @@ export function parseGuildTradeUserState(
     guildId: args.guildId,
     weekKey: args.weekKey,
     tokens: sameGuild ? nonNegativeInt(value.tokens) : 0,
+    // 길드를 옮겨도 같은 주의 개인 납품 점수는 이어져 개인 납품 한도가 다시 생기지 않는다.
     contributionPoints: sameWeek ? nonNegativeInt(value.contributionPoints) : 0,
     purchases,
   };
+}
+
+// 길드 교역소와 협회 교역소는 장부가 따로지만 개인 납품 한도는 같은 주 안에서 합산한다.
+export function guildTradeWeeklyContributionPoints(
+  raw: unknown,
+  weekKey: string,
+): number {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return value.weekKey === weekKey ? nonNegativeInt(value.contributionPoints) : 0;
 }

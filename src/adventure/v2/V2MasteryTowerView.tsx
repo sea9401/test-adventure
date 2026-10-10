@@ -102,6 +102,7 @@ type TowerStatus = {
     milestones: { floor: number; bonus: number }[];
   };
   jobs: TowerJob[];
+  currentJobId?: string | null;
 };
 
 export function V2MasteryTowerView({
@@ -509,7 +510,11 @@ export function V2MasteryTowerView({
 
       {status && (
         <MasteryCertificateTowerEntry
-          status={{ certificates: status.certificates, jobs: status.jobs }}
+          status={{
+            certificates: status.certificates,
+            jobs: status.jobs,
+            currentJobId: status.currentJobId ?? null,
+          }}
           modalOpen={certificateModalOpen}
           onOpen={() => setCertificateModalOpen(true)}
           onClose={() => setCertificateModalOpen(false)}

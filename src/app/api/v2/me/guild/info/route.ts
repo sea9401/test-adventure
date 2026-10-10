@@ -28,6 +28,7 @@ import {
   type SettlementBuildingId,
   type VillageTier,
 } from "@/adventure/data/v2/settlement";
+import { readGuildFacilityOperationsViews } from "@/lib/server/guildFacilityOperations";
 import { readGuildFacilityDonationProgress } from "@/lib/server/guildFacilityUpgradeDonations";
 import {
   parseV2Class,
@@ -416,6 +417,11 @@ export async function GET() {
     db,
     guildId,
   );
+  const facilityOperations = await readGuildFacilityOperationsViews(
+    db,
+    guildId,
+    settlementBuildingLevels,
+  );
 
   return Response.json({
     ok: true,
@@ -438,6 +444,7 @@ export async function GET() {
     settlementBuildingLevels,
     settlementResources,
     facilityUpgradeDonations,
+    facilityOperations,
     hasGuildSmithy,
     hasTrainingGround,
     hasMapWorkshop,

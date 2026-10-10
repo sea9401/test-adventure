@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { WeeklyFacilitySourceSelection } from "@/adventure/data/v2/adventurerAssociation";
 import type { CodexMasteryGameplayEvent } from "@/lib/server/codexMasteryGameplay";
 
 const {
   store,
   recordCodexMasteryGameplayBatch,
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySourceSelection,
 } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   recordCodexMasteryGameplayBatch: vi.fn(
@@ -16,13 +13,6 @@ const {
       _events: readonly CodexMasteryGameplayEvent[],
       _now: Date,
     ) => [],
-  ),
-  claimWeeklyFacilitySource: vi.fn(async () => ({
-    ok: true as const,
-    selected: "association" as const,
-  })),
-  readWeeklyFacilitySourceSelection: vi.fn(
-    async (): Promise<WeeklyFacilitySourceSelection | null> => null,
   ),
 }));
 
@@ -35,8 +25,6 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   canUseAdventurerAssociation: vi.fn(async () => true),
   associationFacilityLevel: vi.fn(async () => 1),
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySourceSelection,
 }));
 vi.mock("@/lib/server/economyLog", () => ({
   recordEconomyEventSoon: vi.fn(),
@@ -119,9 +107,6 @@ describe("guild training codex mastery wiring", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     recordCodexMasteryGameplayBatch.mockClear();
-    claimWeeklyFacilitySource.mockClear();
-    readWeeklyFacilitySourceSelection.mockReset();
-    readWeeklyFacilitySourceSelection.mockResolvedValue(null);
   });
 
   it("수령한 훈련 보상을 현재 직업 도감 숙련도로 기록한다", async () => {
@@ -157,21 +142,15 @@ describe("guild training codex mastery wiring", () => {
     expect(recordCodexMasteryGameplayBatch).not.toHaveBeenCalled();
   });
 
-  it("현재 주간 출처와 협회 훈련장이 충돌하면 GET에서 이용 불가를 알린다", async () => {
+  it("같은 주에 길드 훈련장을 쓴 이력과 관계없이 협회 훈련장 훈련을 받을 수 있다", async () => {
     seedTraining();
-    readWeeklyFacilitySourceSelection.mockResolvedValue({
-      weekKey: todayGuildTrainingWeekKey(new Date(NOW)),
-      source: "guild",
-      guildId: 11,
-    });
 
     const response = await GET(viewRequest());
+    const json = await response.json();
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      ok: true,
-      weeklySourceEligible: false,
-      claimableCount: 0,
-    });
+    expect(json.ok).toBe(true);
+    expect(json.claimableCount).toBeGreaterThan(0);
+    expect(json).not.toHaveProperty("weeklySourceEligible");
   });
 });

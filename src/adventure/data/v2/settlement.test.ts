@@ -139,7 +139,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
   it("길드 식당은 레벨마다 이용 메뉴가 늘고 Lv5에서 기여 식권 20장을 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
     expect(DINING_HALL_UPGRADES.map((upgrade) => upgrade.weeklyMealTickets)).toEqual([
-      8, 8, 12, 16, 20,
+      8, 8, 12, 16, 20, 24, 28, 28, 32, 36,
     ]);
     expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
       level: 2,
@@ -258,7 +258,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       DINING_HALL_UPGRADES,
       TRADE_POST_UPGRADES,
       GUILD_WAREHOUSE_UPGRADES,
-    ].map((upgrades) => ({
+    ].map((all) => all.slice(0, 5)).map((upgrades) => ({
       materials: upgrades
         .slice(1)
         .reduce(

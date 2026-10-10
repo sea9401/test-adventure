@@ -1,4 +1,11 @@
 import { db } from "@/db";
+import { lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import {
+  applyLifeMajorProgress,
+  lifeMajorResponse,
+  withMasterProduct,
+} from "@/lib/server/lifeMajor";
+import { lifeFestivalBonus, lifeFestivalBonusXp } from "@/adventure/v2/lifeFestival";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
@@ -349,10 +356,14 @@ export async function POST(req: Request) {
           lifeFieldSessionRoll(session.castId, "xp-bonus"),
         )
       : 0;
+    const festivalXp = lifeFestivalBonusXp(
+      fishingXpForCatch(session.fishId),
+      lifeFestivalBonus("fishing", new Date(now)).xpPct,
+    );
     const progressResult = addFishingCatchXp(
       progressBefore,
       session.fishId,
-      diningXp.bonus + environmentXpGained + discoveryRewardXp,
+      diningXp.bonus + festivalXp + environmentXpGained + discoveryRewardXp,
     );
     dirtySaves[FISHING_PROGRESS_KEY] = progressResult.state;
     const progressView = fishingProgressionView(progressResult.state);
@@ -532,6 +543,25 @@ export async function POST(req: Request) {
     workshop = { ...workshop, crafting: blueprint.state };
     dirtySaves[LIFE_WORKSHOP_SAVE_KEY] = workshop;
 
+    // 생활 전공 — 다른 세이브 잠금 뒤에 life-major.v1 을 잠근다. 이 경로는 character.v2 를
+    // 잠그기만 하므로 산물이 있을 때만 그 사본에 합쳐 함께 저장한다.
+    const lifeMajorProgress = await applyLifeMajorProgress(tx, userId, "fishing", {
+      overflowXp: lifeXpOverflow({
+        gained: progressResult.xpGained,
+        before: progressBefore.xp,
+        after: progressResult.state.xp,
+      }),
+      successes: 1,
+      rng: Math.random,
+    });
+    if (lifeMajorProgress.productCount > 0) {
+      const lockedChar = characterSaves["character.v2"] as { materials?: unknown };
+      dirtySaves["character.v2"] = {
+        ...lockedChar,
+        materials: withMasterProduct(lockedChar.materials, lifeMajorProgress),
+      };
+    }
+
     await upsertSaves(tx, userId, dirtySaves);
 
     const codexMasteryEvents: CodexMasteryGameplayEvent[] = [{
@@ -559,6 +589,7 @@ export async function POST(req: Request) {
 
     return {
       caught: true as const,
+      lifeMajor: lifeMajorResponse(lifeMajorProgress),
       blueprintRecipeId: blueprint.recipe?.id ?? null,
       fishId: session.fishId,
       size: session.size,
@@ -821,6 +852,7 @@ export async function POST(req: Request) {
     catchItemDaily: result.catchItemDaily,
     dailyCatchCoins: result.dailyCatchCoins,
     fishingXpGained: result.fishingXpGained,
+    lifeMajor: result.lifeMajor,
     environmentXpGained: result.environmentXpGained,
     discoveryRewardCoins: result.discoveryRewardCoins,
     discoveryRewardXp: result.discoveryRewardXp,

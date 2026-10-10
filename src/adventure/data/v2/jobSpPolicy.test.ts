@@ -16,6 +16,34 @@ describe("jobUnlockSpForCount", () => {
     expect(jobUnlockSpForCount(count)).toBe(expected);
   });
 
+  it.each([
+    [51, 1, 51],
+    [52, 1, 51],
+    [40, 1, 40],
+    [158, 9, 108],
+  ])(
+    "해금 직업 %i개 중 7차 %i개는 체감 없이 하나당 SP +1로 환산한다",
+    (count, tier7Count, expected) => {
+      expect(jobUnlockSpForCount(count, tier7Count)).toBe(expected);
+    },
+  );
+
+  it("7차 예외로 어떤 해금 조합도 기존 환산보다 SP가 줄지 않는다", () => {
+    for (let count = 0; count <= 170; count += 1) {
+      for (let tier7Count = 0; tier7Count <= Math.min(count, 9); tier7Count += 1) {
+        expect(jobUnlockSpForCount(count, tier7Count)).toBeGreaterThanOrEqual(
+          jobUnlockSpForCount(count),
+        );
+      }
+    }
+  });
+
+  it("7차 수가 손상되거나 전체 해금 수보다 크면 보정한다", () => {
+    expect(jobUnlockSpForCount(60, Number.NaN)).toBe(jobUnlockSpForCount(60));
+    expect(jobUnlockSpForCount(60, -3)).toBe(jobUnlockSpForCount(60));
+    expect(jobUnlockSpForCount(3, 9)).toBe(3);
+  });
+
   it("손상되거나 음수인 해금 수를 0으로 보정한다", () => {
     expect(jobUnlockSpForCount(Number.NaN)).toBe(0);
     expect(jobUnlockSpForCount(-10)).toBe(0);

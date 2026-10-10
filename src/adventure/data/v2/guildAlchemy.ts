@@ -10,7 +10,12 @@ export type GuildAlchemyRecipeId =
   | "summoning_ink"
   | "high_purity_solution"
   | "vitality_elixir"
-  | "grand_solution";
+  | "grand_solution"
+  | "refined_catalyst"
+  | "concentrated_ink"
+  | "transcendent_solution"
+  | "volatile_crystal"
+  | "sage_elixir";
 
 export type GuildAlchemyChargeTarget = "hp" | "mp" | "balanced";
 
@@ -134,6 +139,66 @@ export const GUILD_ALCHEMY_RECIPES: readonly GuildAlchemyRecipe[] = [
     ingredients: { herb: 24, silverleaf: 2 },
     output: "charge",
     chargeAmount: 3_600_000,
+  },
+  {
+    id: "refined_catalyst",
+    name: "정제 강화 촉매",
+    description: "촉매를 두 번 걸러 푸른 강화석 두 개를 한 번에 결정화합니다.",
+    minFacilityLevel: 6,
+    energyCost: 14,
+    ingredients: { herb: 22, silverleaf: 2 },
+    output: "material",
+    chargeAmount: 0,
+    outputMaterialId: ENHANCE_STONE_MATERIAL_ID.blue,
+    outputMaterialName: "푸른 강화석",
+    outputMaterialAmount: 2,
+  },
+  {
+    id: "concentrated_ink",
+    name: "농축 소환 잉크",
+    description: "마력 잉크를 농축해 보스 소환서를 더 많이 복원합니다.",
+    minFacilityLevel: 7,
+    energyCost: 16,
+    ingredients: { herb: 26, silverleaf: 3 },
+    output: "material",
+    chargeAmount: 0,
+    outputMaterialId: SUMMON_SCROLL_MATERIAL_ID,
+    outputMaterialName: "보스 소환서",
+    outputMaterialAmount: 5,
+  },
+  {
+    id: "transcendent_solution",
+    name: "초월 충전액",
+    description: "초월 증류탑에서 순도를 한계까지 끌어올린 충전액입니다.",
+    minFacilityLevel: 8,
+    energyCost: 6,
+    ingredients: { herb: 40, silverleaf: 4 },
+    output: "charge",
+    chargeAmount: 7_000_000,
+  },
+  {
+    id: "volatile_crystal",
+    name: "격정 결정",
+    description: "격정 촉매를 결정으로 굳혀 붉은 강화석 두 개를 얻습니다.",
+    minFacilityLevel: 9,
+    energyCost: 20,
+    ingredients: { herb: 36, silverleaf: 4 },
+    output: "material",
+    chargeAmount: 0,
+    outputMaterialId: ENHANCE_STONE_MATERIAL_ID.red,
+    outputMaterialName: "붉은 강화석",
+    outputMaterialAmount: 2,
+  },
+  {
+    id: "sage_elixir",
+    name: "현자의 영약",
+    description: "현자의 탑에서만 빚을 수 있는 영약으로 스태미나 회복약 세 개를 만듭니다.",
+    minFacilityLevel: 10,
+    energyCost: 45,
+    ingredients: { herb: 75, silverleaf: 9 },
+    output: "stamina_potion",
+    chargeAmount: 0,
+    staminaPotionAmount: 3,
   },
 ];
 

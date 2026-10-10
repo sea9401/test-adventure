@@ -67,4 +67,23 @@ describe("masteryCertificateStatusFromSaves", () => {
       expect.objectContaining({ id: "beastkin", mastery: 42 }),
     );
   });
+
+  it("현재 직업 id를 함께 반환해 모달이 기본 선택할 수 있게 한다", () => {
+    const status = masteryCertificateStatusFromSaves(
+      { class: "mutant", specChoice: "beastkin" },
+      {
+        groups: {
+          mutant: { tier: 1, cultivations: 0, cumLevel: 1_000 },
+        },
+        jobCumLevel: { beastkin: 42 },
+      },
+      {},
+    );
+
+    expect(status.currentJobId).toBe("beastkin");
+  });
+
+  it("직업이 없으면 현재 직업 id는 null이다", () => {
+    expect(masteryCertificateStatusFromSaves({}, {}, {}).currentJobId).toBeNull();
+  });
 });

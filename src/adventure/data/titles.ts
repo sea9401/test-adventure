@@ -19,6 +19,9 @@ export const ECOLOGICAL_RESEARCHER_TITLE_ID = "ecological_researcher";
 export const EARTH_WITNESS_TITLE_ID = "earth_witness";
 export const FARM_BOUNTIFUL_HAND_TITLE_ID = "farm_bountiful_hand";
 export const FARM_GOLDEN_FIELDS_OWNER_TITLE_ID = "farm_golden_fields_owner";
+export const LIFE_FESTIVAL_REGULAR_TITLE_ID = "life_festival_regular";
+export const LIFE_FESTIVAL_MASTER_TITLE_ID = "life_festival_master";
+export const LIFE_FESTIVAL_LEGEND_TITLE_ID = "life_festival_legend";
 
 // 도감의 칭호 섹션 분류. 추가 시 TITLE_CATEGORY_ORDER 에 라벨/순서 등록.
 export type TitleCategory =
@@ -121,6 +124,27 @@ export const TITLES: Record<TitleId, Title> = {
     name: "황금 들판의 주인",
     description: "끝없이 이어진 황금빛 들판을 가꾼 대농장주.",
     condition: "농장주의 교환소에서 농장 증표 5,000개로 구매",
+    category: "collection",
+  },
+  [LIFE_FESTIVAL_REGULAR_TITLE_ID]: {
+    id: LIFE_FESTIVAL_REGULAR_TITLE_ID,
+    name: "축제 단골",
+    description: "생활 축제에 꾸준히 참여한 모험가.",
+    condition: "생활 축제 상점에서 축제 증표 200개로 구매",
+    category: "collection",
+  },
+  [LIFE_FESTIVAL_MASTER_TITLE_ID]: {
+    id: LIFE_FESTIVAL_MASTER_TITLE_ID,
+    name: "축제 명인",
+    description: "생활 축제를 이끈 숙련 모험가.",
+    condition: "생활 축제 상점에서 축제 증표 1,000개로 구매",
+    category: "collection",
+  },
+  [LIFE_FESTIVAL_LEGEND_TITLE_ID]: {
+    id: LIFE_FESTIVAL_LEGEND_TITLE_ID,
+    name: "축제의 전설",
+    description: "생활 축제의 전설로 남은 모험가.",
+    condition: "생활 축제 상점에서 축제 증표 3,000개로 구매",
     category: "collection",
   },
   frail: {

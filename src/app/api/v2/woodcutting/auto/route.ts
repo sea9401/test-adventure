@@ -1,4 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import {
+  applyLifeMajorProgress,
+  lifeMajorResponse,
+  readLifeMajorState,
+  withMasterProduct,
+} from "@/lib/server/lifeMajor";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -35,6 +42,7 @@ import {
   woodcuttingXpForLevel,
 } from "@/adventure/v2/woodcuttingProgression";
 import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { lifeFestivalBonus, lifeFestivalBonusXp } from "@/adventure/v2/lifeFestival";
 import { woodcuttingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   autoGatheringCompletedAttempts,
@@ -165,7 +173,9 @@ export async function POST(req: Request) {
       (bonuses.bonusLogChancePct +
         LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
         lifeGatheringBonusPct("woodcutting", workshop, progression.level) +
-        levelBonuses.bonusLogChancePct) /
+        levelBonuses.bonusLogChancePct +
+        lifeFestivalBonus("woodcutting", new Date(now)).chancePct +
+        lifeMajorBonusPct(await readLifeMajorState(db, userId), "woodcutting")) /
         100,
     );
     const baseCycleDurationMs = woodcuttingDurationWithPassive(
@@ -368,7 +378,11 @@ export async function POST(req: Request) {
       ),
       new Date(now),
     );
-    const xpGained = settlement.xpGained + diningXp.bonus;
+    const festivalXp = lifeFestivalBonusXp(
+      Math.max(0, settlement.xpGained - environmentXpGained - discoveryRewardXp),
+      lifeFestivalBonus("woodcutting", new Date(now)).xpPct,
+    );
+    const xpGained = settlement.xpGained + diningXp.bonus + festivalXp;
     const appliedXp = applyLifeXpGain({
       xp: currentLog.xp,
       gainedXp: xpGained,
@@ -444,9 +458,23 @@ export async function POST(req: Request) {
       new Date(now),
     );
     dirtySaves[WOODCUTTING_AUTO_KEY] = settlement.state;
+    // 생활 전공 — 성공 횟수만큼 산물을 굴리고 character.v2 사본에 합친다.
+    const lifeMajorProgress = await applyLifeMajorProgress(tx, userId, "woodcutting", {
+      overflowXp: lifeXpOverflow({ gained: xpGained, before: currentLog.xp, after: appliedXp.xp }),
+      successes: settlement.successes,
+      rng: Math.random,
+    });
+    if (lifeMajorProgress.productCount > 0) {
+      const charDirty = dirtySaves["character.v2"] as { materials?: unknown };
+      dirtySaves["character.v2"] = {
+        ...charDirty,
+        materials: withMasterProduct(charDirty.materials, lifeMajorProgress),
+      };
+    }
     await upsertSaves(tx, userId, dirtySaves);
     return {
       settlement,
+      lifeMajor: lifeMajorResponse(lifeMajorProgress),
       tree,
       materialName: WOODCUTTING_MATERIALS[tree.materialId].name,
       xpGained,
@@ -517,6 +545,7 @@ export async function POST(req: Request) {
     materialName: result.materialName,
     materialsGained: result.settlement.materialsGained,
     xpGained: result.xpGained,
+    lifeMajor: result.lifeMajor,
     environmentXpGained: result.environmentXpGained,
     discoveryRewardGained: result.discoveryRewardGained,
     discoveryRewardXp: result.discoveryRewardXp,

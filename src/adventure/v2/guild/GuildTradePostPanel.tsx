@@ -12,6 +12,10 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import { confirmGameAction } from "@/components/ui/gameDialog";
+import {
+  GUILD_FACILITY_SUPPORT_RESOURCES,
+  type GuildFacilitySupportKind,
+} from "@/adventure/data/v2/guildFacilitySupport";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import type { FarmItemId } from "@/adventure/v2/farm";
@@ -57,6 +61,7 @@ type TradeState = {
   tokens: number;
   claimableRewards?: Array<{ contractId: string; itemName: string; tokens: number }>;
   facilitySupportTargets?: GuildFacilitySupportTarget[];
+  advancedFacilitySupportTargets?: GuildFacilitySupportTarget[];
   contracts: TradeContract[];
   shop: TradeShopItem[];
 };
@@ -124,6 +129,11 @@ export function GuildTradePostPanel({
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [supportDialogItem, setSupportDialogItem] =
     useState<TradeShopItem | null>(null);
+  const supportDialogKind: GuildFacilitySupportKind =
+    supportDialogItem?.output.kind === "guild_facility_support" &&
+    supportDialogItem.output.supportKind === "advanced"
+      ? "advanced"
+      : "basic";
   const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(
     null,
   );
@@ -481,7 +491,10 @@ export function GuildTradePostPanel({
             const isFacilitySupport =
               item.output.kind === "guild_facility_support";
             const eligibleFacilityTargets = (
-              state.facilitySupportTargets ?? []
+              item.output.kind === "guild_facility_support" &&
+              item.output.supportKind === "advanced"
+                ? state.advancedFacilitySupportTargets ?? []
+                : state.facilitySupportTargets ?? []
             ).filter((target) => target.eligible);
             const disabled =
               Boolean(busyKey) ||
@@ -557,7 +570,12 @@ export function GuildTradePostPanel({
 
       {supportDialogItem && (
         <GuildFacilitySupportDialog
-          targets={state.facilitySupportTargets ?? []}
+          targets={
+            supportDialogKind === "advanced"
+              ? state.advancedFacilitySupportTargets ?? []
+              : state.facilitySupportTargets ?? []
+          }
+          supportKind={supportDialogKind}
           selectedFacilityId={selectedFacilityId}
           tokenCost={supportDialogItem.tokenCost}
           busy={Boolean(busyKey)}
@@ -574,7 +592,9 @@ export function GuildTradePostPanel({
               (json) => {
                 const purchase = json.purchased;
                 const support = purchase?.facilitySupport;
-                return `${support?.buildingName ?? "선택한 시설"} Lv.${support?.targetLevel ?? "?"} 지원 완료 · 통나무 +${(support?.crop ?? 0).toLocaleString()} · 철광석 +${(support?.ore ?? 0).toLocaleString()} · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
+                const [first, second] =
+                  GUILD_FACILITY_SUPPORT_RESOURCES[supportDialogKind].labels;
+                return `${support?.buildingName ?? "선택한 시설"} Lv.${support?.targetLevel ?? "?"} 지원 완료 · ${first} +${(support?.crop ?? 0).toLocaleString()} · ${second} +${(support?.ore ?? 0).toLocaleString()} · 공동 토큰 -${(purchase?.tokenCost ?? item.tokenCost).toLocaleString()} · 잔액 ${(purchase?.remainingTokens ?? json.tokens).toLocaleString()}`;
               },
             );
           }}
@@ -586,6 +606,7 @@ export function GuildTradePostPanel({
 
 export function GuildFacilitySupportDialog({
   targets,
+  supportKind = "basic",
   selectedFacilityId,
   tokenCost,
   busy,
@@ -594,6 +615,7 @@ export function GuildFacilitySupportDialog({
   onClose,
 }: {
   targets: GuildFacilitySupportTarget[];
+  supportKind?: GuildFacilitySupportKind;
   selectedFacilityId: string | null;
   tokenCost: number;
   busy: boolean;
@@ -604,6 +626,8 @@ export function GuildFacilitySupportDialog({
   const selected = targets.find(
     (target) => target.buildingId === selectedFacilityId && target.eligible,
   );
+  const [firstLabel, secondLabel] =
+    GUILD_FACILITY_SUPPORT_RESOURCES[supportKind].labels;
 
   return (
     <div
@@ -625,8 +649,8 @@ export function GuildFacilitySupportDialog({
               시설 지원 대상 선택
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-              선택한 시설의 다음 업그레이드에 통나무·철광석 총 200개를 즉시
-              지원합니다. 개인 인벤토리나 별도 길드 재화로 들어가지 않습니다.
+              선택한 시설의 다음 업그레이드에 {firstLabel}·{secondLabel} 총
+              200개를 즉시 지원합니다. 개인 인벤토리나 별도 길드 재화로 들어가지 않습니다.
             </p>
           </div>
           <button
@@ -675,14 +699,14 @@ export function GuildFacilitySupportDialog({
                 {target.eligible ? (
                   <div className="mt-2 grid gap-1.5 text-xs sm:grid-cols-2">
                     <FacilitySupportResourcePreview
-                      label="통나무"
+                      label={firstLabel}
                       current={target.crop.current}
                       after={target.crop.after}
                       required={target.crop.required}
                       grant={target.crop.grant}
                     />
                     <FacilitySupportResourcePreview
-                      label="철광석"
+                      label={secondLabel}
                       current={target.ore.current}
                       after={target.ore.after}
                       required={target.ore.required}
@@ -802,8 +826,6 @@ export function tradeErrorText(
       return "물품을 지급할 길드원이 없습니다.";
     case "not_eligible":
       return "이번 주 계약에는 참여할 수 없습니다.";
-    case "weekly_source_conflict":
-      return "이번 주 교역소 보상처를 길드·협회 중 다른 쪽으로 선택했습니다.";
     case "contract_complete":
       return "이미 완료된 계약입니다.";
     case "invalid_delivery":

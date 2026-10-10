@@ -12,6 +12,7 @@ import {
   COOKING_FIELD_NAMES,
   COOKING_METHOD_NAMES,
   type CookingEffectTag,
+  type CookingMethod,
 } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName } from "./clientDisplay";
@@ -19,7 +20,9 @@ import { cookingRecipeMatchesSearch, cookingSearchTerms } from "./codexSearch";
 
 const COOKING_CODEX_PAGE_SIZE = 12;
 const COOKING_CRAFT_MAX_QUANTITY = 20;
-type CookingCodexSort = "discovered" | "name" | "level" | "tier";
+type CookingCodexSort = "recent" | "name" | "level" | "tier";
+type CookingCodexMethodFilter = "all" | CookingMethod;
+const COOKING_CODEX_METHODS = Object.keys(COOKING_METHOD_NAMES) as CookingMethod[];
 
 function cookingEffectTagsText(effectTags: readonly CookingEffectTag[]): string {
   return effectTags
@@ -36,19 +39,23 @@ function clampCookingQuantity(raw: unknown): number {
 
 export function CookingCodexPanel({ data, busy, mutate }: { data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<CookingCodexSort>("discovered");
+  const [sort, setSort] = useState<CookingCodexSort>("recent");
+  const [methodFilter, setMethodFilter] = useState<CookingCodexMethodFilter>("all");
   const [usePrepSet, setUsePrepSet] = useState(false);
   const [quantityByRecipe, setQuantityByRecipe] = useState<Record<string, number>>({});
   const prepSetEnabled = usePrepSet && data.cookingPrepSets > 0;
   const visibleRecipes = useMemo(() => {
     const terms = cookingSearchTerms(query);
     const favorites = new Set(data.cooking.favoriteRecipeIds);
+    // 발견 목록은 연구에 성공한 순서대로 쌓이므로, 뒤에 있을수록 최근에 발견한 레시피다.
+    const discoveryOrder = new Map(data.cooking.discoveredRecipeIds.map((id, order) => [id, order]));
     const entries = Array.from({ length: data.recipeTotal }, (_, index) => ({
       recipe: data.knownRecipes[index] ?? null,
       index,
     }));
     return entries
       .filter(({ recipe }) => {
+        if (methodFilter !== "all" && recipe?.method !== methodFilter) return false;
         if (terms.length === 0) return true;
         if (!recipe) return terms.every((term) => "미발견 레시피".includes(term));
         return cookingRecipeMatchesSearch(
@@ -61,9 +68,11 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
         const discoveredOrder = Number(Boolean(right.recipe)) - Number(Boolean(left.recipe));
         if (discoveredOrder !== 0) return discoveredOrder;
         if (!left.recipe || !right.recipe) return left.index - right.index;
-        if (sort === "discovered") {
+        if (sort === "recent") {
           const favoriteOrder = Number(favorites.has(right.recipe.id)) - Number(favorites.has(left.recipe.id));
-          return favoriteOrder || left.index - right.index;
+          return favoriteOrder
+            || (discoveryOrder.get(right.recipe.id) ?? -1) - (discoveryOrder.get(left.recipe.id) ?? -1)
+            || left.index - right.index;
         }
         if (sort === "name") {
           return left.recipe.name.localeCompare(right.recipe.name, "ko-KR") || left.index - right.index;
@@ -77,11 +86,11 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
           || left.recipe.requiredLevel - right.recipe.requiredLevel
           || left.recipe.name.localeCompare(right.recipe.name, "ko-KR");
       });
-  }, [data, query, sort]);
+  }, [data, query, sort, methodFilter]);
   const pager = usePagination(
     visibleRecipes,
     COOKING_CODEX_PAGE_SIZE,
-    `${query}\u0000${sort}`,
+    `${query}\u0000${sort}\u0000${methodFilter}`,
   );
   return (
     <section className={`${SURFACE_CARD} p-4`}>
@@ -92,7 +101,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
         </div>
         <div className="text-xs text-zinc-500">전승 토큰 {data.cooking.legacy.tokens}개</div>
       </div>
-      <div className={`${SURFACE_INSET} mt-4 grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_10rem]`}>
+      <div className={`${SURFACE_INSET} mt-4 grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_9rem_9rem]`}>
         <label className="grid gap-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
           <span>레시피 검색</span>
           <input
@@ -112,16 +121,30 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
             onChange={(event) => setSort(event.target.value as CookingCodexSort)}
             className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-amber-900"
           >
-            <option value="discovered">발견 우선</option>
+            <option value="recent">최근 발견순</option>
             <option value="name">이름순</option>
             <option value="level">필요 레벨순</option>
             <option value="tier">등급순</option>
           </select>
         </label>
-        <div aria-live="polite" className="text-xs text-zinc-500 sm:col-span-2">
+        <label className="grid gap-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+          <span>조리법</span>
+          <select
+            aria-label="요리 도감 조리법"
+            value={methodFilter}
+            onChange={(event) => setMethodFilter(event.target.value as CookingCodexMethodFilter)}
+            className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-amber-900"
+          >
+            <option value="all">전체</option>
+            {COOKING_CODEX_METHODS.map((method) => (
+              <option key={method} value={method}>{COOKING_METHOD_NAMES[method]}</option>
+            ))}
+          </select>
+        </label>
+        <div aria-live="polite" className="text-xs text-zinc-500 sm:col-span-3">
           검색 결과 {visibleRecipes.length.toLocaleString("ko-KR")}개
         </div>
-        <label className="flex min-h-11 items-center gap-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 sm:col-span-2">
+        <label className="flex min-h-11 items-center gap-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200 sm:col-span-3">
           <input
             type="checkbox"
             checked={prepSetEnabled}

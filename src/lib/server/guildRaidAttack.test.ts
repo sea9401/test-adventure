@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { guildRaidMaxHp } from "@/adventure/data/v2/guildRaid";
 import {
   resolveGuildRaidAttackMutation,
   validGuildRaidRequestId,
@@ -10,9 +11,9 @@ function input(
 ): GuildRaidAttackMutationInput {
   return {
     now: new Date("2026-08-19T03:00:00.000Z"),
+    bossId: "mountain_chief_hard",
     event: {
       id: "guild-raid:2026-08-17",
-      bossKind: "mountain_chief_hard",
       status: "active",
       endsAt: new Date("2026-08-21T15:00:00.000Z"),
     },
@@ -32,7 +33,6 @@ function input(
       turns: 5,
       replay: { enemy: {}, playerMaxHp: 1, playerMaxMp: 0, log: [{}] } as never,
     },
-    maxHpForStage: () => 150,
     ...overrides,
   };
 }
@@ -110,15 +110,44 @@ describe("길드 토벌전 공격 변경", () => {
   });
 
   it("한 번의 원래 피해를 여러 공유 단계에 이월한다", () => {
+    const damage = 100 + guildRaidMaxHp("mountain_chief_hard", 2) + 10;
     const result = resolveGuildRaidAttackMutation(
-      input({ battle: { ...input().battle, damageDealt: 260 } }),
+      input({ battle: { ...input().battle, damageDealt: damage } }),
     );
 
     expect(result).toMatchObject({
       ok: true,
-      guildProgress: { stage: 3, hp: 140, maxHp: 150 },
+      guildProgress: {
+        stage: 3,
+        hp: guildRaidMaxHp("mountain_chief_hard", 3) - 10,
+        maxHp: guildRaidMaxHp("mountain_chief_hard", 3),
+      },
       stagesCleared: 2,
-      guildDamageDelta: 260,
+      guildDamageDelta: damage,
+    });
+  });
+
+  it("길드가 고른 보스의 단계 체력으로 다음 단계를 연다", () => {
+    const result = resolveGuildRaidAttackMutation(
+      input({
+        bossId: "canyon_predator_raid",
+        guildProgress: {
+          stage: 1,
+          hp: 1,
+          maxHp: guildRaidMaxHp("canyon_predator_raid", 1),
+        },
+        battle: { ...input().battle, damageDealt: 1 },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      guildProgress: {
+        stage: 2,
+        maxHp: guildRaidMaxHp("canyon_predator_raid", 2),
+        hp: guildRaidMaxHp("canyon_predator_raid", 2),
+      },
+      stagesCleared: 1,
     });
   });
 

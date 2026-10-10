@@ -1,4 +1,5 @@
 import {
+  COOKING_QUALITY_RANK,
   cookingQualityName,
   type CookingFoodDefinition,
   type CookingQuality,
@@ -68,7 +69,6 @@ export function cookingDeliveryFoodTraitsText(
 const FIELDS: readonly CookingField[] = ["hearth", "pot", "baking", "seafood", "medicinal"];
 const METHODS: readonly CookingMethod[] = ["grill", "boil", "stir_fry", "fry", "steam", "bake", "brew", "ferment"];
 const EFFECTS: readonly CookingEffectTag[] = ["offense", "defense", "recovery", "hunt_exp", "hunt_gold", "life"];
-const QUALITY_RANK: Record<CookingQuality, number> = { normal: 0, careful: 1, masterpiece: 2 };
 
 function hashText(value: string): number {
   let hash = 2166136261;
@@ -141,7 +141,7 @@ export function cookingDeliveryScore(
   if (condition.field && food.recipe.field !== condition.field) return 0;
   if (condition.method && food.recipe.method !== condition.method) return 0;
   if (condition.effectTag && !food.recipe.effectTags.includes(condition.effectTag)) return 0;
-  if (QUALITY_RANK[food.quality] < QUALITY_RANK[condition.minimumQuality]) return 0;
+  if (COOKING_QUALITY_RANK[food.quality] < COOKING_QUALITY_RANK[condition.minimumQuality]) return 0;
   return Math.round(food.recipe.tier * 10 * food.deliveryScorePct / 100) +
     (food.originator ? 5 : 0) + food.specialtyBonusPct;
 }

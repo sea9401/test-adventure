@@ -3,7 +3,7 @@ import { combatRandom } from "./combatRandom";
 import { monsterActionSpd } from "./combatTimeline";
 import { type BattleState, type PlayerCombat } from "./engineState";
 import { glacialChillSpeedMultiplier } from "./glacialColossusMechanic";
-import { weightSpeedMultiplier } from "./mutationCombat";
+import { equippedWeightSpeedMultiplier } from "./mutationCombat";
 
 export function rollEnemyAttackCount(enemy: Monster): number {
   const chance = enemy.bonusAttackChancePct ?? 0;
@@ -20,7 +20,7 @@ export function effectivePlayerSpd(
   const buffed = state.buffs.playerSpdTurnsLeft > 0
     ? player.spd * state.buffs.playerSpdMult
     : player.spd;
-  const weighted = buffed * weightSpeedMultiplier(state.stacks.mutationWeight);
+  const weighted = buffed * equippedWeightSpeedMultiplier(state.stacks.mutationWeight, state.v2Skills?.equipped);
   return state.bossMechanic?.kind === "glacial_colossus"
     ? weighted *
         glacialChillSpeedMultiplier(state.bossMechanic.glacialChillStacks)

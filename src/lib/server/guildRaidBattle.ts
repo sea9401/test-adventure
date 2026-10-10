@@ -2,13 +2,16 @@ import "server-only";
 import type { Monster } from "@/adventure/data/monsters/types";
 
 import {
-  COOP_BOSSES,
   coopBossForBattle,
   coopBossMaxMp,
-  type CoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
+import {
+  GUILD_RAID_BOSSES,
+  type GuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import { COOP_BOSS_MAX_HP_DAMAGE_MULT } from "@/adventure/data/v2/v2CombatConstants";
-import { resolveBattle } from "@/adventure/v2/combat/engine";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { resolveBattle, type PlayerCombat } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { toReplayPayload, type ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
@@ -28,31 +31,26 @@ export type GuildRaidBattleResult = {
   replay: ReplayPayload;
 };
 
-export async function simulateGuildRaidBattle({
-  tx,
-  userId,
-  bossKind,
-  lockForUpdate = true,
-}: {
-  tx: DbExecutor;
-  userId: string;
-  bossKind: CoopBossKindId;
-  lockForUpdate?: boolean;
-}): Promise<GuildRaidBattleResult | null> {
-  const definition = COOP_BOSSES[bossKind];
+function guildRaidBossMonster(bossId: GuildRaidBossId): Monster {
+  const definition = GUILD_RAID_BOSSES[bossId].definition;
   const bossHp = definition.sharedMaxHp;
   const { monster } = coopBossForBattle(definition, bossHp, {
     conditionalEnrageWeakened: false,
     bossMp: coopBossMaxMp(definition),
   });
-  return simulateRaidBattle({ tx, userId, monster: { ...monster, hp: bossHp }, lockForUpdate });
+  return { ...monster, hp: bossHp };
 }
 
-async function simulateRaidBattle({ tx, userId, monster, lockForUpdate }: {
+export async function simulateGuildRaidBattle({
+  tx,
+  userId,
+  bossId,
+  lockForUpdate = true,
+}: {
   tx: DbExecutor;
   userId: string;
-  monster: Monster;
-  lockForUpdate: boolean;
+  bossId: GuildRaidBossId;
+  lockForUpdate?: boolean;
 }): Promise<GuildRaidBattleResult | null> {
   const charSave = lockForUpdate
     ? await lockSaveForUpdate<Record<string, unknown>>(
@@ -81,20 +79,41 @@ async function simulateRaidBattle({ tx, userId, monster, lockForUpdate }: {
     "character-profile.v2",
     null,
   );
-  const playerName = profile?.name?.trim() || "모험가";
-  const bossHp = monster.hp;
-  const bossForBattle = { ...monster, hp: bossHp };
-  const playerMaxHp = prepared.player.maxHp;
-  const playerMaxMp = prepared.player.player.maxMp ?? 0;
+  return resolveGuildRaidBattle({
+    bossId,
+    player: prepared.player.player,
+    playerMaxHp: prepared.player.maxHp,
+    skills: prepared.skills,
+    playerName: profile?.name?.trim() || "모험가",
+  });
+}
+
+// DB 없이 토벌 전투 한 판을 계산한다. 서버 공격·연습과 난이도 시뮬이 같은 경로를 쓴다.
+export function resolveGuildRaidBattle({
+  bossId,
+  player,
+  playerMaxHp,
+  skills,
+  playerName,
+}: {
+  bossId: GuildRaidBossId;
+  player: PlayerCombat;
+  playerMaxHp: number;
+  skills: V2SkillsState;
+  playerName: string;
+}): GuildRaidBattleResult {
+  const bossForBattle = guildRaidBossMonster(bossId);
+  const bossHp = bossForBattle.hp;
+  const playerMaxMp = player.maxMp ?? 0;
   const playerForBattle = {
-    ...prepared.player.player,
+    ...player,
     hp: playerMaxHp,
     mp: playerMaxMp,
   };
   const battle = resolveBattle(playerForBattle, bossForBattle, playerName, {
     pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
     potions: {},
-    v2Skills: prepared.skills,
+    v2Skills: skills,
     isBoss: true,
     maxHpDamageMult: COOP_BOSS_MAX_HP_DAMAGE_MULT,
     initialEnemyHp: bossHp,

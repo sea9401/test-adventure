@@ -14,6 +14,7 @@ const eligibleTarget: GuildFacilitySupportTarget = {
   targetLevel: 2,
   eligible: true,
   reason: null,
+  supportKind: "basic",
   crop: { current: 20, required: 500, grant: 100, after: 120 },
   ore: { current: 30, required: 500, grant: 100, after: 130 },
 };
@@ -48,6 +49,26 @@ describe("길드 교역소 빠른 납품", () => {
       expect(guildTradeQuickDelivery(contract)).toEqual(expected);
     },
   );
+});
+
+describe("상위 시설 지원 물자 대상 선택", () => {
+  it("편백나무·아다만타이트로 안내한다", () => {
+    const html = renderToStaticMarkup(
+      <GuildFacilitySupportDialog
+        targets={[{ ...eligibleTarget, supportKind: "advanced" }]}
+        supportKind="advanced"
+        selectedFacilityId="guild_smithy"
+        tokenCost={300}
+        busy={false}
+        onSelect={vi.fn()}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(html).toContain("편백나무·아다만타이트 총 200개");
+    expect(html).toContain("아다만타이트");
+    expect(html).not.toContain("통나무");
+  });
 });
 
 describe("길드 시설 지원 물자 대상 선택", () => {

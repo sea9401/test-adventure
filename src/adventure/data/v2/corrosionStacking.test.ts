@@ -52,3 +52,16 @@ describe("부식 방어 감소 곱연산", () => {
     expect(combineDefReductionPcts(Number.NaN, -10, 20)).toBeCloseTo(20);
   });
 });
+
+describe("부식 설명", () => {
+  it("방어 감소만 있는 부식 단계는 중독 피해 증가·독 저항 감소를 설명하지 않는다", () => {
+    for (const id of [
+      "v2c_venomancer_corrosion3",
+      "v2c_venomlord_sovereign",
+      "v2c_plaguebringer_decay",
+    ] as const) {
+      expect(V2_SKILLS[id].passive?.poisonDamagePct).toBeUndefined();
+      expect(V2_SKILLS[id].description).not.toMatch(/중독 피해|독 피해 저항/);
+    }
+  });
+});

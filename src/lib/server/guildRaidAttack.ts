@@ -18,15 +18,17 @@ import {
   type GuildRaidStageState,
 } from "@/adventure/data/v2/guildRaid";
 import {
-  parseCoopBossKindId,
-  type CoopBossKindId,
-} from "@/adventure/data/v2/coopBosses";
+  GUILD_RAID_DEFAULT_BOSS_ID,
+  parseGuildRaidBossId,
+  type GuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { ensureCurrentGuildRaid } from "@/lib/server/guildRaidLifecycle";
 import {
   simulateGuildRaidBattle,
   type GuildRaidBattleResult,
 } from "@/lib/server/guildRaidBattle";
+import { incrementGuildExplorationProgress } from "@/lib/server/guildExplorationWeekly";
 
 export type GuildRaidParticipantMutationState = {
   guildId: number;
@@ -38,9 +40,9 @@ export type GuildRaidParticipantMutationState = {
 
 export type GuildRaidAttackMutationInput = {
   now: Date;
+  bossId: GuildRaidBossId;
   event: {
     id: string;
-    bossKind: string;
     status: string;
     endsAt: Date;
   };
@@ -49,7 +51,6 @@ export type GuildRaidAttackMutationInput = {
   participant: GuildRaidParticipantMutationState | null;
   existingAttack: { attackId: number; damageDealt: number } | null;
   battle: GuildRaidBattleResult;
-  maxHpForStage?: (stage: number) => number;
 };
 
 export type GuildRaidAttackMutation =
@@ -105,7 +106,7 @@ export function resolveGuildRaidAttackMutation(
   const nextGuildProgress = applyGuildRaidDamage(
     input.guildProgress,
     damage,
-    input.maxHpForStage ?? guildRaidMaxHp,
+    (stage) => guildRaidMaxHp(input.bossId, stage),
   );
   return {
     ok: true,
@@ -135,6 +136,7 @@ export type GuildRaidAttackOutcome =
         | "no_guild"
         | "no_character"
         | "bad_boss"
+        | "boss_not_selected"
         | "daily_limit"
         | "guild_locked"
         | "event_ended";
@@ -170,7 +172,10 @@ function existingOutcome(
     replay: attack.replay as ReplayPayload,
     stage: attack.stageAfter,
     hp: attack.hpAfter,
-    maxHp: guildRaidMaxHp(attack.stageAfter),
+    maxHp: guildRaidMaxHp(
+      parseGuildRaidBossId(attack.bossKind) ?? GUILD_RAID_DEFAULT_BOSS_ID,
+      attack.stageAfter,
+    ),
     stagesCleared: Math.max(0, attack.stageAfter - attack.stageBefore),
     myDamage: participant?.damage ?? attack.damageDealt,
     myAttackCount: participant?.attackCount ?? 1,
@@ -224,13 +229,21 @@ export async function attackGuildRaid({
       .limit(1);
     if (!guild) return { ok: false, error: "no_guild" };
 
-    const bossKind = parseCoopBossKindId(current.bossKind);
-    if (!bossKind) return { ok: false, error: "bad_boss" };
-    const battle = await simulateGuildRaidBattle({
-      tx,
-      userId,
-      bossKind: bossKind as CoopBossKindId,
-    });
+    // 선택 전에는 전투 연산을 하지 않는다. 길드 점수 행이 곧 이번 주 보스 선택이다.
+    const [selection] = await tx
+      .select({ bossKind: guildRaidGuildScores.bossKind })
+      .from(guildRaidGuildScores)
+      .where(
+        and(
+          eq(guildRaidGuildScores.eventId, current.id),
+          eq(guildRaidGuildScores.guildId, guild.id),
+        ),
+      )
+      .limit(1);
+    if (!selection) return { ok: false, error: "boss_not_selected" };
+    const bossId = parseGuildRaidBossId(selection.bossKind);
+    if (!bossId) return { ok: false, error: "bad_boss" };
+    const battle = await simulateGuildRaidBattle({ tx, userId, bossId });
     if (!battle) return { ok: false, error: "no_character" };
 
     const [event] = await tx
@@ -263,23 +276,6 @@ export async function attackGuildRaid({
       .for("update");
     if (existing) return existingOutcome(existing, participantRow ?? null);
 
-    const initialMaxHp = guildRaidMaxHp(1);
-    await tx
-      .insert(guildRaidGuildScores)
-      .values({
-        eventId: event.id,
-        guildId: guild.id,
-        guildNameSnapshot: guild.name,
-        guildEmblemSnapshot: guild.emblem,
-        damage: 0,
-        stage: 1,
-        hp: initialMaxHp,
-        maxHp: initialMaxHp,
-        updatedAt: now,
-      })
-      .onConflictDoNothing({
-        target: [guildRaidGuildScores.eventId, guildRaidGuildScores.guildId],
-      });
     const [guildProgress] = await tx
       .select()
       .from(guildRaidGuildScores)
@@ -294,9 +290,9 @@ export async function attackGuildRaid({
 
     const mutation = resolveGuildRaidAttackMutation({
       now,
+      bossId,
       event: {
         id: event.id,
-        bossKind: event.bossKind,
         status: event.status,
         endsAt: event.endsAt,
       },
@@ -372,6 +368,7 @@ export async function attackGuildRaid({
         guildId: guild.id,
         requestId,
         name: battle.playerName,
+        bossKind: bossId,
         damageDealt: battle.damageDealt,
         damageTaken: battle.damageTaken,
         diedEarly: battle.diedEarly,
@@ -384,6 +381,8 @@ export async function attackGuildRaid({
       })
       .returning({ id: guildRaidAttackLogs.id });
     if (!attack) throw new Error("guild raid attack insert returned no row");
+    // 탐사 본부 Lv.7 주간 의뢰(토벌전 유효 공격). 연습 전투는 이 경로를 타지 않는다.
+    await incrementGuildExplorationProgress(tx, guild.id, "raidAttacks", 1, now);
 
     return {
       ok: true,

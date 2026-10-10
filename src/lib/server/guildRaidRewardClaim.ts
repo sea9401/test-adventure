@@ -8,7 +8,8 @@ import {
 } from "@/db/schema";
 import {
   guildRaidPhase,
-  guildRaidRewardForRank,
+  guildRaidRewardFor,
+  parseGuildRaidRewardTier,
   type GuildRaidReward,
 } from "@/adventure/data/v2/guildRaid";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
@@ -33,6 +34,8 @@ export function resolveGuildRaidRewardClaim(input: {
     rewardClaimedAt: Date | null;
   } | null;
   finalRank: number | null;
+  /** 정산 때 저장한 보상 구간. 이전 데이터처럼 비어 있으면 기본 구간. */
+  rewardTier: string | null;
 }):
   | { ok: false; error: GuildRaidRewardClaimError }
   | { ok: true; rank: number; reward: GuildRaidReward } {
@@ -51,7 +54,10 @@ export function resolveGuildRaidRewardClaim(input: {
   return {
     ok: true,
     rank: input.finalRank,
-    reward: guildRaidRewardForRank(input.finalRank),
+    reward: guildRaidRewardFor(
+      input.finalRank,
+      parseGuildRaidRewardTier(input.rewardTier),
+    ),
   };
 }
 
@@ -87,7 +93,10 @@ export async function claimGuildRaidReward({
       .for("update");
     const [score] = participant
       ? await tx
-          .select({ finalRank: guildRaidGuildScores.finalRank })
+          .select({
+            finalRank: guildRaidGuildScores.finalRank,
+            rewardTier: guildRaidGuildScores.rewardTier,
+          })
           .from(guildRaidGuildScores)
           .where(
             and(
@@ -107,6 +116,7 @@ export async function claimGuildRaidReward({
           }
         : null,
       finalRank: score?.finalRank ?? null,
+      rewardTier: score?.rewardTier ?? null,
     });
     if (!decision.ok) return decision;
 

@@ -22,8 +22,6 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   associationFacilityLevel: vi.fn(async () => 1),
   canUseAdventurerAssociation: vi.fn(async () => true),
-  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
-  readWeeklyFacilitySource: vi.fn(async () => null),
 }));
 vi.mock("@/lib/server/guildDiningIngredients", () => ({
   lockGuildDiningIngredient: vi.fn(async () => ({
@@ -48,6 +46,7 @@ vi.mock("@/lib/server/userRateLimit", () => ({
 }));
 
 import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
+import { upsertSave } from "@/lib/server/savesKv";
 import { POST } from "./route";
 
 function request(body: Record<string, unknown>) {
@@ -120,6 +119,34 @@ describe("모험가 협회 식당", () => {
       available: 4,
       contributionCap: null,
     });
+  });
+
+  it("길드를 나온 같은 주에는 길드에서 쓴 기여·식사 기록을 빼고 협회 식권을 계산한다", async () => {
+    testState.dining = {
+      weekKey: kstWeekMondayKey(),
+      guildId: 3,
+      contributionPoints: 12,
+      mealsUsed: 5,
+    };
+
+    const response = await POST(donateWheat(20));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({ eligible: true, contributionPoints: 20 });
+    expect(json).not.toHaveProperty("weeklySource");
+    expect(json.tickets).toMatchObject({ earned: 1, used: 0, available: 1 });
+    expect(upsertSave).toHaveBeenCalledWith(
+      tx,
+      "u-diner",
+      "guild-dining-user.v1",
+      expect.objectContaining({
+        guildId: 0,
+        contributionPoints: 32,
+        mealsUsed: 5,
+        associationOffset: { contributionPoints: 12, mealsUsed: 5 },
+      }),
+    );
   });
 
   it("개인 기여가 20점 미만이면 공용 진행도와 무관하게 주문을 거부한다", async () => {

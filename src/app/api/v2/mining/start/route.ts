@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { lifeMajorBonusPct } from "@/adventure/v2/lifeMajor";
+import { readLifeMajorState } from "@/lib/server/lifeMajor";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -28,6 +30,7 @@ import {
   miningFailureRate,
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
+import { lifeFestivalBonus } from "@/adventure/v2/lifeFestival";
 import { miningPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
 import {
   activeAutoGatheringActivity,
@@ -74,7 +77,7 @@ export async function POST(req: Request) {
   const nodeId = pickMiningNodeId(spotId);
   const node = MINING_NODES[nodeId];
   const now = Date.now();
-  const [charSave, logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures] = await Promise.all([
+  const [charSave, logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures, lifeMajor] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(
       db,
       userId,
@@ -86,6 +89,7 @@ export async function POST(req: Request) {
     readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readLifeFieldFeatureSettings(),
+    readLifeMajorState(db, userId),
   ]);
   const verificationRequired = activityVerificationGateResponse(
     parseActivityGuardState(guardRaw),
@@ -110,6 +114,8 @@ export async function POST(req: Request) {
       LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
       lifeGatheringBonusPct("mining", workshop, progression.level) +
       levelBonuses.bonusOreChancePct +
+      lifeFestivalBonus("mining", new Date(now)).chancePct +
+      lifeMajorBonusPct(lifeMajor, "mining") +
       (aidApplies ? aidSpec?.bonusPct ?? 0 : 0),
   );
   const baseAdjustedDurationMs = miningDurationWithPassive(

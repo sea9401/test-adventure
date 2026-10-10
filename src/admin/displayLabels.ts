@@ -50,6 +50,7 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   "sanction.warn": "경고",
   "saves.patch": "세이브 수정",
   "season-ops.fishing-rewards": "낚시 보상 지급",
+  "season-ops.life-festival-rewards": "생활 축제 보상 지급",
   "season-ops.pvp-rewards": "아레나 보상 지급",
   "season-ops.pvp-rollover": "아레나 시즌 정리",
   "season-ops.war-rollover": "전쟁 시즌 정리",

@@ -14,7 +14,7 @@ import { castV2SkillOnAttackerTurnPvP } from "./engine.pvpSkillAction";
 import { type PvPBattleResolution, type PvPBattleState, type PvPOutcome, type PvPResolveContext, type PvPSide } from "./engine.pvpState";
 import { type BattleLogEntry, type PlayerAction, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
-import { weightSpeedMultiplier } from "./mutationCombat";
+import { equippedWeightSpeedMultiplier } from "./mutationCombat";
 import { pickPvpInitiative, type PvPInitiativeActor } from "./pvpInitiative";
 import { enterShockAction } from "./shockAction";
 
@@ -76,7 +76,7 @@ export function effectiveSideSpd(
   if (other.buffs.enemySpdTurnsLeft > 0) {
     spd *= other.buffs.enemySpdMult;
   }
-  return spd * weightSpeedMultiplier(side.stacks.mutationWeight) *
+  return spd * equippedWeightSpeedMultiplier(side.stacks.mutationWeight, side.v2Skills?.equipped) *
     (1 - (side.unexploredDebuffs?.speedReductionPct ?? 0) / 100);
 }
 

@@ -32,6 +32,9 @@ describe("tier 7 capstone contract", () => {
         pvpDirectDamagePct: 95,
       }),
     ).toBe(95);
+    expect(
+      tier7PvpDirectDamagePct({ kind: "pvpDirectDamage", pvpDirectDamagePct: 84 }),
+    ).toBe(84);
     expect(tier7PvpDirectDamagePct(undefined)).toBe(100);
   });
 
@@ -46,6 +49,11 @@ describe("tier 7 capstone contract", () => {
       "aegis",
       "seraphim",
       "dragonlord",
+      "tempest",
+      "titan",
+      "runelord",
+      "bloodheaven",
+      "behemoth",
     ]);
     expect(TIER7_COMBAT_JOB_PREREQS).toEqual({
       shadowblade: ["swordsaint", "blackmoon"],
@@ -57,6 +65,11 @@ describe("tier 7 capstone contract", () => {
       aegis: ["fortressknight", "lawguardian"],
       seraphim: ["savior", "dawnpaladin"],
       dragonlord: ["dragonsovereign", "infernomancer"],
+      tempest: ["stormbringer", "frostsovereign"],
+      titan: ["tectomancer", "eternal"],
+      runelord: ["lawweaver", "archmage"],
+      bloodheaven: ["blooddemon", "absolute"],
+      behemoth: ["primalpredator", "celestialdragon"],
     });
   });
 
@@ -170,6 +183,7 @@ describe("tier 7 capstone contract", () => {
       },
       4.21,
     ],
+    [{ kind: "pvpDirectDamage", pvpDirectDamagePct: 84 }, 0],
   ])("prices %s from its runtime fields", (mechanic, expected) => {
     expect(tier7MechanicPower(mechanic)).toBe(expected);
   });

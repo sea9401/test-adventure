@@ -254,7 +254,10 @@ describe("jobExplorer tags", () => {
       "bloodtracker",
       "predator",
       "primalpredator",
+      "primevalgolem",
+      "rockbrawler",
       "golem",
+      "irongolem",
     ];
 
     expect(
@@ -280,6 +283,9 @@ describe("jobExplorer tags", () => {
       "predator",
       "primalpredator",
       "golem",
+      "rockbrawler",
+      "irongolem",
+      "primevalgolem",
     ]);
   });
 });

@@ -67,6 +67,7 @@ export default function DungeonListPage() {
       onSelectRareMap={(m) => router.push(rareMapEntryHref(m))}
       unexploredSnapshot={unexploredSnapshot}
       onSelectUnexplored={() => router.push("/battle/dungeon/unexplored")}
+      onOpenUnexploredNetwork={() => router.push("/character/unexplored")}
     />
   );
 }

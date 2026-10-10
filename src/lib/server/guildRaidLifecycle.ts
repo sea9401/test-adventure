@@ -8,14 +8,20 @@ import {
   guildRaidParticipants,
 } from "@/db/schema";
 import {
-  GUILD_RAID_PILOT_BOSS_KIND,
   guildRaidCombatEndsAt,
   guildRaidMaxHp,
   guildRaidWeekKey,
   isGuildRaidParticipantEligible,
   normalizeGuildRaidPage,
-  rankGuildRaidScores,
+  rankGuildRaidScoresByBoss,
+  resolveGuildRaidRewardTier,
+  type GuildRaidRewardTier,
 } from "@/adventure/data/v2/guildRaid";
+import {
+  GUILD_RAID_DEFAULT_BOSS_ID,
+  parseGuildRaidBossId,
+  type GuildRaidBossId,
+} from "@/adventure/data/v2/guildRaidBosses";
 import { weekStartUtcFor } from "@/lib/server/pvp/season";
 
 export type GuildRaidEventRecord = {
@@ -36,8 +42,10 @@ export type GuildRaidScoreRecord = {
   guildId: number;
   guildName: string;
   guildEmblem: string | null;
+  bossKind: GuildRaidBossId;
   damage: number;
   finalRank: number | null;
+  rewardTier: GuildRaidRewardTier | null;
   settledAt: Date | null;
 };
 
@@ -73,9 +81,10 @@ export type GuildRaidLifecycleStore = {
     ) => GuildRaidSettlement,
   ): Promise<boolean>;
   listScores(eventId: string): Promise<GuildRaidScoreRecord[]>;
-  countScores(eventId: string): Promise<number>;
+  countScores(eventId: string, bossId: GuildRaidBossId): Promise<number>;
   listRankedScoresPage(
     eventId: string,
+    bossId: GuildRaidBossId,
     offset: number,
     limit: number,
   ): Promise<GuildRaidRankedScoreRecord[]>;
@@ -110,10 +119,16 @@ function toScoreRecord(
     guildId: row.guildId,
     guildName: row.guildNameSnapshot,
     guildEmblem: row.guildEmblemSnapshot,
+    bossKind: parseGuildRaidBossId(row.bossKind) ?? GUILD_RAID_DEFAULT_BOSS_ID,
     damage: row.damage,
     finalRank: row.finalRank,
+    rewardTier: toRewardTier(row.rewardTier),
     settledAt: row.settledAt,
   };
+}
+
+function toRewardTier(raw: string | null): GuildRaidRewardTier | null {
+  return raw === "standard" || raw === "bonus" || raw === "floor" ? raw : null;
 }
 
 function toParticipantRecord(
@@ -144,10 +159,12 @@ export function buildGuildRaidViewerRankQuery(
         guildId: guildRaidGuildScores.guildId,
         guildName: guildRaidGuildScores.guildNameSnapshot,
         guildEmblem: guildRaidGuildScores.guildEmblemSnapshot,
+        bossKind: guildRaidGuildScores.bossKind,
         damage: guildRaidGuildScores.damage,
         finalRank: guildRaidGuildScores.finalRank,
+        rewardTier: guildRaidGuildScores.rewardTier,
         settledAt: guildRaidGuildScores.settledAt,
-        rank: sql<number>`rank() over (order by ${guildRaidGuildScores.damage} desc)`
+        rank: sql<number>`rank() over (partition by ${guildRaidGuildScores.bossKind} order by ${guildRaidGuildScores.damage} desc)`
           .mapWith(Number)
           .as("rank"),
       })
@@ -244,7 +261,12 @@ const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
       for (const score of settlement.scores) {
         await tx
           .update(guildRaidGuildScores)
-          .set({ finalRank: score.finalRank, settledAt: now, updatedAt: now })
+          .set({
+            finalRank: score.finalRank,
+            rewardTier: score.rewardTier,
+            settledAt: now,
+            updatedAt: now,
+          })
           .where(
             and(
               eq(guildRaidGuildScores.eventId, eventId),
@@ -282,28 +304,31 @@ const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
     return rows.map(toScoreRecord);
   },
 
-  async countScores(eventId) {
+  async countScores(eventId, bossId) {
     const [row] = await db
       .select({ total: count() })
       .from(guildRaidGuildScores)
       .where(
         and(
           eq(guildRaidGuildScores.eventId, eventId),
+          eq(guildRaidGuildScores.bossKind, bossId),
           gt(guildRaidGuildScores.damage, 0),
         ),
       );
     return row?.total ?? 0;
   },
 
-  async listRankedScoresPage(eventId, offset, limit) {
+  async listRankedScoresPage(eventId, bossId, offset, limit) {
     const rows = await db
       .select({
         eventId: guildRaidGuildScores.eventId,
         guildId: guildRaidGuildScores.guildId,
         guildName: guildRaidGuildScores.guildNameSnapshot,
         guildEmblem: guildRaidGuildScores.guildEmblemSnapshot,
+        bossKind: guildRaidGuildScores.bossKind,
         damage: guildRaidGuildScores.damage,
         finalRank: guildRaidGuildScores.finalRank,
+        rewardTier: guildRaidGuildScores.rewardTier,
         settledAt: guildRaidGuildScores.settledAt,
         rank: sql<number>`rank() over (order by ${guildRaidGuildScores.damage} desc)`.mapWith(Number),
       })
@@ -311,6 +336,7 @@ const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
       .where(
         and(
           eq(guildRaidGuildScores.eventId, eventId),
+          eq(guildRaidGuildScores.bossKind, bossId),
           gt(guildRaidGuildScores.damage, 0),
         ),
       )
@@ -319,13 +345,23 @@ const drizzleGuildRaidLifecycleStore: GuildRaidLifecycleStore = {
       .limit(limit);
     return rows.map((row) => ({
       ...row,
+      bossKind: bossId,
+      rewardTier: toRewardTier(row.rewardTier),
       rank: row.finalRank ?? row.rank,
     }));
   },
 
   async findRankedScore(eventId, guildId) {
     const [row] = await buildGuildRaidViewerRankQuery(db, eventId, guildId);
-    return row ? { ...row, rank: row.finalRank ?? row.rank } : null;
+    return row
+      ? {
+          ...row,
+          bossKind:
+            parseGuildRaidBossId(row.bossKind) ?? GUILD_RAID_DEFAULT_BOSS_ID,
+          rewardTier: toRewardTier(row.rewardTier),
+          rank: row.finalRank ?? row.rank,
+        }
+      : null;
   },
 };
 
@@ -338,13 +374,14 @@ export function createGuildRaidLifecycleService(store: GuildRaidLifecycleStore) 
         eventId,
         now,
         (scores, participants) => ({
-          scores: rankGuildRaidScores(scores.filter((score) => score.damage > 0)).map(
-            ({ rank, ...score }) => ({
-              ...score,
-              finalRank: rank,
-              settledAt: now,
-            }),
-          ),
+          scores: rankGuildRaidScoresByBoss(
+            scores.filter((score) => score.damage > 0),
+          ).map(({ rank, ...score }) => ({
+            ...score,
+            finalRank: rank,
+            rewardTier: resolveGuildRaidRewardTier(score.bossKind, score.damage),
+            settledAt: now,
+          })),
           participants: participants.map((participant) => ({
             ...participant,
             eligibleAtSettlement: isGuildRaidParticipantEligible(
@@ -364,11 +401,12 @@ export function createGuildRaidLifecycleService(store: GuildRaidLifecycleStore) 
     const existing = await store.findEventByWeek(weekKey);
     if (existing) return existing;
     const startsAt = weekStartUtcFor(now);
-    const maxHp = guildRaidMaxHp(1);
+    // 이벤트 행의 보스·체력은 옛 데이터 호환용이다. 실제 보스는 길드별 점수 행에 있다.
+    const maxHp = guildRaidMaxHp(GUILD_RAID_DEFAULT_BOSS_ID, 1);
     return store.createEvent({
       id: `guild-raid:${weekKey}`,
       weekKey,
-      bossKind: GUILD_RAID_PILOT_BOSS_KIND,
+      bossKind: GUILD_RAID_DEFAULT_BOSS_ID,
       startsAt,
       endsAt: guildRaidCombatEndsAt(startsAt),
       status: "active",
@@ -392,13 +430,14 @@ export function createGuildRaidLifecycleService(store: GuildRaidLifecycleStore) 
 
   async function readGuildRaidLeaderboard(
     eventId: string,
+    bossId: GuildRaidBossId,
     viewerGuildId: number | null,
     requestedPage: unknown = 1,
   ) {
-    const total = await store.countScores(eventId);
+    const total = await store.countScores(eventId, bossId);
     const page = normalizeGuildRaidPage(requestedPage, total);
     const [rows, viewer] = await Promise.all([
-      store.listRankedScoresPage(eventId, page.offset, page.limit),
+      store.listRankedScoresPage(eventId, bossId, page.offset, page.limit),
       viewerGuildId == null
         ? Promise.resolve(null)
         : store.findRankedScore(eventId, viewerGuildId),

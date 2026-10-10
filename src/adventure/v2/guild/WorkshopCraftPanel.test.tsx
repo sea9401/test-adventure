@@ -65,8 +65,6 @@ function renderWorkshop(
       onServerSync={vi.fn()}
       onAfterCraft={vi.fn()}
       onFavoriteRecipeIdsChange={vi.fn()}
-      autoCraft={null}
-      onAutoCraftConsumed={vi.fn()}
     />,
   );
 }

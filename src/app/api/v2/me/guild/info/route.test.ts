@@ -9,6 +9,12 @@ vi.mock("@/lib/server/ensureUser", () => ({ ensureUser: async () => state.viewer
 vi.mock("@/lib/server/guildFacilityUpgradeDonations", () => ({
   readGuildFacilityDonationProgress: async () => ({}),
 }));
+const operationsView = vi.hoisted(() => ({
+  training_ground: { targetLevel: 6, points: 40, required: 200, weekPoints: 40, weeklyCap: 100 },
+}));
+vi.mock("@/lib/server/guildFacilityOperations", () => ({
+  readGuildFacilityOperationsViews: async () => operationsView,
+}));
 vi.mock("@/db", async () => {
   const { guildMembers, guilds, presence } = await import("@/db/schema");
   return { db: {
@@ -63,4 +69,10 @@ describe("길드 정보의 승계 가능 여부", () => {
       expect(await (await GET()).json()).toMatchObject({ canClaimLeadership: false });
     },
   );
+});
+
+describe("길드 정보의 운영 실적", () => {
+  it("시설별 운영 실적을 함께 돌려준다", async () => {
+    expect(await (await GET()).json()).toMatchObject({ facilityOperations: operationsView });
+  });
 });

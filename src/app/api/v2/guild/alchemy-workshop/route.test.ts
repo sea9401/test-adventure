@@ -42,7 +42,6 @@ vi.mock("@/lib/server/economyLog", () => ({
 }));
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   associationFacilityLevel: vi.fn(async () => 1),
-  claimWeeklyFacilitySource: vi.fn(async () => ({ ok: true })),
 }));
 
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";

@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { FARM_ITEMS, type FarmItemInventory } from "../farm";
 import { CookingResearchPanel } from "./CookingResearchPanel";
 import type { CookingFailedResearchView, CookingResponse } from "./clientTypes";
+import { cookingResearchAttemptKey } from "./researchKey";
+import type { CookingRecipeSecret } from "./types";
 
 const NOW = Date.parse("2026-08-23T15:00:00+09:00");
 
@@ -13,8 +15,13 @@ afterEach(cleanup);
 function researchFixture(
   farmItems: FarmItemInventory,
   failedResearches: CookingFailedResearchView[] = [],
+  extra: Partial<CookingResponse> = {},
 ): CookingResponse {
   return {
+    knownRecipes: [],
+    failedResearchKeys: failedResearches.map((entry) =>
+      cookingResearchAttemptKey(entry.method, entry.ingredientIds)),
+    ...extra,
     level: 1,
     farmItems,
     farmItemDefinitions: FARM_ITEMS,
@@ -88,6 +95,53 @@ describe("요리 레시피 연구 재료 선택", () => {
       "첫 실패 때 재료가 소비된 조합입니다",
     );
     expect(screen.getByRole("status").textContent).toContain("추가로 재료를 소비할 수 없습니다");
+    fireEvent.click(action);
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("최근 기록 100개 밖의 오래된 실패 조합도 연구 버튼을 미리 막는다", () => {
+    const mutate = vi.fn(async () => undefined);
+    render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, milk: 1 }, [], {
+          failedResearchKeys: [cookingResearchAttemptKey("grill", ["farm:wheat", "farm:milk"])],
+        })}
+        busy={false}
+        mutate={mutate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "우유×1" }));
+    fireEvent.click(screen.getByRole("button", { name: "밀×1" }));
+
+    const action = screen.getByRole("button", { name: "이미 실패한 조합" });
+    expect((action as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(action);
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("이미 발견한 레시피와 같은 조합은 연구 버튼을 미리 막는다", () => {
+    const mutate = vi.fn(async () => undefined);
+    const known = {
+      id: "known_dish",
+      name: "아는 요리",
+      method: "grill",
+      ingredients: [{ id: "farm:milk", count: 2 }, { id: "farm:wheat", count: 2 }],
+    } as unknown as CookingRecipeSecret;
+    render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, milk: 1 }, [], { knownRecipes: [known] })}
+        busy={false}
+        mutate={mutate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "밀×1" }));
+    fireEvent.click(screen.getByRole("button", { name: "우유×1" }));
+
+    const action = screen.getByRole("button", { name: "이미 발견한 레시피" });
+    expect((action as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toContain("아는 요리");
     fireEvent.click(action);
     expect(mutate).not.toHaveBeenCalled();
   });

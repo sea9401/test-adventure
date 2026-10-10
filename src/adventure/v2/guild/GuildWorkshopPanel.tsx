@@ -8,7 +8,6 @@ import {
   useSystemMessageState,
 } from "@/adventure/v2/RewardToastProvider";
 import type {
-  GuildWorkshopCraftMode,
   GuildWorkshopRecipeId,
 } from "@/adventure/data/v2/guildWorkshop";
 import type { GuildInfoResponse } from "./guildShared";
@@ -18,9 +17,12 @@ import { WorkshopDismantlePanel } from "./WorkshopDismantlePanel";
 import { WorkshopGrowthPanel } from "./WorkshopGrowthPanel";
 import { WorkshopSpecializationPanel } from "./WorkshopSpecializationPanel";
 import {
+  CraftResultDialog,
   WorkshopCraftPanel,
   type CraftServerSync,
 } from "./WorkshopCraftPanel";
+import { WorkshopInspectionPanel } from "./WorkshopInspectionPanel";
+import { useWorkshopCraftAction } from "./useWorkshopCraftAction";
 import { workshopBasicMaterialGroups } from "./workshopBasicMaterials";
 import { useGameResourceState } from "../GameResourceContext";
 import {
@@ -94,11 +96,6 @@ export function GuildWorkshopPanel({
     } catch {}
   }, [workshopMode]);
   // 제작(craft) 모드 — 상태/필터/실행 전부 WorkshopCraftPanel 로 분리.
-  // 추천 카드(메인 모드)의 원클릭 제작 → 모드 전환 + 요청을 자식에 전달(마운트 시 1회 실행).
-  const [pendingCraft, setPendingCraft] = useState<{
-    recipeId: GuildWorkshopRecipeId;
-    craftMode: GuildWorkshopCraftMode;
-  } | null>(null);
   const [weekly, setWeekly] = useState<WeeklyState | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyClaimingId, setWeeklyClaimingId] = useState<string | null>(null);
@@ -457,6 +454,16 @@ export function GuildWorkshopPanel({
     void loadDelivery();
     void loadContributionInfo();
   }, [loadWeekly, loadDelivery, loadContributionInfo]);
+  // 추천 카드(메인 모드)의 원클릭 제작 — 탭을 옮기지 않고 메인에서 바로 제작한다.
+  const recommendedCraft = useWorkshopCraftAction({
+    state,
+    endpoint: workshopEndpoint,
+    outpostId,
+    onMessage: setMessage,
+    onServerSync: applyCraftServerState,
+    onAfterCraft: afterCraftRefresh,
+  });
+  const pendingInspection = state?.blacksmithProgression?.pendingInspection;
 
   const applyBlacksmithProgression = useCallback(
     (blacksmithProgression: NonNullable<WorkshopState["blacksmithProgression"]>) => {
@@ -822,18 +829,22 @@ export function GuildWorkshopPanel({
         {workshopRecommendation.recipeId ? (
           <button
             type="button"
-            disabled={loading}
-            onClick={() => {
-              setWorkshopMode("craft");
-              setPendingCraft({
-                recipeId:
-                  workshopRecommendation.recipeId as GuildWorkshopRecipeId,
-                craftMode: workshopRecommendation.craftMode ?? "normal",
-              });
-            }}
+            disabled={
+              loading ||
+              recommendedCraft.craftingId != null ||
+              pendingInspection != null
+            }
+            onClick={() =>
+              void recommendedCraft.craft(
+                workshopRecommendation.recipeId as GuildWorkshopRecipeId,
+                workshopRecommendation.craftMode ?? "normal",
+              )
+            }
             className="mt-2 rounded border border-emerald-700 bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
           >
-            {workshopRecommendation.craftMode === "masterwork"
+            {recommendedCraft.craftingId != null
+              ? "제작 중"
+              : workshopRecommendation.craftMode === "masterwork"
               ? "추천 명장 제작"
               : "추천 제작"}
           </button>
@@ -1060,8 +1071,25 @@ export function GuildWorkshopPanel({
 
       {workshopStatusPanel}
 
+      {recommendedCraft.craftResult ? (
+        <CraftResultDialog
+          result={recommendedCraft.craftResult}
+          onClose={recommendedCraft.closeCraftResult}
+        />
+      ) : null}
+
       {workshopMode === "main" ? (
         <div className="space-y-3">
+          {pendingInspection ? (
+            <WorkshopInspectionPanel
+              pending={pendingInspection}
+              onConfirmed={(blacksmithProgression) => {
+                applyCraftServerState({ ok: true, blacksmithProgression });
+                afterCraftRefresh();
+              }}
+              onMessage={setMessage}
+            />
+          ) : null}
           {!association && (
             <GuildArtisanContributionPanel info={contributionInfo ?? info} />
           )}
@@ -1108,8 +1136,6 @@ export function GuildWorkshopPanel({
               current ? { ...current, favoriteRecipeIds } : current,
             )
           }
-          autoCraft={pendingCraft}
-          onAutoCraftConsumed={() => setPendingCraft(null)}
           outpostId={outpostId}
           endpoint={workshopEndpoint}
         />

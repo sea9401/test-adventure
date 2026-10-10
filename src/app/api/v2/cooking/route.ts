@@ -12,14 +12,34 @@ import { emptyV2SkillsState, equippedCookingBonuses, parseV2SkillsState } from "
 import { FARM_CROPS, FARM_ITEMS, FARM_SAVE_KEY, emptyFarmState, farmAvailableReputation, normalizeFarmForDay, parseFarmState } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEMS, FISHING_STOCK_KEY, emptyFishingStock, parseFishingStock } from "@/adventure/v2/fishingStock";
 import { applyLifeXpGain } from "@/adventure/v2/lifeLevelProgression";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { cookingPost50Bonuses } from "@/adventure/v2/lifeLevelBonuses";
+import { lifeFestivalBonus } from "@/adventure/v2/lifeFestival";
+import {
+  LIFE_MAJOR_CRAFT_MIN_STAGE,
+  LIFE_MAJOR_PRODUCT_ID,
+  LIFE_MAJOR_SAVE_KEY,
+  lifeMajorBonusPct,
+  lifeMajorCanCraft,
+  lifeMajorStage,
+  lifeMajorT100,
+  lifeXpOverflow,
+  parseLifeMajorState,
+  signatureIngredientFor,
+} from "@/adventure/v2/lifeMajor";
+import {
+  applyLifeMajorProgress,
+  lifeMajorResponse,
+  readLifeMajorState,
+} from "@/lib/server/lifeMajor";
 import { LIFE_WORKSHOP_SAVE_KEY, emptyLifeWorkshopState, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { COOKING_PUBLIC_RECIPES, COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
 import { applyCookingDelivery, cookingRequests, cookingStandingDeliveryReward } from "@/adventure/v2/cooking/delivery";
-import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodDefinitions, cookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
+import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodDefinitions, cookingFoodId, parseCookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES, buyCookingPantryItem, processCookingIngredient, type CookingPantryItem, type CookingProcessingRecipe } from "@/adventure/v2/cooking/kitchen";
 import { COOKING_LEVEL_CAP, COOKING_SAVE_KEY, COOKING_STANDING_DELIVERY_DAILY_LIMIT, chooseCookingSpecialty, cookingLevelForXp, cookingLevelXpThreshold, cookingSpecialtyRank, emptyCookingState, parseCookingState } from "@/adventure/v2/cooking/state";
 import { COOKING_METHOD_NAMES, type CookingField, type CookingIngredientId, type CookingMethod, type CookingRecipeSecret } from "@/adventure/v2/cooking/types";
+import { cookingResearchAttemptKey } from "@/adventure/v2/cooking/researchKey";
 import {
   COOKING_SECRET_RECIPE_BY_ID,
   COOKING_SECRET_RECIPES,
@@ -123,6 +143,10 @@ function ingredientBalances(
   };
 }
 
+// 화면의 실패 기록은 최근 100개만 보여주지만, 연구 버튼의 중복 판정은 오래된 실패까지 알아야 한다.
+const FAILED_RESEARCH_HISTORY_LIMIT = 100;
+const FAILED_RESEARCH_KEY_LIMIT = 5_000;
+
 function failedDishCount(raw: unknown): number {
   return Math.min(999_999, Math.max(0, Math.floor(Number(raw) || 0)));
 }
@@ -171,6 +195,7 @@ function cookingView(userId: string, now: number, values: {
   character: CharacterSave;
   firstDiscoveries: readonly FirstDiscoveryRow[];
   failedResearches: readonly FailedResearchRow[];
+  lifeMajorRaw: unknown;
 }) {
   const cooking = parseCookingState(values.cookingRaw, now);
   const farm = normalizeFarmForDay(parseFarmState(values.farmRaw), now);
@@ -192,11 +217,13 @@ function cookingView(userId: string, now: number, values: {
       values.firstDiscoveries,
       cooking.discoveredRecipeIds,
     ),
-    failedResearches: values.failedResearches.map((row) => ({
+    failedResearches: values.failedResearches.slice(0, FAILED_RESEARCH_HISTORY_LIMIT).map((row) => ({
       method: row.method,
       ingredientIds: [...row.ingredientIds],
       createdAt: row.createdAt.getTime(),
     })),
+    failedResearchKeys: values.failedResearches.map((row) =>
+      cookingResearchAttemptKey(row.method, row.ingredientIds)),
     requests: cookingRequests(userId, cooking),
     cookingFoods: parseCookingFoodInventory(inventory.cookingFoods),
     cookingFoodDefinitions: cookingFoodDefinitions(inventory.cookingFoods),
@@ -214,6 +241,23 @@ function cookingView(userId: string, now: number, values: {
     cookingJobName: job.jobId ? V2_JOB_CATALOG[job.jobId]?.name ?? job.jobId : null,
     cookingJobTier: job.tier,
     cookingSkillBonuses: equippedCookingBonuses(parseV2SkillsState(values.skillsRaw).equipped),
+    signature: signatureView(values.lifeMajorRaw, values.character),
+  };
+}
+
+// 명장 요리 — 요리 주전공 명장 3단계 이상만 만들 수 있다. 재료 보유량은 character.v2 재료에서 읽는다.
+function signatureView(lifeMajorRaw: unknown, character: CharacterSave) {
+  const lifeMajor = parseLifeMajorState(lifeMajorRaw);
+  const materials = (character.materials ?? {}) as Record<string, unknown>;
+  const held = (id: string) => Math.max(0, Math.floor(Number(materials[id]) || 0));
+  return {
+    unlocked: lifeMajorCanCraft(lifeMajor, "cooking"),
+    stage: lifeMajorStage(lifeMajor, "cooking"),
+    requiredStage: LIFE_MAJOR_CRAFT_MIN_STAGE,
+    products: {
+      crop: held(LIFE_MAJOR_PRODUCT_ID.farming),
+      catch: held(LIFE_MAJOR_PRODUCT_ID.fishing),
+    },
   };
 }
 
@@ -250,7 +294,7 @@ async function failedCombinationRows(
     .from(cookingFailedCombinations)
     .where(eq(cookingFailedCombinations.userId, userId))
     .orderBy(desc(cookingFailedCombinations.createdAt))
-    .limit(100);
+    .limit(FAILED_RESEARCH_KEY_LIMIT);
   return rows.flatMap((row) => {
     const normalized = normalizeFailedResearchRow(row);
     if (!normalized) return [];
@@ -265,7 +309,7 @@ export async function GET(req: Request) {
   const limited = enforceUserAndIpRateLimit(req, { userId, action: "v2:cooking:get", userLimit: 120, ipLimit: 600, windowMs: 60_000 });
   if (limited) return limited;
   const now = Date.now();
-  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, lifeWorkshopRaw, character, discoveries, failedResearches] = await Promise.all([
+  const [cookingRaw, farmRaw, fishingRaw, skillsRaw, inventoryRaw, lifeWorkshopRaw, character, discoveries, failedResearches, lifeMajorRaw] = await Promise.all([
     readSave(db, userId, COOKING_SAVE_KEY, emptyCookingState(now)),
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, FISHING_STOCK_KEY, emptyFishingStock()),
@@ -275,8 +319,10 @@ export async function GET(req: Request) {
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     firstDiscoveryRows(db),
     failedCombinationRows(db, userId),
+    readSave(db, userId, LIFE_MAJOR_SAVE_KEY, {}),
   ]);
   return Response.json(cookingView(userId, now, {
+    lifeMajorRaw,
     cookingRaw,
     farmRaw,
     fishingRaw,
@@ -325,7 +371,10 @@ function consumeCraftIngredients(args: {
   return { balances, remainders };
 }
 
-function rollCookingQuality(args: { jobTier: number; carefulChancePct: number; masterpieceChancePct: number }): CookingQuality {
+// 조리 굴림은 걸작까지만 나온다. 명장 품질은 명장 요리 만들기로만 얻는다.
+type RolledCookingQuality = Exclude<CookingQuality, "signature">;
+
+function rollCookingQuality(args: { jobTier: number; carefulChancePct: number; masterpieceChancePct: number }): RolledCookingQuality {
   const masterpiece = Math.min(75, args.masterpieceChancePct + (args.jobTier >= 4 ? 5 : 0));
   const careful = Math.min(90 - masterpiece, args.carefulChancePct + args.jobTier * 3);
   const roll = Math.random() * 100;
@@ -354,7 +403,7 @@ export async function POST(req: Request) {
     windowMs: 60_000,
   });
   if (limited) return limited;
-  if (!["research", "craft", "buy_pantry", "process", "choose_specialty", "favorite", "deliver", "standing_delivery"].includes(action)) {
+  if (!["research", "craft", "buy_pantry", "process", "choose_specialty", "favorite", "deliver", "standing_delivery", "signature"].includes(action)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const now = Date.now();
@@ -368,6 +417,7 @@ export async function POST(req: Request) {
       let farm = normalizeFarmForDay(parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now))), now);
       let fishing = parseFishingStock(await lockSaveForUpdate(tx, userId, FISHING_STOCK_KEY, emptyFishingStock()));
       let cooking = parseCookingState(await lockSaveForUpdate(tx, userId, COOKING_SAVE_KEY, emptyCookingState(now)), now);
+      const cookingXpBefore = cooking.xp;
       let inventory = await lockSaveForUpdate<InventorySave>(tx, userId, "inventory.v2", {});
       let lifeWorkshop = parseLifeWorkshopState(await lockSaveForUpdate(
         tx,
@@ -426,6 +476,8 @@ export async function POST(req: Request) {
         const heldPrepSets = lifeWorkshop.crafting.balances[COOKING_PREP_SET_ID] ?? 0;
         if (usePrepSet && heldPrepSets < quantity) throw new Error("not_enough_cooking_prep_sets");
         const levelBonuses = cookingPost50Bonuses(cookingLevelForXp(cooking.xp));
+        const festival = lifeFestivalBonus("cooking", new Date(now));
+        const majorBonusPct = lifeMajorBonusPct(await readLifeMajorState(tx, userId), "cooking");
         const consumed = consumeCraftIngredients({
           recipe, quantity,
           balances: ingredientBalances(farm.inventory, fishing.items, cooking.kitchenItems),
@@ -458,9 +510,11 @@ export async function POST(req: Request) {
           carefulChancePct: skillBonuses.carefulChancePct,
           masterpieceChancePct: skillBonuses.masterpieceChancePct
             + levelBonuses.masterpieceChancePct
+            + festival.chancePct
+            + majorBonusPct
             + (usePrepSet ? COOKING_PREP_SET_MASTERPIECE_BONUS_PCT : 0),
         };
-        const qualityCounts: Record<CookingQuality, number> = {
+        const qualityCounts: Record<RolledCookingQuality, number> = {
           normal: 0,
           careful: 0,
           masterpiece: 0,
@@ -478,7 +532,7 @@ export async function POST(req: Request) {
         }
         inventory = { ...inventory, cookingFoods };
         const foodXpBonus = activeCookingBuff(character.activeFoodBuff, now)?.effect.cookingXpPct ?? 0;
-        const earnedXp = Math.max(1, Math.round(recipe.craftXp * quantity * (100 + skillBonuses.xpBonusPct + foodXpBonus + (job.tier >= 2 ? 10 : 0)) / 100));
+        const earnedXp = Math.max(1, Math.round(recipe.craftXp * quantity * (100 + skillBonuses.xpBonusPct + foodXpBonus + festival.xpPct + (job.tier >= 2 ? 10 : 0)) / 100));
         const applied = applyLifeXpGain({ xp: cooking.xp, gainedXp: earnedXp, legacyThreshold: cookingLevelXpThreshold });
         cooking = {
           ...cooking, xp: applied.xp, kitchenItems: consumed.balances.kitchen,
@@ -564,6 +618,43 @@ export async function POST(req: Request) {
         cooking = { ...cooking, daily: { ...cooking.daily, standingDeliveries: cooking.daily.standingDeliveries + quantity } };
         nextCharacter = { ...character, gold: Math.max(0, Math.floor(Number(character.gold) || 0)) + gold };
         result = { action, foodId, quantity, gold };
+      } else if (action === "signature") {
+        // 명장 요리 — 보유 걸작 1 + 명장 작물/어획 1 → 같은 레시피(원조·전문 유지)의 명장 요리 1.
+        const foodId = (typeof body?.foodId === "string" ? body.foodId : "") as CookingFoodId;
+        const food = parseCookingFoodId(foodId);
+        if (!food || food.quality !== "masterpiece") throw new Error("not_masterpiece");
+        if (!lifeMajorCanCraft(await readLifeMajorState(tx, userId), "cooking")) throw new Error("signature_locked");
+        const remaining = removeCookingFood(inventory.cookingFoods, foodId, 1);
+        if (!remaining) throw new Error("cooked_food_unavailable");
+        const recipe = COOKING_PUBLIC_RECIPE_BY_ID.get(food.recipeId)!;
+        const productId = signatureIngredientFor(recipe.field);
+        const materials = { ...((nextCharacter.materials ?? {}) as Record<string, number>) };
+        const heldProduct = Math.max(0, Math.floor(Number(materials[productId]) || 0));
+        if (heldProduct < 1) throw new Error("not_enough_master_product");
+        if (heldProduct > 1) materials[productId] = heldProduct - 1;
+        else delete materials[productId];
+        const signatureId = cookingFoodId({
+          recipeId: food.recipeId,
+          quality: "signature",
+          originator: food.originator,
+          specialtyBonusPct: food.specialtyBonusPct,
+        });
+        inventory = { ...inventory, cookingFoods: addCookingFood(remaining, signatureId, 1) };
+        nextCharacter = { ...nextCharacter, materials };
+        result = { action, foodId: signatureId, recipeName: recipe.name, productId };
+      }
+
+      if (action === "research" || action === "craft") {
+        // 길드 식당 생활 경험치 효과는 연구 성공·실패와 제작 경험치에 모두 적용한다.
+        const baseXp = Math.max(0, Math.floor(Number(result.earnedXp) || 0));
+        const diningXp = await consumeGuildDiningEffect(tx, userId, "life_xp", baseXp, new Date(now));
+        if (diningXp.bonus > 0) {
+          cooking = {
+            ...cooking,
+            xp: applyLifeXpGain({ xp: cooking.xp, gainedXp: diningXp.bonus, legacyThreshold: cookingLevelXpThreshold }).xp,
+          };
+          result = { ...result, earnedXp: baseXp + diningXp.bonus };
+        }
       }
 
       await upsertSave(tx, userId, COOKING_SAVE_KEY, cooking);
@@ -594,12 +685,31 @@ export async function POST(req: Request) {
       if (action === "craft" || action === "research") {
         await rewardReferralTutorialTasks(tx, userId, "새 모험가", referralLifeTaskIds(cookingLevelForXp(cooking.xp)));
       }
+      // 생활 전공 — 조리·연구 경험치 중 Lv.100 상한을 넘긴 양을 명장 경험치로 쌓는다.
+      // 연구 경험치는 상한 없이 더해지고 다음 로드 때 잘리므로 적용 후 값을 T100 으로 자른다.
+      const actionXp = action === "craft" || action === "research"
+        ? Math.max(0, Math.floor(Number(result.earnedXp) || 0))
+        : 0;
+      const cookingT100 = lifeMajorT100("cooking");
+      const lifeMajorProgress = actionXp > 0
+        ? await applyLifeMajorProgress(tx, userId, "cooking", {
+          overflowXp: lifeXpOverflow({
+            gained: actionXp,
+            before: Math.min(cookingXpBefore, cookingT100),
+            after: Math.min(cooking.xp, cookingT100),
+          }),
+          successes: 0,
+          rng: Math.random,
+        })
+        : { masteryXpGained: 0, productId: null, productCount: 0 };
       const discoveries = await firstDiscoveryRows(tx);
       const failedResearches = await failedCombinationRows(tx, userId);
       return {
+        lifeMajor: lifeMajorResponse(lifeMajorProgress),
         feedRecipeId,
         result: { ...result, masteryGained, masteryAfter },
         view: cookingView(userId, now, {
+          lifeMajorRaw: await readSave(tx, userId, LIFE_MAJOR_SAVE_KEY, {}),
           cookingRaw: cooking,
           farmRaw: farm,
           fishingRaw: fishing,
@@ -621,7 +731,11 @@ export async function POST(req: Request) {
         });
       }
     }
-    return Response.json({ ...transactionResult.view, result: transactionResult.result });
+    return Response.json({
+      ...transactionResult.view,
+      result: transactionResult.result,
+      lifeMajor: transactionResult.lifeMajor,
+    });
   } catch (error) {
     const code = error instanceof Error ? error.message : "cooking_failed";
     const conflict = new Set([
@@ -631,6 +745,7 @@ export async function POST(req: Request) {
       "not_enough_cooking_prep_sets",
       "not_enough_gold", "specialty_locked", "specialty_permanent", "delivery_completed",
       "food_not_eligible", "cooked_food_unavailable", "standing_delivery_limit",
+      "signature_locked", "not_masterpiece", "not_enough_master_product",
     ]);
     if (code === "bad_request" || code.startsWith("invalid_")) return Response.json({ ok: false, error: code }, { status: 400 });
     if (conflict.has(code)) return Response.json({ ok: false, error: code }, { status: 409 });

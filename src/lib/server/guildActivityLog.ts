@@ -2,6 +2,8 @@ import type { db as dbType } from "@/db";
 import { guildActivityLog, guildContributionEvents } from "@/db/schema";
 import type { GuildAlchemyChargeTarget } from "@/adventure/data/v2/guildAlchemy";
 import { guildContributionForActivity } from "@/adventure/data/v2/guildContribution";
+import { guildFacilityOperationAccrual } from "@/adventure/data/v2/guildFacilityOperations";
+import { accrueGuildFacilityOperations } from "@/lib/server/guildFacilityOperations";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
@@ -67,6 +69,8 @@ export type GuildActivityMeta = {
     buildingId: string;
     buildingName: string;
     targetLevel: number;
+    // 없으면 기본 지원(통나무·철광석). advanced 는 편백나무·아다만타이트.
+    supportKind?: "basic" | "advanced";
     crop: number;
     ore: number;
   }; // trade_shop_purchase
@@ -102,6 +106,8 @@ export async function logGuildActivity(
     actorUserId?: string | null;
     targetUserId?: string | null;
     meta?: GuildActivityMeta | null;
+    // 시설 운영 실적 계산용 수량(식재료 공동 준비 점수·사용 연성력·납품 점수). 저장하지 않는다.
+    operationAmount?: number;
   },
 ): Promise<void> {
   const activity = (
@@ -116,6 +122,17 @@ export async function logGuildActivity(
       })
       .returning({ id: guildActivityLog.id, createdAt: guildActivityLog.createdAt })
   )[0];
+  const operation = guildFacilityOperationAccrual(
+    entry.type,
+    entry.operationAmount,
+  );
+  if (operation) {
+    await accrueGuildFacilityOperations(tx, {
+      guildId: entry.guildId,
+      buildingId: operation.buildingId,
+      points: operation.points,
+    });
+  }
   const contribution = guildContributionForActivity(
     entry.type,
     entry.meta ?? null,

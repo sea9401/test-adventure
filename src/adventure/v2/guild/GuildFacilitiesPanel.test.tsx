@@ -84,3 +84,48 @@ describe("길드 시설 카드 작업 위치", () => {
     );
   });
 });
+
+describe("운영 실적 진행 표시", () => {
+  const next = nextSettlementBuildingUpgrade("trade_post", 5, "guild_facility");
+  if (!next) throw new Error("교역소 Lv.6 정의가 필요합니다.");
+  const materials = Object.fromEntries(
+    Object.entries(next.cost).filter(([key]) => key !== "gold" && key !== "fame"),
+  );
+  function renderFund(points: number) {
+    render(
+      <GuildFacilityUpgradeFund
+        buildingId="trade_post"
+        next={next!}
+        progress={{ targetLevel: 6, materials }}
+        operations={{ targetLevel: 6, points, required: 200, weekPoints: 64, weeklyCap: 100 }}
+        guildGold={10_000_000_000}
+        guildFame={1_000_000}
+        canComplete
+        onComplete={vi.fn()}
+      />,
+    );
+  }
+
+  it("실적과 이번 주 적립량을 보여주고 미달이면 완료할 수 없다", () => {
+    renderFund(120);
+    expect(screen.getByText("운영 실적")).toBeTruthy();
+    expect(screen.getByText("120 / 200")).toBeTruthy();
+    expect(screen.getByText("이번 주 +64 / 100")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "업그레이드하기" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.getByText("운영 실적이 아직 부족합니다.")).toBeTruthy();
+  });
+
+  it("실적을 채우면 완료할 수 있다", () => {
+    renderFund(200);
+    expect(
+      (screen.getByRole("button", { name: "업그레이드하기" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("Lv.6 미만 목표에는 실적 줄이 없다", () => {
+    renderUpgradeFund();
+    expect(screen.queryByText("운영 실적")).toBeNull();
+  });
+});

@@ -31,11 +31,18 @@ import {
   settlementBuildingUpgradeCostText,
 } from "@/adventure/data/v2/settlement";
 import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
+import { GUILD_RAID_BOSSES } from "@/adventure/data/v2/guildRaidBosses";
+import {
+  GUILD_FACILITY_OPERATIONS_WEEKLY_CAP,
+  guildFacilityOperationsRequired,
+} from "@/adventure/data/v2/guildFacilityOperations";
 import {
   ASSOCIATION_DINING_POINTS_PER_TICKET,
   GUILD_DINING_BASE_WEEKLY_TICKETS,
   GUILD_DINING_EFFECT_DURATION_HOURS,
   GUILD_DINING_INGREDIENTS,
+  GUILD_DINING_LONG_EFFECT_MIN_LEVEL,
+  GUILD_DINING_LONG_EFFECT_MULTIPLIER,
   GUILD_DINING_MENUS,
   GUILD_DINING_POINTS_PER_TICKET,
   guildDiningMenusForFacilityLevel,
@@ -58,6 +65,9 @@ import {
   GUILD_TRAINING_DRILL_IDS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
+  GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY,
+  GUILD_TRAINING_WEEKLY_SECOND_BONUS_MIN_LEVEL,
+  GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET,
 } from "@/adventure/data/v2/guildTrainingGround";
 import {
   GUILD_WORKSHOP_BONUS_TIERS,
@@ -134,12 +144,22 @@ export function GuildContent() {
 
       <H2>길드 토벌전</H2>
       <P>
-        토벌전은 각 길드가 독립된 단계형 보스를 공격하고, 길드원 전원의 누적 피해
-        합계로 순위를 겨루는 경쟁 콘텐츠입니다. 보스의 현재 단계와 HP는 길드마다
-        따로 진행되며, 한 단계를 쓰러뜨리면 남은 피해가 다음 단계로 이어집니다.
-        전투는 매주 <Em>월요일 00:00부터 토요일 00:00 KST 직전</Em>까지 진행됩니다.
+        토벌전은 길드마다 단계형 보스를 공격하고, 길드원 전원의 누적 피해 합계로
+        순위를 겨루는 경쟁 콘텐츠입니다. 보스의 현재 단계와 HP는 길드마다 따로
+        진행되며, 한 단계를 쓰러뜨리면 남은 피해가 다음 단계로 이어집니다. 전투는
+        매주 <Em>월요일 00:00부터 토요일 00:00 KST 직전</Em>까지 진행됩니다.
       </P>
       <UL>
+        <li>
+          길드장 또는 관리자가 매주 토벌 보스를 선택합니다. 선택 마감은 없지만 고르기
+          전에는 공격할 수 없고, 한 번 고른 보스는 그 주에 바꿀 수 없습니다. 순위는
+          같은 보스를 고른 길드끼리 매깁니다.
+        </li>
+        <li>
+          재앙의 스콜피온 킹은 보상이 2배입니다. 다만 길드 누적 피해가{" "}
+          {(GUILD_RAID_BOSSES.canyon_predator_raid.bonusMinGuildDamage ?? 0).toLocaleString("ko-KR")}{" "}
+          미만이면 순위와 관계없이 50만 골드·숙련의 증표 50개를 받습니다.
+        </li>
         <li>
           길드원마다 하루 <Em>{GUILD_RAID_DAILY_ATTACKS}회</Em> 공격할 수 있습니다.
           사용하지 않은 횟수는 다음 날로 이월되지 않으며, 별도의 스태미너나 소환서를
@@ -157,8 +177,8 @@ export function GuildContent() {
         </li>
         <li>
           개인 참여 조건은 주간 유효 공격 <Em>{GUILD_RAID_ELIGIBLE_ATTACKS}회 이상</Em>과
-          누적 피해 1 이상입니다. 보상은 1위 500만 골드·숙련의 증표 500개, 2~3위
-          300만·300개, 4~10위 100만·100개, 그 외 참여 길드 50만·50개입니다.
+          누적 피해 1 이상입니다. 흉포한 산군의 보상은 1위 500만 골드·숙련의 증표
+          500개, 2~3위 300만·300개, 4~10위 100만·100개, 그 외 참여 길드 50만·50개입니다.
           토·일요일에 토벌전 화면에서 직접 받아야 하며 다음 월요일 00:00까지 받지
           않은 보상은 소멸합니다.
         </li>
@@ -182,13 +202,18 @@ export function GuildContent() {
       <P>
         길드를 창단하면 제작소·훈련장·탐사 본부·연금 공방·길드 식당·교역소·길드
         창고가 모두 <Em>Lv.1</Em>로 기본 지급됩니다. 별도의 개방 비용은 없습니다.
-        시설이 Lv.5 미만이면 다음 레벨의 재료 기부가 항상 열려 있으며, 길드원
+        최고 레벨 전이면 다음 레벨의 재료 기부가 항상 열려 있으며, 길드원
         누구나 생활에서 얻은 <Em>모든 등급의 원목·광석</Em>을 원하는 만큼 보탤
         수 있습니다. 시설 단계가 오를수록 상위 원목과 광석도 함께 요구합니다.
       </P>
+      <P>
+        훈련장·탐사 본부·연금 공방·길드 식당·교역소는 <Em>Lv.10</Em>까지,
+        제작소와 길드 창고는 Lv.5까지 올릴 수 있습니다. 모험가 협회 시설은
+        Lv.5가 최고 레벨입니다.
+      </P>
       <Table
         head={["목표 레벨", "공통 생활 재료 요구량"]}
-        rows={GUILD_SMITHY_UPGRADES.slice(1).map((upgrade) => [
+        rows={TRAINING_GROUND_UPGRADES.slice(1).map((upgrade) => [
           `Lv.${upgrade.level}`,
           settlementBuildingUpgradeCostText({
             ...upgrade.cost,
@@ -196,7 +221,7 @@ export function GuildContent() {
             fame: 0,
           }),
         ])}
-        caption="제작소·훈련장·탐사 본부·연금 공방·길드 식당·길드 교역소가 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
+        caption="제작소·훈련장·탐사 본부·연금 공방·길드 식당·길드 교역소가 같은 단계별 생활 재료 구성을 사용합니다. 제작소는 Lv.5까지입니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
       />
       <Table
         head={["시설", "Lv2", "Lv3", "Lv4", "Lv5"]}
@@ -209,12 +234,46 @@ export function GuildContent() {
           ["길드 교역소", TRADE_POST_UPGRADES],
         ].map(([name, upgrades]) => [
           <Em key={String(name)}>{String(name)}</Em>,
-          ...(upgrades as typeof GUILD_SMITHY_UPGRADES).slice(1).map(
+          ...(upgrades as typeof GUILD_SMITHY_UPGRADES).slice(1, 5).map(
             (upgrade) =>
               `${(upgrade.cost.gold ?? 0).toLocaleString("ko-KR")}G · 명성 ${(upgrade.cost.fame ?? 0).toLocaleString("ko-KR")}`,
           ),
         ])}
         caption="재료가 모두 모이면 관리자만 업그레이드를 완료할 수 있습니다. 완료할 때 길드 금고 골드와 사용 가능한 길드 명성을 소비하고, 다음 레벨 기부가 자동으로 열립니다. Lv2는 명성을 요구하지 않습니다."
+      />
+      <Table
+        head={["목표 레벨", "길드 금고 골드", "길드 명성"]}
+        rows={TRAINING_GROUND_UPGRADES.slice(5).map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          `${(upgrade.cost.gold ?? 0).toLocaleString("ko-KR")}G`,
+          (upgrade.cost.fame ?? 0).toLocaleString("ko-KR"),
+        ])}
+        caption="훈련장·탐사 본부·연금 공방·길드 식당·교역소의 Lv.6~10 비용은 모두 같습니다."
+      />
+      <P>
+        Lv.6부터는 <Em>운영 실적</Em>도 채워야 업그레이드할 수 있습니다. 운영
+        실적은 Lv.5 이상 시설을 길드원이 이용할 때 그 시설에만 쌓이며, 시설마다
+        한 주에 최대 {GUILD_FACILITY_OPERATIONS_WEEKLY_CAP}점까지 모입니다. 주간
+        한도는 월요일 00:00 KST에 초기화됩니다. 목표에 닿으면 더 쌓이지 않고,
+        업그레이드하면 다음 목표를 0점부터 채웁니다.
+      </P>
+      <Table
+        head={["목표 레벨", "운영 실적"]}
+        rows={[6, 7, 8, 9, 10].map((level) => [
+          `Lv.${level}`,
+          `${guildFacilityOperationsRequired(level).toLocaleString("ko-KR")}점`,
+        ])}
+      />
+      <Table
+        head={["시설", "운영 실적이 쌓이는 활동"]}
+        rows={[
+          ["훈련장", "훈련 1회 1점"],
+          ["탐사 본부", "원정 귀환 8점 · 주간 의뢰 수령 3점 · 사건 처리 2점"],
+          ["연금 공방", "사용한 연성력 1당 1점"],
+          ["길드 식당", "식사 1회 2점 · 식재료 공동 준비 10점당 1점"],
+          ["길드 교역소", "납품 점수 10점당 1점 · 계약 완료 10점"],
+        ].map(([name, rule]) => [<Em key={name}>{name}</Em>, rule])}
+        caption="모험가 협회 시설 이용은 운영 실적에 포함되지 않습니다."
       />
 
       <H2>전투보급 연구</H2>
@@ -272,7 +331,9 @@ export function GuildContent() {
         <li>
           주간 훈련 {GUILD_TRAINING_WEEKLY_BONUS_TARGET}회를 채우면 추가로{" "}
           <Em>숙련도 {GUILD_TRAINING_WEEKLY_BONUS_MASTERY}</Em> 보너스를 받을 수
-          있습니다.
+          있습니다. 훈련장 Lv.{GUILD_TRAINING_WEEKLY_SECOND_BONUS_MIN_LEVEL}부터는
+          주 {GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET}회를 채우면 숙련도{" "}
+          {GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY}을 한 번 더 받습니다.
         </li>
         <li>
           훈련장 Lv.{GUILD_TRAINING_DRILLS.tactical_simulation.minBuildingLevel}와
@@ -299,9 +360,13 @@ export function GuildContent() {
       <P>
         탐사 본부는 길드 단위 주간 탐사 의뢰를 관리하는 시설입니다. 시설 레벨이
         오르면 이용할 수 있는 의뢰 종류가 추가되고 의뢰 진척 보너스가 늘어납니다.
-        원정은 시설 Lv.1부터 Lv.5까지 단계마다 한 종류씩, 총{" "}
+        원정은 시설 레벨에 따라 총{" "}
         <Em>{GUILD_EXPLORATION_EXPEDITION_IDS.length}종</Em>이 열리며 상위 원정일수록
-        시간이 오래 걸리는 대신 골드·명성·지도 조각 보상이 커집니다.
+        시간이 오래 걸리는 대신 골드·명성·지도 조각 보상이 커집니다. Lv.6과
+        Lv.9 원정은 귀환 보상을 회수할 때 길드원 전원에게 보상을 나눕니다.
+        Lv.8부터 원정대를 두 곳에 동시에 보낼 수 있고, Lv.10에서는 원정 시간이
+        10% 줄고 새 사건이 나타납니다. 진행 중인 원정은 주가 바뀌어도 그대로
+        귀환합니다.
         기본 협동보스 목표는 단순 처치가 아니라{" "}
         <Em>
           {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
@@ -311,7 +376,7 @@ export function GuildContent() {
       </P>
       <Table
         head={["레벨", "단계", "해금 의뢰 종류", "진척 보너스"]}
-        rows={[1, 2, 3, 4, 5].map((level) => {
+        rows={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => {
           const upgrade = explorationHqUpgradeForLevel(level);
           return [
             `Lv.${upgrade.level}`,
@@ -394,14 +459,15 @@ export function GuildContent() {
         </li>
         <li>
           공동 준비·식권·기여도·효과는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
-          같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
+          같은 주의 개인 기여도, 사용한 식권, 적용 중인 음식 효과는 이어집니다.
         </li>
       </UL>
       <P>
         협회 식당은 개인이 식재료 <Em>{ASSOCIATION_DINING_POINTS_PER_TICKET}점</Em>을
         기여할 때마다 식권 1장을 즉시 얻습니다. 공동 준비 목표를 기다리지 않으며,
         주간 개인 납품 한도는 없습니다. 개인 기여·식권·효과는 매주 월요일 00:00
-        KST에 초기화됩니다.
+        KST에 초기화됩니다. 주중에 길드를 나왔다면 협회 식권은 협회 식당에서
+        새로 기여한 점수로만 계산하고, 적용 중인 음식 효과는 그대로 유지됩니다.
       </P>
       <Table
         head={["시설 레벨", "기여 식권", "이용 가능 메뉴"]}
@@ -410,7 +476,7 @@ export function GuildContent() {
           `최대 ${upgrade.weeklyMealTickets}장`,
           `${guildDiningMenusForFacilityLevel(upgrade.level).length}종`,
         ])}
-        caption={`공동 준비 목표를 달성하면 모든 주간 참여 길드원이 기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장을 사용할 수 있습니다. 시설 레벨에서 해금된 메뉴는 누구나 개인별로 선택할 수 있습니다.`}
+        caption={`공동 준비 목표를 달성하면 모든 주간 참여 길드원이 기본 식권 ${GUILD_DINING_BASE_WEEKLY_TICKETS}장을 사용할 수 있습니다. 시설 레벨에서 해금된 메뉴는 누구나 개인별로 선택할 수 있습니다. 식당 Lv.${GUILD_DINING_LONG_EFFECT_MIN_LEVEL}부터 효과식 지속 시간이 ${GUILD_DINING_LONG_EFFECT_MULTIPLIER}배가 됩니다.`}
       />
       <Table
         head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
@@ -435,7 +501,7 @@ export function GuildContent() {
           `Lv.${menu.minFacilityLevel}`,
           menu.description,
         ])}
-        caption={`지속 효과 메뉴는 식권 1장당 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간 적용됩니다. 같은 메뉴는 남은 시간에 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다.`}
+        caption={`지속 효과 메뉴는 식권 1장당 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간 적용됩니다. 같은 메뉴는 남은 시간에 ${GUILD_DINING_EFFECT_DURATION_HOURS}시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 생활 경험치 효과는 농장 수확, 벌목, 채광, 낚시, 요리(연구 성공·실패와 제작) 경험치에 적용되며, 길드 대연회는 사냥과 생활 경험치에 모두 적용됩니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다.`}
       />
 
       <H2>길드 교역소</H2>
@@ -457,7 +523,8 @@ export function GuildContent() {
         </li>
         <li>
           계약·개인 납품·길드 전체 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
-          공동 교역 토큰은 다음 주에도 유지됩니다.
+          공동 교역 토큰은 다음 주에도 유지됩니다. 개인 납품 한도는 길드를
+          옮기거나 협회 교역소를 이용해도 같은 주 안에서 합산됩니다.
         </li>
         <li>
           상점 품목은 길드장과 관리자만 선택할 수 있습니다. 길드원 지급 상품은
@@ -469,7 +536,8 @@ export function GuildContent() {
           길드 시설 지원 물자는 통나무와 철광석만 합계 200개 지원합니다. 각
           재료를 최대 100개씩 우선 배분하고, 한쪽의 남은 요구량이 100개보다
           적으면 남는 수량을 다른 재료에 더합니다. 두 재료의 남은 요구량이
-          합계 200개 이상인 시설만 선택할 수 있습니다.
+          합계 200개 이상인 시설만 선택할 수 있습니다. 교역소 Lv.10의 상위 시설
+          지원 물자는 같은 방식으로 편백나무와 아다만타이트를 지원합니다.
         </li>
         <li>
           선택한 관리자·품목·인원·사용 토큰과 남은 공동 토큰은 길드 활동 내역에
@@ -616,6 +684,9 @@ export function GuildContent() {
         <li>
           <Em>탈퇴 · 추방</Em>: 길드를 떠나거나(길드원 탭) 내보내면(마스터), 이후{" "}
           {GUILD_LEAVE_COOLDOWN_DAYS}일 동안 다른 길드에 가입할 수 없습니다.
+          길드를 옮기거나 협회로 돌아가도 훈련장·제작소·연금 공방·식당·교역소의
+          이번 주 이용량은 이어서 쓸 수 있습니다. 길드 토벌전만 그 주에 처음 공격한
+          길드로 참여가 고정됩니다.
         </li>
         <li>
           <Em>마스터 양도</Em>: 마스터는 바로 탈퇴할 수 없고, 먼저 다른 길드원에게

@@ -20,11 +20,40 @@ describe("길드 토벌전 주말 보상 수령", () => {
         event,
         participant,
         finalRank: 2,
+        rewardTier: null,
       }),
     ).toEqual({
       ok: true,
       rank: 2,
       reward: { gold: 3_000_000, masteryCertificates: 300 },
+    });
+  });
+
+  it("스콜피온 보상 구간에 따라 2배 또는 최하 구간을 지급한다", () => {
+    const now = new Date("2026-08-22T03:00:00.000Z");
+    expect(
+      resolveGuildRaidRewardClaim({
+        now,
+        event,
+        participant,
+        finalRank: 1,
+        rewardTier: "bonus",
+      }),
+    ).toMatchObject({
+      ok: true,
+      reward: { gold: 10_000_000, masteryCertificates: 1_000 },
+    });
+    expect(
+      resolveGuildRaidRewardClaim({
+        now,
+        event,
+        participant,
+        finalRank: 1,
+        rewardTier: "floor",
+      }),
+    ).toMatchObject({
+      ok: true,
+      reward: { gold: 500_000, masteryCertificates: 50 },
     });
   });
 
@@ -35,6 +64,7 @@ describe("길드 토벌전 주말 보상 수령", () => {
         event: { ...event, status: "active" },
         participant,
         finalRank: 1,
+        rewardTier: null,
       }),
     ).toEqual({ ok: false, error: "claim_not_open" });
     expect(
@@ -43,6 +73,7 @@ describe("길드 토벌전 주말 보상 수령", () => {
         event,
         participant,
         finalRank: 1,
+        rewardTier: null,
       }),
     ).toEqual({ ok: false, error: "reward_expired" });
   });
@@ -54,6 +85,7 @@ describe("길드 토벌전 주말 보상 수령", () => {
         event,
         participant: { ...participant, eligibleAtSettlement: false },
         finalRank: 1,
+        rewardTier: null,
       }),
     ).toEqual({ ok: false, error: "not_eligible" });
     expect(
@@ -62,6 +94,7 @@ describe("길드 토벌전 주말 보상 수령", () => {
         event: { ...event, status: "active" },
         participant,
         finalRank: null,
+        rewardTier: null,
       }),
     ).toEqual({ ok: false, error: "not_settled" });
     expect(
@@ -70,6 +103,7 @@ describe("길드 토벌전 주말 보상 수령", () => {
         event,
         participant: { ...participant, rewardClaimedAt: new Date() },
         finalRank: 1,
+        rewardTier: null,
       }),
     ).toEqual({ ok: false, error: "already_claimed" });
   });

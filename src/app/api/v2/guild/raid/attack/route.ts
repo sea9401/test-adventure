@@ -9,6 +9,7 @@ const ERROR_STATUS = {
   no_guild: 403,
   no_character: 400,
   bad_boss: 500,
+  boss_not_selected: 409,
   daily_limit: 429,
   guild_locked: 409,
   event_ended: 410,

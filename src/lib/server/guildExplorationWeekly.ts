@@ -37,6 +37,7 @@ function rowToState(
         fishingCatchProgress?: number | null;
         woodcuttingSuccessProgress?: number | null;
         farmHarvestProgress?: number | null;
+        raidAttackProgress?: number | null;
         claimed?: unknown;
         content?: unknown;
       }
@@ -54,6 +55,7 @@ function rowToState(
           fishingCatchProgress: row.fishingCatchProgress,
           woodcuttingSuccessProgress: row.woodcuttingSuccessProgress,
           farmHarvestProgress: row.farmHarvestProgress,
+          raidAttackProgress: row.raidAttackProgress,
           claimed: row.claimed,
           content: row.content,
         }
@@ -83,6 +85,7 @@ export async function lockGuildExplorationWeeklyState(
         woodcuttingSuccessProgress:
           guildExplorationWeekly.woodcuttingSuccessProgress,
         farmHarvestProgress: guildExplorationWeekly.farmHarvestProgress,
+        raidAttackProgress: guildExplorationWeekly.raidAttackProgress,
         claimed: guildExplorationWeekly.claimed,
         content: guildExplorationWeekly.content,
       })
@@ -114,6 +117,7 @@ export async function readGuildExplorationWeeklyState(
         woodcuttingSuccessProgress:
           guildExplorationWeekly.woodcuttingSuccessProgress,
         farmHarvestProgress: guildExplorationWeekly.farmHarvestProgress,
+        raidAttackProgress: guildExplorationWeekly.raidAttackProgress,
         claimed: guildExplorationWeekly.claimed,
         content: guildExplorationWeekly.content,
       })
@@ -140,6 +144,7 @@ export async function saveGuildExplorationWeeklyState(
       fishingCatchProgress: state.fishingCatchProgress,
       woodcuttingSuccessProgress: state.woodcuttingSuccessProgress,
       farmHarvestProgress: state.farmHarvestProgress,
+      raidAttackProgress: state.raidAttackProgress,
       claimed: guildExplorationWeeklyClaimedPayload(state),
       content: guildExplorationContentPayload(state),
       updatedAt: new Date(),
@@ -154,6 +159,7 @@ export async function saveGuildExplorationWeeklyState(
         fishingCatchProgress: state.fishingCatchProgress,
         woodcuttingSuccessProgress: state.woodcuttingSuccessProgress,
         farmHarvestProgress: state.farmHarvestProgress,
+        raidAttackProgress: state.raidAttackProgress,
         claimed: guildExplorationWeeklyClaimedPayload(state),
         content: guildExplorationContentPayload(state),
         updatedAt: new Date(),

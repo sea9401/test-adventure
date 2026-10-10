@@ -4,6 +4,8 @@ import { CookingPot, PottedPlant } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { CookingPanel } from "./CookingPanel";
+import { LifeFestivalBadge } from "./LifeFestivalBadge";
+import { LifeMajorBadge } from "./LifeMajorBadge";
 
 export function KitchenPanel({
   onBack,
@@ -33,6 +35,8 @@ export function KitchenPanel({
           </button>
         }
       />
+      <LifeFestivalBadge activity="cooking" />
+      <LifeMajorBadge activity="cooking" />
       <CookingPanel />
     </PageShell>
   );

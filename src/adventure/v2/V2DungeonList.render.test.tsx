@@ -92,6 +92,51 @@ describe("미개척지 사냥터 카드", () => {
     expect(beforeStart).toContain("탐사 시작 필요");
     expect(beforeStart).toContain(' disabled=""');
   });
+
+  it("탐사 시작 전 카드는 탐사망으로 안내하고 누르면 탐사망을 연다", () => {
+    const onSelect = vi.fn();
+    const onOpenNetwork = vi.fn();
+    render(
+      <UnexploredDungeonCard
+        snapshot={{
+          level: 100,
+          eligible: true,
+          selectedNodeIds: [],
+          difficulty: 95,
+          encounterShares: [{ kind: "base", share: 100 }],
+        }}
+        onSelect={onSelect}
+        onOpenNetwork={onOpenNetwork}
+      />,
+    );
+
+    const card = screen.getByRole<HTMLButtonElement>("button", { name: /탐사 시작 필요/ });
+    expect(card.disabled).toBe(false);
+    expect(card.textContent).toContain("탐사망 가운데의 탐사 시작 노드를 켜면 입장할 수 있습니다");
+    fireEvent.click(card);
+    expect(onOpenNetwork).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("100레벨 미만이면 탐사망 연결이 있어도 카드를 잠근다", () => {
+    render(
+      <UnexploredDungeonCard
+        snapshot={{
+          level: 99,
+          eligible: false,
+          selectedNodeIds: [],
+          difficulty: 95,
+          encounterShares: [{ kind: "base", share: 100 }],
+        }}
+        onSelect={vi.fn()}
+        onOpenNetwork={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: /100레벨 달성 필요/ }).disabled,
+    ).toBe(true);
+  });
 });
 
 describe("사냥터 성장 안내", () => {

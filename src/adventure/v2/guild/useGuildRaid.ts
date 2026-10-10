@@ -7,6 +7,7 @@ import type {
   GuildRaidPracticeResult,
   GuildRaidState,
 } from "./guildRaidTypes";
+import type { GuildRaidBossId } from "@/adventure/data/v2/guildRaidBosses";
 import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
 import {
   guildRaidPollDelayMs,
@@ -26,8 +27,15 @@ async function postGuildRaidAttack(requestId: string): Promise<Response> {
   });
 }
 
-async function postGuildRaidPractice(): Promise<Response> {
-  return fetch("/api/v2/guild/raid/practice", { method: "POST" });
+async function postGuildRaidPractice(
+  bossId?: GuildRaidBossId,
+): Promise<Response> {
+  if (!bossId) return fetch("/api/v2/guild/raid/practice", { method: "POST" });
+  return fetch("/api/v2/guild/raid/practice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bossId }),
+  });
 }
 
 export function useGuildRaid() {
@@ -36,6 +44,7 @@ export function useGuildRaid() {
   const [attacking, setAttacking] = useState(false);
   const [practicing, setPracticing] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [selecting, setSelecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAttack, setLastAttack] = useState<GuildRaidAttackResult | null>(null);
   const [lastPractice, setLastPractice] =
@@ -43,6 +52,7 @@ export function useGuildRaid() {
   const combatInFlightRef = useRef(false);
   const leaderboardPageRef = useRef(1);
   const recentPageRef = useRef(1);
+  const boardRef = useRef<GuildRaidBossId | null>(null);
 
   const load = useCallback(async ({
     quiet = false,
@@ -61,6 +71,7 @@ export function useGuildRaid() {
         leaderboardPage: String(leaderboardPage),
         recentPage: String(recentPage),
       });
+      if (boardRef.current) query.set("board", boardRef.current);
       const response = await fetch(`/api/v2/guild/raid?${query}`);
       const body = (await response.json().catch(() => null)) as
         | GuildRaidState
@@ -139,7 +150,7 @@ export function useGuildRaid() {
     }
   }, [load]);
 
-  const practice = useCallback(async () => {
+  const practice = useCallback(async (bossId?: GuildRaidBossId) => {
     if (combatInFlightRef.current) return;
     combatInFlightRef.current = true;
     setPracticing(true);
@@ -147,7 +158,7 @@ export function useGuildRaid() {
     setLastAttack(null);
     setLastPractice(null);
     try {
-      const response = await postGuildRaidPractice();
+      const response = await postGuildRaidPractice(bossId);
       const body = (await response.json().catch(() => null)) as
         | GuildRaidPracticeResult
         | GuildRaidErrorResponse
@@ -195,12 +206,48 @@ export function useGuildRaid() {
     }
   }, [claiming, load]);
 
+  const selectBoss = useCallback(async (bossId: GuildRaidBossId) => {
+    if (selecting) return;
+    setSelecting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/v2/guild/raid/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bossId }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | GuildRaidErrorResponse
+        | { ok: true }
+        | null;
+      if (!response.ok || !body?.ok) {
+        setError(
+          body && "error" in body ? body.error ?? "select_failed" : "select_failed",
+        );
+      } else {
+        // 선택한 보스의 순위표를 바로 보여 준다.
+        boardRef.current = null;
+      }
+      await load({ quiet: true, leaderboardPage: 1 });
+    } catch {
+      setError("select_failed");
+    } finally {
+      setSelecting(false);
+    }
+  }, [load, selecting]);
+
+  const setBoard = useCallback((bossId: GuildRaidBossId) => {
+    boardRef.current = bossId;
+    return load({ leaderboardPage: 1, recentPage: recentPageRef.current });
+  }, [load]);
+
   return {
     state,
     loading,
     attacking,
     practicing,
     claiming,
+    selecting,
     error,
     lastAttack,
     lastPractice,
@@ -208,6 +255,8 @@ export function useGuildRaid() {
     attack,
     practice,
     claim,
+    selectBoss,
+    setBoard,
     setLeaderboardPage: (page: number) =>
       load({ leaderboardPage: page, recentPage: recentPageRef.current }),
     setRecentPage: (page: number) =>

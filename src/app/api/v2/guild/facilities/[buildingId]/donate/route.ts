@@ -104,6 +104,7 @@ export async function POST(req: Request, { params }: Ctx) {
       const nextUpgrade = nextSettlementBuildingUpgrade(
         buildingId,
         settlementBuildingLevelOf(building),
+        "guild_facility",
       );
       if (!nextUpgrade) {
         return { status: 409, body: { ok: false as const, error: "max_level" } };

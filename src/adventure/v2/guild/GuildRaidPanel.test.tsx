@@ -9,6 +9,10 @@ vi.mock("@/adventure/v2/ReplayBattleScene", () => ({
     <section aria-label="연습 전투 로그">연습 전투 로그 링크</section>
   ),
 }));
+const { confirmGameAction } = vi.hoisted(() => ({
+  confirmGameAction: vi.fn(),
+}));
+vi.mock("@/components/ui/gameDialog", () => ({ confirmGameAction }));
 vi.mock("@/adventure/v2/GameStateProvider", () => ({
   useGameIdentityState: () => ({
     viewerGender: "female1",
@@ -48,8 +52,32 @@ function raidState(
       eligible: true,
       rewardClaimedAt: null,
       reward: { gold: 3_000_000, masteryCertificates: 300 },
+      bonusThresholdMet: null,
       canClaim: false,
     },
+    selection: { bossId: "mountain_chief_hard", selectedAt: Date.UTC(2026, 7, 17) },
+    canSelect: false,
+    board: "mountain_chief_hard",
+    bosses: [
+      {
+        id: "mountain_chief_hard",
+        name: "흉포한 산군",
+        desc: "산길을 막고 선 산군.",
+        image: "/images/monster/v2/sangoon.webp",
+        traits: ["강한 물리 압박"],
+        rewardMultiplier: 1,
+        bonusMinGuildDamage: null,
+      },
+      {
+        id: "canyon_predator_raid",
+        name: "재앙의 스콜피온 킹",
+        desc: "왕독과 모래폭풍을 두른 스콜피온 킹.",
+        image: "/images/monster/v2/scorpionking.webp",
+        traits: ["왕독의 집게"],
+        rewardMultiplier: 2,
+        bonusMinGuildDamage: 10_000_000,
+      },
+    ],
     guild: {
       id: 7,
       name: "모험가 길드",
@@ -327,5 +355,150 @@ describe("길드 토벌전 패널", () => {
     );
 
     expect(html).toContain("이번 주에는 처음 참여한 길드로만 공격할 수 있습니다");
+  });
+
+  describe("보스 선택", () => {
+    const unselected = (overrides: Partial<GuildRaidState> = {}) =>
+      raidState({
+        event: {
+          ...raidState().event,
+          bossKind: null,
+          stage: null,
+          hp: null,
+          maxHp: null,
+        },
+        selection: null,
+        canSelect: true,
+        guild: { ...raidState().guild, damage: 0, rank: null },
+        my: { ...raidState().my, reward: null },
+        ...overrides,
+      });
+
+    it("길드장·관리자는 확인 후 이번 주 보스를 선택한다", async () => {
+      confirmGameAction.mockResolvedValue(true);
+      const onSelectBoss = vi.fn();
+      render(
+        <GuildRaidPanelContent
+          state={unselected()}
+          attacking={false}
+          error={null}
+          onAttack={vi.fn()}
+          onSelectBoss={onSelectBoss}
+        />,
+      );
+
+      expect(screen.queryByRole("button", { name: /토벌전 공격/ })).toBeNull();
+      const selectButtons = screen.getAllByRole("button", {
+        name: "이번 주 보스로 선택",
+      });
+      expect(selectButtons).toHaveLength(2);
+      expect(
+        screen.getByText(
+          "보상 2배 · 길드 누적 피해 10,000,000 미만이면 순위와 관계없이 50만 골드와 숙련의 증표 50개",
+        ),
+      ).toBeTruthy();
+
+      fireEvent.click(selectButtons[1]);
+      await vi.waitFor(() =>
+        expect(onSelectBoss).toHaveBeenCalledWith("canyon_predator_raid"),
+      );
+      expect(confirmGameAction).toHaveBeenCalledWith({
+        title: "재앙의 스콜피온 킹을 이번 주 보스로 선택할까요?",
+        message: "선택하면 이번 주에는 바꿀 수 없습니다.",
+        confirmLabel: "선택",
+      });
+    });
+
+    it("확인 창에서 취소하면 선택하지 않는다", async () => {
+      confirmGameAction.mockResolvedValue(false);
+      const onSelectBoss = vi.fn();
+      render(
+        <GuildRaidPanelContent
+          state={unselected()}
+          attacking={false}
+          error={null}
+          onAttack={vi.fn()}
+          onSelectBoss={onSelectBoss}
+        />,
+      );
+
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "이번 주 보스로 선택" })[0],
+      );
+      await vi.waitFor(() => expect(confirmGameAction).toHaveBeenCalled());
+      expect(onSelectBoss).not.toHaveBeenCalled();
+    });
+
+    it("권한이 없는 길드원에게는 선택 대기 안내와 두 보스 연습만 보여준다", () => {
+      const onPractice = vi.fn();
+      render(
+        <GuildRaidPanelContent
+          state={unselected({ canSelect: false })}
+          attacking={false}
+          error={null}
+          onAttack={vi.fn()}
+          onPractice={onPractice}
+        />,
+      );
+
+      expect(
+        screen.getByText(
+          "길드장 또는 관리자가 이번 주 보스를 선택하면 공격할 수 있습니다.",
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("button", { name: "이번 주 보스로 선택" }),
+      ).toBeNull();
+      const practiceButtons = screen.getAllByRole("button", {
+        name: "연습 전투",
+      });
+      expect(practiceButtons).toHaveLength(2);
+      fireEvent.click(practiceButtons[1]);
+      expect(onPractice).toHaveBeenCalledWith("canyon_predator_raid");
+    });
+
+    it("순위표에서 보스별 순위를 바꿔 본다", () => {
+      const onBoardChange = vi.fn();
+      render(
+        <GuildRaidPanelContent
+          state={raidState()}
+          attacking={false}
+          error={null}
+          onAttack={vi.fn()}
+          onBoardChange={onBoardChange}
+        />,
+      );
+
+      const board = screen.getByRole("group", { name: "순위표 보스" });
+      const mine = within(board).getByRole("button", { name: "흉포한 산군" });
+      expect(mine.getAttribute("aria-pressed")).toBe("true");
+      fireEvent.click(
+        within(board).getByRole("button", { name: "재앙의 스콜피온 킹" }),
+      );
+      expect(onBoardChange).toHaveBeenCalledWith("canyon_predator_raid");
+    });
+
+    it("스콜피온을 고른 길드에는 2배 보상 기준 진행을 보여준다", () => {
+      const html = renderToStaticMarkup(
+        <GuildRaidPanelContent
+          state={raidState({
+            event: { ...raidState().event, bossKind: "canyon_predator_raid" },
+            selection: {
+              bossId: "canyon_predator_raid",
+              selectedAt: Date.UTC(2026, 7, 17),
+            },
+            board: "canyon_predator_raid",
+            guild: { ...raidState().guild, damage: 3_000_000 },
+            my: { ...raidState().my, bonusThresholdMet: false },
+          })}
+          attacking={false}
+          error={null}
+          onAttack={vi.fn()}
+        />,
+      );
+
+      expect(html).toContain("재앙의 스콜피온 킹");
+      expect(html).toContain("2배 보상 기준 3,000,000 / 10,000,000");
+    });
   });
 });

@@ -11,6 +11,7 @@ import {
   guildDiningMenusForFacilityLevel,
   guildDiningPantryTarget,
   guildDiningTicketProgress,
+  associationDiningContributionPoints,
   parseGuildDiningUserState,
 } from "./guildDining";
 
@@ -42,7 +43,7 @@ describe("guild dining", () => {
     expect(guildDiningDonationPoints(legendary!, 1)).toBe(8);
   });
 
-  it("길드를 옮겨도 같은 주의 사용 식권과 음식 효과는 유지한다", () => {
+  it("길드를 옮겨도 같은 주의 기여도·사용 식권·음식 효과를 모두 이어받는다", () => {
     const state = parseGuildDiningUserState(
       {
         weekKey: "2026-07-13",
@@ -58,9 +59,65 @@ describe("guild dining", () => {
       },
       { weekKey: "2026-07-13", guildId: 2, now },
     );
-    expect(state.contributionPoints).toBe(0);
+    expect(state.guildId).toBe(2);
+    expect(state.contributionPoints).toBe(30);
     expect(state.mealsUsed).toBe(1);
     expect(state.activeEffect?.expiresAt).toBe(now.getTime() + 60_000);
+  });
+
+  it("길드를 나와 협회 식당을 쓰면 길드에서 쓴 기록은 협회 식권 계산에서 뺀다", () => {
+    const fromGuild = parseGuildDiningUserState(
+      { weekKey: "2026-07-13", guildId: 3, contributionPoints: 12, mealsUsed: 5 },
+      { weekKey: "2026-07-13", guildId: 0, now },
+    );
+    expect(fromGuild).toMatchObject({
+      guildId: 0,
+      contributionPoints: 12,
+      mealsUsed: 5,
+      associationOffset: { contributionPoints: 12, mealsUsed: 5 },
+    });
+    expect(associationDiningContributionPoints(fromGuild)).toBe(0);
+    expect(associationDiningTicketProgress(fromGuild)).toMatchObject({
+      earned: 0,
+      used: 0,
+      available: 0,
+    });
+
+    const afterDonation = parseGuildDiningUserState(
+      { ...fromGuild, contributionPoints: 32 },
+      { weekKey: "2026-07-13", guildId: 0, now },
+    );
+    expect(afterDonation.associationOffset).toEqual({
+      contributionPoints: 12,
+      mealsUsed: 5,
+    });
+    expect(associationDiningContributionPoints(afterDonation)).toBe(20);
+    expect(associationDiningTicketProgress(afterDonation)).toMatchObject({
+      earned: 1,
+      used: 0,
+      available: 1,
+    });
+  });
+
+  it("협회를 거쳐 다시 길드에 가입해도 길드 기본 식권을 같은 주에 다시 받지 않는다", () => {
+    const state = parseGuildDiningUserState(
+      {
+        weekKey: "2026-07-13",
+        guildId: 0,
+        contributionPoints: 32,
+        mealsUsed: 6,
+        associationOffset: { contributionPoints: 12, mealsUsed: 5 },
+      },
+      { weekKey: "2026-07-13", guildId: 9, now },
+    );
+    expect(state.associationOffset).toBeUndefined();
+    expect(guildDiningTicketProgress(state, 3)).toMatchObject({
+      base: 4,
+      contributionEarned: 3,
+      earned: 7,
+      used: 6,
+      available: 1,
+    });
   });
 
   it("협회에서 길드로 가입하면 같은 주 개인 기여도와 식사 상태를 모두 승계한다", () => {
@@ -153,7 +210,7 @@ describe("guild dining", () => {
 
   it("Lv3부터 Lv5까지 단계마다 신규 메뉴를 연다", () => {
     expect(
-      GUILD_DINING_MENUS.map((menu) => [menu.id, menu.minFacilityLevel]),
+      GUILD_DINING_MENUS.slice(0, 6).map((menu) => [menu.id, menu.minFacilityLevel]),
     ).toEqual([
       ["hearty_stew", 1],
       ["adventurer_meal", 1],
@@ -178,7 +235,7 @@ describe("guild dining", () => {
 
   it("메뉴별 회복량과 경험치 보너스를 적용한다", () => {
     expect(
-      GUILD_DINING_MENUS.map((menu) => [menu.id, menu.effect]),
+      GUILD_DINING_MENUS.slice(0, 6).map((menu) => [menu.id, menu.effect]),
     ).toEqual([
       ["hearty_stew", { kind: "recovery", hp: 250_000, mp: 250_000 }],
       ["adventurer_meal", { kind: "hunt_exp", bonusPct: 25, durationHours: 3 }],
@@ -308,5 +365,62 @@ describe("guild dining", () => {
     expect(guildDiningPantryTarget(1)).toBe(20);
     expect(guildDiningPantryTarget(3)).toBe(60);
     expect(guildDiningPantryTarget(999)).toBe(400);
+  });
+});
+
+describe("길드 식당 Lv.6~10", () => {
+  it("Lv.10에서 메뉴 10종, Lv.5는 기존 6종", async () => {
+    const { guildDiningMenusForFacilityLevel } = await import("./guildDining");
+    expect(guildDiningMenusForFacilityLevel(10).map((m) => m.id)).toEqual(
+      expect.arrayContaining(["deep_sea_course", "heroes_feast", "grand_recovery_feast", "royal_banquet"]),
+    );
+    expect(guildDiningMenusForFacilityLevel(10)).toHaveLength(10);
+    expect(guildDiningMenusForFacilityLevel(5)).toHaveLength(6);
+  });
+
+  it("새 메뉴 효과", async () => {
+    const { GUILD_DINING_MENUS } = await import("./guildDining");
+    const byId = Object.fromEntries(GUILD_DINING_MENUS.map((m) => [m.id, m]));
+    expect(byId.deep_sea_course).toMatchObject({ minFacilityLevel: 6, effect: { kind: "life_xp", bonusPct: 25 } });
+    expect(byId.heroes_feast).toMatchObject({ minFacilityLevel: 7, effect: { kind: "hunt_exp", bonusPct: 75 } });
+    expect(byId.grand_recovery_feast).toMatchObject({ minFacilityLevel: 9, effect: { kind: "recovery", hp: 1_000_000, mp: 1_000_000 } });
+    expect(byId.royal_banquet).toMatchObject({ minFacilityLevel: 10, effect: { kind: "all_xp", bonusPct: 90, lifeBonusPct: 30 } });
+  });
+
+  it("Lv.8 이상 지속 1.5배", async () => {
+    const { GUILD_DINING_MENUS, activeEffectForMenu, guildDiningEffectDurationMultiplier } = await import("./guildDining");
+    expect(guildDiningEffectDurationMultiplier(7)).toBe(1);
+    expect(guildDiningEffectDurationMultiplier(8)).toBe(1.5);
+    const menu = GUILD_DINING_MENUS.find((m) => m.id === "heroes_feast")!;
+    const now = new Date("2026-10-13T00:00:00Z");
+    const effect = activeEffectForMenu(menu, {
+      currentEffect: null,
+      now,
+      weekKey: "2026-10-12",
+      durationMultiplier: guildDiningEffectDurationMultiplier(8),
+    });
+    expect(effect!.expiresAt - now.getTime()).toBe(4.5 * 3600_000);
+    const plain = activeEffectForMenu(menu, { currentEffect: null, now, weekKey: "2026-10-12" });
+    expect(plain!.expiresAt - now.getTime()).toBe(3 * 3600_000);
+  });
+});
+
+describe("식당 메뉴 설명의 지속 시간", () => {
+  it("Lv.8 이상이면 효과식 설명이 4.5시간으로 바뀐다", async () => {
+    const { GUILD_DINING_MENUS, guildDiningMenuDescription } = await import("./guildDining");
+    const heroes = GUILD_DINING_MENUS.find((m) => m.id === "heroes_feast")!;
+    const stew = GUILD_DINING_MENUS.find((m) => m.id === "hearty_stew")!;
+    expect(guildDiningMenuDescription(heroes, 1)).toBe("3시간 동안 사냥 경험치가 75% 증가합니다.");
+    expect(guildDiningMenuDescription(heroes, 1.5)).toBe("4.5시간 동안 사냥 경험치가 75% 증가합니다.");
+    expect(guildDiningMenuDescription(stew, 1.5)).toBe(stew.description);
+  });
+});
+
+describe("Lv.6~10 메뉴 그림", () => {
+  it("메뉴마다 자기 이름의 그림을 쓴다", async () => {
+    const { GUILD_DINING_MENUS } = await import("./guildDining");
+    for (const menu of GUILD_DINING_MENUS) {
+      expect(menu.imageSrc).toBe(`/images/items/dining/${menu.id}.webp`);
+    }
   });
 });

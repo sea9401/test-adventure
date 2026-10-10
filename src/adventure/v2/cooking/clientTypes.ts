@@ -36,6 +36,7 @@ export type CookingResponse = {
   knownRecipes: CookingRecipeSecret[];
   publicDiscoveries: PublicCookingDiscovery[];
   failedResearches: CookingFailedResearchView[];
+  failedResearchKeys: string[];
   requests: { daily: CookingDeliveryRequest[]; weekly: CookingDeliveryRequest };
   cookingFoods: CookingFoodInventory;
   cookingFoodDefinitions: CookingFoodDefinitionMap;
@@ -54,6 +55,12 @@ export type CookingResponse = {
   cookingJobTier: number;
   cookingSkillBonuses: EquippedCookingBonuses;
   result?: Record<string, unknown>;
+  signature: {
+    unlocked: boolean;
+    stage: number;
+    requiredStage: number;
+    products: { crop: number; catch: number };
+  };
 };
 
 export type CookingMutationResult = { error: string } | undefined;

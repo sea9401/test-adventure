@@ -1,13 +1,15 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages } from "@/db/schema";
+import { outpostVillages } from "@/db/schema";
 import {
+  ASSOCIATION_TRADE_USER_SAVE_KEY,
   GUILD_TRADE_SHOP_ITEMS,
   GUILD_TRADE_USER_SAVE_KEY,
   guildTradeCompletionReward,
   guildTradeItem,
   guildTradeShopItem,
   guildTradeTokenReward,
+  guildTradeWeeklyContributionPoints,
   type GuildFacilitySupportTarget,
   parseGuildTradeUserState,
   type GuildTradeShopItem,
@@ -26,11 +28,14 @@ import {
 import {
   applyGuildFacilitySupport,
   guildFacilitySupportAllocation,
+  GUILD_FACILITY_SUPPORT_RESOURCES,
+  type GuildFacilitySupportKind,
 } from "@/adventure/data/v2/guildFacilitySupport";
 import {
-  grantStaminaPotions,
-  STAMINA_POTIONS_KEY,
-} from "@/adventure/v2/staminaPotions";
+  guildMemberIds,
+  isGuildMemberGrantOutput,
+  lockGuildMemberGrant,
+} from "@/lib/server/guildMemberGrant";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
@@ -46,8 +51,8 @@ import {
 import { buildingLevelFromSlots } from "@/lib/server/settlementBuildingAccess";
 import {
   lockSaveForUpdate,
+  readSave,
   upsertSave,
-  type DbExecutor,
 } from "@/lib/server/savesKv";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
@@ -69,7 +74,6 @@ import {
 } from "@/lib/server/v2EnsureSoloGuild";
 import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { kstWeekMondayKey } from "@/lib/kst";
-import { claimWeeklyFacilitySource } from "@/lib/server/adventurerAssociation";
 import {
   TradeSuspendedError,
   lockTradeParticipantStatuses,
@@ -102,15 +106,22 @@ function guildFacilitySupportTarget(args: {
   buildingId: SettlementBuildingId;
   currentLevel: number;
   donated: SettlementResources;
+  supportKind: GuildFacilitySupportKind;
 }): GuildFacilitySupportTarget {
-  const { buildingId, currentLevel, donated } = args;
-  const next = nextSettlementBuildingUpgrade(buildingId, currentLevel);
-  const cropCurrent = Math.max(0, Math.floor(donated.crop ?? 0));
-  const oreCurrent = Math.max(0, Math.floor(donated.ore ?? 0));
-  const cropRequired = Math.max(0, Math.floor(next?.cost.crop ?? 0));
-  const oreRequired = Math.max(0, Math.floor(next?.cost.ore ?? 0));
+  const { buildingId, currentLevel, donated, supportKind } = args;
+  const [firstKey, secondKey] =
+    GUILD_FACILITY_SUPPORT_RESOURCES[supportKind].keys;
+  const next = nextSettlementBuildingUpgrade(
+    buildingId,
+    currentLevel,
+    "guild_facility",
+  );
+  const cropCurrent = Math.max(0, Math.floor(donated[firstKey] ?? 0));
+  const oreCurrent = Math.max(0, Math.floor(donated[secondKey] ?? 0));
+  const cropRequired = Math.max(0, Math.floor(next?.cost[firstKey] ?? 0));
+  const oreRequired = Math.max(0, Math.floor(next?.cost[secondKey] ?? 0));
   const allocation = next
-    ? guildFacilitySupportAllocation(next.cost, donated)
+    ? guildFacilitySupportAllocation(next.cost, donated, supportKind)
     : null;
   const reason: GuildFacilitySupportTarget["reason"] = !next
     ? "max_level"
@@ -127,6 +138,7 @@ function guildFacilitySupportTarget(args: {
     targetLevel: next?.level ?? null,
     eligible: allocation != null,
     reason,
+    supportKind,
     crop: {
       current: cropCurrent,
       required: cropRequired,
@@ -145,6 +157,7 @@ function guildFacilitySupportTarget(args: {
 async function readGuildFacilitySupportTargets(
   tx: Tx,
   guildId: number,
+  supportKind: GuildFacilitySupportKind = "basic",
 ): Promise<GuildFacilitySupportTarget[]> {
   const [rows, progress] = await Promise.all([
     tx
@@ -161,27 +174,25 @@ async function readGuildFacilitySupportTargets(
       0,
     );
     if (currentLevel <= 0) return [];
-    const next = nextSettlementBuildingUpgrade(buildingId, currentLevel);
+    const next = nextSettlementBuildingUpgrade(
+      buildingId,
+      currentLevel,
+      "guild_facility",
+    );
     const savedProgress = progress[buildingId];
     const donated =
       next && savedProgress?.targetLevel === next.level
         ? savedProgress.materials
         : {};
     return [
-      guildFacilitySupportTarget({ buildingId, currentLevel, donated }),
+      guildFacilitySupportTarget({
+        buildingId,
+        currentLevel,
+        donated,
+        supportKind,
+      }),
     ];
   });
-}
-
-async function guildMemberIds(
-  tx: DbExecutor,
-  guildId: number,
-): Promise<string[]> {
-  const rows = await tx
-    .select({ userId: guildMembers.userId })
-    .from(guildMembers)
-    .where(eq(guildMembers.guildId, guildId));
-  return [...new Set(rows.map((row) => row.userId))].sort();
 }
 
 function sameUserIds(left: readonly string[], right: readonly string[]): boolean {
@@ -226,6 +237,18 @@ async function lockTradeUserStateAndMigrateTokens(args: {
   return { weekly, userState: migratedUserState };
 }
 
+// 탈퇴 후 협회 교역소에서 납품한 점수도 같은 주 개인 납품 한도에 합산한다.
+async function readAssociationTradeContribution(
+  tx: Tx,
+  userId: string,
+  weekKey: string,
+): Promise<number> {
+  return guildTradeWeeklyContributionPoints(
+    await readSave(tx, userId, ASSOCIATION_TRADE_USER_SAVE_KEY, {}),
+    weekKey,
+  );
+}
+
 async function tradeView(args: {
   tx: Tx;
   guildId: number;
@@ -246,13 +269,21 @@ async function tradeView(args: {
     tx,
     args.guildId,
   );
+  const advancedFacilitySupportTargets = await readGuildFacilitySupportTargets(
+    tx,
+    args.guildId,
+    "advanced",
+  );
   const userState = args.userState;
   const reward = guildTradeCompletionReward(
     upgrade.completionRewardBonusPct,
   );
+  const personalPoints =
+    userState.contributionPoints +
+    (await readAssociationTradeContribution(tx, userId, weekly.weekKey));
   const personalRemaining = Math.max(
     0,
-    upgrade.personalContributionCap - userState.contributionPoints,
+    upgrade.personalContributionCap - personalPoints,
   );
 
   return {
@@ -265,12 +296,13 @@ async function tradeView(args: {
     rewardBonusPct: upgrade.completionRewardBonusPct,
     tokenYieldBonusPct: upgrade.tokenYieldBonusPct,
     contribution: {
-      points: userState.contributionPoints,
+      points: personalPoints,
       cap: upgrade.personalContributionCap,
       remaining: personalRemaining,
     },
     tokens: weekly.tokens,
     facilitySupportTargets,
+    advancedFacilitySupportTargets,
     contracts: items.map((item) => {
       const progress = Math.min(weekly.target, weekly.progress[item.id] ?? 0);
       const remainingPoints = Math.max(0, weekly.target - progress);
@@ -491,33 +523,20 @@ export async function POST(req: Request) {
       );
       const contributionPoints = guildExistingActivityContributionPoints(points);
       const currentProgress = weekly.progress[item.id] ?? 0;
+      const associationPoints = await readAssociationTradeContribution(
+        tx,
+        userId,
+        weekKey,
+      );
       if (
-        userState.contributionPoints + points > upgrade.personalContributionCap
+        userState.contributionPoints + associationPoints + points >
+        upgrade.personalContributionCap
       ) {
         return { status: 409, body: { ok: false as const, error: "contribution_cap" } };
       }
       if (source.owned < quantity) {
         return { status: 409, body: { ok: false as const, error: "insufficient_items" } };
       }
-      const weeklySource = await claimWeeklyFacilitySource(
-        tx,
-        userId,
-        "trade_post",
-        "guild",
-        weekKey,
-        guildId,
-      );
-      if (!weeklySource.ok) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "weekly_source_conflict",
-            selectedSource: weeklySource.selected,
-          },
-        };
-      }
-
       const completed = currentProgress + points >= weekly.target;
       const nextWeekly: GuildTradeWeeklyState = {
         ...weekly,
@@ -548,6 +567,7 @@ export async function POST(req: Request) {
           quantity,
           contributionPoints,
         },
+        operationAmount: points,
       });
 
       let guildReward: { gold: number; fame: number } | null = null;
@@ -695,6 +715,7 @@ type GuildFacilitySupportPurchase = {
   buildingId: SettlementBuildingId;
   buildingName: string;
   targetLevel: number;
+  supportKind?: GuildFacilitySupportKind;
   crop: number;
   ore: number;
 };
@@ -742,6 +763,7 @@ async function lockGuildShopGrant(
 
   const output = item.output;
   if (output.kind === "guild_facility_support") {
+    const supportKind = output.supportKind ?? "basic";
     if (
       !isSettlementBuildingId(rawFacilityId) ||
       !PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(rawFacilityId)
@@ -765,6 +787,7 @@ async function lockGuildShopGrant(
     const next = nextSettlementBuildingUpgrade(
       buildingId,
       settlementBuildingLevelOf(building),
+      "guild_facility",
     );
     if (!next) {
       return {
@@ -779,7 +802,11 @@ async function lockGuildShopGrant(
       buildingId,
       next.level,
     );
-    const allocation = guildFacilitySupportAllocation(next.cost, donated);
+    const allocation = guildFacilitySupportAllocation(
+      next.cost,
+      donated,
+      supportKind,
+    );
     if (!allocation) {
       return {
         ok: false,
@@ -787,7 +814,11 @@ async function lockGuildShopGrant(
         error: "facility_support_unavailable",
       };
     }
-    const nextProgress = applyGuildFacilitySupport(donated, allocation);
+    const nextProgress = applyGuildFacilitySupport(
+      donated,
+      allocation,
+      supportKind,
+    );
     return {
       ok: true,
       apply: () =>
@@ -802,6 +833,7 @@ async function lockGuildShopGrant(
         buildingId,
         buildingName: SETTLEMENT_BUILDINGS[buildingId].name,
         targetLevel: next.level,
+        ...(supportKind === "advanced" ? { supportKind } : {}),
         crop: allocation.crop,
         ore: allocation.ore,
       },
@@ -831,48 +863,8 @@ async function lockShopGrant(
   userId: string,
   item: GuildTradeShopItem,
 ): Promise<() => Promise<void>> {
-  const output = item.output;
-  if (output.kind === "material") {
-    const char = await lockSaveForUpdate<Record<string, unknown>>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
-    const materials =
-      char.materials && typeof char.materials === "object"
-        ? { ...(char.materials as Record<string, unknown>) }
-        : {};
-    const current = Math.max(
-      0,
-      Math.floor(Number(materials[output.materialId]) || 0),
-    );
-    materials[output.materialId] = current + output.count;
-    return () =>
-      upsertSave(tx, userId, "character.v2", { ...char, materials });
+  if (!isGuildMemberGrantOutput(item.output)) {
+    throw new Error(`guild_reward_cannot_grant_to_member:${item.id}`);
   }
-  if (output.kind === "stamina_potion") {
-    const raw = await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, {});
-    const next = grantStaminaPotions(raw, output.count, { bound: true });
-    return () =>
-      upsertSave(tx, userId, STAMINA_POTIONS_KEY, next);
-  }
-  if (output.kind === "mastery_certificate") {
-    const inventory = await lockSaveForUpdate<Record<string, unknown>>(
-      tx,
-      userId,
-      "inventory.v2",
-      {},
-    );
-    const current = Math.max(
-      0,
-      Math.floor(Number(inventory[output.itemKey]) || 0),
-    );
-    return () =>
-      upsertSave(tx, userId, "inventory.v2", {
-        ...inventory,
-        [output.itemKey]: current + output.count,
-      });
-  }
-  throw new Error(`guild_reward_cannot_grant_to_member:${item.id}`);
+  return lockGuildMemberGrant(tx, userId, item.output);
 }

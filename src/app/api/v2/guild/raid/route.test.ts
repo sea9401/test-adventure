@@ -35,11 +35,14 @@ describe("길드 토벌전 상태 API", () => {
 
   it("서버가 계산한 토벌전 상태를 그대로 반환한다", async () => {
     readGuildRaidState.mockResolvedValue({ ok: true, event: { stage: 3 } });
-    const response = await GET(request("?leaderboardPage=3&recentPage=2"));
+    const response = await GET(
+      request("?leaderboardPage=3&recentPage=2&board=canyon_predator_raid"),
+    );
     expect(response.status).toBe(200);
     expect(readGuildRaidState).toHaveBeenCalledWith("u1", expect.any(Date), {
       leaderboardPage: "3",
       recentPage: "2",
+      board: "canyon_predator_raid",
     });
     expect(await response.json()).toMatchObject({ ok: true, event: { stage: 3 } });
   });

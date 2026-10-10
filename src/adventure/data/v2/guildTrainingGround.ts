@@ -14,7 +14,15 @@ export type GuildTrainingDrillId =
   | "recovery_camp"
   | "field_rotation"
   | "tactical_simulation"
-  | "master_trial";
+  | "master_trial"
+  | "joint_tactics"
+  | "warrior_deep"
+  | "martial_deep"
+  | "mage_deep"
+  | "rogue_deep"
+  | "survivor_deep"
+  | "mutant_deep"
+  | "elite_instructor";
 
 export type GuildTrainingDrillFocus =
   | "common"
@@ -33,6 +41,8 @@ export type GuildTrainingState = {
   weekKey?: string;
   weeklyClaims?: number;
   weeklyBonusClaimed?: boolean;
+  // 훈련장 Lv.9 이상의 주간 2단계 보너스(주 10회) 수령 여부.
+  weeklySecondBonusClaimed?: boolean;
   rewardBonusRemainderPct?: number;
   hotTimeBonusRemainderPct?: number;
 };
@@ -60,6 +70,9 @@ export type GuildTrainingDrillView = GuildTrainingDrillDef & {
 
 export const GUILD_TRAINING_WEEKLY_BONUS_TARGET = 5;
 export const GUILD_TRAINING_WEEKLY_BONUS_MASTERY = 30;
+export const GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET = 10;
+export const GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY = 60;
+export const GUILD_TRAINING_WEEKLY_SECOND_BONUS_MIN_LEVEL = 9;
 
 export const GUILD_TRAINING_FOCUS_LABEL: Record<
   GuildTrainingDrillFocus,
@@ -179,7 +192,51 @@ export const GUILD_TRAINING_DRILLS: Record<
     minCharacterLevel: 100,
     baseMasteryReward: 30,
   },
+  joint_tactics: {
+    id: "joint_tactics",
+    title: "합동 전술 훈련",
+    desc: "길드원과 진형을 맞춰 협공 순서를 반복 훈련합니다.",
+    focus: "common",
+    category: "tactical",
+    minBuildingLevel: 6,
+    minCharacterLevel: 100,
+    baseMasteryReward: 34,
+  },
+  ...deepDrill("warrior_deep", "warrior", "중갑 운용과 돌파 타이밍을 실전 강도로 다듬습니다."),
+  ...deepDrill("martial_deep", "martial", "연속 타격과 호흡 전환을 한 단계 깊게 익힙니다."),
+  ...deepDrill("mage_deep", "mage", "고위 주문의 마력 소모를 줄이는 운용을 익힙니다."),
+  ...deepDrill("rogue_deep", "rogue", "급소 공략과 회피 동선을 정밀하게 다듬습니다."),
+  ...deepDrill("survivor_deep", "survivor", "장기전 회복 순서와 버티기 판단을 다듬습니다."),
+  ...deepDrill("mutant_deep", "mutant", "변이 형태 전환의 부담을 줄이는 법을 익힙니다."),
+  elite_instructor: {
+    id: "elite_instructor",
+    title: "정예 교관 특훈",
+    desc: "정예 교관이 현재 직업의 약점을 짚어 주는 고강도 특훈입니다.",
+    focus: "common",
+    category: "advanced",
+    minBuildingLevel: 10,
+    minCharacterLevel: 100,
+    baseMasteryReward: 50,
+  },
 };
+
+function deepDrill<K extends GuildTrainingDrillId>(
+  id: K,
+  focus: Exclude<GuildTrainingDrillFocus, "common">,
+  desc: string,
+): Record<K, GuildTrainingDrillDef> {
+  const drill: GuildTrainingDrillDef = {
+    id,
+    title: `${GUILD_TRAINING_FOCUS_LABEL[focus]} 심화 훈련`,
+    desc,
+    focus,
+    category: "specialized",
+    minBuildingLevel: 8,
+    minCharacterLevel: 100,
+    baseMasteryReward: 40,
+  };
+  return { [id]: drill } as Record<K, GuildTrainingDrillDef>;
+}
 
 export const GUILD_TRAINING_DRILL_IDS: GuildTrainingDrillId[] = [
   "basic_stance",
@@ -191,6 +248,14 @@ export const GUILD_TRAINING_DRILL_IDS: GuildTrainingDrillId[] = [
   "field_rotation",
   "tactical_simulation",
   "master_trial",
+  "joint_tactics",
+  "warrior_deep",
+  "martial_deep",
+  "mage_deep",
+  "rogue_deep",
+  "survivor_deep",
+  "mutant_deep",
+  "elite_instructor",
 ];
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -255,6 +320,7 @@ export function parseGuildTrainingState(
     weekKey?: unknown;
     weeklyClaims?: unknown;
     weeklyBonusClaimed?: unknown;
+    weeklySecondBonusClaimed?: unknown;
     rewardBonusRemainderPct?: unknown;
     hotTimeBonusRemainderPct?: unknown;
   };
@@ -277,6 +343,10 @@ export function parseGuildTrainingState(
   const weeklyBonusClaimed = sameWeek
     ? saved.weeklyBonusClaimed === true
     : false;
+  const secondBonus =
+    sameWeek && saved.weeklySecondBonusClaimed === true
+      ? { weeklySecondBonusClaimed: true }
+      : {};
   if (obj.dayKey !== dayKey) {
     return weekKey
       ? {
@@ -285,6 +355,7 @@ export function parseGuildTrainingState(
           weekKey,
           weeklyClaims,
           weeklyBonusClaimed,
+          ...secondBonus,
           ...remainders,
         }
       : { dayKey, claimed: [], ...remainders };
@@ -294,7 +365,7 @@ export function parseGuildTrainingState(
     : [];
   const base = { dayKey, claimed: Array.from(new Set(claimed)), ...remainders };
   return weekKey
-    ? { ...base, weekKey, weeklyClaims, weeklyBonusClaimed }
+    ? { ...base, weekKey, weeklyClaims, weeklyBonusClaimed, ...secondBonus }
     : base;
 }
 
@@ -388,23 +459,34 @@ export function recommendedGuildTrainingDrill(
 export function claimGuildTrainingDrill(
   state: GuildTrainingState,
   drillId: GuildTrainingDrillId,
+  buildingLevel = 1,
 ): { state: GuildTrainingState; weeklyBonusMastery: number } {
   if (state.claimed.includes(drillId)) {
     return { state, weeklyBonusMastery: 0 };
   }
   const weeklyClaims = Math.max(0, Math.floor(state.weeklyClaims ?? 0)) + 1;
   const weeklyBonusClaimed = state.weeklyBonusClaimed === true;
-  const weeklyBonusMastery =
+  const firstBonus =
     !weeklyBonusClaimed && weeklyClaims >= GUILD_TRAINING_WEEKLY_BONUS_TARGET
       ? GUILD_TRAINING_WEEKLY_BONUS_MASTERY
+      : 0;
+  const secondBonusClaimed = state.weeklySecondBonusClaimed === true;
+  const secondBonus =
+    buildingLevel >= GUILD_TRAINING_WEEKLY_SECOND_BONUS_MIN_LEVEL &&
+    !secondBonusClaimed &&
+    weeklyClaims >= GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET
+      ? GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY
       : 0;
   return {
     state: {
       ...state,
       claimed: [...state.claimed, drillId],
       weeklyClaims,
-      weeklyBonusClaimed: weeklyBonusClaimed || weeklyBonusMastery > 0,
+      weeklyBonusClaimed: weeklyBonusClaimed || firstBonus > 0,
+      ...(secondBonusClaimed || secondBonus > 0
+        ? { weeklySecondBonusClaimed: true }
+        : {}),
     },
-    weeklyBonusMastery,
+    weeklyBonusMastery: firstBonus + secondBonus,
   };
 }

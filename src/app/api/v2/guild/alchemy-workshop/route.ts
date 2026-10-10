@@ -30,12 +30,7 @@ import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
-import {
-  associationFacilityLevel,
-  claimWeeklyFacilitySource,
-  readWeeklyFacilitySourceSelection,
-} from "@/lib/server/adventurerAssociation";
-import { resolveWeeklyFacilitySourceClaim } from "@/adventure/data/v2/adventurerAssociation";
+import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -163,38 +158,16 @@ export async function GET(req: Request) {
     }
     const now = new Date();
     const weekKey = kstWeekMondayKey(now);
-    const [
-      farmRaw,
-      character,
-      inventory,
-      staminaPotionsRaw,
-      weeklySourceSelection,
-    ] = await Promise.all([
+    const [farmRaw, character, inventory, staminaPotionsRaw] = await Promise.all([
       readSave(tx, userId, FARM_SAVE_KEY, emptyFarmState(now.getTime())),
       readSave<CharacterSave>(tx, userId, "character.v2", {}),
       readSave<InventorySave>(tx, userId, "inventory.v2", {}),
       readSave(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
-      readWeeklyFacilitySourceSelection(
-        tx,
-        userId,
-        "alchemy_workshop",
-        weekKey,
-      ),
     ]);
-    const weeklySourceEligible = resolveWeeklyFacilitySourceClaim(
-      "alchemy_workshop",
-      weeklySourceSelection ?? undefined,
-      {
-        weekKey,
-        source: association ? "association" : "guild",
-        ...(association ? {} : { guildId: guildId! }),
-      },
-    ).ok;
     return {
       status: 200,
       body: {
         ok: true as const,
-        weeklySourceEligible,
         ...workshopView({
           level,
           farm: parseFarmState(farmRaw),
@@ -341,24 +314,6 @@ export async function POST(req: Request) {
         },
       };
     }
-    const weeklySource = await claimWeeklyFacilitySource(
-      tx,
-      userId,
-      "alchemy_workshop",
-      association ? "association" : "guild",
-      weekKey,
-      association ? undefined : guildId!,
-    );
-    if (!weeklySource.ok) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "weekly_source_conflict",
-          selectedSource: weeklySource.selected,
-        },
-      };
-    }
 
     const nextFarm: FarmState = {
       ...farm,
@@ -431,6 +386,7 @@ export async function POST(req: Request) {
                 }),
           contributionPoints: energyCost * 10,
         },
+        operationAmount: energyCost,
       });
     }
 

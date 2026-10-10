@@ -43,6 +43,38 @@ describe("길드 시설 지원 물자 활동 로그", () => {
   });
 });
 
+describe("상위 시설 지원 물자 활동 로그", () => {
+  it("편백나무·아다만타이트 적용량을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <GuildActivityList
+        activity={[
+          {
+            id: 3,
+            type: "trade_shop_purchase",
+            actorName: "춘삼",
+            targetName: null,
+            meta: {
+              itemName: "상위 시설 지원 물자",
+              tokenCost: 300,
+              remainingTokens: 700,
+              facilitySupport: {
+                buildingId: "dining_hall",
+                buildingName: "길드 식당",
+                targetLevel: 6,
+                supportKind: "advanced",
+                crop: 50,
+                ore: 150,
+              },
+            },
+            createdAt: new Date().toISOString(),
+          },
+        ]}
+      />,
+    );
+    expect(html).toContain("길드 식당 Lv.6에 편백나무 50개·아다만타이트 150개를 지원했어요");
+  });
+});
+
 describe("길드 전투보급 운용비 활동 로그", () => {
   it("새 운용 단계와 실제 길드 자금 지출을 표시한다", () => {
     const activity: GuildActivity = {

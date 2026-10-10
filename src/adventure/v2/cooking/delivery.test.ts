@@ -153,4 +153,14 @@ describe("condition cooking deliveries", () => {
     expect(cookingStandingDeliveryReward(dish, 3)).toBe(3_750);
     expect(() => cookingStandingDeliveryReward(dish, 21)).toThrow("standing_delivery_limit");
   });
+
+  it("걸작 이상 조건은 명장 요리도 충족하고 점수 배율 200을 쓴다", () => {
+    const request = cookingRequests("user-signature", emptyCookingState(NOW)).daily[0] as CookingDeliveryRequest;
+    const condition = { ...request.condition, field: undefined, method: undefined, effectTag: undefined, minimumQuality: "masterpiece" as const };
+    const recipeId = "ranch_grand_feast";
+    const signature = cookingFoodDefinition(cookingFoodId({ recipeId, quality: "signature", originator: false, specialtyBonusPct: 0 }))!;
+    const careful = cookingFoodDefinition(cookingFoodId({ recipeId, quality: "careful", originator: false, specialtyBonusPct: 0 }))!;
+    expect(cookingDeliveryScore(signature, { ...request, condition })).toBe(Math.round(signature.recipe.tier * 10 * 2));
+    expect(cookingDeliveryScore(careful, { ...request, condition })).toBe(0);
+  });
 });

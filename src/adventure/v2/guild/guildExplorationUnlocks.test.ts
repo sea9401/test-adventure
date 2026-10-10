@@ -22,7 +22,12 @@ describe("guild exploration unlock guide", () => {
       currentProgressBonusPct: 25,
       progressBonusPct: 35,
     });
-    expect(nextGuildExplorationUnlock(5)).toBeNull();
+    expect(nextGuildExplorationUnlock(5)).toMatchObject({
+      level: 6,
+      weeklyMissionCount: 6,
+      progressBonusPct: 40,
+    });
+    expect(nextGuildExplorationUnlock(10)).toBeNull();
   });
 
   it("maps each weekly mission to its facility unlock level", () => {

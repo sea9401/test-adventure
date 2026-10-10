@@ -26,13 +26,14 @@ export function spFruitCodexSource(tier: SpFruitTier): string {
 
 export function spEligibleJobProgress(
   jobs: Array<{ tier?: unknown; unlocked?: unknown }>,
-): { current: number; total: number } {
+): { current: number; total: number; tier7Total: number } {
   const eligibleJobs = jobs.filter(
     (job) => typeof job.tier === "number" && job.tier > 0,
   );
   return {
     current: eligibleJobs.filter((job) => job.unlocked === true).length,
     total: eligibleJobs.length,
+    tier7Total: eligibleJobs.filter((job) => job.tier === 7).length,
   };
 }
 
@@ -40,10 +41,12 @@ export function spCollectionSpRange({
   label,
   value,
   jobUnlockTotal,
+  jobUnlockTier7Total = 0,
 }: {
   label: string;
   value: number;
   jobUnlockTotal: number;
+  jobUnlockTier7Total?: number;
 }): { current: number; maximum: number } {
   const current = Number.isFinite(value) ? Math.trunc(value) : 0;
   const normalizedJobTotal = Number.isFinite(jobUnlockTotal)
@@ -51,7 +54,7 @@ export function spCollectionSpRange({
     : 0;
   const configuredMaximum =
     label === "직업 해금"
-      ? jobUnlockSpForCount(normalizedJobTotal)
+      ? jobUnlockSpForCount(normalizedJobTotal, jobUnlockTier7Total)
       : label === "어보"
         ? FISHING_CODEX_SP_MILESTONES.length
         : label === "장비 도감"

@@ -3,6 +3,8 @@ import "server-only";
 import { COOKING_PUBLIC_RECIPE_BY_ID } from "./catalog";
 import {
   COOKING_BUFF_DURATION_MS,
+  COOKING_SIGNATURE_DURATION_MULTIPLIER,
+  cookingQualityName,
   COOKING_QUALITY_DELIVERY,
   cookingPerformancePct,
   parseCookingFoodIdFormat,
@@ -35,7 +37,7 @@ export function cookingFoodDefinition(raw: unknown): CookingFoodDefinition | nul
   if (!variant) return null;
   const recipe = COOKING_PUBLIC_RECIPE_BY_ID.get(variant.recipeId)!;
   const tags = [
-    variant.quality === "masterpiece" ? "걸작" : variant.quality === "careful" ? "정성작" : "일반",
+    cookingQualityName(variant.quality),
     variant.originator ? "원조" : "",
     variant.specialtyBonusPct > 0 ? `전문 +${variant.specialtyBonusPct}%` : "",
   ].filter(Boolean);
@@ -45,7 +47,10 @@ export function cookingFoodDefinition(raw: unknown): CookingFoodDefinition | nul
     name: `${recipe.name} (${tags.join(" · ")})`,
     performancePct: cookingPerformancePct(variant),
     deliveryScorePct: COOKING_QUALITY_DELIVERY[variant.quality],
-    durationMs: COOKING_BUFF_DURATION_MS,
+    durationMs:
+      variant.quality === "signature"
+        ? COOKING_BUFF_DURATION_MS * COOKING_SIGNATURE_DURATION_MULTIPLIER
+        : COOKING_BUFF_DURATION_MS,
     effect: scaleCookingEffect(recipe.effect, variant),
   };
 }
@@ -91,7 +96,10 @@ export function activeCookingBuff(raw: unknown, now = Date.now()): ActiveCooking
   const value = raw as Partial<ActiveCookingBuff>;
   const recipe = typeof value.recipeId === "string" ? COOKING_PUBLIC_RECIPE_BY_ID.get(value.recipeId) : null;
   if (!recipe || !Number.isFinite(value.expiresAt) || Number(value.expiresAt) <= now) return null;
-  const quality: CookingQuality = value.quality === "masterpiece" || value.quality === "careful" ? value.quality : "normal";
+  const quality: CookingQuality =
+    value.quality === "signature" || value.quality === "masterpiece" || value.quality === "careful"
+      ? value.quality
+      : "normal";
   const source = value.effect && typeof value.effect === "object" ? value.effect : {};
   return {
     recipeId: recipe.id,

@@ -37,8 +37,8 @@ export type AdminGiftCookingIngredient = {
 };
 
 // 주간 시즌 순위 보상이 적립될 지갑 종류. claim 시 이 값으로 해당 코인 지갑에 적립.
-export type SeasonRewardSeason = "pvp" | "fishing";
-const SEASON_REWARD_SEASONS = new Set<string>(["pvp", "fishing"]);
+export type SeasonRewardSeason = "pvp" | "fishing" | "life_festival";
+const SEASON_REWARD_SEASONS = new Set<string>(["pvp", "fishing", "life_festival"]);
 export function isSeasonRewardSeason(s: string): s is SeasonRewardSeason {
   return SEASON_REWARD_SEASONS.has(s);
 }

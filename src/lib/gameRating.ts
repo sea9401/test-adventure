@@ -19,7 +19,8 @@ export const GAME_RATING = Object.freeze({
   decisionSearchUrl: "https://www.gcrb.or.kr/statistics/gameStatistics.aspx",
 });
 
-export const GAME_RATING_NOTICE_MS = 3_500;
+// 법정 최소 3초에 설치 앱 전환 스플래시(0.24초)와 겹쳐도 3초가 남도록 여유를 둔다.
+export const GAME_RATING_NOTICE_MS = 3_300;
 export const GAME_RATING_NOTICE_SESSION_KEY =
   "msmsge.game-rating-notice.seen.v1";
 export const GAME_RATING_NOTICE_SEEN_CLASS = "game-rating-notice-seen";

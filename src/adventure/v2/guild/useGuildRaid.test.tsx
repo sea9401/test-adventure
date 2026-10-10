@@ -32,8 +32,13 @@ const state: GuildRaidState = {
     eligible: false,
     rewardClaimedAt: null,
     reward: null,
+    bonusThresholdMet: null,
     canClaim: false,
   },
+  selection: null,
+  canSelect: true,
+  bosses: [],
+  board: "mountain_chief_hard",
   guild: { id: 7, name: "연습 길드", emblem: null, damage: 0, rank: null },
   members: [],
   leaderboard: [],
@@ -143,6 +148,116 @@ describe("길드 토벌전 훅 연습", () => {
       finishPractice?.(response(practiceResult));
     });
     await waitFor(() => expect(result.current.practicing).toBe(false));
+    unmount();
+  });
+
+  it("지정한 보스로 연습을 요청한다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("/api/v2/guild/raid?")) return response(state);
+      if (url === "/api/v2/guild/raid/practice") {
+        return response({ ...practiceResult, bossKind: "canyon_predator_raid" });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const { result, unmount } = renderHook(() => useGuildRaid());
+    await waitFor(() => expect(result.current.state).toEqual(state));
+
+    await act(async () => {
+      await result.current.practice("canyon_predator_raid");
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v2/guild/raid/practice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bossId: "canyon_predator_raid" }),
+    });
+    unmount();
+  });
+});
+
+describe("길드 토벌전 훅 보스 선택", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("선택 API를 호출한 뒤 상태를 다시 불러온다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("/api/v2/guild/raid?")) return response(state);
+      if (url === "/api/v2/guild/raid/select") {
+        return response({ ok: true, bossId: "canyon_predator_raid", selectedAt: 1 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const { result, unmount } = renderHook(() => useGuildRaid());
+    await waitFor(() => expect(result.current.state).toEqual(state));
+
+    await act(async () => {
+      await result.current.selectBoss("canyon_predator_raid");
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v2/guild/raid/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bossId: "canyon_predator_raid" }),
+    });
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        String(input).startsWith("/api/v2/guild/raid?"),
+      ).length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(result.current.error).toBeNull();
+    unmount();
+  });
+
+  it("이미 선택된 경우 오류를 보여주고 상태를 다시 불러온다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("/api/v2/guild/raid?")) return response(state);
+      if (url === "/api/v2/guild/raid/select") {
+        return response({ ok: false, error: "already_selected" }, 409);
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const { result, unmount } = renderHook(() => useGuildRaid());
+    await waitFor(() => expect(result.current.state).toEqual(state));
+
+    await act(async () => {
+      await result.current.selectBoss("canyon_predator_raid");
+    });
+
+    expect(result.current.error).toBe("already_selected");
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        String(input).startsWith("/api/v2/guild/raid?"),
+      ).length,
+    ).toBeGreaterThanOrEqual(2);
+    unmount();
+  });
+
+  it("순위표 보스를 바꾸면 board 파라미터로 다시 불러온다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/v2/guild/raid?")) return response(state);
+      throw new Error(`unexpected request: ${String(input)}`);
+    });
+    const { result, unmount } = renderHook(() => useGuildRaid());
+    await waitFor(() => expect(result.current.state).toEqual(state));
+
+    await act(async () => {
+      await result.current.setBoard("canyon_predator_raid");
+    });
+
+    const lastUrl = String(fetchMock.mock.calls.at(-1)?.[0]);
+    expect(lastUrl).toContain("board=canyon_predator_raid");
+    expect(lastUrl).toContain("leaderboardPage=1");
     unmount();
   });
 });

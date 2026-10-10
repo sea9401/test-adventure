@@ -20,22 +20,16 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
 }));
 vi.mock("@/lib/server/adventurerAssociation", () => ({
   associationFacilityLevel: vi.fn(async () => 1),
-  claimWeeklyFacilitySource: vi.fn(),
-  readWeeklyFacilitySourceSelection: vi.fn(async () => ({
-    weekKey: "2026-08-31",
-    source: "guild" as const,
-    guildId: 11,
-  })),
 }));
 
 import { GET } from "@/app/api/v2/guild/alchemy-workshop/route";
 
-describe("guild alchemy workshop weekly source", () => {
+describe("guild alchemy workshop after leaving a guild", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("현재 주간 출처와 협회 공방이 충돌하면 GET에서 이용 불가를 알린다", async () => {
+  it("같은 주에 길드 공방을 쓴 뒤에도 협회 공방 이용을 막지 않는다", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-05T10:00:00+09:00"));
 
@@ -46,9 +40,8 @@ describe("guild alchemy workshop weekly source", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      ok: true,
-      weeklySourceEligible: false,
-    });
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+    expect(json).not.toHaveProperty("weeklySourceEligible");
   });
 });

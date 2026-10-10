@@ -9,7 +9,7 @@ import {
 describe("guild alchemy", () => {
   it("시설 레벨에 따라 레시피가 단계적으로 열린다", () => {
     expect(GUILD_ALCHEMY_RECIPES.map((recipe) => recipe.minFacilityLevel)).toEqual([
-      1, 2, 2, 3, 3, 3, 4, 4, 5,
+      1, 2, 2, 3, 3, 3, 4, 4, 5, 6, 7, 8, 9, 10,
     ]);
     expect(GUILD_ALCHEMY_RECIPES.map((recipe) => recipe.chargeAmount)).toEqual([
       100_000,
@@ -21,6 +21,11 @@ describe("guild alchemy", () => {
       1_600_000,
       0,
       3_600_000,
+      0,
+      0,
+      7_000_000,
+      0,
+      0,
     ]);
     expect(guildAlchemyRecipe("stable_catalyst")).toMatchObject({
       output: "material",
@@ -85,5 +90,47 @@ describe("guild alchemy", () => {
         "2026-07-13",
       ),
     ).toEqual({ weekKey: "2026-07-13", energyUsed: 0 });
+  });
+});
+
+describe("연금 공방 Lv.6~10 레시피", () => {
+  it.each([
+    ["refined_catalyst", 6, 14, { herb: 22, silverleaf: 2 }],
+    ["concentrated_ink", 7, 16, { herb: 26, silverleaf: 3 }],
+    ["transcendent_solution", 8, 6, { herb: 40, silverleaf: 4 }],
+    ["volatile_crystal", 9, 20, { herb: 36, silverleaf: 4 }],
+    ["sage_elixir", 10, 45, { herb: 75, silverleaf: 9 }],
+  ])("%s", (id, level, energy, ingredients) => {
+    expect(guildAlchemyRecipe(id)).toMatchObject({
+      minFacilityLevel: level,
+      energyCost: energy,
+      ingredients,
+    });
+  });
+
+  it("결과물", async () => {
+    const { ENHANCE_STONE_MATERIAL_ID } = await import("./v2Enhance");
+    const { SUMMON_SCROLL_MATERIAL_ID } = await import("./coopBosses");
+    expect(guildAlchemyRecipe("refined_catalyst")).toMatchObject({
+      output: "material",
+      outputMaterialId: ENHANCE_STONE_MATERIAL_ID.blue,
+      outputMaterialAmount: 2,
+    });
+    expect(guildAlchemyRecipe("concentrated_ink")).toMatchObject({
+      outputMaterialId: SUMMON_SCROLL_MATERIAL_ID,
+      outputMaterialAmount: 5,
+    });
+    expect(guildAlchemyRecipe("transcendent_solution")).toMatchObject({
+      output: "charge",
+      chargeAmount: 7_000_000,
+    });
+    expect(guildAlchemyRecipe("volatile_crystal")).toMatchObject({
+      outputMaterialId: ENHANCE_STONE_MATERIAL_ID.red,
+      outputMaterialAmount: 2,
+    });
+    expect(guildAlchemyRecipe("sage_elixir")).toMatchObject({
+      output: "stamina_potion",
+      staminaPotionAmount: 3,
+    });
   });
 });

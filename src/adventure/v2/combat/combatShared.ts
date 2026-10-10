@@ -46,7 +46,7 @@ import { evaluateCombatPatternCandidates, V2_PATTERN_DOT_POWER_MULT, V2_PATTERN_
 import { type PlayerCombat } from "./engineState";
 import { holyJudgmentCoefficient, normalizeHolyPower, type HolyPowerState } from "./holyPower";
 import { canReleaseLawInscriptions, emptyLawInscriptionState, lawInscriptionGainForCast, lawInscriptionRelease, lawInscriptionTotal, normalizeLawInscriptionState, type LawInscriptionState } from "./lawInscription";
-import { clampMutationResource, mutationCastTransition, weightPhysicalSkillMultiplier, type MutationCastTransition } from "./mutationCombat";
+import { clampMutationResource, equippedWeightCyclePassives, mutationCastTransition, resolveWeightCycleCast, weightPhysicalSkillMultiplier, type MutationCastTransition } from "./mutationCombat";
 import { type TripleWardState } from "./tripleWard";
 
 // 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
@@ -1342,6 +1342,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     def.category,
     castEffects,
   );
+  const mutationWeight = clampMutationResource(input.attacker.mutationWeight ?? 0);
+  const weightCycle = resolveWeightCycleCast({ preCastWeight: mutationWeight, active: def, equippedPassives: equippedWeightCyclePassives(input.skills.equipped) });
   const bleedSnapshot = {
     stacks: Math.max(0, Math.floor(input.target.bleedStacks ?? 0)),
     turns: Math.max(0, Math.floor(input.target.bleedTurns ?? 0)),
@@ -1377,15 +1379,15 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     (pureDirectPhysical ? sumBleedHunt("directPhysicalAccuracyPct") : 0);
   const bleedHuntPiercePct =
     sumBleedHunt("skillPenetrationPct") +
-    (pureDirectPhysical ? sumBleedHunt("directPhysicalPenetrationPct") : 0);
+    (pureDirectPhysical ? sumBleedHunt("directPhysicalPenetrationPct") : 0) + weightCycle.piercePct;
   const bleedHuntDamagePct = pureDirectPhysical
-    ? sumBleedHunt("directPhysicalDamagePct")
+    ? sumBleedHunt("directPhysicalDamagePct") + weightCycle.directPhysicalDamagePct
     : 0;
   const bleedHuntHastePct =
     sumBleedHunt("castHastePct") +
-    (pureDirectPhysical ? sumBleedHunt("directPhysicalHastePct") : 0);
-  const bleedHuntDelayPct = sumBleedHunt("hitEnemyDelayPct");
-  let healFromActualDamagePct = sumBleedHunt("skillActualDamageHealPct");
+    (pureDirectPhysical ? sumBleedHunt("directPhysicalHastePct") : 0) + weightCycle.selfHastePct;
+  const bleedHuntDelayPct = sumBleedHunt("hitEnemyDelayPct") + weightCycle.enemyDelayPct;
+  let healFromActualDamagePct = sumBleedHunt("skillActualDamageHealPct") + weightCycle.actualDamageHealPct;
   const refreshMechanics = activeBleedHuntMechanics.filter(
     (mechanic) =>
       (mechanic.hitBleedStacks ?? 0) > 0 ||
@@ -1907,9 +1909,6 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     fortressImpactMult === 1
       ? boostedEnemyDamage
       : Math.floor(boostedEnemyDamage * fortressImpactMult);
-  const mutationWeight = clampMutationResource(
-    input.attacker.mutationWeight ?? 0,
-  );
   const directPhysicalDamage = Math.max(
     0,
     fortressBoostedEnemyDamage - scaledMagicEnemyDamage,
@@ -1930,8 +1929,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const directAfterPhysicalMutation =
     mutationPhysicalDamage + scaledMagicEnemyDamage;
   const mutationPayoffPct =
-    mutationWeight *
-    Math.max(0, def.mutationWeightConsumePctPerStack ?? 0);
+    mutationWeight * Math.max(0, def.mutationWeightConsumePctPerStack ?? 0) +
+    weightCycle.releaseDamagePct;
   const mutationBoostedEnemyDamage =
     mutationPayoffPct > 0
       ? Math.floor(directAfterPhysicalMutation * (1 + mutationPayoffPct / 100))
@@ -1939,8 +1938,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const mutationTransition = mutationCastTransition(
     mutationWeight,
     {
-      weightGain: def.mutationWeightGain,
-      consumeWeight: (def.mutationWeightConsumePctPerStack ?? 0) > 0,
+      weightGain: weightCycle.weightGain,
+      consumeWeight: weightCycle.consumes,
+      regainAfterConsume: weightCycle.regainAfterConsume,
+      log: weightCycle.log,
     },
   );
   // 공격 피해를 기준으로 하는 흡혈형 회복은 이미 피해 증가 효과의 영향을 받는다.
@@ -1958,6 +1959,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const scaledSelfHealOnMiss = Math.floor(
     selfHeal * limitedRecoveryEffectMult,
   );
+  if (weightCycle.shieldMaxHpPct > 0) shieldToApply = { hp: (shieldToApply?.hp ?? 0) + Math.floor((input.attacker.maxHp * weightCycle.shieldMaxHpPct) / 100), mp: shieldToApply?.mp ?? 0, turns: shieldToApply?.turns ?? 3 };
   const shieldPowerMult =
     1 + (Number.isFinite(input.attacker.skillShieldPowerPct)
       ? Math.max(0, input.attacker.skillShieldPowerPct ?? 0) : 0) / 100;

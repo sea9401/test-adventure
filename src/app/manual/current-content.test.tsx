@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DANGEROUS_BAITS } from "@/adventure/data/v2/dangerousFishing";
+import { V2_JOB_LIST } from "@/adventure/data/v2/v2JobCatalog";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import {
   DANGEROUS_REALTIME_BALANCE_REVISION,
   DANGEROUS_REALTIME_RETAINED_DURATION_PERMILLE,
@@ -123,7 +125,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("직군과 직업 사다리");
     expect(html).toContain("숙련의 탑");
     expect(html).not.toContain("전체 직업 도감");
-    expect(html).not.toContain("161개 중 161개");
+    expect(html).not.toContain(`${V2_JOB_LIST.length}개 중 ${V2_JOB_LIST.length}개`);
   });
 
   it("독립된 전체 직업 도감 문서에서 검색 가능한 전체 목록을 제공한다", () => {
@@ -132,7 +134,47 @@ describe("최신 게임 안내서 내용", () => {
     expect(JobCodexContent).toBeTypeOf("function");
     const html = renderToStaticMarkup(<>{JobCodexContent?.()}</>);
     expect(html).toContain("전체 직업 도감");
-    expect(html).toContain("161개 중 161개");
+    expect(html).toContain(`${V2_JOB_LIST.length}개 중 ${V2_JOB_LIST.length}개`);
+  });
+
+  it("명장 요리와 단련 촉매의 제작 조건·재료·효과를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("명장 요리");
+    expect(html).toContain("24시간");
+    expect(html).toContain("단련 촉매");
+    expect(html).toContain("명장 합금 2개와 명장 목재 1개");
+    expect(html).toContain("하락 확률을 최대 10%p");
+    expect(html).toContain("명장 3단계");
+  });
+
+  it("생활 전공의 지정 조건·변경 주기·명장 단계·산물을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("생활 전공과 명장 단계");
+    expect(html).toContain("주전공");
+    expect(html).toContain("부전공");
+    expect(html).toContain("30일");
+    expect(html).toContain("명장 10단계");
+    for (const name of ["명장 작물", "명장 목재", "명장 합금", "명장 어획"]) {
+      expect(html).toContain(name);
+    }
+  });
+
+  it("생활 축제의 주간 테마·반복 납품 체감·순위 보상·증표 유지를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("생활 축제");
+    for (const theme of ["수확제", "숲의 축제", "광맥제", "풍어제", "미식제"]) {
+      expect(html).toContain(theme);
+    }
+    expect(html).toContain("수확량 +10% · 농사 경험치 +25%");
+    expect(html).toContain("6번째부터 50%");
+    expect(html).toContain("16번째부터 20%");
+    expect(html).toContain("1위 100개");
+    expect(html).toContain("11~30위 10개");
+    expect(html).toContain("주가 바뀌어도 사라지지 않습니다");
+    expect(html).not.toContain("v2");
   });
 
   it("도감 숙련의 6분야와 발견부터 전설까지의 장기 수집 단계를 안내한다", () => {
@@ -605,7 +647,9 @@ describe("최신 게임 안내서 내용", () => {
     expect(skills).toContain("전투당 1회 생존");
     expect(skills).toContain("HP 비용과 보호막 우회");
     expect(skills).toContain("PvE·PvP 차이");
-    expect(skills).toContain("계승 공격은 25%");
+    const shadowCore = V2_SKILLS.v2c_shadowblade_swordshadow.tier7Mechanic;
+    if (shadowCore?.kind !== "shadowCore") throw new Error("검영 기믹 데이터가 없습니다.");
+    expect(skills).toContain(`계승 공격은 ${shadowCore.inheritedRecordPct}%`);
     expect(skills).toContain("검의가 정확히 3개");
     expect(skills).toContain("다음 행동 기회에 자동 해방");
   });
@@ -632,6 +676,10 @@ describe("최신 게임 안내서 내용", () => {
     expect(equipmentGuide).not.toContain("73~78단계");
     expect(equipmentGuide).not.toContain("79~84단계");
     expect(hunting).toContain("특화 몬스터군 노드를 활성화하고 미개척지에서 사냥");
+    expect(hunting).toContain("미개척지 입장");
+    expect(hunting).toContain("100레벨만으로는 열리지 않습니다");
+    expect(hunting).toContain("가운데의 탐사 시작 노드");
+    expect(hunting).toContain("탐사 포인트 1이 자동으로 지급");
     expect(equipment).toContain("난이도와 관계없이 같은 6티어");
     expect(equipment).toContain("천공 균열의 입구·심부·최심부");
     expect(compendium).toContain("난이도에 따라 후보가 바뀌지 않고");
@@ -707,6 +755,16 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("기여도");
     expect(html).toContain("보상");
     expect(html).toContain("기록되지 않습니다");
+  });
+
+  it("길드 토벌전 보스 선택과 보스별 순위·보상을 안내한다", () => {
+    const html = renderToStaticMarkup(<GuildContent />);
+
+    expect(html).toContain("길드장 또는 관리자가 매주 토벌 보스를 선택");
+    expect(html).toContain("고르기 전에는 공격할 수 없고");
+    expect(html).toContain("같은 보스를 고른 길드끼리");
+    expect(html).toContain("재앙의 스콜피온 킹은 보상이 2배");
+    expect(html).toContain("순위와 관계없이 50만 골드·숙련의 증표 50개");
   });
 
   it("대장장이 영구 전문화와 전문 제작의 핵심 단계를 안내한다", () => {

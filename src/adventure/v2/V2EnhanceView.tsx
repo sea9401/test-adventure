@@ -6,6 +6,8 @@
 //  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
+import { TEMPERING_CATALYST } from "@/adventure/v2/lifeMajorProducts";
+import { EnhanceCatalystToggle } from "./EnhanceCatalystToggle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchGameState } from "./fetchGameState";
 import { Hammer } from "@phosphor-icons/react";
@@ -67,6 +69,7 @@ import {
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
   enhanceBonusPct,
+  enhanceCatalystUsable,
   enhanceOutcomeRow,
   enhanceStoneCost,
   type EnhanceChoice,
@@ -120,6 +123,7 @@ type EnhanceResponse = {
   outcome?: "success" | "keep" | "demote" | "destroy";
   enhance?: V2EnhanceState | null;
   stones?: { red: number; blue: number };
+  catalysts?: number;
   gold?: number;
   stoneCost?: number;
   goldCost?: number;
@@ -337,6 +341,8 @@ export function V2EnhanceView({
   const [gold, setGold] = useState<number | null>(null);
   const [bankedGold, setBankedGold] = useState(0);
   const [stones, setStones] = useState({ red: 0, blue: 0 });
+  const [catalysts, setCatalysts] = useState(0);
+  const [useCatalyst, setUseCatalyst] = useState(false);
   const [reforgeStones, setReforgeStones] = useState({ basic: 0, high: 0 });
   const [staminaShards, setStaminaShards] = useState(0);
   const [scavengedMats, setScavengedMats] = useState({
@@ -433,6 +439,7 @@ export function V2EnhanceView({
           red: j.materials?.[ENHANCE_STONE_MATERIAL_ID.red] ?? 0,
           blue: j.materials?.[ENHANCE_STONE_MATERIAL_ID.blue] ?? 0,
         });
+        setCatalysts(j.materials?.[TEMPERING_CATALYST.id] ?? 0);
         setReforgeStones({
           basic: j.materials?.[REFORGE_STONE_MATERIAL_ID.basic] ?? 0,
           high: j.materials?.[REFORGE_STONE_MATERIAL_ID.high] ?? 0,
@@ -502,7 +509,9 @@ export function V2EnhanceView({
     ),
   );
   const stoneRequired = level >= ENHANCE_STONE_REQUIRED_FROM;
-  const outcomeRow = enhanceOutcomeRow(level, stone);
+  const catalystActive =
+    useCatalyst && catalysts > 0 && enhanceCatalystUsable(level, stone);
+  const outcomeRow = enhanceOutcomeRow(level, stone, { catalyst: catalystActive });
   const successPct = outcomeRow[0];
   const stoneCost = enhanceStoneCost(level) * uniqueMult;
   const goldCost = item
@@ -559,6 +568,7 @@ export function V2EnhanceView({
           iid: selected.iid,
           stone,
           ...(feedIid && stone !== "none" ? { feedIid } : {}),
+          ...(catalystActive ? { catalyst: true } : {}),
         }),
       });
       const json = (await res.json()) as EnhanceResponse;
@@ -572,11 +582,16 @@ export function V2EnhanceView({
                 ? "골드가 부족합니다"
                 : json.error === "stone_required"
                   ? "+8부터는 강화석이 필요합니다"
-                  : `실패: ${json.error ?? "unknown"}`,
+                  : json.error === "insufficient_catalyst"
+                    ? "단련 촉매가 부족합니다"
+                    : json.error === "catalyst_not_needed"
+                      ? "이 단계는 하락하지 않아 단련 촉매를 쓸 수 없습니다"
+                      : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
       if (json.stones) setStones(json.stones);
+      if (typeof json.catalysts === "number") setCatalysts(json.catalysts);
       setFeedIid(null);
       if (json.outcome === "success") {
         setMsg({
@@ -604,7 +619,7 @@ export function V2EnhanceView({
     } finally {
       setBusy(false);
     }
-  }, [selected, item, level, stone, feedIid, busy, refresh, refreshGameState]);
+  }, [selected, item, level, stone, feedIid, catalystActive, busy, refresh, refreshGameState]);
 
   // ── 폭풍 개량 — 특화 유니크의 옵션·강화는 유지하고 위력만 6T 밴드로 확정 이전 ──
   const refineable = !!(
@@ -1155,6 +1170,13 @@ export function V2EnhanceView({
                     );
                   })}
                 </div>
+                <EnhanceCatalystToggle
+                  level={level}
+                  stone={stone}
+                  held={catalysts}
+                  checked={useCatalyst}
+                  onChange={setUseCatalyst}
+                />
                 {/* 결과 확률 — 누적 막대: 파트별 색 꽉 찬 칸 + 칸 내 중앙 라벨.
                     좁은 칸은 %만(7%↑) 또는 생략(7% 미만 — 색으로만 표시). */}
                 <div className="ui-forge-outcome flex h-6 overflow-hidden rounded-md text-[10px] font-semibold tabular-nums text-white">

@@ -19,6 +19,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/navbar", title: "메인 nav — 가장자리 페이드", desc: "6탭(…길드·광장)이 좁은 폭에서 넘칠 때 우측 페이드로 '더 있음' 신호. 320/360/390/720px 박스." },
   { href: "/dev/inventory", title: "인벤토리 — 보유 장비 카드 그리드", desc: "보유 장비 2열 카드(슬롯 아이콘·등급색 이름·위력/속성/티어·장착 배지). 카드 탭 → 상세·장착 팝오버. 표본 mock." },
   { href: "/dev/trophy-cabinet", title: "트로피 전시대 — 격자형 수집함", desc: "대표 3종과 획득·미획득 트로피 격자, 상세 선택 UI를 DB 없이 확인." },
+  { href: "/dev/guild-raid", title: "길드 토벌전 — 보스 선택", desc: "선택 전(관리자·길드원)과 스콜피온 선택 후 화면, 보스별 순위표 전환을 예시 데이터로 확인합니다." },
   { href: "/dev/marketplace", title: "거래소 — 구매 목록 UI", desc: "검색·필터·시세 비교와 매물 카드 정보 위계를 mock 매물로 확인." },
   { href: "/dev/stance-picker", title: "전술 선택기 (StancePicker)", desc: "#497 공세/수성/처형 선택 UI." },
   { href: "/dev/battle-log", title: "전투 로그 — 전술 안내", desc: "#502 전투 시작 로그의 전술 한 줄 노출." },

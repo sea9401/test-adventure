@@ -16,6 +16,8 @@ import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
   auctionWonNotificationText,
+  masterProductNotificationText,
+  type MasterProductNotificationPayload,
   type AuctionWonNotificationPayload,
   unreadV2Notifications,
   type V2NotificationEntry,
@@ -47,6 +49,8 @@ function previewText(notification: V2NotificationEntry): string {
   switch (notification.type) {
     case "auction_won":
       return auctionWonNotificationText(payload as AuctionWonNotificationPayload);
+    case "master_product":
+      return masterProductNotificationText(payload as MasterProductNotificationPayload);
     case "outpost_attacked":
       return "길드 시설이 공격받았습니다.";
     case "outpost_lost":

@@ -107,11 +107,14 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { GET, POST } from "./route";
+import { lifeMajorStageXp } from "@/adventure/v2/lifeMajor";
 import { emptyCookingState, cookingLevelXpThreshold } from "@/adventure/v2/cooking/state";
 import { emptyFarmState } from "@/adventure/v2/farm";
 import { emptyFishingStock } from "@/adventure/v2/fishingStock";
 import { emptyV2SkillsState } from "@/adventure/data/v2/v2Skills";
-import { COOKING_SECRET_RECIPE_BY_ID } from "@/lib/server/cooking/recipes";
+import { COOKING_SECRET_RECIPE_BY_ID, findSecretRecipe } from "@/lib/server/cooking/recipes";
+import { cookingResearchAttemptKey } from "@/adventure/v2/cooking/researchKey";
+import { COOKING_METHOD_NAMES, type CookingIngredientId, type CookingMethod } from "@/adventure/v2/cooking/types";
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { emptyLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { emptyCodexMasteryProgress } from "@/adventure/data/v2/codexMastery";
@@ -119,6 +122,20 @@ import { CODEX_MASTERY_CATALOG } from "@/adventure/data/v2/codexMasteryProductio
 import { emptyCodexMasterySummary } from "@/lib/server/codexMasteryRepository";
 import { createCodexMasteryBatchRecorder } from "@/lib/server/codexMasteryService";
 import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
+import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
+import { kstWeekMondayKey } from "@/lib/kst";
+
+const { festivalBonus } = vi.hoisted(() => ({
+  festivalBonus: vi.fn(),
+}));
+vi.mock("@/adventure/v2/lifeFestival", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/v2/lifeFestival")>()),
+  lifeFestivalBonus: festivalBonus,
+}));
+beforeEach(() => {
+  festivalBonus.mockReset();
+  festivalBonus.mockReturnValue({ themeId: null, chancePct: 0, xpPct: 0 });
+});
 
 const NOW = Date.parse("2026-08-22T12:00:00+09:00");
 
@@ -136,6 +153,24 @@ function post(body: Record<string, unknown>) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   }));
+}
+
+function seedGrandFeast() {
+  mocks.store.set(GUILD_DINING_USER_SAVE_KEY, {
+    version: 1,
+    weekKey: kstWeekMondayKey(new Date(NOW)),
+    guildId: 7,
+    contributionPoints: 0,
+    mealsUsed: 1,
+    activeEffect: {
+      menuId: "guild_grand_feast",
+      kind: "all_xp",
+      bonusPct: 60,
+      lifeBonusPct: 20,
+      expiresAt: NOW + 60 * 60 * 1000,
+      roundingRemainder: 0,
+    },
+  });
 }
 
 function seed() {
@@ -251,6 +286,33 @@ describe("/api/v2/cooking", () => {
       createdAt: NOW,
     }]);
     expect(json.cookingPrepSets).toBe(0);
+  });
+
+  it("실패 기록은 최근 100개만 보여주되 중복 판정용 키는 오래된 실패까지 모두 내려준다", async () => {
+    const farmIds = ["wheat", "milk", "rice", "corn", "potato", "tomato", "onion", "herb"];
+    const rows: { method: CookingMethod; ingredientIds: CookingIngredientId[]; createdAt: Date }[] = [];
+    for (const method of Object.keys(COOKING_METHOD_NAMES) as CookingMethod[]) {
+      for (let a = 0; a < farmIds.length; a += 1) {
+        for (let b = a + 1; b < farmIds.length; b += 1) {
+          const ingredientIds = [`farm:${farmIds[a]}`, `farm:${farmIds[b]}`] as CookingIngredientId[];
+          const recipe = findSecretRecipe(method, ingredientIds);
+          if (recipe && recipe.discovery !== "basic") continue;
+          rows.push({ method, ingredientIds, createdAt: new Date(NOW - rows.length * 1_000) });
+        }
+      }
+    }
+    expect(rows.length).toBeGreaterThan(150);
+    mocks.selectResults.push([], rows);
+
+    const response = await GET(new Request("http://localhost/api/v2/cooking"));
+    const json = await response.json();
+
+    expect(json.failedResearches).toHaveLength(100);
+    expect(json.failedResearchKeys).toHaveLength(rows.length);
+    const oldest = rows.at(-1)!;
+    expect(json.failedResearchKeys).toContain(
+      cookingResearchAttemptKey(oldest.method, oldest.ingredientIds),
+    );
   });
 
   it("과거 발견 등급 기록이 있는 구운 옥수수도 준비 세트를 사용해 완성한다", async () => {
@@ -620,6 +682,76 @@ describe("/api/v2/cooking", () => {
     }]);
   });
 
+  it("길드 대연회 생활 경험치 보너스를 연구 실패 경험치에 더한다", async () => {
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("cooking.v2", { ...cooking, xp: cookingLevelXpThreshold(10) });
+    const farm = emptyFarmState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 1, milk: 1, rice: 1 } });
+    seedGrandFeast();
+    mocks.selectResults.push([], [], []);
+
+    const response = await post({
+      action: "research",
+      method: "stir_fry",
+      ingredientIds: ["farm:wheat", "farm:milk", "farm:rice"],
+    });
+    const json = await response.json();
+
+    // 기본 6 + 대연회 20%(1.2 → 1, 나머지는 다음 획득으로 이월) = 7
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({ outcome: "failure", earnedXp: 7 });
+    expect((mocks.store.get("cooking.v2") as { xp: number }).xp).toBe(cookingLevelXpThreshold(10) + 7);
+  });
+
+  it("길드 대연회 생활 경험치 보너스를 레시피 발견 경험치에 더한다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("tomato_salad")!;
+    const cooking = emptyCookingState(NOW);
+    const farm = emptyFarmState(NOW);
+    const farmItems: Record<string, number> = {};
+    const kitchenItems: Record<string, number> = {};
+    for (const ingredient of recipe.ingredients) {
+      const [kind, id] = ingredient.id.split(":");
+      if (kind === "farm") farmItems[id] = 1;
+      else kitchenItems[ingredient.id] = 1;
+    }
+    mocks.store.set("farm.v2", { ...farm, inventory: farmItems });
+    mocks.store.set("cooking.v2", { ...cooking, xp: cookingLevelXpThreshold(10), kitchenItems });
+    seedGrandFeast();
+    mocks.selectResults.push([], [], []);
+    mocks.insertResults.push([]);
+
+    const response = await post({
+      action: "research",
+      method: recipe.method,
+      ingredientIds: recipe.ingredients.map((entry) => entry.id),
+    });
+    const json = await response.json();
+    const expectedXp = recipe.researchXp + Math.floor((recipe.researchXp * 20) / 100);
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({ outcome: "success", earnedXp: expectedXp });
+    expect((mocks.store.get("cooking.v2") as { xp: number }).xp).toBe(cookingLevelXpThreshold(10) + expectedXp);
+  });
+
+  it("길드 대연회 생활 경험치 보너스를 요리 제작 경험치에 더한다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const farm = emptyFarmState(NOW);
+    const cooking = emptyCookingState(NOW);
+    mocks.store.set("farm.v2", { ...farm, inventory: { wheat: 30 } });
+    mocks.store.set("cooking.v2", { ...cooking, kitchenItems: { "pantry:yeast": 30 } });
+    seedGrandFeast();
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await post({ action: "craft", recipeId: recipe.id, quantity: 3 });
+    const json = await response.json();
+    const baseXp = recipe.craftXp * 3;
+    const expectedXp = baseXp + Math.floor((baseXp * 20) / 100);
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({ earnedXp: expectedXp });
+    expect((mocks.store.get("cooking.v2") as { xp: number }).xp).toBe(expectedXp);
+  });
+
   it("전문 분야는 조건 달성 후 한 번만 정한다", async () => {
     const hidden = [
       "tomato_salad", "herb_omelet", "egg_fried_rice", "herb_roasted_pork", "crispy_pork_cutlet",
@@ -692,4 +824,142 @@ describe("/api/v2/cooking", () => {
       kitchenItems: { "pantry:salt": 41 },
     });
   });
+  it("미식제 주간에는 걸작 확률 5%p와 요리 경험치 25%를 더한다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const craft = async () => {
+      seed();
+      mocks.store.set("farm.v2", { ...emptyFarmState(NOW), inventory: { wheat: 10 } });
+      mocks.store.set("cooking.v2", {
+        ...emptyCookingState(NOW),
+        kitchenItems: { "pantry:yeast": 10 },
+      });
+      mocks.rateLimitCounts.clear();
+      vi.spyOn(Math, "random").mockReturnValue(0.04);
+      const response = await post({ action: "craft", recipeId: recipe.id, quantity: 1 });
+      expect(response.status).toBe(200);
+      return (await response.json()).result;
+    };
+    const base = await craft();
+    festivalBonus.mockReturnValue({ themeId: "feast", chancePct: 5, xpPct: 25 });
+    const boosted = await craft();
+
+    expect(festivalBonus).toHaveBeenCalledWith("cooking", new Date(NOW));
+    expect(base.quality).not.toBe("masterpiece");
+    expect(boosted.quality).toBe("masterpiece");
+    expect(boosted.earnedXp).toBeGreaterThan(base.earnedXp);
+  });
+
+  describe("생활 전공", () => {
+    const T100 = () => cookingLevelXpThreshold(100);
+
+    it("조리 — 요리 주전공 단계만큼 걸작 확률을 더하고 넘친 경험치를 명장 경험치로 쌓는다", async () => {
+      const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+      const craft = async (lifeMajor: unknown) => {
+        seed();
+        mocks.store.set("farm.v2", { ...emptyFarmState(NOW), inventory: { wheat: 10 } });
+        mocks.store.set("cooking.v2", {
+          ...emptyCookingState(NOW),
+          xp: T100(),
+          discoveredRecipeIds: [recipe.id],
+          kitchenItems: { "pantry:yeast": 10 },
+        });
+        if (lifeMajor) mocks.store.set("life-major.v1", lifeMajor);
+        mocks.rateLimitCounts.clear();
+        // Lv.100 레벨 보너스로 걸작 5% → 주전공 5단계면 10%. 0.07 은 그 사이.
+        vi.spyOn(Math, "random").mockReturnValue(0.07);
+        const response = await post({ action: "craft", recipeId: recipe.id, quantity: 1 });
+        expect(response.status).toBe(200);
+        return response.json();
+      };
+      const base = await craft(null);
+      const stage5 = lifeMajorStageXp("cooking", 5);
+      const boosted = await craft({ major: "cooking", masteryXp: { cooking: stage5 } });
+
+      expect(base.result.quality).not.toBe("masterpiece");
+      expect(boosted.result.quality).toBe("masterpiece");
+      expect(boosted.lifeMajor).toEqual({ masteryXpGained: boosted.result.earnedXp, masterProduct: null });
+      expect(mocks.store.get("life-major.v1")).toMatchObject({
+        masteryXp: { cooking: stage5 + boosted.result.earnedXp },
+      });
+    });
+
+    it("연구 — Lv.100에서 얻은 연구 경험치도 명장 경험치로 쌓는다", async () => {
+      const recipe = COOKING_SECRET_RECIPE_BY_ID.get("tomato_salad")!;
+      const farmItems: Record<string, number> = {};
+      const kitchenItems: Record<string, number> = {};
+      for (const ingredient of recipe.ingredients) {
+        const [kind, id] = ingredient.id.split(":");
+        if (kind === "farm") farmItems[id] = 1;
+        else kitchenItems[ingredient.id] = 1;
+      }
+      mocks.store.set("farm.v2", { ...emptyFarmState(NOW), inventory: farmItems });
+      mocks.store.set("cooking.v2", { ...emptyCookingState(NOW), xp: T100(), kitchenItems });
+      mocks.store.set("life-major.v1", { major: "cooking" });
+      mocks.selectResults.push([], []);
+      mocks.insertResults.push([{ recipeId: recipe.id }]);
+
+      const json = await (await post({
+        action: "research",
+        method: recipe.method,
+        ingredientIds: recipe.ingredients.map((entry) => entry.id),
+      })).json();
+
+      expect(json.result).toMatchObject({ outcome: "success" });
+      expect(json.lifeMajor.masteryXpGained).toBe(json.result.earnedXp);
+      expect(mocks.store.get("life-major.v1")).toMatchObject({ masteryXp: { cooking: json.result.earnedXp } });
+    });
+  });
+
+
+  describe("명장 요리 만들기", () => {
+    const recipe = COOKING_PUBLIC_RECIPES.find((entry) => entry.field !== "seafood")!;
+    const masterpiece = `food2:${recipe.id}:masterpiece:o1:s2`;
+    const signature = `food2:${recipe.id}:signature:o1:s2`;
+    const setup = (lifeMajor: unknown, crop = 1, foods: Record<string, number> = { [masterpiece]: 2 }) => {
+      mocks.store.set("life-major.v1", lifeMajor);
+      mocks.store.set("character.v2", { class: "none", level: 1, gold: 0, name: "테스터", materials: { v2_master_crop: crop } });
+      mocks.store.set("inventory.v2", { cookingFoods: foods });
+    };
+    const major3 = () => ({ major: "cooking", masteryXp: { cooking: lifeMajorStageXp("cooking", 3) } });
+
+    it("걸작 1개와 명장 작물 1개로 같은 레시피의 명장 요리를 만든다", async () => {
+      setup(major3());
+      const response = await post({ action: "signature", foodId: masterpiece });
+      const json = await response.json();
+      expect(response.status).toBe(200);
+      expect(json.result).toMatchObject({ action: "signature", foodId: signature });
+      expect(mocks.store.get("inventory.v2")).toMatchObject({ cookingFoods: { [masterpiece]: 1, [signature]: 1 } });
+      expect((mocks.store.get("character.v2") as { materials: Record<string, number> }).materials.v2_master_crop).toBeUndefined();
+      expect(json.signature).toMatchObject({ unlocked: true, stage: 3, requiredStage: 3, products: { crop: 0, catch: 0 } });
+    });
+
+    it.each([
+      ["주전공 2단계", { major: "cooking", masteryXp: { cooking: lifeMajorStageXp("cooking", 2) } }, "signature_locked"],
+      ["부전공", { major: "farming", minor: "cooking", masteryXp: { cooking: lifeMajorStageXp("cooking", 9) } }, "signature_locked"],
+    ])("%s 이면 409 %s", async (_label, lifeMajor, error) => {
+      setup(lifeMajor);
+      const response = await post({ action: "signature", foodId: masterpiece });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ error });
+      expect(mocks.store.get("inventory.v2")).toEqual({ cookingFoods: { [masterpiece]: 2 } });
+    });
+
+    it("걸작이 아니거나 보유하지 않았거나 산물이 없으면 거절한다", async () => {
+      setup(major3(), 1, { [`food2:${recipe.id}:careful:o0:s0`]: 1 });
+      expect(await (await post({ action: "signature", foodId: `food2:${recipe.id}:careful:o0:s0` })).json()).toMatchObject({ error: "not_masterpiece" });
+      setup(major3(), 1, {});
+      expect(await (await post({ action: "signature", foodId: masterpiece })).json()).toMatchObject({ error: "cooked_food_unavailable" });
+      setup(major3(), 0);
+      const response = await post({ action: "signature", foodId: masterpiece });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ error: "not_enough_master_product" });
+    });
+
+    it("조회 응답은 전공이 아니면 잠긴 상태로 알려 준다", async () => {
+      mocks.store.set("life-major.v1", { major: "farming" });
+      const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
+      expect(json.signature).toMatchObject({ unlocked: false, requiredStage: 3 });
+    });
+  });
+
 });

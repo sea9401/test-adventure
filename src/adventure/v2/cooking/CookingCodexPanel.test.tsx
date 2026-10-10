@@ -6,6 +6,7 @@ import { FARM_ITEMS } from "../farm";
 import { FISHING_CATCH_ITEMS } from "../fishingStock";
 import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
 import { COOKING_PUBLIC_RECIPES } from "./catalog";
+import { COOKING_METHOD_NAMES } from "./types";
 import { CookingCodexPanel } from "./CookingCodexPanel";
 import { cookingRequests } from "./delivery";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES } from "./kitchen";
@@ -22,6 +23,7 @@ function codexFixture(recipeCount: number): CookingResponse {
     now,
     cooking,
     level: 1,
+    signature: { unlocked: false, stage: 0, requiredStage: 3, products: { crop: 0, catch: 0 } },
     currentLevelXp: cookingLevelXpThreshold(1),
     nextLevelXp: cookingLevelXpThreshold(2),
     recipeTotal: recipeCount,
@@ -30,6 +32,7 @@ function codexFixture(recipeCount: number): CookingResponse {
     ).slice(0, recipeCount),
     publicDiscoveries: [],
     failedResearches: [],
+    failedResearchKeys: [],
     requests: cookingRequests("cook-user", cooking),
     cookingFoods: {},
     cookingFoodDefinitions: {},
@@ -68,9 +71,69 @@ describe("요리 도감 페이지네이션", () => {
       />,
     );
 
+    const newestBasic = data.knownRecipes.find((recipe) =>
+      recipe.id === data.cooking.discoveredRecipeIds.at(-1))!;
     const cards = screen.getAllByRole("article");
-    expect(cards[0].textContent).toContain("투박한 밀빵");
+    expect(cards[0].textContent).toContain(newestBasic.name);
     expect(cards.at(-1)?.textContent).toContain("미발견 레시피");
+  });
+
+  it("최근 발견순은 즐겨찾기 다음에 가장 최근에 발견한 레시피를 먼저 보여준다", () => {
+    const data = codexFixture(120);
+    const hidden = COOKING_SECRET_RECIPES.filter((recipe) =>
+      !data.cooking.discoveredRecipeIds.includes(recipe.id),
+    );
+    const older = hidden[5];
+    const newest = hidden[2];
+    data.cooking = {
+      ...data.cooking,
+      discoveredRecipeIds: [...data.cooking.discoveredRecipeIds, older.id, newest.id],
+    };
+    data.knownRecipes = COOKING_SECRET_RECIPES.filter((recipe) =>
+      data.cooking.discoveredRecipeIds.includes(recipe.id),
+    );
+    const { rerender } = render(
+      <CookingCodexPanel data={data} busy={false} mutate={vi.fn(async () => undefined)} />,
+    );
+
+    expect((screen.getByRole("combobox", { name: "요리 도감 정렬" }) as HTMLSelectElement).value).toBe("recent");
+    let cards = screen.getAllByRole("article");
+    expect(cards[0].textContent).toContain(newest.name);
+    expect(cards[1].textContent).toContain(older.name);
+
+    const favorite = data.knownRecipes[0];
+    rerender(
+      <CookingCodexPanel
+        data={{ ...data, cooking: { ...data.cooking, favoriteRecipeIds: [favorite.id] } }}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+    cards = screen.getAllByRole("article");
+    expect(cards[0].textContent).toContain(favorite.name);
+    expect(cards[1].textContent).toContain(newest.name);
+  });
+
+  it("조리법으로 발견한 레시피를 거르고 미발견 레시피는 숨긴다", () => {
+    const data = codexFixture(120);
+    const method = data.knownRecipes[0].method;
+    const methodName = COOKING_METHOD_NAMES[method];
+    const methodCount = data.knownRecipes.filter((recipe) => recipe.method === method).length;
+    expect(methodCount).toBeLessThan(data.knownRecipes.length);
+    const { container } = render(
+      <CookingCodexPanel data={data} busy={false} mutate={vi.fn(async () => undefined)} />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "요리 도감 조리법" }),
+      { target: { value: method } },
+    );
+
+    const cards = Array.from(container.querySelectorAll("article"));
+    expect(cards).toHaveLength(methodCount);
+    expect(cards.every((card) => card.textContent?.includes(methodName))).toBe(true);
+    expect(screen.queryByText("미발견 레시피")).toBeNull();
+    expect(screen.getByText(`검색 결과 ${methodCount}개`)).toBeTruthy();
   });
 
   it("발견한 요리를 이름과 재료로 검색하고 결과 수를 표시한다", () => {

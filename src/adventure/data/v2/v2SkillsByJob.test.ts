@@ -69,6 +69,11 @@ describe("7차 전투 패키지", () => {
       aegis: ["fortressknight", "lawguardian"],
       seraphim: ["savior", "dawnpaladin"],
       dragonlord: ["dragonsovereign", "infernomancer"],
+      tempest: ["stormbringer", "frostsovereign"],
+      titan: ["tectomancer", "eternal"],
+      runelord: ["lawweaver", "archmage"],
+      bloodheaven: ["blooddemon", "absolute"],
+      behemoth: ["primalpredator", "celestialdragon"],
     });
     expect(packages.shadowblade.map((id) => V2_SKILLS[id].name)).toEqual([
       "잔영",

@@ -43,6 +43,7 @@ describe("생활 드롭다운 메뉴", () => {
       "/town/farm",
       "/town/fishing",
       "/town/kitchen",
+      "/town/festival",
     ]);
   });
 

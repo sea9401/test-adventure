@@ -15,10 +15,7 @@ import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   GUILD_EXPLORATION_EVENTS,
-  GUILD_EXPLORATION_EXPEDITIONS,
-  GUILD_EXPLORATION_EXPEDITION_IDS,
   GUILD_EXPLORATION_MAP_FRAGMENT_TARGET,
-  type GuildExplorationActiveExpedition,
   type GuildExplorationContentState,
   type GuildExplorationEventChoice,
   type GuildExplorationEventChoiceId,
@@ -48,47 +45,9 @@ export function guildExplorationEventRewardText(
     .join(" · ");
 }
 
-const GUILD_EXPLORATION_KST_FORMAT = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Seoul",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
+import { GuildExpeditionBoard } from "./GuildExpeditionBoard";
 
-function formatGuildExplorationDateTimeKst(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "확인 중";
-  const parts = Object.fromEntries(
-    GUILD_EXPLORATION_KST_FORMAT.formatToParts(date).map((part) => [
-      part.type,
-      part.value,
-    ]),
-  );
-  return `${parts.month}.${parts.day} ${parts.hour}:${parts.minute} KST`;
-}
-
-function formatGuildExplorationDuration(durationMinutes: number): string {
-  const minutes = Math.max(0, Math.floor(Number(durationMinutes) || 0));
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (hours <= 0) return `${remainingMinutes}분`;
-  return remainingMinutes > 0
-    ? `${hours}시간 ${remainingMinutes}분`
-    : `${hours}시간`;
-}
-
-export function guildExplorationExpeditionScheduleText(
-  active: GuildExplorationActiveExpedition,
-  durationMinutes: number,
-): string {
-  return [
-    `파견 ${formatGuildExplorationDateTimeKst(active.startedAt)}`,
-    `완료 ${formatGuildExplorationDateTimeKst(active.endsAt)}`,
-    `소요 ${formatGuildExplorationDuration(durationMinutes)}`,
-  ].join(" · ");
-}
+export { guildExplorationExpeditionScheduleText } from "./guildExplorationSchedule";
 
 type ExplorationMissionView = {
   id: GuildExplorationWeeklyMissionId;
@@ -113,6 +72,8 @@ type ExplorationState = {
   endsAt?: string;
   explorationHqLevel?: number;
   progressBonusPct?: number;
+  concurrentLimit?: number;
+  memberRewardRecipients?: number;
   state?: GuildExplorationWeeklyState;
   content?: GuildExplorationContentState;
   expeditions?: Record<GuildExplorationExpeditionId, GuildExplorationExpeditionDef>;
@@ -136,7 +97,7 @@ const ERROR_TEXT: Record<string, string> = {
   mission_locked: "탐사 본부를 업그레이드해야 수령할 수 있는 의뢰입니다.",
   not_authorized: "길드 관리 권한이 필요해요.",
   level_required: "탐사 본부 레벨이 부족해요.",
-  expedition_active: "이미 진행 중인 원정이 있어요.",
+  expedition_active: "이미 진행 중이거나 더 보낼 수 없는 원정이에요.",
   expedition_not_ready: "아직 원정이 끝나지 않았어요.",
   insufficient_gold: "길드 금고 골드가 부족합니다.",
   map_not_ready: "지도 조각이 부족하거나 처리 중인 사건이 있어요.",
@@ -278,10 +239,10 @@ export function GuildExplorationPanel({
     );
   }
 
-  function claimExpedition() {
+  function claimExpedition(expeditionId: GuildExplorationExpeditionId) {
     return runExplorationAction(
-      { action: "claim_expedition" },
-      "claim_expedition",
+      { action: "claim_expedition", expeditionId },
+      `claim_expedition:${expeditionId}`,
       "원정대 보상 회수에 실패했습니다.",
     );
   }
@@ -310,14 +271,7 @@ export function GuildExplorationPanel({
   const content = state?.content ?? state?.state?.content;
   const mapFragmentTarget =
     state?.mapFragmentTarget ?? GUILD_EXPLORATION_MAP_FRAGMENT_TARGET;
-  const activeExpedition = content?.activeExpedition ?? null;
-  const activeExpeditionDef = activeExpedition
-    ? GUILD_EXPLORATION_EXPEDITIONS[activeExpedition.expeditionId]
-    : null;
-  const expeditionDone =
-    activeExpedition != null &&
-    nowMs > 0 &&
-    new Date(activeExpedition.endsAt).getTime() <= nowMs;
+  const activeExpeditions = content?.activeExpeditions ?? [];
   const pendingEvent = content?.pendingEvent
     ? GUILD_EXPLORATION_EVENTS[content.pendingEvent.eventId]
     : null;
@@ -394,116 +348,19 @@ export function GuildExplorationPanel({
       </dl>
 
       <div className="mt-3 grid gap-2 lg:grid-cols-2">
-        <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
-              원정대 파견
-            </div>
-            {activeExpeditionDef ? (
-              <span className="rounded bg-cyan-100 px-2 py-1 text-[11px] font-semibold text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300">
-                진행 중
-              </span>
-            ) : null}
-          </div>
-          {activeExpeditionDef && activeExpedition ? (
-            <div className="mt-2 rounded border border-cyan-200 bg-white px-3 py-2 dark:border-cyan-900 dark:bg-zinc-950">
-              <div className="font-semibold text-cyan-900 dark:text-cyan-100">
-                {activeExpeditionDef.name}
-              </div>
-              <div className="mt-1 text-xs leading-relaxed text-cyan-700 dark:text-cyan-200">
-                {guildExplorationExpeditionScheduleText(
-                  activeExpedition,
-                  activeExpeditionDef.durationMinutes,
-                )}
-              </div>
-              <button
-                type="button"
-                disabled={!expeditionDone || acting != null}
-                onClick={() => void claimExpedition()}
-                className="mt-2 w-full rounded-md border border-cyan-700 bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {acting === "claim_expedition"
-                  ? "회수 중"
-                  : expeditionDone
-                    ? "원정 보상 회수"
-                    : "원정 진행 중"}
-              </button>
-            </div>
-          ) : (
-            <div className="mt-2 grid gap-2">
-              {GUILD_EXPLORATION_EXPEDITION_IDS.map((id) => {
-                const expedition = GUILD_EXPLORATION_EXPEDITIONS[id];
-                const locked =
-                  (state?.explorationHqLevel ?? 0) < expedition.minLevel;
-                return (
-                  <div
-                    key={id}
-                    className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                          {expedition.name}
-                        </div>
-                        <div className="mt-1 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                          {expedition.desc}
-                        </div>
-                      </div>
-                      <span className="shrink-0 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                        {expedition.durationMinutes / 60}시간
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                      <span className="min-w-0 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        <span className="block">
-                          파견 비용 {expedition.costGold.toLocaleString()}G
-                        </span>
-                        <span className="block">
-                          귀환 금고 +{expedition.rewardGold.toLocaleString()}G ·
-                          명성 +{expedition.rewardFame.toLocaleString()} · 지도
-                          조각 +{expedition.mapFragments.toLocaleString()}
-                        </span>
-                      </span>
-                      {confirmingExpeditionId === id ? (
-                        <div className="flex shrink-0 flex-col gap-1">
-                          <button
-                            type="button"
-                            disabled={acting != null}
-                            onClick={() => void dispatchExpedition(id)}
-                            className="rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {acting === `dispatch:${id}`
-                              ? "파견 중"
-                              : `${expedition.costGold.toLocaleString()}G 사용`}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={acting != null}
-                            onClick={() => setConfirmingExpeditionId(null)}
-                            className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={!canManage || locked || acting != null}
-                          onClick={() => setConfirmingExpeditionId(id)}
-                          className="shrink-0 rounded-md border border-cyan-700 bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {locked
-                            ? `Lv.${expedition.minLevel} 해금`
-                            : "파견"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <GuildExpeditionBoard
+          level={state?.explorationHqLevel ?? 0}
+          concurrentLimit={state?.concurrentLimit ?? 1}
+          active={activeExpeditions}
+          nowMs={nowMs}
+          canManage={canManage}
+          acting={acting}
+          confirmingExpeditionId={confirmingExpeditionId}
+          onConfirm={setConfirmingExpeditionId}
+          onCancel={() => setConfirmingExpeditionId(null)}
+          onDispatch={(id) => void dispatchExpedition(id)}
+          onClaim={(id) => void claimExpedition(id)}
+        />
 
         <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex items-center justify-between gap-2">

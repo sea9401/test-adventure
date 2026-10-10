@@ -42,22 +42,21 @@ type ItemNamePowerThresholds = readonly [
   sky: number,
   violet: number,
   amber: number,
-  orange: number,
-  rose: number,
   red: number,
 ];
 
-// 장비명 색상표 — 무기 200/400/600/800/1000/1200 기준을 부위별 최대 위력 비율로 환산.
+// 장비명 색상표 — 무기 200/400/600/1000 기준을 부위별 최대 위력 비율로 환산.
+// 따뜻한 색은 황금·진홍 두 단계뿐이다. 주황·장미를 끼우면 적록 색약에서 구분되지 않는다.
 const ITEM_NAME_POWER_THRESHOLDS: Record<
   V2EquipSlot,
   ItemNamePowerThresholds
 > = {
-  weapon: [200, 400, 600, 800, 1000, 1200],
-  armor: [70, 140, 210, 280, 350, 420],
-  gloves: [20, 40, 60, 80, 100, 120],
-  boots: [20, 40, 60, 80, 100, 120],
-  ring: [20, 40, 55, 75, 90, 110],
-  necklace: [20, 40, 60, 80, 100, 120],
+  weapon: [200, 400, 600, 1000],
+  armor: [70, 140, 210, 350],
+  gloves: [20, 40, 60, 100],
+  boots: [20, 40, 60, 100],
+  ring: [20, 40, 55, 90],
+  necklace: [20, 40, 60, 100],
 };
 
 // 장비명 색 → 세트는 전용 청록색, 비세트 시그니처는 무지개로 통일한다.
@@ -80,11 +79,8 @@ export function itemNameClass(
     enhance,
     craftQuality,
   );
-  const [sky, violet, amber, orange, rose, red] =
-    ITEM_NAME_POWER_THRESHOLDS[item.slot];
-  if (displayPower >= red) return "text-red-600 dark:text-red-400";
-  if (displayPower >= rose) return "text-rose-600 dark:text-rose-400";
-  if (displayPower >= orange) return "text-orange-600 dark:text-orange-400";
+  const [sky, violet, amber, red] = ITEM_NAME_POWER_THRESHOLDS[item.slot];
+  if (displayPower >= red) return "text-red-700 dark:text-red-500";
   if (displayPower >= amber) return "text-amber-600 dark:text-amber-400";
   if (displayPower >= violet) return "text-violet-600 dark:text-violet-400";
   if (displayPower >= sky) return "text-sky-600 dark:text-sky-400";

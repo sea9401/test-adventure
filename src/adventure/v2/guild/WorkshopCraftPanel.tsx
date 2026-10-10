@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { SpinnerGap, Star, X } from "@phosphor-icons/react";
@@ -24,9 +24,7 @@ import {
   COOP_BOSS_MATERIAL,
   COOP_BOSS_MATERIAL_ID,
 } from "@/adventure/data/v2/coopRewards";
-import { TITLES } from "@/adventure/data/titles";
 import type {
-  GuildWorkshopCraftMode,
   GuildWorkshopRecipeId,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
@@ -35,7 +33,6 @@ import {
   guildWorkshopMaterialName,
 } from "@/adventure/data/v2/guildWorkshop";
 import type {
-  BlacksmithCraftControlSelection,
   BlacksmithOptionFocusId,
   BlacksmithStructureId,
 } from "@/adventure/data/v2/blacksmithSpecialization";
@@ -57,7 +54,6 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import {
-  ERROR_TEXT,
   craftQualityFromLevel,
   craftResultHeadline,
   craftResultMasterworkSummary,
@@ -77,6 +73,11 @@ import {
 } from "./guildWorkshopPanelModel";
 import { WorkshopInspectionPanel } from "./WorkshopInspectionPanel";
 import { workshopMaterialSource } from "./workshopMaterialSources";
+import {
+  useWorkshopCraftAction,
+  type CraftServerSync,
+  type WorkshopCraftControl,
+} from "./useWorkshopCraftAction";
 
 type WorkshopTierFilter = "all" | 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -264,47 +265,10 @@ const EQUIPMENT_CODEX_STATUS_VIEW: Record<
   },
 };
 
-/** 제작 응답 중 부모 워크숍 상태에 반영할 조각 — 부모 콜백(applyCraftServerState)의 입력. */
-export type CraftServerSync = {
-  ok: boolean;
-  gold?: number;
-  bankedGold?: number;
-  spendableGold?: number;
-  resources?: WorkshopState["resources"];
-  materials?: WorkshopState["materials"];
-  artisan?: WorkshopState["artisan"];
-  workshopStats?: WorkshopState["workshopStats"];
-  workshopRecords?: WorkshopState["workshopRecords"];
-  guildBonus?: WorkshopState["guildBonus"];
-  recipes?: WorkshopState["recipes"];
-  blacksmithProgression?: WorkshopState["blacksmithProgression"];
-};
-
-type WorkshopCraftControl = BlacksmithCraftControlSelection;
-
-export function workshopCraftRequestBody({
-  recipeId,
-  craftMode,
-  useMaterialSubstitution,
-  outpostId,
-  control,
-}: {
-  recipeId: GuildWorkshopRecipeId;
-  craftMode: GuildWorkshopCraftMode;
-  useMaterialSubstitution: boolean;
-  outpostId?: string;
-  control?: WorkshopCraftControl;
-}) {
-  return {
-    recipeId,
-    mode: craftMode,
-    ...(outpostId ? { outpostId } : {}),
-    useMaterialSubstitution,
-    ...(control?.optionFocus ? { optionFocus: control.optionFocus } : {}),
-    ...(control?.structure ? { structure: control.structure } : {}),
-    ...(control?.useCatalyst ? { useCatalyst: true } : {}),
-  };
-}
+export {
+  workshopCraftRequestBody,
+  type CraftServerSync,
+} from "./useWorkshopCraftAction";
 
 export function matchesWorkshopCodexFilter(
   equipmentId: string,
@@ -327,8 +291,6 @@ export function WorkshopCraftPanel({
   onServerSync,
   onAfterCraft,
   onFavoriteRecipeIdsChange,
-  autoCraft,
-  onAutoCraftConsumed,
   outpostId,
   endpoint = "/api/v2/guild/workshop",
 }: {
@@ -349,19 +311,9 @@ export function WorkshopCraftPanel({
   onAfterCraft: () => void;
   /** 계정에 저장된 즐겨찾기를 부모 워크숍 상태에 즉시 반영. */
   onFavoriteRecipeIdsChange: (recipeIds: GuildWorkshopRecipeId[]) => void;
-  /** 추천 카드(메인 모드) 원클릭 제작 요청 — 마운트 시 1회 실행 후 소비 통지. */
-  autoCraft: {
-    recipeId: GuildWorkshopRecipeId;
-    craftMode: GuildWorkshopCraftMode;
-  } | null;
-  onAutoCraftConsumed: () => void;
   outpostId?: string;
   endpoint?: string;
 }) {
-  const [craftingId, setCraftingId] = useState<GuildWorkshopRecipeId | null>(
-    null,
-  );
-  const [craftResult, setCraftResult] = useState<CraftResultView | null>(null);
   const [previewCard, setPreviewCard] = useState<{
     item: V2Equipment;
     anchor: ItemCardAnchor;
@@ -547,6 +499,17 @@ export function WorkshopCraftPanel({
       }
     );
   }
+
+  const { craftingId, craftResult, closeCraftResult, craft } =
+    useWorkshopCraftAction({
+      state,
+      endpoint,
+      outpostId,
+      onMessage,
+      onServerSync,
+      onAfterCraft,
+      controlFor: craftControl,
+    });
 
   function updateCraftControl(
     recipeId: GuildWorkshopRecipeId,
@@ -981,118 +944,12 @@ export function WorkshopCraftPanel({
     );
   }
 
-  async function craft(
-    recipeId: GuildWorkshopRecipeId,
-    craftMode: GuildWorkshopCraftMode = "normal",
-    useMaterialSubstitution = false,
-  ) {
-    if (pendingInspection) {
-      onMessage(ERROR_TEXT.pending_inspection);
-      return;
-    }
-    setCraftingId(recipeId);
-    onMessage(null);
-    setCraftResult(null);
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(workshopCraftRequestBody({
-          recipeId,
-          craftMode,
-          outpostId,
-          useMaterialSubstitution,
-          control:
-            craftMode === "normal" ||
-            state?.recipes.find((recipe) => recipe.id === recipeId)?.techniques
-              ?.masterworkTechniquesUnlocked
-              ? craftControl(recipeId)
-              : undefined,
-        })),
-      });
-      const json = await res.json();
-      if (!json.ok) {
-        onMessage(ERROR_TEXT[json.error ?? ""] ?? "제작에 실패했습니다.");
-        setCraftResult(null);
-        onServerSync({ ok: false, ...json });
-        return;
-      }
-      const crafted = state?.recipes.find((recipe) => recipe.id === recipeId);
-      const selectedSubstitution =
-        craftMode === "masterwork"
-          ? crafted?.masterwork?.materialSubstitution
-          : crafted?.materialSubstitution;
-      onServerSync({ ok: true, ...json });
-      const grantedTitleNames = Array.isArray(json.grantedTitles)
-        ? json.grantedTitles
-            .map((id: unknown) =>
-              typeof id === "string" ? TITLES[id]?.name : undefined,
-            )
-            .filter((name: unknown): name is string => typeof name === "string")
-        : [];
-      if (json.pendingInspection) {
-        setCraftResult(null);
-        onAfterCraft();
-        return;
-      }
-      setCraftResult({
-        iid: typeof json.iid === "string" ? json.iid : null,
-        itemName: crafted?.itemName ?? "장비",
-        slot: crafted?.slot ?? "weapon",
-        tier: crafted?.tier ?? 1,
-        craftOnly: crafted?.craftOnly === true,
-        craftQualityLevel: Math.max(
-          0,
-          Math.floor(Number(json.craftQuality?.level ?? 0)),
-        ),
-        craftMode:
-          json.craftMode === "masterwork" || craftMode === "masterwork"
-            ? "masterwork"
-            : "normal",
-        masterwork: json.craftMode === "masterwork" || craftMode === "masterwork",
-        artisanXpGained: Math.max(
-          0,
-          Math.floor(Number(json.artisanXpGained ?? crafted?.artisanXp ?? 0)),
-        ),
-        grantedTitleNames,
-        materialSubstitutionText:
-          useMaterialSubstitution && selectedSubstitution
-            ? selectedSubstitution.replacements
-                .map(
-                  (replacement) =>
-                    `${replacement.requiredMaterialName} → ${replacement.substituteMaterialName} ${replacement.count}개`,
-                )
-                .join(" · ")
-            : null,
-        substitutionGoldCost: Math.max(
-          0,
-          Math.floor(Number(json.substitutionGoldCost) || 0),
-        ),
-      });
-      onAfterCraft();
-    } catch {
-      onMessage("제작 요청을 처리하지 못했습니다.");
-      setCraftResult(null);
-    } finally {
-      setCraftingId(null);
-    }
-  }
-
-  // 추천 카드의 원클릭 제작 — 모드 전환 직후 마운트에서 1회 실행(옛 인라인 craft 호출과 동일).
-  useEffect(() => {
-    if (!autoCraft || craftingId != null) return;
-    onAutoCraftConsumed();
-    queueMicrotask(() => void craft(autoCraft.recipeId, autoCraft.craftMode));
-    // craft 는 렌더마다 새 함수 — 요청(autoCraft) 소비 시점에만 실행한다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCraft]);
-
   return (
     <>
       {craftResult ? (
         <CraftResultDialog
           result={craftResult}
-          onClose={() => setCraftResult(null)}
+          onClose={closeCraftResult}
         />
       ) : null}
 
@@ -1425,7 +1282,7 @@ export function WorkshopCraftPanel({
   );
 }
 
-function CraftResultDialog({
+export function CraftResultDialog({
   result,
   onClose,
 }: {

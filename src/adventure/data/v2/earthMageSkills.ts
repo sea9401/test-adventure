@@ -35,7 +35,7 @@ export const EARTH_MAGE_SKILLS: Record<EarthMageSkillId, V2SkillDefinition> = {
     description: "보호 주문에 암반의 힘을 더해 새로 펼치는 보호막을 강화한다.",
     detail: {
       mechanics: ["모든 직업에서 직접 시전하는 스킬의 보호막 생성량이 30% 증가한다."],
-      limitations: ["기존 보호막 잔량, 장비의 전투 시작·회복 전환 보호막, 피격 시 MP를 소모하는 마나 실드는 강화하지 않는다."],
+      limitations: ["기존 보호막 잔량, 장비의 전투 시작·회복 전환 보호막, 마나 실드 내구도는 강화하지 않는다."],
     },
     mpCost: 0, cooldown: 0, learnCost: 8000, effects: [],
     passive: { skillShieldPowerPct: 30 },
@@ -58,16 +58,16 @@ export const EARTH_MAGE_SKILLS: Record<EarthMageSkillId, V2SkillDefinition> = {
   v2c_tectomancer_resolve: {
     id: "v2c_tectomancer_resolve", name: "태산의 의지", stat: "int", category: "passive", tier: 3,
     description: "태산처럼 흔들리지 않는 의지로 마력과 생명력, 물리·마법 방어를 단단히 다진다.",
-    detail: { mechanics: ["모든 직업에서 지능 25%, 최대 HP 16%, 물리 방어력 18%, 마법 방어력 18% 증가."] },
+    detail: { mechanics: ["모든 직업에서 지능 25%, 최대 HP 16%, 물리·마법 방어력 18% 증가."] },
     mpCost: 0, cooldown: 0, learnCost: 12000, effects: [],
-    passive: { statPct: { int: 25 }, maxHpPct: 16, defPct: 18, magicDefPct: 18 },
+    passive: { statPct: { int: 25 }, maxHpPct: 16, defPct: 18 },
   },
   v2c_tectomancer_ground: {
     id: "v2c_tectomancer_ground", name: "불동의 터", stat: "int", category: "passive", tier: 3,
     description: "보호막이 지키는 터 위에서 흔들림 없이 공격 주문에 힘을 싣는다.",
     detail: {
       mechanics: ["모든 직업에서 시전 직전 보호막이 있으면 직접 마법 스킬 피해가 20% 증가한다. 일반 마법 스킬 피해 증가와 합산한다."],
-      limitations: ["일반 공격, 물리 피해, 지속 피해, 반사, 장비 후속 피해, 빙결 추가 피해에는 적용되지 않는다. 피격 시 MP를 소모하는 마나 실드는 조건에 포함하지 않는다."],
+      limitations: ["일반 공격, 물리 피해, 지속 피해, 반사, 장비 후속 피해, 빙결 추가 피해에는 적용되지 않는다. 마나 실드 내구도는 조건에 포함하지 않는다."],
     },
     mpCost: 0, cooldown: 0, learnCost: 12000, effects: [],
     passive: { shieldedMagicSkillDamagePct: 20 },

@@ -227,6 +227,39 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     });
   });
 
+  it("생활 축제 순위 보상은 축제 증표로 적립하고 다른 지갑은 건드리지 않는다", async () => {
+    savesStore.set("u1::life-festival.v1", {
+      weekId: "2026-10-05",
+      tokens: 7,
+      tokensEarnedTotal: 40,
+      ownedOnceItemIds: ["title_regular"],
+    });
+    inboxRows.push({
+      id: 1,
+      kind: "season_reward",
+      payload: { season: "life_festival", coins: 30, rank: 5 },
+      claimedAt: null,
+    });
+
+    const res = await POST(req([1]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      claimed: number[];
+      coinsAdded: { season: string; coins: number }[];
+    };
+
+    expect(res.status).toBe(200);
+    expect(j.claimed).toEqual([1]);
+    expect(j.coinsAdded).toEqual([{ season: "life_festival", coins: 30 }]);
+    expect(savesStore.get("u1::life-festival.v1")).toMatchObject({
+      tokens: 37,
+      tokensEarnedTotal: 70,
+      ownedOnceItemIds: ["title_regular"],
+    });
+    expect(savesStore.has("u1::fishing-wallet.v1")).toBe(false);
+    expect(savesStore.has("u1::pvp-wallet.v1")).toBe(false);
+  });
+
   it("같은 시즌 여러 우편은 합산되어 한 지갑에", async () => {
     inboxRows.push(
       {

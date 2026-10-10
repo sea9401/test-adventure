@@ -24,6 +24,12 @@ const { store, rewardReferralTutorialTasks, recordCodexMasteryGameplayBatch, ups
   };
 });
 
+const { masterProductNotify } = vi.hoisted(() => ({
+  masterProductNotify: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/server/v2Notifications", () => ({
+  insertNotificationWith: masterProductNotify,
+}));
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
@@ -89,6 +95,20 @@ import {
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
 import { LIFE_WORKSHOP_SAVE_KEY } from "@/adventure/v2/lifeWorkshop";
+import { LIFE_MAJOR_SAVE_KEY, lifeMajorStageXp } from "@/adventure/v2/lifeMajor";
+import { miningXpForLevel } from "@/adventure/v2/miningProgression";
+
+const { festivalBonus } = vi.hoisted(() => ({
+  festivalBonus: vi.fn(),
+}));
+vi.mock("@/adventure/v2/lifeFestival", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/v2/lifeFestival")>()),
+  lifeFestivalBonus: festivalBonus,
+}));
+beforeEach(() => {
+  festivalBonus.mockReset();
+  festivalBonus.mockReturnValue({ themeId: null, chancePct: 0, xpPct: 0 });
+});
 
 const NOW = 1_700_000_000_000;
 
@@ -740,6 +760,138 @@ describe("mining routes", () => {
     store.set("skills.v2", { learned: ["v2c_miner_veinreading"], equipped: ["v2c_miner_veinreading"] });
     const json = await (await STATUS()).json();
     expect(json.failureReductionPct).toBe(20);
+  });
+
+  it("start — 광맥제 주간에는 추가 광석 확률이 10%p 오른다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set("character.v2", { materials: {} });
+    const base = await (await START(request("start", { spotId: "iron_quarry" }))).json();
+    store.clear();
+    resetUserRateLimitForTests();
+    store.set("character.v2", { materials: {} });
+    festivalBonus.mockReturnValue({ themeId: "vein", chancePct: 10, xpPct: 25 });
+    const boosted = await (await START(request("start", { spotId: "iron_quarry" }))).json();
+    expect(festivalBonus).toHaveBeenCalledWith("mining", new Date(NOW));
+    expect(boosted.bonusOreChancePct).toBe(base.bonusOreChancePct + 10);
+  });
+
+  it("strike — 광맥제 주간에는 채광 경험치가 25% 오른다", async () => {
+    festivalBonus.mockReturnValue({ themeId: "vein", chancePct: 10, xpPct: 25 });
+    vi.mocked(Math.random).mockReturnValueOnce(0.99).mockReturnValue(0.01);
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "mine-gold",
+      spotId: "gold_mine",
+      nodeId: "gold",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0.5,
+    });
+    store.set("character.v2", { materials: {} });
+    const json = await (await STRIKE(request("strike", { sessionId: "mine-gold" }))).json();
+    expect(json).toMatchObject({ success: true, xpGained: 12 });
+    expect(store.get(MINING_LOG_KEY)).toMatchObject({ xp: 12 });
+  });
+
+  it("자동 채광 정산에도 광맥제 경험치 보너스를 더한다", async () => {
+    festivalBonus.mockReturnValue({ themeId: "vein", chancePct: 10, xpPct: 25 });
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+    const iron = MINING_MATERIAL_ID.iron;
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-auto",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: iron,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 9_000,
+        attempts: 200,
+        successRate: 1,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set("character.v2", { materials: { [iron]: 2 } });
+    const json = await (await AUTO(request("auto", { action: "cancel" }))).json();
+    expect(json).toMatchObject({ ok: true, xpGained: 875 });
+    expect(store.get(MINING_LOG_KEY)).toMatchObject({ xp: 875 });
+  });
+
+  describe("생활 전공", () => {
+    const MAJOR = () => ({
+      major: "mining",
+      masteryXp: { mining: lifeMajorStageXp("mining", 3) },
+    });
+    const capLog = () => ({ levelCurveVersion: 2, successes: 10, xp: miningXpForLevel(100) });
+
+    it("start — 주전공 단계만큼 추가 광석 확률을 더한다", async () => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW);
+      store.set("character.v2", { materials: {} });
+      const base = await (await START(request("start", { spotId: "iron_quarry" }))).json();
+      store.clear();
+      resetUserRateLimitForTests();
+      store.set("character.v2", { materials: {} });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      const boosted = await (await START(request("start", { spotId: "iron_quarry" }))).json();
+      expect(boosted.bonusOreChancePct).toBe(base.bonusOreChancePct + 3);
+    });
+
+    it("strike — Lv.100 주전공은 넘친 경험치를 쌓고 명장 합금을 받는다", async () => {
+      vi.mocked(Math.random).mockReturnValue(0.001);
+      vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+      store.set(MINING_SESSION_KEY, {
+        sessionId: "mine-gold",
+        spotId: "gold_mine",
+        nodeId: "gold",
+        readyAt: NOW + 4_000,
+        expiresAt: NOW + 34_000,
+        failureRate: 0,
+      });
+      store.set(MINING_LOG_KEY, capLog());
+      store.set("character.v2", { materials: {} });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      const json = await (await STRIKE(request("strike", { sessionId: "mine-gold" }))).json();
+      expect(json.success).toBe(true);
+      expect(json.lifeMajor).toEqual({
+        masteryXpGained: json.xpGained,
+        masterProduct: { materialId: "v2_master_alloy", name: "명장 합금", count: 1 },
+      });
+      expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_alloy: 1 } });
+      expect(masterProductNotify).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        "master_product",
+        { activity: "mining", materialId: "v2_master_alloy", name: "명장 합금", count: 1 },
+      );
+    });
+
+    it("자동 채광 정산은 성공 횟수만큼 산물을 굴린다", async () => {
+      vi.mocked(Math.random).mockReturnValue(0.001);
+      vi.spyOn(Date, "now").mockReturnValue(NOW + 15 * 60_000);
+      store.set(MINING_AUTO_KEY, {
+        session: {
+          sessionId: "mining-auto",
+          sourceId: "iron",
+          sourceName: "철 광맥",
+          materialId: MINING_MATERIAL_ID.iron,
+          startedAt: NOW,
+          readyAt: NOW + 30 * 60_000,
+          cycleDurationMs: 9_000,
+          attempts: 200,
+          successRate: 1,
+          bonusMaterialRate: 0,
+          baseXp: 10,
+        },
+      });
+      store.set(MINING_LOG_KEY, capLog());
+      store.set("character.v2", { materials: {} });
+      store.set(LIFE_MAJOR_SAVE_KEY, MAJOR());
+      const json = await (await AUTO(request("auto", { action: "cancel" }))).json();
+      expect(json.lifeMajor.masteryXpGained).toBe(json.xpGained);
+      expect(json.lifeMajor.masterProduct?.count).toBe(json.successes);
+      expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_alloy: json.successes } });
+    });
   });
 
 });

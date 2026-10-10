@@ -4,6 +4,7 @@ import { createGuildRaidPracticeService } from "./guildRaidPractice";
 const ACTIVE_NOW = new Date("2026-09-03T03:00:00.000Z");
 const ACTIVE_CONTEXT = {
   hasGuild: true,
+  selectedBossKind: null as string | null,
   event: {
     bossKind: "mountain_chief_hard",
     status: "active",
@@ -55,7 +56,7 @@ describe("길드 토벌전 연습 서비스", () => {
     expect(readContext).toHaveBeenCalledWith("u1", "2026-08-31");
     expect(simulate).toHaveBeenCalledWith({
       userId: "u1",
-      bossKind: "mountain_chief_hard",
+      bossId: "mountain_chief_hard",
     });
   });
 
@@ -70,7 +71,11 @@ describe("길드 토벌전 연습 서비스", () => {
   });
 
   it("현재 주차 이벤트가 없으면 연습을 거절한다", async () => {
-    readContext.mockResolvedValue({ hasGuild: true, event: null });
+    readContext.mockResolvedValue({
+      hasGuild: true,
+      selectedBossKind: null,
+      event: null,
+    });
 
     await expect(practice({ userId: "u1", now: ACTIVE_NOW })).resolves.toEqual({
       ok: false,
@@ -89,7 +94,7 @@ describe("길드 토벌전 연습 서비스", () => {
       },
     ],
   ])("%s 토벌전에서도 연습 결과를 반환한다", async (_label, event) => {
-    readContext.mockResolvedValue({ hasGuild: true, event });
+    readContext.mockResolvedValue({ ...ACTIVE_CONTEXT, event });
 
     await expect(
       practice({ userId: "u1", now: ACTIVE_NOW }),
@@ -101,21 +106,36 @@ describe("길드 토벌전 연습 서비스", () => {
     });
     expect(simulate).toHaveBeenCalledWith({
       userId: "u1",
-      bossKind: "mountain_chief_hard",
+      bossId: "mountain_chief_hard",
     });
   });
 
-  it("보스 식별자가 잘못되면 연습을 거절한다", async () => {
+  it("요청한 보스 식별자가 잘못되면 연습을 거절한다", async () => {
+    await expect(
+      practice({ userId: "u1", bossId: "unknown-boss", now: ACTIVE_NOW }),
+    ).resolves.toEqual({ ok: false, error: "bad_boss" });
+    expect(simulate).not.toHaveBeenCalled();
+  });
+
+  it("고르지 않은 보스도 지정해서 연습할 수 있다", async () => {
+    await expect(
+      practice({ userId: "u1", bossId: "canyon_predator_raid", now: ACTIVE_NOW }),
+    ).resolves.toMatchObject({ ok: true, bossKind: "canyon_predator_raid" });
+    expect(simulate).toHaveBeenCalledWith({
+      userId: "u1",
+      bossId: "canyon_predator_raid",
+    });
+  });
+
+  it("보스를 지정하지 않으면 길드가 고른 보스로 연습한다", async () => {
     readContext.mockResolvedValue({
       ...ACTIVE_CONTEXT,
-      event: { ...ACTIVE_CONTEXT.event, bossKind: "unknown-boss" },
+      selectedBossKind: "canyon_predator_raid",
     });
 
-    await expect(practice({ userId: "u1", now: ACTIVE_NOW })).resolves.toEqual({
-      ok: false,
-      error: "bad_boss",
-    });
-    expect(simulate).not.toHaveBeenCalled();
+    await expect(
+      practice({ userId: "u1", now: ACTIVE_NOW }),
+    ).resolves.toMatchObject({ ok: true, bossKind: "canyon_predator_raid" });
   });
 
   it("캐릭터가 없으면 명확한 오류를 반환한다", async () => {

@@ -359,7 +359,6 @@ export const ERROR_TEXT: Record<string, string> = {
     "장착·잠금되지 않은 하위 장비가 필요합니다.",
   insufficient_gold: "제작 수수료 또는 외부 이용료를 낼 골드가 부족합니다.",
   policy_blocked: "점령 길드가 길드원 전용으로 설정한 제작소입니다.",
-  weekly_source_conflict: "이번 주 제작소 보상처를 이미 다른 곳으로 선택했습니다.",
   specialty_level_locked: "대장장이 Lv 13에 영구 전문 분야가 해금됩니다.",
   specialty_locked: "이미 정한 전문 분야는 바꿀 수 없습니다.",
   technique_locked: "아직 해금되지 않은 전문 제작 기술입니다.",

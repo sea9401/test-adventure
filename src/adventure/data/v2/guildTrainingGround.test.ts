@@ -350,3 +350,75 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     expect(second.weeklyBonusMastery).toBe(0);
   });
 });
+
+describe("훈련장 Lv.6~10", () => {
+  const emptyState: GuildTrainingState = {
+    dayKey: "2026-10-13",
+    claimed: [],
+    weekKey: "2026-10-12",
+    weeklyClaims: 0,
+    weeklyBonusClaimed: false,
+  };
+
+  it("새 훈련 정의", () => {
+    expect(GUILD_TRAINING_DRILLS.joint_tactics).toMatchObject({
+      title: "합동 전술 훈련",
+      focus: "common",
+      category: "tactical",
+      minBuildingLevel: 6,
+      minCharacterLevel: 100,
+      baseMasteryReward: 34,
+    });
+    expect(GUILD_TRAINING_DRILLS.mage_deep).toMatchObject({
+      title: "마법 심화 훈련",
+      focus: "mage",
+      category: "specialized",
+      minBuildingLevel: 8,
+      baseMasteryReward: 40,
+    });
+    expect(GUILD_TRAINING_DRILLS.elite_instructor).toMatchObject({
+      title: "정예 교관 특훈",
+      category: "advanced",
+      minBuildingLevel: 10,
+      baseMasteryReward: 50,
+    });
+  });
+
+  it("Lv.8 직군 심화 훈련은 현재 직군만 열린다", () => {
+    const views = guildTrainingDrillViews({
+      state: emptyState,
+      buildingLevel: 8,
+      characterLevel: 100,
+      hasJob: true,
+      currentClass: "mage",
+    });
+    expect(views.find((v) => v.id === "mage_deep")?.available).toBe(true);
+    expect(views.find((v) => v.id === "warrior_deep")?.lockedReason).toBe("전사 계열 전용");
+    expect(views.find((v) => v.id === "elite_instructor")?.lockedReason).toBe("훈련장 Lv 10 필요");
+  });
+
+  it("Lv.10 일일 5회", () => {
+    expect(trainingGroundUpgradeForLevel(10).unlockedDrillCount).toBe(5);
+    expect(trainingGroundUpgradeForLevel(10).trainingRewardBonusPct).toBe(100);
+  });
+
+  it("Lv.9 이상 주 10회째 훈련에 2단계 보너스 60", () => {
+    const state = { ...emptyState, weeklyClaims: 9, weeklyBonusClaimed: true };
+    const lv9 = claimGuildTrainingDrill(state, "basic_stance", 9);
+    expect(lv9.weeklyBonusMastery).toBe(60);
+    expect(lv9.state.weeklySecondBonusClaimed).toBe(true);
+    expect(claimGuildTrainingDrill(state, "basic_stance", 8).weeklyBonusMastery).toBe(0);
+    const again = claimGuildTrainingDrill(
+      { ...lv9.state, claimed: [] },
+      "field_rotation",
+      9,
+    );
+    expect(again.weeklyBonusMastery).toBe(0);
+  });
+
+  it("2단계 보너스 수령 여부는 같은 주에만 유지된다", () => {
+    const raw = { ...emptyState, weeklySecondBonusClaimed: true };
+    expect(parseGuildTrainingState(raw, "2026-10-13", "2026-10-12").weeklySecondBonusClaimed).toBe(true);
+    expect(parseGuildTrainingState(raw, "2026-10-20", "2026-10-19").weeklySecondBonusClaimed).toBeFalsy();
+  });
+});

@@ -59,6 +59,7 @@ export function V2DungeonList({
   onSelectRareMap,
   unexploredSnapshot = null,
   onSelectUnexplored,
+  onOpenUnexploredNetwork,
   initialOpenDepth = null,
 }: {
   onSelectFloor: (depth: number) => void;
@@ -72,6 +73,7 @@ export function V2DungeonList({
   onSelectRareMap?: (map: RareMapInstance) => void;
   unexploredSnapshot?: UnexploredDungeonListSnapshot | null;
   onSelectUnexplored?: () => void;
+  onOpenUnexploredNetwork?: () => void;
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
   initialOpenDepth?: number | null;
 }) {
@@ -271,6 +273,7 @@ export function V2DungeonList({
           <UnexploredDungeonCard
             snapshot={unexploredSnapshot}
             onSelect={onSelectUnexplored}
+            onOpenNetwork={onOpenUnexploredNetwork}
           />
         )}
         <div className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -465,12 +468,16 @@ export function V2DungeonList({
 export function UnexploredDungeonCard({
   snapshot,
   onSelect,
+  onOpenNetwork,
 }: {
   snapshot: UnexploredDungeonListSnapshot;
   onSelect: () => void;
+  /** 탐사 시작 전 카드를 누르면 탐사망으로 보낸다. 없으면 기존처럼 잠근다. */
+  onOpenNetwork?: () => void;
 }) {
   const startActive = snapshot.selectedNodeIds.includes("start");
   const canEnter = snapshot.eligible && startActive;
+  const needsStart = snapshot.eligible && !startActive && onOpenNetwork != null;
   const activePools = snapshot.encounterShares
     .filter((share) => share.kind === "pool")
     .slice(0, 3);
@@ -483,14 +490,14 @@ export function UnexploredDungeonCard({
   return (
     <button
       type="button"
-      onClick={onSelect}
-      disabled={!canEnter}
+      onClick={canEnter ? onSelect : onOpenNetwork}
+      disabled={!canEnter && !needsStart}
       className="group block w-full text-left disabled:cursor-not-allowed"
     >
       <Card
         padding="md"
         className={`ui-dungeon-card transition-all duration-150 ${
-          canEnter
+          canEnter || needsStart
             ? "border-violet-300 hover:-translate-y-0.5 hover:border-violet-500 hover:shadow-md active:translate-y-0 dark:border-violet-700 dark:hover:border-violet-400"
             : "border-zinc-300 dark:border-zinc-700"
         }`}
@@ -502,7 +509,9 @@ export function UnexploredDungeonCard({
               <span>미개척지 · 난이도 {snapshot.difficulty}</span>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              탐사망으로 구성한 몬스터와 보상이 적용되는 전용 사냥터
+              {needsStart
+                ? "탐사망 가운데의 탐사 시작 노드를 켜면 입장할 수 있습니다"
+                : "탐사망으로 구성한 몬스터와 보상이 적용되는 전용 사냥터"}
             </p>
           </div>
           <span

@@ -179,6 +179,11 @@ describe("advance-class tier 7 first unlock", () => {
     ["aegis", "fortressknight", "lawguardian", "warrior"],
     ["seraphim", "savior", "dawnpaladin", "mage"],
     ["dragonlord", "dragonsovereign", "infernomancer", "warrior"],
+    ["tempest", "stormbringer", "frostsovereign", "mage"],
+    ["titan", "tectomancer", "eternal", "mage"],
+    ["runelord", "lawweaver", "archmage", "mage"],
+    ["bloodheaven", "blooddemon", "absolute", "warrior"],
+    ["behemoth", "primalpredator", "celestialdragon", "mutant"],
   ])("%s는 어느 선행 직업에서도 최초 전직하고 재전직 때 중복 소비하지 않는다", async (id, first, second, cls) => {
     for (const currentJobId of [first, second]) {
       seedCandidate({ currentJobId, jobCumLevel: { [first]: 100_000, [second]: 100_000 } });

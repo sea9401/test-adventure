@@ -56,6 +56,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
+import { PotionTargetStepper } from "@/adventure/v2/PotionTargetStepper";
 import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 import {
   heldRareMapsAfterExpedition,
@@ -1474,38 +1475,15 @@ export function V2DungeonFloorView({
             )}
 
             <div className={`${SURFACE_INSET} space-y-2 p-3`}>
-              <div className="flex items-center justify-between gap-3">
-                <label
-                  htmlFor="hp-potion-target"
-                  className="text-sm font-medium"
-                >
-                  HP 충전약 사용 목표
-                </label>
-                <span className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                  {autoStopConfig.hpPotionTargetPct === 0
-                    ? "사용 안 함"
-                    : `체력 ${autoStopConfig.hpPotionTargetPct}%`}
-                </span>
-              </div>
-              <input
+              <PotionTargetStepper
                 id="hp-potion-target"
-                type="range"
-                min={0}
-                max={100}
-                step={5}
+                label="HP 충전약 사용 목표"
+                unit="체력"
                 value={autoStopConfig.hpPotionTargetPct}
-                onChange={(e) =>
-                  updateAutoStopConfig({
-                    hpPotionTargetPct: Number(e.target.value),
-                  })
+                onChange={(hpPotionTargetPct) =>
+                  updateAutoStopConfig({ hpPotionTargetPct })
                 }
-                aria-label="HP 충전약 사용 목표 체력"
-                aria-valuetext={
-                  autoStopConfig.hpPotionTargetPct === 0
-                    ? "사용 안 함"
-                    : `체력 ${autoStopConfig.hpPotionTargetPct}%까지`
-                }
-                className="w-full accent-emerald-600"
+                valueClassName="text-emerald-700 dark:text-emerald-300"
               />
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 사냥 후 HP 충전약을 설정한 체력까지만 사용합니다. 체력이
@@ -1513,38 +1491,15 @@ export function V2DungeonFloorView({
               </p>
 
               <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                <div className="flex items-center justify-between gap-3">
-                  <label
-                    htmlFor="mp-potion-target"
-                    className="text-sm font-medium"
-                  >
-                    MP 충전약 사용 목표
-                  </label>
-                  <span className="text-sm font-semibold tabular-nums text-sky-700 dark:text-sky-300">
-                    {autoStopConfig.mpPotionTargetPct === 0
-                      ? "사용 안 함"
-                      : `마나 ${autoStopConfig.mpPotionTargetPct}%`}
-                  </span>
-                </div>
-                <input
+                <PotionTargetStepper
                   id="mp-potion-target"
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
+                  label="MP 충전약 사용 목표"
+                  unit="마나"
                   value={autoStopConfig.mpPotionTargetPct}
-                  onChange={(e) =>
-                    updateAutoStopConfig({
-                      mpPotionTargetPct: Number(e.target.value),
-                    })
+                  onChange={(mpPotionTargetPct) =>
+                    updateAutoStopConfig({ mpPotionTargetPct })
                   }
-                  aria-label="MP 충전약 사용 목표 마나"
-                  aria-valuetext={
-                    autoStopConfig.mpPotionTargetPct === 0
-                      ? "사용 안 함"
-                      : `마나 ${autoStopConfig.mpPotionTargetPct}%까지`
-                  }
-                  className="w-full accent-sky-600"
+                  valueClassName="text-sky-700 dark:text-sky-300"
                 />
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   사냥 후 MP 충전약을 설정한 마나까지만 사용합니다.

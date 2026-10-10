@@ -31,6 +31,7 @@ import {
   bleedHuntStage,
   bleedHuntStageLabel,
 } from "@/adventure/data/v2/bleedHunt";
+import { skillBuildsWeight } from "@/adventure/data/v2/weightCycle";
 
 export { actionFrequencyLabel } from "./CombatMatchupSummary";
 
@@ -523,8 +524,8 @@ export function BattleScene({
   const bleedHuntLabel = hasBleedHunt
     ? bleedHuntStageLabel(bleedHuntStage(activeEnemyBleedStacks))
     : null;
-  const showMutationWeight = equippedSkillIds.includes(
-    "v2c_golem_rocksmash",
+  const showMutationWeight = equippedSkillIds.some((skillId) =>
+    skillBuildsWeight(V2_SKILLS[skillId]),
   );
   const logRef = useRef<HTMLDivElement>(null);
   const initialLogTick = battleLogGroupFirstTick(state.log);

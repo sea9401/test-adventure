@@ -39,6 +39,7 @@ import { STAMINA_SHARD_MATERIAL } from "./staminaPotionCrafting";
 import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 import { STORM_EXPEDITION_MATERIALS } from "./stormExpeditionRewards";
 import { LIFE_PROCESSED_MATERIALS } from "@/adventure/v2/lifeWorkshop";
+import { LIFE_MAJOR_PRODUCTS, TEMPERING_CATALYST } from "@/adventure/v2/lifeMajorProducts";
 import {
   DANGEROUS_FISH,
   DANGEROUS_FISHING_MATERIALS,
@@ -70,6 +71,19 @@ export type V2Material = {
 };
 
 export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
+  // 명장 산물 4종(생활 전공) — 카탈로그 등재로 인벤 재료 탭·거래소 거래가 살아난다.
+  // NPC 판매는 의도적 비등재(유저 거래 전용).
+  ...Object.fromEntries(
+    Object.values(LIFE_MAJOR_PRODUCTS).map((product) => [
+      product.id,
+      { id: product.id, name: product.name, description: product.description },
+    ]),
+  ),
+  [TEMPERING_CATALYST.id]: {
+    id: TEMPERING_CATALYST.id,
+    name: TEMPERING_CATALYST.name,
+    description: TEMPERING_CATALYST.description,
+  },
   [ENHANCE_STONE_MATERIAL_ID.red]: {
     id: ENHANCE_STONE_MATERIAL_ID.red,
     name: ENHANCE_STONES.red.name,

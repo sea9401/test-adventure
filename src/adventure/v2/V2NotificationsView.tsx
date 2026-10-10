@@ -10,6 +10,7 @@ import {
   Crown,
   Envelope,
   Flag,
+  Medal,
   Handshake,
   Plant,
   ShoppingBag,
@@ -29,6 +30,8 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
 import {
   auctionWonNotificationText,
+  masterProductNotificationText,
+  type MasterProductNotificationPayload,
   type AuctionWonNotificationPayload,
   unreadV2Notifications,
   type V2NotificationEntry,
@@ -38,6 +41,13 @@ import {
 export type NotificationCenterTab = "all" | "notifications" | "mail";
 
 const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
+  master_product: (
+    <Medal
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-amber-500 dark:text-amber-400"
+    />
+  ),
   auction_won: (
     <ShoppingBag
       size={16}
@@ -161,6 +171,9 @@ function mailBody(item: InboxItem): string {
 function entryText(n: V2NotificationEntry): React.ReactNode {
   if (n.type === "auction_won") {
     return auctionWonNotificationText(n.payload as AuctionWonNotificationPayload);
+  }
+  if (n.type === "master_product") {
+    return masterProductNotificationText(n.payload as MasterProductNotificationPayload);
   }
   if (n.type === "outpost_attacked") {
     return (

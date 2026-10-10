@@ -5,8 +5,10 @@ import {
   isJobContentUnlocked,
   isLifestyleMasteryJobId,
   isRootJobSelectable,
+  jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
+import { parseV2Class } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
   type V2ProficiencyState,
@@ -24,6 +26,8 @@ export type MasteryCertificateJob = {
 export type MasteryCertificateStatus = {
   certificates: number;
   jobs: MasteryCertificateJob[];
+  // 모달이 현재 직업을 기본 선택하도록 함께 내려준다. 직업이 없으면 null.
+  currentJobId?: string | null;
 };
 
 export function masteryCertificateJobs(
@@ -42,6 +46,15 @@ export function masteryCertificateJobs(
     group: LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id,
     mastery: cumLevelForJob(proficiency, job),
   }));
+}
+
+export function masteryCertificateCurrentJobId(
+  character: Record<string, unknown>,
+): string | null {
+  const spec =
+    typeof character.specChoice === "string" ? character.specChoice : null;
+  const jobId = jobIdFromLegacy(parseV2Class(character.class), spec);
+  return jobId === "none" ? null : jobId;
 }
 
 function objectSave(raw: unknown): Record<string, unknown> {
@@ -63,7 +76,11 @@ export function masteryCertificateStatusFromSaves(
     Math.floor(Number(inventory[MASTERY_CERTIFICATE_KEY]) || 0),
   );
   const jobs = masteryCertificateJobs(proficiency);
-  return { certificates, jobs };
+  return {
+    certificates,
+    jobs,
+    currentJobId: masteryCertificateCurrentJobId(character),
+  };
 }
 
 export async function readMasteryCertificateStatus(

@@ -160,6 +160,36 @@ describe("좌우 전투 상태 정렬", () => {
     expect(hidden).not.toContain("분열체 3/3");
   });
 
+  it.each(["v2c_rockbrawler_boulderroll", "v2c_irongolem_ironhammer"] as const)(
+    "%s 처럼 중량을 쌓는 골렘 계보 스킬만 장착해도 중량을 표시한다",
+    (skillId) => {
+      const enemy: Monster = {
+        name: "훈련용 적",
+        tags: [],
+        hp: 100,
+        atk: 10,
+        def: 5,
+        spd: 5,
+        exp: 0,
+      };
+      const initial = initialBattleState(
+        { hp: 100, maxHp: 100, atk: 10, def: 5, spd: 10, evasionPct: 0, attackCount: 1 },
+        enemy,
+        "변이자",
+        { learned: [skillId], equipped: [skillId] },
+      );
+      const html = renderToStaticMarkup(
+        <BattleScene
+          state={{ ...initial, stacks: { ...initial.stacks, mutationWeight: 1 } }}
+          playerName="변이자"
+          playerStatus={{ gender: "male1", exp: 0, maxExp: 100, hpPotionCount: 0 }}
+          layout="split"
+        />,
+      );
+      expect(html).toContain("중량 1/3");
+    },
+  );
+
   it("진행 중인 선언의 남은 평타와 현재 기세 단계를 보여준다", () => {
     const enemy: Monster = {
       name: "훈련용 적",

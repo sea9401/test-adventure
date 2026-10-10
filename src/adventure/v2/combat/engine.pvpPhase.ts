@@ -31,7 +31,7 @@ import { type PvPAttackDamageResult, type PvPBattleState, type PvPPhaseEndOption
 import { type EquippedAPSkill, type PlayerAction } from "./engineState";
 import { appendLog } from "./engineSupport";
 import { magicBarrierCombatLogEntries, resolveMagicBarrierDamage } from "./magicBarrier";
-import { weightSpeedMultiplier } from "./mutationCombat";
+import { equippedWeightSpeedMultiplier } from "./mutationCombat";
 import { applyNextAttackDamageDown, consumeNextAttackDamageDown, paragonBasicBonus } from "./paragonCombat";
 import { makePlayerPoisonDot } from "./playerDotDamage";
 import { pvpSideDamageTakenReductionPct } from "./pvpDamageReduction";
@@ -126,12 +126,12 @@ function computeAttackDamagePvP(
     (nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
       ? attacker.player.spd * nextBuffsTimedFromAp.playerSpdMult
       : attacker.player.spd) *
-    weightSpeedMultiplier(attacker.stacks.mutationWeight);
+    equippedWeightSpeedMultiplier(attacker.stacks.mutationWeight, attacker.v2Skills?.equipped);
   const effectiveDefSpd =
     (nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
       ? defender.player.spd * nextBuffsTimedFromAp.enemySpdMult
       : defender.player.spd) *
-    weightSpeedMultiplier(defender.stacks.mutationWeight);
+    equippedWeightSpeedMultiplier(defender.stacks.mutationWeight, defender.v2Skills?.equipped);
   const balanceCritBonus = computeBalanceCritBonus(
     effectiveAtkSpd,
     effectiveDefSpd,

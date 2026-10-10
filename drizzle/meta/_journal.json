@@ -1324,6 +1324,34 @@
       "when": 1791188021765,
       "tag": "0188_unbind_enchantment_transfer_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1791636218738,
+      "tag": "0189_guild_raid_boss_selection",
+      "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1791642147034,
+      "tag": "0190_guild_facility_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1791643088892,
+      "tag": "0191_guild_exploration_raid_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1791643089892,
+      "tag": "0192_life_festival",
+      "breakpoints": true
     }
   ]
 }

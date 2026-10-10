@@ -40,12 +40,24 @@ describe("대지 단일 계보", () => {
     expect(derive(["v2c_geomancer_barrier", "v2c_tectomancer_ground"])).toMatchObject({ skillShieldPowerPct: 30, shieldedMagicSkillDamagePct: 20 });
   });
 
+  it("태산의 의지는 물리·마법 방어력을 각각 18%만 올린다", () => {
+    // defPct 는 물리·마법 방어력 양쪽에 붙으므로 magicDefPct 를 더하면 마법 방어력만 36%가 된다.
+    expect(V2_SKILLS.v2c_tectomancer_resolve.passive).toMatchObject({ defPct: 18 });
+    expect(V2_SKILLS.v2c_tectomancer_resolve.passive?.magicDefPct).toBeUndefined();
+  });
+
+  it("마나 실드를 피격 시 MP를 소모하는 것으로 설명하지 않는다", () => {
+    for (const id of ["v2c_geomancer_barrier", "v2c_tectomancer_ground"] as const) {
+      expect(JSON.stringify(V2_SKILLS[id].detail)).not.toContain("MP를 소모");
+    }
+  });
+
   it("능력치와 특화 패시브를 별도 비용으로 장착하고 조건을 표시한다", () => {
     const stats = aggregateEquippedPassives(["v2c_geomancer_heart", "v2c_tectomancer_resolve"]);
     expect(stats.statPct).toEqual({ int: 45, spi: 15 });
-    expect(stats).toMatchObject({ maxHpPct: 28, defPct: 18, magicDefPct: 18, skillShieldPowerPct: 0, shieldedMagicSkillDamagePct: 0 });
+    expect(stats).toMatchObject({ maxHpPct: 28, defPct: 18, magicDefPct: 0, skillShieldPowerPct: 0, shieldedMagicSkillDamagePct: 0 });
     expect(spCostOf(V2_SKILLS.v2c_geomancer_heart)).toBe(8);
-    expect(spCostOf(V2_SKILLS.v2c_tectomancer_resolve)).toBe(15);
+    expect(spCostOf(V2_SKILLS.v2c_tectomancer_resolve)).toBe(11);
     expect(spCostOf(V2_SKILLS.v2c_geomancer_barrier)).toBe(4);
     expect(spCostOf(V2_SKILLS.v2c_tectomancer_ground)).toBe(4);
     expect(describeV2Skill(V2_SKILLS.v2c_geomancer_barrier).join(" ")).toContain("스킬 보호막 생성량 +30%");

@@ -19,6 +19,7 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   unlockedJobCount,
+  unlockedTier7JobCount,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
@@ -85,7 +86,7 @@ function resolveJobSpLoadout(
     prof.groups,
     spFruitBonus,
     collectionBonusSp,
-    jobUnlockSpForCount(count),
+    jobUnlockSpForCount(count, unlockedTier7JobCount(prof, jobUnlockCtx)),
   );
   const legacySpBudget = calcSpBudget(
     prof.groups,

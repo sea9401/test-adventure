@@ -60,7 +60,7 @@ describe("길드 토벌전 연습 API", () => {
   it.each([
     ["no_guild", 403],
     ["no_character", 400],
-    ["bad_boss", 500],
+    ["bad_boss", 400],
     ["event_ended", 410],
   ])("%s 오류를 HTTP %i로 매핑한다", async (error, status) => {
     practiceGuildRaid.mockResolvedValue({ ok: false, error });
@@ -88,5 +88,22 @@ describe("길드 토벌전 연습 API", () => {
       damageDealt: 1_234,
     });
     expect(practiceGuildRaid).toHaveBeenCalledWith({ userId: "u1" });
+  });
+
+  it("요청 본문에 지정한 보스를 연습 서비스로 넘긴다", async () => {
+    practiceGuildRaid.mockResolvedValue({ ok: true, practice: true });
+
+    await POST(
+      new Request("http://localhost/api/v2/guild/raid/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bossId: "canyon_predator_raid" }),
+      }),
+    );
+
+    expect(practiceGuildRaid).toHaveBeenCalledWith({
+      userId: "u1",
+      bossId: "canyon_predator_raid",
+    });
   });
 });

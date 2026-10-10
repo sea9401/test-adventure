@@ -413,6 +413,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 12, dex: 6 },
     unlock: { prereqs: { beastkin: TIER2_UNLOCK_CUMLEVEL } },
   },
+  rockbrawler: {
+    id: "rockbrawler",
+    name: "바위투사",
+    tier: 2,
+    cultivateProfile: { vit: 2, str: 2 },
+    jobBonus: { vit: 12, str: 6 },
+    unlock: { prereqs: { golem: TIER2_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 3: 고차 직업 — 🔑 계보 게이팅: 바로 아래 2차 직업의 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL ───
   dragonknight: {
@@ -701,6 +709,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 13, dex: 7 },
     unlock: { prereqs: { beastwarrior: TIER3_UNLOCK_CUMLEVEL } },
   },
+  rockgiant: {
+    id: "rockgiant",
+    name: "암석거인",
+    tier: 3,
+    cultivateProfile: { vit: 2, str: 2 },
+    jobBonus: { vit: 13, str: 7 },
+    unlock: { prereqs: { rockbrawler: TIER3_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
   drakeblood: {
@@ -726,6 +742,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, dex: 2 },
     jobBonus: { str: 14, dex: 8 },
     unlock: { prereqs: { tracker: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  irongolem: {
+    id: "irongolem",
+    name: "강철골렘",
+    tier: 4,
+    cultivateProfile: { vit: 2, str: 2 },
+    jobBonus: { vit: 14, str: 8 },
+    unlock: { prereqs: { rockgiant: TIER4_UNLOCK_CUMLEVEL } },
   },
   sensei: {
     id: "sensei",
@@ -1278,6 +1302,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 17, dex: 9 },
     unlock: { prereqs: { bloodtracker: TIER5_UNLOCK_CUMLEVEL } },
   },
+  mountaingolem: {
+    id: "mountaingolem",
+    name: "산맥골렘",
+    tier: 5,
+    cultivateProfile: { vit: 3, str: 2 },
+    jobBonus: { vit: 17, str: 9 },
+    unlock: { prereqs: { irongolem: TIER5_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 6: 초월 심화 직업 — 5차 직업 숙련도 기반 엔드 성장 ───
   stormbringer: {
@@ -1539,6 +1571,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 26, dex: 10, vit: 4 },
     unlock: { prereqs: { predator: TIER6_UNLOCK_CUMLEVEL } },
   },
+  primevalgolem: {
+    id: "primevalgolem",
+    name: "태고골렘",
+    tier: 6,
+    cultivateProfile: { vit: 3, str: 2, spi: 1 },
+    jobBonus: { vit: 26, str: 10, spi: 4 },
+    unlock: { prereqs: { mountaingolem: TIER6_UNLOCK_CUMLEVEL } },
+  },
   absolute: {
     id: "absolute",
     name: "절대자",
@@ -1610,6 +1650,36 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 3, int: 3, vit: 1 },
     jobBonus: { str: 20, int: 20, vit: 8 },
     unlock: { prereqs: tier7Prerequisites("dragonlord") },
+  },
+  tempest: {
+    id: "tempest", name: TIER7_COMBAT_JOB_NAMES.tempest, tier: 7,
+    cultivateProfile: { int: 4, spi: 2, dex: 1 },
+    jobBonus: { int: 32, spi: 10, dex: 6 },
+    unlock: { prereqs: tier7Prerequisites("tempest") },
+  },
+  titan: {
+    id: "titan", name: TIER7_COMBAT_JOB_NAMES.titan, tier: 7,
+    cultivateProfile: { vit: 4, int: 2, spi: 1 },
+    jobBonus: { vit: 28, int: 14, spi: 6 },
+    unlock: { prereqs: tier7Prerequisites("titan") },
+  },
+  runelord: {
+    id: "runelord", name: TIER7_COMBAT_JOB_NAMES.runelord, tier: 7,
+    cultivateProfile: { int: 5, spi: 2 },
+    jobBonus: { int: 34, spi: 14 },
+    unlock: { prereqs: tier7Prerequisites("runelord") },
+  },
+  bloodheaven: {
+    id: "bloodheaven", name: TIER7_COMBAT_JOB_NAMES.bloodheaven, tier: 7,
+    cultivateProfile: { str: 4, vit: 2, spi: 1 },
+    jobBonus: { str: 30, vit: 12, spi: 6 },
+    unlock: { prereqs: tier7Prerequisites("bloodheaven") },
+  },
+  behemoth: {
+    id: "behemoth", name: TIER7_COMBAT_JOB_NAMES.behemoth, tier: 7,
+    cultivateProfile: { str: 4, dex: 2, vit: 1 },
+    jobBonus: { str: 30, dex: 12, vit: 6 },
+    unlock: { prereqs: tier7Prerequisites("behemoth") },
   },
 };
 
@@ -1744,11 +1814,24 @@ export function unlockedJobCount(
   ).length;
 }
 
+export function unlockedTier7JobCount(
+  proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
+): number {
+  return V2_JOB_LIST.filter(
+    (job) =>
+      isTier7CombatJobId(job.id) && isJobContentUnlocked(job, proficiency, ctx),
+  ).length;
+}
+
 export function jobUnlockSpBonus(
   proficiency: V2ProficiencyState,
   ctx?: JobUnlockContext,
 ): number {
-  return jobUnlockSpForCount(unlockedJobCount(proficiency, ctx));
+  return jobUnlockSpForCount(
+    unlockedJobCount(proficiency, ctx),
+    unlockedTier7JobCount(proficiency, ctx),
+  );
 }
 
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.
@@ -1982,6 +2065,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   bloodtracker: { class: "mutant", spec: "bloodtracker" },
   predator: { class: "mutant", spec: "predator" },
   primalpredator: { class: "mutant", spec: "primalpredator" },
+  rockbrawler: { class: "mutant", spec: "rockbrawler" },
+  rockgiant: { class: "mutant", spec: "rockgiant" },
+  irongolem: { class: "mutant", spec: "irongolem" },
+  mountaingolem: { class: "mutant", spec: "mountaingolem" },
+  primevalgolem: { class: "mutant", spec: "primevalgolem" },
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },
@@ -2135,6 +2223,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   aegis: { class: "warrior", spec: "aegis" },
   seraphim: { class: "mage", spec: "seraphim" },
   dragonlord: { class: "warrior", spec: "dragonlord" },
+  tempest: { class: "mage", spec: "tempest" },
+  titan: { class: "mage", spec: "titan" },
+  runelord: { class: "mage", spec: "runelord" },
+  bloodheaven: { class: "warrior", spec: "bloodheaven" },
+  behemoth: { class: "mutant", spec: "behemoth" },
 };
 
 /**

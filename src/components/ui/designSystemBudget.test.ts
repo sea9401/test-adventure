@@ -9,7 +9,7 @@ const BUDGET = {
   /** 색 바탕 + 흰 글자를 손으로 칠한 문자열. 주 행동은 Button/buttonClassName을 쓴다. */
   handPaintedButtons: 235,
   /** 12px 미만 글씨 클래스. 새 코드는 text-xs(12px) 이상을 쓴다. */
-  tinyText: 1199,
+  tinyText: 1198,
 };
 
 const HAND_PAINTED =

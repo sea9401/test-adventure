@@ -25,4 +25,17 @@ describe("TwoPane", () => {
     expect(html).toMatch(/<aside class="[^"]*"/);
     expect(html).not.toContain("lg:sticky");
   });
+
+  it("왼쪽 목록이 길고 오른쪽 상세가 짧은 화면은 오른쪽 칸을 머리 아래 고정한다", () => {
+    const html = renderToStaticMarkup(
+      <TwoPane aside={<p>사냥터 목록</p>} sticky={false} stickyMain>
+        <p>사냥터 상세</p>
+      </TwoPane>,
+    );
+
+    expect(html).not.toMatch(/<aside class="[^"]*lg:sticky/);
+    expect(html).toMatch(
+      /<div class="[^"]*lg:sticky[^"]*lg:top-\[calc\(var\(--game-header-height,4rem\)\+1rem\)\][^"]*"><p>사냥터 상세<\/p>/,
+    );
+  });
 });

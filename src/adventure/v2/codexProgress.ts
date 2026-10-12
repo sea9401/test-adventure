@@ -125,3 +125,39 @@ export function classifyCodexEquipmentIds(ids: V2EquipmentId[]): {
   }
   return { common, set };
 }
+
+// 도감 SP 단계(5·15·35… 종) 중 받은 단계 수와 다음 기준까지 남은 수.
+export function codexSpMilestoneProgress(
+  count: number,
+  milestones: readonly number[],
+): {
+  earned: number;
+  total: number;
+  next: number | null;
+  remaining: number | null;
+} {
+  const current = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+  const next = milestones.find((need) => current < need) ?? null;
+  return {
+    earned: milestones.filter((need) => current >= need).length,
+    total: milestones.length,
+    next,
+    remaining: next === null ? null : next - current,
+  };
+}
+
+export type CodexEquipmentFilter = "all" | "unregistered" | "registerable";
+
+export function filterCodexEquipmentIds(
+  ids: readonly V2EquipmentId[],
+  filter: CodexEquipmentFilter,
+  registeredIds: ReadonlySet<string>,
+  registerableIds: ReadonlySet<string>,
+): V2EquipmentId[] {
+  if (filter === "all") return [...ids];
+  return ids.filter(
+    (id) =>
+      !registeredIds.has(id) &&
+      (filter === "unregistered" || registerableIds.has(id)),
+  );
+}

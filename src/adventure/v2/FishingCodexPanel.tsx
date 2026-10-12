@@ -18,6 +18,7 @@ import {
 import { FishIcon } from "./FishIcon";
 import type { FishingLeaderboardData } from "./fishingLeaderboard";
 import { useFishingLeaderboard } from "./useFishingLeaderboard";
+import { CodexSpMilestones, codexNextSpLabel } from "./CodexSpMilestones";
 
 const TIER_BADGE: Record<FishTier, string> = {
   common:
@@ -134,11 +135,12 @@ export function FishingCodexList({
               발견 {discoveredCount} / {meta.total}종 · SP +{meta.spBonus}
             </p>
           </div>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            다음 보상{" "}
-            {meta.nextMilestone
-              ? `${meta.nextMilestone}종`
-              : "신규 어종 추가 시 확장"}
+          <span className="text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+            {codexNextSpLabel(
+              discoveredCount,
+              meta.milestones,
+              "신규 어종 추가 시 확장",
+            )}
           </span>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -153,11 +155,7 @@ export function FishingCodexList({
             }}
           />
         </div>
-        {meta.milestones.length > 0 && (
-          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-            SP 보상: {meta.milestones.join(" / ")}종
-          </p>
-        )}
+        <CodexSpMilestones count={discoveredCount} milestones={meta.milestones} />
       </Card>
 
       <Card padding="sm">

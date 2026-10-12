@@ -100,3 +100,19 @@ export function defaultDishSelection(
   }
   return selection;
 }
+
+/** 직전에 납품한 구성을 지금 재고로 다시 채울 수 있으면 그대로, 아니면 null. */
+export function restoreDishSelection(
+  previous: Readonly<Record<string, number>> | undefined,
+  options: readonly LifeFestivalDishOptionView[],
+  quantity: number,
+): Record<string, number> | null {
+  if (!previous) return null;
+  let total = 0;
+  for (const [foodId, count] of Object.entries(previous)) {
+    const option = options.find((entry) => entry.foodId === foodId);
+    if (!option || option.count < count) return null;
+    total += count;
+  }
+  return total === quantity ? { ...previous } : null;
+}

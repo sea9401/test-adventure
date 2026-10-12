@@ -176,7 +176,6 @@ export function GuildDiningHallPanel({
       pointValue: selectedIngredient.pointValue,
       contributionPoints: state.contributionPoints,
       contributionCap: state.tickets.contributionCap,
-      pantryRemaining: state.pantry.remaining,
     });
   }, [selectedIngredient, source, state]);
   const donationQuantity =
@@ -354,7 +353,7 @@ export function GuildDiningHallPanel({
                   ?.batchSize ?? 1,
               );
             }}
-            disabled={busy || !canParticipate || (!isAssociation && state.pantry.ready)}
+            disabled={busy || !canParticipate}
             className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
             {(["farm", "fishing_item"] as const).map((source) => (
@@ -405,7 +404,7 @@ export function GuildDiningHallPanel({
                 (json) =>
                   isAssociation
                     ? `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 개인 기여 +${json.donated?.points ?? 0}점`
-                    : `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 식당 +${json.donated?.points ?? 0}점 · 길드 기여 +${json.donated?.contributionPoints ?? 0}점`,
+                    : `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · 내 기여 +${json.donated?.points ?? 0}점 · 길드 기여 +${json.donated?.contributionPoints ?? 0}점`,
               )
             }
             className="h-9 rounded-md bg-amber-600 px-4 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
@@ -528,7 +527,7 @@ function diningErrorText(error?: string): string {
     case "not_eligible":
       return "다음 주부터 식당을 이용할 수 있습니다.";
     case "contribution_cap":
-      return "개인 기여 한도 또는 공동 준비 목표를 넘습니다.";
+      return "이번 주 개인 기여 한도를 넘습니다.";
     case "insufficient_ingredients":
       return "보유 식재료가 부족합니다.";
     case "pantry_not_ready":

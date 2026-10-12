@@ -452,7 +452,8 @@ export function GuildContent() {
         <li>
           이번 주 참여 대상 길드원이 함께 공동 준비 목표를 달성하면 각자 기본 식권 {GUILD_DINING_BASE_WEEKLY_TICKETS}장을
           사용할 수 있습니다. 개인이 식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
-          시설 레벨별 한도까지 추가 식권이 발급됩니다.
+          시설 레벨별 한도까지 추가 식권이 발급됩니다. 공동 준비 목표를 채운 뒤에도 개인 한도까지는
+          계속 기부할 수 있습니다.
         </li>
         <li>
           메뉴는 관리자가 미리 정하지 않습니다. 공동 준비가 끝나면 각 길드원이

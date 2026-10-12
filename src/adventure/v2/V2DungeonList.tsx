@@ -442,7 +442,7 @@ export function V2DungeonList({
     return (
       <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
         <SubViewHeader title="사냥터" onBack={onBack} />
-        <TwoPane aside={renderList(wideGroup.themeStartDepth)} sticky={false}>
+        <TwoPane aside={renderList(wideGroup.themeStartDepth)} sticky={false} stickyMain>
           {renderGroupDetail(wideGroup, false, true)}
         </TwoPane>
       </main>

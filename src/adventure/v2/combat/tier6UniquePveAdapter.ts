@@ -30,6 +30,9 @@ export function tier6PveCastContext(
 }
 
 export function tier6DotContext(state: BattleState) {
+  // 폭발 피해도 매 턴 DoT 틱과 같은 보스 최대 HP 비례 감산을 적용한다.
+  const maxHpDamageMult =
+    state.maxHpDamageMult ?? (state.isBoss ? BOSS_MAX_HP_DAMAGE_MULT : 1);
   const summarize = (tag: "bleed" | "poison") => {
     const dots = state.enemyV2Dots.filter(
       (dot) => dot.tag === tag && dot.turns > 0 && dot.stacks > 0,
@@ -41,7 +44,7 @@ export function tier6DotContext(state: BattleState) {
           sum +
           Math.floor(
             dot.stacks *
-              v2DotPerStackDamage(dot, state.enemy.hp) *
+              v2DotPerStackDamage(dot, state.enemy.hp, maxHpDamageMult) *
               dot.turns,
           ),
         0,

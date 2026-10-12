@@ -49,6 +49,14 @@ describe("Tier7AdvancementRequirements", () => {
     expect(html).toContain("29 / 30");
   });
 
+  it("explains that job-unlock SP arrives only after the first advancement", () => {
+    const html = renderToStaticMarkup(
+      <Tier7AdvancementRequirements status={candidateStatus} />,
+    );
+
+    expect(html).toContain("SP +1은 최초 전직에 성공할 때 받습니다.");
+  });
+
   it("replaces first-unlock progress with a permanent-unlock badge", () => {
     const html = renderToStaticMarkup(
       <Tier7AdvancementRequirements status={permanentStatus} />,
@@ -56,6 +64,7 @@ describe("Tier7AdvancementRequirements", () => {
 
     expect(html).toContain("영구 해금");
     expect(html).not.toContain("폭풍 기원의 파편");
+    expect(html).not.toContain("SP +1");
   });
 
   it("warns that only the first advancement consumes 30 fragments", () => {
@@ -67,6 +76,7 @@ describe("Tier7AdvancementRequirements", () => {
     expect(html).toContain("최초 전직에만");
     expect(html).toContain("Lv.1");
     expect(html).toContain("숙련도와 배운 스킬은 유지");
+    expect(html).toContain("SP +1은 최초 전직에 성공할 때 받습니다.");
   });
 
   it("does not show a first-unlock warning for a permanent revisit", () => {

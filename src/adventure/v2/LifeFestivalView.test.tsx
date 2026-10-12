@@ -68,6 +68,7 @@ function baseView(overrides: Partial<LifeFestivalViewData> = {}): LifeFestivalVi
 type FetchCall = { url: string; method: string; body: unknown };
 let calls: FetchCall[] = [];
 let postResponse: { status: number; body: unknown } = { status: 200, body: {} };
+let getView: LifeFestivalViewData = baseView();
 
 function respond(body: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
@@ -76,6 +77,7 @@ function respond(body: unknown, status = 200) {
 beforeEach(() => {
   calls = [];
   postResponse = { status: 200, body: {} };
+  getView = baseView();
   vi.stubGlobal(
     "fetch",
     vi.fn((input: string, init?: RequestInit) => {
@@ -91,7 +93,7 @@ beforeEach(() => {
         });
       }
       if (method === "POST") return respond(postResponse.body, postResponse.status);
-      return respond({ ok: true, ...baseView() });
+      return respond({ ok: true, ...getView });
     }),
   );
 });
@@ -170,6 +172,83 @@ describe("생활 축제 화면", () => {
       orderId: "general_offense_dish",
       times: 1,
       foodIds: { "food2:a:normal:o0:s0": 2, "food2:b:masterpiece:o0:s0": 1 },
+    });
+  });
+
+  describe("요리 고르기", () => {
+    const skewer = { foodId: "food2:c:normal:o0:s0", name: "매운 꼬치 (일반)", tier: 2, quality: "normal" as const, count: 6 };
+    function withSkewer(count = skewer.count): LifeFestivalViewData {
+      const view = baseView();
+      return {
+        ...view,
+        dishOptions: {
+          general_offense_dish: [...view.dishOptions.general_offense_dish, { ...skewer, count }],
+        },
+      };
+    }
+    async function openPicker() {
+      fireEvent.click(
+        within(screen.getByTestId("festival-order-general_offense_dish")).getByRole("button", { name: "요리 고르기" }),
+      );
+      return screen.findByRole("dialog");
+    }
+    const posts = () => calls.filter((call) => call.method === "POST").map((call) => call.body);
+
+    it("한 줄의 채우기는 다른 선택을 비우고 그 요리로 필요 수량을 채운다", async () => {
+      getView = withSkewer();
+      await renderLoaded();
+      const dialog = await openPicker();
+      expect(within(dialog).getByText("3 / 3개 선택")).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "매운 꼬치 (일반) 채우기" }));
+      expect(within(dialog).getByText("3 / 3개 선택")).toBeTruthy();
+      postResponse = { status: 200, body: { ok: true, gained: { tokens: 6, score: 60 }, view: withSkewer(3) } };
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택한 요리 납품" }));
+      await waitFor(() => expect(posts()).toHaveLength(1));
+      expect(posts()[0]).toEqual({
+        action: "deliver",
+        orderId: "general_offense_dish",
+        times: 1,
+        foodIds: { "food2:c:normal:o0:s0": 3 },
+      });
+    });
+
+    it("선택 비우기로 모든 선택을 없앤다", async () => {
+      getView = withSkewer();
+      await renderLoaded();
+      const dialog = await openPicker();
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택 비우기" }));
+      expect(within(dialog).getByText("0 / 3개 선택")).toBeTruthy();
+      expect((within(dialog).getByRole("button", { name: "선택한 요리 납품" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("다시 열면 직전에 납품한 구성을 그대로 고른다", async () => {
+      getView = withSkewer();
+      await renderLoaded();
+      let dialog = await openPicker();
+      fireEvent.click(within(dialog).getByRole("button", { name: "매운 꼬치 (일반) 채우기" }));
+      postResponse = { status: 200, body: { ok: true, gained: { tokens: 6, score: 60 }, view: withSkewer(3) } };
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택한 요리 납품" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      dialog = await openPicker();
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택한 요리 납품" }));
+      await waitFor(() => expect(posts()).toHaveLength(2));
+      expect(posts()[1]).toMatchObject({ foodIds: { "food2:c:normal:o0:s0": 3 } });
+    });
+
+    it("직전 구성의 재고가 모자라면 기본 선택으로 돌아간다", async () => {
+      getView = withSkewer();
+      await renderLoaded();
+      let dialog = await openPicker();
+      fireEvent.click(within(dialog).getByRole("button", { name: "매운 꼬치 (일반) 채우기" }));
+      postResponse = { status: 200, body: { ok: true, gained: { tokens: 6, score: 60 }, view: withSkewer(1) } };
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택한 요리 납품" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      dialog = await openPicker();
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택한 요리 납품" }));
+      await waitFor(() => expect(posts()).toHaveLength(2));
+      expect(posts()[1]).toMatchObject({
+        foodIds: { "food2:a:normal:o0:s0": 2, "food2:c:normal:o0:s0": 1 },
+      });
     });
   });
 

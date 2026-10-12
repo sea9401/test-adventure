@@ -67,6 +67,8 @@ import {
   spFruitCodexSource,
   starterGridIds,
 } from "./codexProgress";
+import { codexNextSpLabel } from "./CodexSpMilestones";
+import { EQUIPMENT_CODEX_SP_MILESTONES } from "@/adventure/data/v2/equipmentCodex";
 export {
   classifyCodexEquipmentIds,
   codexEquipmentProgress,
@@ -912,7 +914,21 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1),
       jobUnlockTier7Total: jobUnlockProgress.tier7Total,
     });
-    return { ...row, progress, progressPct, spRange };
+    const nextSpLabel =
+      row.label === "장비 도감"
+        ? codexNextSpLabel(
+            equipmentCodexProgress.current,
+            EQUIPMENT_CODEX_SP_MILESTONES,
+            "모든 SP 획득",
+          )
+        : row.label === "어보"
+          ? codexNextSpLabel(
+              fishDiscovered.size,
+              fishingCodexMeta.milestones,
+              "모든 SP 획득",
+            )
+          : null;
+    return { ...row, progress, progressPct, spRange, nextSpLabel };
   });
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
@@ -1336,6 +1352,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       <div className="mt-1.5 text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
                         {row.progress.label}
                       </div>
+                      {row.nextSpLabel && (
+                        <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-700 dark:text-amber-300">
+                          {row.nextSpLabel}
+                        </div>
+                      )}
                       {row.label === "상한 조정" && (
                         <div className="mt-auto pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                           SP 최대치 계산에서 차감

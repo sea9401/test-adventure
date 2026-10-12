@@ -104,6 +104,47 @@ describe("sanctuary dungeon authority", () => {
     await action("withdraw"); await action("start");
     expect(current().attemptsUsed).toBe(1); expect(current().date).toBe(stormExpeditionDateKey());
   });
+  it("auto-runs every remaining attempt with the given preferences and saves them", async () => {
+    await action("start"); await action("withdraw");
+    const response = await action("auto", { preferences: { supply: ["storm_oil"] } });
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.auto.runs).toEqual([
+      expect.objectContaining({ cleared: true, gainedEmblems: expect.any(Array) }),
+      expect.objectContaining({ cleared: true }),
+    ]);
+    expect(json.auto.runs[0].gainedEmblems).toHaveLength(7);
+    expect(current()).toMatchObject({ attemptsUsed: 3, clears: 2, active: null });
+    expect(current().autoPreferences.supply[0]).toBe("storm_oil");
+    expect(f.battle).toHaveBeenCalledTimes(14);
+    // 보급품에서 고른 폭풍 연마유가 다음 전투(중층 첫 전투)에 붙는다.
+    expect(f.battle.mock.calls[2][0].atk).toBe(112);
+    expect(parseEmblemState((f.store.get("character.v2") as Record<string, unknown>).emblems).owned).toHaveLength(14);
+    expect((await action("auto")).status).toBe(409);
+  });
+  it("auto-run ends only the failed attempt, losing its pending emblems, and goes on", async () => {
+    const win = { outcome: "win", turns: 3, finalState: { playerHp: 800, playerMp: 250, v2SkillCooldowns: {} } };
+    for (let i = 0; i < 4; i++) f.battle.mockReturnValueOnce(win);
+    f.battle.mockReturnValueOnce({ outcome: "lose", turns: 3, finalState: { playerHp: 0, playerMp: 0, v2SkillCooldowns: {} } });
+    const json = await (await action("auto")).json();
+    expect(json.auto.runs).toHaveLength(3);
+    expect(json.auto.runs[0]).toEqual({ cleared: false, endedAt: "문장의 파수꾼", gainedEmblems: [], lostEmblems: 4 });
+    expect(json.auto.runs[1].cleared).toBe(true);
+    expect(current()).toMatchObject({ attemptsUsed: 3, clears: 2, active: null, pendingEmblems: [] });
+    expect(parseEmblemState((f.store.get("character.v2") as Record<string, unknown>).emblems).owned).toHaveLength(14);
+  });
+  it("auto-run finishes an in-progress run first even when no attempts are left", async () => {
+    await action("start"); await action("withdraw");
+    await action("start"); await action("withdraw");
+    await action("start"); await action("fight");
+    const json = await (await action("auto")).json();
+    expect(json.auto.runs).toHaveLength(1);
+    expect(json.auto.runs[0].gainedEmblems).toHaveLength(7);
+    expect(current()).toMatchObject({ attemptsUsed: 3, clears: 1, active: null });
+    const refused = await action("auto");
+    expect(refused.status).toBe(409);
+    expect((await refused.json()).error).toBe("no_attempts");
+  });
   it("does not replenish limited recovery skills between encounters", async () => {
     await action("start");
     const state: SanctuaryState = current();

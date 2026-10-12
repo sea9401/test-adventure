@@ -654,6 +654,12 @@ describe("최신 게임 안내서 내용", () => {
     expect(skills).toContain("다음 행동 기회에 자동 해방");
   });
 
+  it("태초의 성소 일괄 진행 규칙을 안내한다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+    expect(hunting).toContain("일괄 진행은 진행 중인 탐험과 남은 입장을 끝까지 자동으로 진행합니다");
+    expect(hunting).toContain("중간에 귀환하지 않습니다");
+  });
+
   it("천공 균열·별의 무덤 장비 풀과 폭풍 원정 연습 모드를 안내한다", () => {
     const hunting = renderToStaticMarkup(<HuntingContent />);
     const equipment = renderToStaticMarkup(<EquipmentContent />);

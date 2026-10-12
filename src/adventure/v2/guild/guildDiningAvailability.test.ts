@@ -54,6 +54,19 @@ describe("guild dining availability", () => {
     ]);
   });
 
+  it("길드 식당 기부량은 공동 준비가 끝나도 개인 기여 한도까지 허용한다", () => {
+    expect(
+      diningDonationQuantityLimit({
+        source: "guild",
+        owned: 100,
+        batchSize: 1,
+        pointValue: 3,
+        contributionPoints: 20,
+        contributionCap: 48,
+      }),
+    ).toBe(9);
+  });
+
   it("협회 식당 기부량은 개인·공동 한도 없이 보유량과 요청 한도만 적용한다", () => {
     expect(
       diningDonationQuantityLimit({
@@ -63,7 +76,6 @@ describe("guild dining availability", () => {
         pointValue: 1,
         contributionPoints: 80,
         contributionCap: null,
-        pantryRemaining: 0,
       }),
     ).toBe(999);
     expect(associationDiningContributionProgress(47)).toEqual({

@@ -72,9 +72,14 @@ export function CookingPublicDiscoveryPanel({
                   className="h-[72px] w-[72px] shrink-0 object-contain"
                 />
                 <div className="min-w-0">
-                  <h4 className="font-bold text-zinc-900 dark:text-zinc-100">
-                    {discovery.recipeName}
-                  </h4>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h4 className="font-bold text-zinc-900 dark:text-zinc-100">
+                      {discovery.recipeName}
+                    </h4>
+                    <CookingCodexStatusBadge
+                      registered={discovery.codexRegistered}
+                    />
+                  </div>
                   <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                     최초 발견자: {discovery.actorName}
                   </p>
@@ -98,5 +103,20 @@ export function CookingPublicDiscoveryPanel({
         </div>
       )}
     </section>
+  );
+}
+
+// 장비 도감 배지와 같은 색으로, 공개된 요리를 내가 이미 만들었는지 구분한다.
+function CookingCodexStatusBadge({ registered }: { registered: boolean }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs font-semibold ${
+        registered
+          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+      }`}
+    >
+      {registered ? "도감 등록" : "도감 미등록"}
+    </span>
   );
 }

@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("./GameStateRefreshContext", () => ({ useRefreshGameState: () => vi.fn() }));
 vi.mock("./ReplayBattleScene", () => ({ ReplayBattleScene: () => <div>전투 기록</div> }));
+const confirmGameAction = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/components/ui/gameDialog", () => ({ confirmGameAction }));
 import { V2SanctuaryDungeonView } from "./V2SanctuaryDungeonView";
 import { createSanctuaryActive, parseSanctuaryState } from "@/adventure/data/v2/sanctuaryDungeon";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -68,5 +70,33 @@ describe("sanctuary play screen", () => {
     fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 완료/ }));
     expect(screen.getByRole("dialog").textContent).toContain("완료한 지점");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("runs the remaining attempts with the chosen preferences and shows each run", async () => {
+    const state = parseSanctuaryState({ autoPreferences: { camp: ["meditation"] } });
+    const done = { ...parseSanctuaryState({}), revision: 5, attemptsUsed: 3 };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ ...state, revision: 4 }))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 0, state: done, auto: { runs: [
+        { cleared: true, endedAt: "태초의 문지기", gainedEmblems: [{ iid: "a", kind: "hp", grade: 1 }], lostEmblems: 0 },
+        { cleared: false, endedAt: "문장의 파수꾼", gainedEmblems: [], lostEmblems: 4 },
+      ] } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2SanctuaryDungeonView />);
+    const camp = (await screen.findByLabelText("고요한 샘")) as HTMLSelectElement;
+    expect(camp.value).toBe("meditation");
+    fireEvent.change(screen.getByLabelText("탐험대 보급품"), { target: { value: "storm_oil" } });
+    fireEvent.change(screen.getByLabelText("태초의 제단 2순위"), { target: { value: "tempest_might" } });
+    expect((screen.getByLabelText("태초의 제단 1순위") as HTMLSelectElement).value).toBe("storm_guard");
+    fireEvent.click(screen.getByRole("button", { name: "남은 입장 2회 일괄 진행" }));
+    await screen.findByText("일괄 진행 결과");
+    expect(confirmGameAction).toHaveBeenCalled();
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body).toMatchObject({ action: "auto", expectedRevision: 4 });
+    expect(body.preferences.supply[0]).toBe("storm_oil");
+    expect(body.preferences.camp[0]).toBe("meditation");
+    expect(body.preferences.altar.slice(0, 2)).toEqual(["storm_guard", "tempest_might"]);
+    expect(screen.getByText("1회차 · 클리어 · 문장 1개")).toBeTruthy();
+    expect(screen.getByText("2회차 · 문장의 파수꾼에서 패배 · 임시 문장 4개 잃음")).toBeTruthy();
+    expect((screen.getByRole("button", { name: /일괄 진행/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

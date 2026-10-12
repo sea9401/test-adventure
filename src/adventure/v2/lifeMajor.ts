@@ -11,6 +11,7 @@ import { woodcuttingXpForLevel } from "./woodcuttingProgression";
 
 import type { CookingField } from "./cooking/types";
 import { LIFE_MAJOR_PRODUCT_ID, LIFE_MAJOR_PRODUCTS, TEMPERING_CATALYST } from "./lifeMajorProducts";
+import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
 
 export {
   TEMPERING_CATALYST,
@@ -21,7 +22,7 @@ export {
 
 export const LIFE_MAJOR_SAVE_KEY = "life-major.v1";
 export const LIFE_MAJOR_MAX_STAGE = 10;
-export const LIFE_MAJOR_CHANGE_COOLDOWN_MS = 30 * 86_400_000;
+export { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
 export const LIFE_MAJOR_MAJOR_BONUS_PER_STAGE = 1;
 export const LIFE_MAJOR_MINOR_FACTOR = 0.5;
 export const LIFE_MAJOR_PRODUCT_BASE_PCT = 0.5;

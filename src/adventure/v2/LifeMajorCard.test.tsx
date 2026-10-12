@@ -98,6 +98,13 @@ describe("생활 전공 카드", () => {
     await waitFor(() => expect(posted).toEqual([{ major: "mining", minor: "farming" }]));
   });
 
+  it("전공을 바꿔도 명장 단계가 남는다는 것과 변경 주기를 미리 알려 준다", async () => {
+    render(<LifeMajorCard />);
+    await screen.findByLabelText("주전공");
+    expect(screen.getByText(/전공을 바꿔도 쌓은 명장 단계는 생활별로 남습니다/)).toBeTruthy();
+    expect(screen.getByText(/30일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
+  });
+
   it("변경 대기 중이면 다음 변경 시각을 보여 주고 저장 버튼을 막는다", async () => {
     current = view({ major: "farming", nextChangeAt: NOW + 3 * 86_400_000 });
     render(<LifeMajorCard />);
@@ -138,7 +145,7 @@ describe("단련 촉매 제작", () => {
     await screen.findByText("명장 합금 0 · 명장 목재 0 · 보유 촉매 1");
   });
 
-  it("재료가 모자라면 버튼을 막고, 조건 미달이면 행을 숨긴다", async () => {
+  it("재료가 모자라면 버튼을 막고, 조건 미달이면 제작 조건만 안내한다", async () => {
     current = view({
       major: "mining",
       crafting: { catalystUnlocked: true, requiredStage: 3, alloy: 1, wood: 1, catalysts: 0 },
@@ -148,8 +155,9 @@ describe("단련 촉매 제작", () => {
     cleanup();
     current = view({ major: "mining" });
     render(<LifeMajorCard />);
-    await screen.findByText("생활 전공");
-    expect(screen.queryByText("단련 촉매")).toBeNull();
+    await screen.findByText("단련 촉매");
+    expect(screen.getByText(/채광 주전공 명장 3단계부터 이곳에서 만듭니다/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "1개 만들기" })).toBeNull();
   });
 });
 

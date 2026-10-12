@@ -66,7 +66,7 @@ const checks = [
     label: "sign-in",
     path: "/sign-in",
     status: 200,
-    bodyIncludes: "카카오톡으로 로그인",
+    bodyIncludes: "본인은 만 14세 이상입니다",
     validate: validateSecurityHeaders,
   },
   {

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LandingContent } from "./LandingContent";
@@ -91,5 +92,17 @@ describe("대문 로그인 선택지", () => {
     expect(html).not.toContain("카카오톡으로 로그인");
     expect(html).not.toContain("아이디·비밀번호로 로그인");
     expect(html).not.toContain("캐릭터 만들고 시작하기");
+  });
+
+  it("외부 가동 감시의 /sign-in 표식은 쿠키 없는 첫 방문 화면에 있다", () => {
+    // 감시는 연령 확인 쿠키 없이 접속하므로 로그인 버튼이 아니라 연령 확인 화면을 본다.
+    const script = readFileSync("scripts/check-public-release.mjs", "utf8");
+    const marker = script.match(
+      /label: "sign-in",[\s\S]*?bodyIncludes: "([^"]+)"/,
+    )?.[1];
+    const html = renderToStaticMarkup(<LandingContent authed={false} />);
+
+    expect(marker).toBeTruthy();
+    expect(html).toContain(marker);
   });
 });

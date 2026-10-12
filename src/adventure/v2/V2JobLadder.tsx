@@ -28,7 +28,10 @@ import {
   toggleJobTagFilter,
 } from "./jobExplorer";
 import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
-import { Tier7FirstUnlockNotice } from "./Tier7AdvancementRequirements";
+import {
+  TIER7_FIRST_UNLOCK_SP_TEXT,
+  Tier7FirstUnlockNotice,
+} from "./Tier7AdvancementRequirements";
 
 // 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
 // 조건이 공개된 직업을 검색/태그/목표로 탐색하고, 해금된 직업과 조건 부족 직업을 현재 캐릭터 기준으로 나눈다.
@@ -715,6 +718,11 @@ function JobRow({
               {cultivation === "생활직은 수행할 수 없음"
                 ? cultivation
                 : `수행 스탯 · ${cultivation}`}
+            </p>
+          )}
+          {job.tier7Advancement && !job.tier7Advancement.permanentlyUnlocked && (
+            <p className="text-zinc-600 dark:text-zinc-300">
+              {TIER7_FIRST_UNLOCK_SP_TEXT}
             </p>
           )}
         </div>

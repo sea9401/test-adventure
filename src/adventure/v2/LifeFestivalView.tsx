@@ -20,6 +20,7 @@ import {
   defaultDishSelection,
   lifeFestivalErrorLabel,
   remainingTimeLabel,
+  restoreDishSelection,
   type LifeFestivalDishOptionView,
   type LifeFestivalOrderView,
   type LifeFestivalRankingData,
@@ -57,6 +58,8 @@ export function LifeFestivalView({ onBack }: { onBack: () => void }) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [dishOrderId, setDishOrderId] = useState<string | null>(null);
+  // 주문별로 직전에 납품한 요리 구성. 같은 주문을 반복 납품할 때 다시 고르지 않게 한다.
+  const [lastDishSelection, setLastDishSelection] = useState<Record<string, Record<string, number>>>({});
   const [loadedAt, setLoadedAt] = useState(0);
 
   const load = useCallback(async () => {
@@ -157,10 +160,14 @@ export function LifeFestivalView({ onBack }: { onBack: () => void }) {
         <DishPicker
           order={dishOrder}
           options={view?.dishOptions[dishOrder.id] ?? []}
+          previousSelection={lastDishSelection[dishOrder.id]}
           busy={busyKey === `order:${dishOrder.id}`}
           onClose={() => setDishOrderId(null)}
           onConfirm={async (foodIds) => {
-            if (await deliver(dishOrder, 1, foodIds)) setDishOrderId(null);
+            if (await deliver(dishOrder, 1, foodIds)) {
+              setLastDishSelection((current) => ({ ...current, [dishOrder.id]: foodIds }));
+              setDishOrderId(null);
+            }
           }}
         />
       ) : null}
@@ -266,12 +273,14 @@ function OrdersSection({
 function DishPicker({
   order,
   options,
+  previousSelection,
   busy,
   onClose,
   onConfirm,
 }: {
   order: LifeFestivalOrderView;
   options: readonly LifeFestivalDishOptionView[];
+  previousSelection: Readonly<Record<string, number>> | undefined;
   busy: boolean;
   onClose: () => void;
   onConfirm: (foodIds: Record<string, number>) => void;
@@ -279,8 +288,10 @@ function DishPicker({
   const quantity = order.requirement.quantity;
   const allowMasterpiece =
     order.requirement.kind === "dish" && order.requirement.minQuality === "masterpiece";
-  const [selection, setSelection] = useState<Record<string, number>>(() =>
-    defaultDishSelection(options, quantity, allowMasterpiece),
+  const [selection, setSelection] = useState<Record<string, number>>(
+    () =>
+      restoreDishSelection(previousSelection, options, quantity) ??
+      defaultDishSelection(options, quantity, allowMasterpiece),
   );
   const total = Object.values(selection).reduce((sum, count) => sum + count, 0);
   const change = (foodId: string, delta: number) =>
@@ -302,9 +313,14 @@ function DishPicker({
         <h2 id="life-festival-dish-title" className="font-bold text-zinc-900 dark:text-zinc-100">
           {order.label}
         </h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          {total} / {quantity}개 선택
-        </p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            {total} / {quantity}개 선택
+          </p>
+          <Button size="sm" variant="ghost" disabled={total === 0} onClick={() => setSelection({})}>
+            선택 비우기
+          </Button>
+        </div>
         <ul className="mt-3 min-h-0 flex-1 space-y-1.5 overflow-y-auto">
           {options.map((option) => {
             const selected = selection[option.foodId] ?? 0;
@@ -316,6 +332,15 @@ function DishPicker({
                     {option.tier}등급 · 보유 {formatNumber(option.count)}
                   </p>
                 </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`${option.name} 채우기`}
+                  disabled={selected === Math.min(option.count, quantity) && total === selected}
+                  onClick={() => setSelection({ [option.foodId]: Math.min(option.count, quantity) })}
+                >
+                  채우기
+                </Button>
                 <Button
                   size="icon"
                   variant="ghost"

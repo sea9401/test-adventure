@@ -34,6 +34,23 @@ describe("전투용 스태미너 바", () => {
   });
 });
 
+describe("스태미나 포션 사용 창", () => {
+  it("사용 후 수치를 현재 스태미나와 회복량으로 나눠 보여 준다", () => {
+    render(
+      <StaminaPotionModal potions={20} current={300} max={3000} onUse={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByText("3,100 / 3,000")).toBeTruthy();
+    expect(screen.getByText("현재 300 + 회복 2,800")).toBeTruthy();
+  });
+
+  it("비축 상한에서 잘린 회복량을 보여 준다", () => {
+    render(
+      <StaminaPotionModal potions={5} current={9900} max={3000} onUse={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByText("현재 9,900 + 회복 100")).toBeTruthy();
+  });
+});
+
 describe("상단 바의 스태미나 창", () => {
   it("회복 속도와 최대치까지 남은 시간을 보여 준다", () => {
     render(

@@ -38,6 +38,17 @@ describe("공개 요리 발견 패널", () => {
     expect(screen.getByText("공개 요리 01")).toBeTruthy();
   });
 
+  it("요리마다 내 도감 등록 여부를 표시한다", () => {
+    render(<CookingPublicDiscoveryPanel discoveries={discoveries} />);
+
+    const [registered, unregistered] = screen.getAllByRole("article");
+    expect(registered.textContent).toContain("공개 요리 22");
+    expect(registered.textContent).toContain("도감 등록");
+    expect(registered.textContent).not.toContain("도감 미등록");
+    expect(unregistered.textContent).toContain("공개 요리 21");
+    expect(unregistered.textContent).toContain("도감 미등록");
+  });
+
   it("공개된 요리가 없으면 빈 상태를 보여준다", () => {
     render(
       <CookingPublicDiscoveryPanel discoveries={[]} />,

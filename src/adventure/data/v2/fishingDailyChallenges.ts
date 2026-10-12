@@ -13,6 +13,7 @@ import {
   type FarmSeedInventory,
 } from "@/adventure/v2/farm";
 import { FISH, isFishId, type FishId, type FishTier } from "./fish";
+import { FISHING_SPOTS } from "./fishingSpots";
 
 export const FISHING_DAILY_KEY = "fishing-daily-challenges.v1";
 
@@ -205,16 +206,42 @@ export type FishingContractDef = {
 
 export type FishingContractView = FishingDailyView;
 
-export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
-  {
-    id: "c_carp5",
-    title: "주막의 잉어 주문",
-    desc: "오늘 잉어 5마리를 낚아 납품하세요.",
-    goal: 5,
+// 어종 납품 의뢰 — 하루에 하나만 나온다. 잉어만 고정으로 내면 도감을 채운 뒤에는 잉어가
+//   나오는 낚시터만 다니게 돼, 낚시터 6곳에 고루 퍼진 어종을 날마다 돌려 목적지를 바꾼다.
+//   순서는 이웃한 날끼리 낚시터가 겹치지 않게 짰다. 민물장어와 안 겹치는 어종이 농어뿐이라
+//   한 주에 한 번(민물장어 다음 잉어, 마을 선착장)만 겹친다. 7일에 한 번씩 모두 나온다.
+const FISH_ORDER_GOAL = 5;
+
+function fishOrderContract(
+  id: string,
+  title: string,
+  fishId: FishId,
+): FishingContractDef {
+  const spots = Object.values(FISHING_SPOTS)
+    .filter((spot) => spot.fishIds.includes(fishId))
+    .map((spot) => spot.name);
+  return {
+    id,
+    title,
+    desc: `오늘 ${FISH[fishId].name} ${FISH_ORDER_GOAL}마리를 낚아 납품하세요. ${spots.join(", ")}에서 잡힙니다.`,
+    goal: FISH_ORDER_GOAL,
     rewardCoins: 90,
     rewardSeeds: { wheat: 3 },
-    progress: (s) => s.fishCounts.carp ?? 0,
-  },
+    progress: (s) => s.fishCounts[fishId] ?? 0,
+  };
+}
+
+const FISH_ORDER_CONTRACTS: readonly FishingContractDef[] = [
+  fishOrderContract("c_carp5", "주막의 잉어 주문", "carp"),
+  fishOrderContract("c_catfish5", "국밥집의 메기 주문", "catfish"),
+  fishOrderContract("c_chub5", "여관의 갈겨니 주문", "chub"),
+  fishOrderContract("c_mullet5", "어시장의 숭어 주문", "mullet"),
+  fishOrderContract("c_sweetfish5", "찻집의 은어 주문", "sweetfish"),
+  fishOrderContract("c_sea_bass5", "횟집의 농어 주문", "sea_bass"),
+  fishOrderContract("c_eel5", "장어집의 민물장어 주문", "freshwater_eel"),
+];
+
+const DAILY_FIXED_CONTRACTS: readonly FishingContractDef[] = [
   {
     id: "c_big80",
     title: "큼직한 식재료",
@@ -235,6 +262,30 @@ export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
   },
 ];
 
+// 의뢰 정의 전체(수령 요청의 id 확인용). 오늘 낼 의뢰는 fishingContractsForDay 로 고른다.
+export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
+  ...FISH_ORDER_CONTRACTS,
+  ...DAILY_FIXED_CONTRACTS,
+];
+
+// 하루에 나오는 의뢰 수 — 어종 납품 1 + 대물·물때 손님.
+export const FISHING_CONTRACTS_PER_DAY = 1 + DAILY_FIXED_CONTRACTS.length;
+
+function dayIndex(dayKey: string): number {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  const ms = Date.UTC(y, m - 1, d);
+  return Number.isFinite(ms) ? Math.floor(ms / 86_400_000) : 0;
+}
+
+// 그날(KST 날짜 키) 낼 의뢰. 같은 날이면 모든 플레이어에게 같은 의뢰가 나온다.
+export function fishingContractsForDay(
+  dayKey: string,
+): readonly FishingContractDef[] {
+  const n = FISH_ORDER_CONTRACTS.length;
+  const order = FISH_ORDER_CONTRACTS[((dayIndex(dayKey) % n) + n) % n];
+  return [order, ...DAILY_FIXED_CONTRACTS];
+}
+
 export function fishingContractById(
   id: string,
 ): FishingContractDef | undefined {
@@ -244,7 +295,7 @@ export function fishingContractById(
 export function deriveFishingContractViews(
   s: FishingDailyState,
 ): FishingContractView[] {
-  return FISHING_CONTRACTS.map((c) => {
+  return fishingContractsForDay(s.key).map((c) => {
     const raw = c.progress(s);
     const complete = raw >= c.goal;
     const claimed = s.claimedContracts.includes(c.id);

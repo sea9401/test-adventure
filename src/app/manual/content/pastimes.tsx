@@ -8,7 +8,7 @@ import {
   MULTTAE_WINDOW_MS,
 } from "@/adventure/data/v2/multtae";
 import {
-  FISHING_CONTRACTS,
+  FISHING_CONTRACTS_PER_DAY,
   FISHING_DAILY_CHALLENGES,
 } from "@/adventure/data/v2/fishingDailyChallenges";
 import {
@@ -653,9 +653,13 @@ export function PastimesContent() {
         </li>
         <li>
           일일 과제는 {FISHING_DAILY_CHALLENGES.length}종, 오늘의 의뢰는{" "}
-          {FISHING_CONTRACTS.length}종, 누적 수집 목표는{" "}
+          {FISHING_CONTRACTS_PER_DAY}종, 누적 수집 목표는{" "}
           {FISHING_COLLECTION_GOALS.length}종입니다. 조건을 달성한 뒤 직접 수령해야
           코인이 들어옵니다.
+        </li>
+        <li>
+          오늘의 의뢰 중 어종 납품은 매일 다른 물고기로 바뀌며, 의뢰 설명에 그 물고기가
+          잡히는 낚시터가 적혀 있습니다. 대물과 물때 손님 의뢰는 매일 나옵니다.
         </li>
       </UL>
 

@@ -152,6 +152,52 @@ describe("길드 식당", () => {
     );
   });
 
+  it("공동 준비 목표를 채운 뒤에도 개인 기여 한도까지 기부해 기여 식권을 얻는다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
+    const response = await POST(
+      request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.pantry).toMatchObject({ points: 60, target: 60, ready: true });
+    expect(json.contributionPoints).toBe(25);
+    expect(json.tickets.contributionEarned).toBe(6);
+  });
+
+  it("공동 준비 목표를 넘는 기부는 목표까지만 공동 준비에 반영한다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(55));
+    const response = await POST(
+      request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.pantry.points).toBe(60);
+    expect(json.contributionPoints).toBe(25);
+  });
+
+  it("공동 준비 목표와 무관하게 개인 기여 한도는 넘을 수 없다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === "farm.v2") {
+        return { ...emptyFarmState(), inventory: { wheat: 30 } };
+      }
+      return {
+        weekKey: kstWeekMondayKey(),
+        guildId: 7,
+        contributionPoints: 45,
+        mealsUsed: 0,
+      };
+    });
+    const response = await POST(
+      request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),
+    );
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("contribution_cap");
+  });
+
   it("일반 어획물은 5개 단위로 공동 식재료에 기부한다", async () => {
     const response = await POST(
       request({

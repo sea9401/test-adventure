@@ -9,7 +9,11 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { EMBLEM_LABELS, type Emblem } from "@/adventure/data/v2/emblems";
-import { SANCTUARY_NAME, SANCTUARY_NODES, sanctuaryNode, sanctuaryChoices, sanctuaryEnemy, type SanctuaryState } from "@/adventure/data/v2/sanctuaryDungeon";
+import {
+  SANCTUARY_DAILY_ATTEMPTS, SANCTUARY_NAME, SANCTUARY_NODES, sanctuaryNode, sanctuaryChoices, sanctuaryChoiceCatalog, sanctuaryEnemy,
+  type SanctuaryAutoChoiceKind, type SanctuaryAutoPreferences, type SanctuaryAutoRun, type SanctuaryState,
+} from "@/adventure/data/v2/sanctuaryDungeon";
+import { confirmGameAction } from "@/components/ui/gameDialog";
 import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import { StormExpeditionRouteMap } from "./StormExpeditionRouteMap";
 import { StormExpeditionNodeDialog, type StormExpeditionNodeDialogModel } from "./StormExpeditionNodeDialog";
@@ -17,7 +21,7 @@ import { ReplayBattleScene } from "./ReplayBattleScene";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 
 type Status = { ok: boolean; unlocked: boolean; attemptsLeft: number; state: SanctuaryState; error?: string };
-type Result = Partial<Status> & { success?: boolean; finalClear?: boolean; failed?: boolean; withdrawn?: boolean; droppedEmblem?: Emblem | null; gainedEmblems?: Emblem[]; replay?: ReplayPayload; playerName?: string; gender?: string; startPlayerHp?: number; enemyName?: string };
+type Result = Partial<Status> & { auto?: { runs: SanctuaryAutoRun[] }; success?: boolean; finalClear?: boolean; failed?: boolean; withdrawn?: boolean; droppedEmblem?: Emblem | null; gainedEmblems?: Emblem[]; replay?: ReplayPayload; playerName?: string; gender?: string; startPlayerHp?: number; enemyName?: string };
 const ERRORS: Record<string, string> = {
   locked: "미개척지 해금 이후 입장할 수 있습니다.", no_attempts: "오늘의 입장 횟수를 모두 사용했습니다.",
   already_active: "진행 중인 던전이 있습니다.", no_active: "진행 중인 던전이 없습니다.",
@@ -25,6 +29,61 @@ const ERRORS: Record<string, string> = {
   choice_required: "먼저 현재 지점의 효과를 선택해 주세요.", invalid_choice: "선택할 수 없는 효과입니다.",
   battle_required: "현재 지점의 전투를 완료해 주세요.", unauthorized: "로그인 상태를 확인해 주세요.",
 };
+// 일괄 진행 선호 설정 줄. 제단은 5개 중 3개만 제시되므로 3순위까지 정해야 항상 고를 수 있다.
+const AUTO_PREFERENCE_ROWS: { kind: SanctuaryAutoChoiceKind; label: string; ranks: number }[] = [
+  { kind: "supply", label: "탐험대 보급품", ranks: 1 },
+  { kind: "camp", label: "고요한 샘", ranks: 1 },
+  { kind: "altar", label: "태초의 제단", ranks: 3 },
+  { kind: "final_prep", label: "최종 정비", ranks: 1 },
+];
+/** rank 자리에 id를 두고, id가 있던 자리에는 원래 rank 자리 값을 옮긴다. */
+function placeAtRank(order: readonly string[], rank: number, id: string): string[] {
+  const next = [...order];
+  const from = next.indexOf(id);
+  if (from < 0 || from === rank) return next;
+  [next[rank], next[from]] = [next[from], next[rank]];
+  return next;
+}
+function AutoRunCard({ status, busy, onRun }: { status: Status; busy: boolean; onRun: (preferences: SanctuaryAutoPreferences) => void }) {
+  const [preferences, setPreferences] = useState<SanctuaryAutoPreferences>(status.state.autoPreferences);
+  const active = status.state.active;
+  const runnable = status.unlocked && (active !== null || status.attemptsLeft > 0);
+  const label = !runnable ? "일괄 진행" : active ? `진행 중인 탐험과 남은 입장 ${status.attemptsLeft}회 일괄 진행` : `남은 입장 ${status.attemptsLeft}회 일괄 진행`;
+  return <Card padding="md" className="space-y-3">
+    <h2 className="font-bold">일괄 진행</h2>
+    <p className="text-sm">{active ? "진행 중인 탐험부터 이어서, " : ""}남은 입장을 끝까지 자동으로 진행합니다. 선택 지점에서는 아래 효과를 고르고, 중간에 귀환하지 않습니다.</p>
+    <div className="grid gap-2 sm:grid-cols-2">
+      {AUTO_PREFERENCE_ROWS.map((row) => {
+        const choices = sanctuaryChoiceCatalog(row.kind);
+        return Array.from({ length: row.ranks }, (_, rank) => {
+          const name = row.ranks > 1 ? `${row.label} ${rank + 1}순위` : row.label;
+          return <label key={name} className="flex flex-col gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            {name}
+            <select value={preferences[row.kind][rank]} disabled={busy}
+              onChange={(event) => setPreferences((current) => ({ ...current, [row.kind]: placeAtRank(current[row.kind], rank, event.target.value) }))}
+              className="min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+              {choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.description}</option>)}
+            </select>
+          </label>;
+        });
+      })}
+    </div>
+    <Button variant="primary" disabled={!runnable || busy} onClick={() => onRun(preferences)}>{label}</Button>
+  </Card>;
+}
+function AutoRunResult({ runs, onOpenEmblems }: { runs: SanctuaryAutoRun[]; onOpenEmblems: () => void }) {
+  const gained = runs.flatMap((run) => run.gainedEmblems);
+  return <Card role="status" className="space-y-2">
+    <h2 className="font-bold">일괄 진행 결과</h2>
+    <ul className="space-y-1 text-sm">
+      {runs.map((run, index) => <li key={index}>
+        {run.cleared ? `${index + 1}회차 · 클리어 · 문장 ${run.gainedEmblems.length}개`
+          : `${index + 1}회차 · ${run.endedAt}에서 패배${run.lostEmblems > 0 ? ` · 임시 문장 ${run.lostEmblems}개 잃음` : ""}`}
+      </li>)}
+    </ul>
+    {gained.length > 0 && <><p>문장 {gained.length}개를 획득했습니다.</p><EmblemList items={gained} /><Button onClick={onOpenEmblems}>문장 확인</Button></>}
+  </Card>;
+}
 function EmblemList({ items }: { items: Emblem[] }) {
   return <div className="flex flex-wrap gap-2">{items.map((item) => <span key={item.iid} className={`${SURFACE_INSET} px-2 py-1 text-sm`}>{EMBLEM_LABELS[item.kind]} 문장 · {item.grade}등급</span>)}</div>;
 }
@@ -51,19 +110,29 @@ export function V2SanctuaryDungeonView() {
     return () => controller.abort();
   }, [reload]);
 
-  async function act(action: string, choiceId?: string) {
+  async function act(action: string, extra: Record<string, unknown> = {}) {
     if (!status || inFlight.current) return;
     inFlight.current = true; setBusy(true); setError("");
     try {
-      const response = await fetch("/api/v2/sanctuary-dungeon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...(choiceId ? { choiceId } : {}), expectedRevision: status.state.revision }) });
+      const response = await fetch("/api/v2/sanctuary-dungeon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra, expectedRevision: status.state.revision }) });
       const data = await response.json();
       if (data.state) setStatus(data);
       if (!response.ok || !data.ok) throw new Error(ERRORS[data.error] ?? "요청을 처리하지 못했습니다. 다시 시도해 주세요.");
       setResult(data); setWithdraw(false); setOpenNodeId(null);
-      if (data.gainedEmblems?.length) await refreshGameState();
+      if (data.gainedEmblems?.length || data.auto?.runs.some((run: SanctuaryAutoRun) => run.gainedEmblems.length > 0)) await refreshGameState();
     } catch (err) {
       setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.");
     } finally { inFlight.current = false; setBusy(false); }
+  }
+  async function runAuto(preferences: SanctuaryAutoPreferences) {
+    if (!status) return;
+    const runs = (status.state.active ? 1 : 0) + status.attemptsLeft;
+    const confirmed = await confirmGameAction({
+      title: "일괄 진행",
+      message: `탐험 ${runs}회를 끝까지 자동으로 진행합니다. 패배한 탐험은 그 탐험의 임시 문장을 잃습니다.`,
+      confirmLabel: "진행",
+    });
+    if (confirmed) await act("auto", { preferences });
   }
   const active = status?.state.active;
   const selectedNode = SANCTUARY_NODES.find((entry) => entry.id === openNodeId);
@@ -95,8 +164,10 @@ export function V2SanctuaryDungeonView() {
     {error && <Card role="alert" className="space-y-2"><p>{error}</p><Button disabled={busy} onClick={() => setReload((value) => value + 1)}>다시 불러오기</Button></Card>}
     {!status && !error && <p role="status">던전 정보를 불러오는 중...</p>}
     {status && <>
-      <p className="text-sm font-semibold">남은 입장 {status.attemptsLeft} / 3회 · 누적 클리어 {status.state.clears}회</p>
+      <p className="text-sm font-semibold">남은 입장 {status.attemptsLeft} / {SANCTUARY_DAILY_ATTEMPTS}회 · 누적 클리어 {status.state.clears}회</p>
       {!status.unlocked && <Card>미개척지를 해금하면 태초의 성소에 입장할 수 있습니다.</Card>}
+      {status.unlocked && <AutoRunCard status={status} busy={busy} onRun={(preferences) => void runAuto(preferences)} />}
+      {result?.auto && <AutoRunResult runs={result.auto.runs} onOpenEmblems={() => router.push("/character/emblems")} />}
       <Card padding="md" className="min-w-0 space-y-3">
         <h2 className="font-bold">성소 지도</h2>
         <p className="text-sm">{active ? "현재 원형 아이콘을 선택해 전투나 정비를 진행하세요." : "성소 외곽 아이콘을 선택해 입장하세요."}</p>
@@ -124,7 +195,7 @@ export function V2SanctuaryDungeonView() {
       onAction={(action) => {
         if (action.kind === "move") void act("start");
         if (action.kind === "fight") void act("fight");
-        if (action.kind === "choose") void act("choose", action.choiceId);
+        if (action.kind === "choose") void act("choose", { choiceId: action.choiceId });
         if (action.kind === "skip_replay") setSkipReplay(action.value);
       }} />}
     {result?.replay && !skipReplay && <ReplayBattleScene payload={result.replay} startPlayerHp={result.startPlayerHp} playerName={result.playerName ?? "모험가"} gender={(result.gender ?? "male1") as Gender} exp={0} maxExp={1} playerSubtitle={SANCTUARY_NAME} outcome={result.success ? "win" : "lose"} />}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canEnterSanctuary, createSanctuaryActive, parseSanctuaryState,
   advanceSanctuary, sanctuaryNode, sanctuaryChoices,
+  DEFAULT_SANCTUARY_AUTO_PREFERENCES, parseSanctuaryAutoPreferences, pickSanctuaryAutoChoice,
 } from "./sanctuaryDungeon";
 
 describe("sanctuary linear expedition", () => {
@@ -35,5 +36,34 @@ describe("sanctuary linear expedition", () => {
     expect(sanctuaryChoices({ ...active, currentNodeId: "supply" }).map((choice) => choice.id)).not.toContain("scavenged_coffer");
     const altar = { ...active, currentNodeId: "altar" as const };
     expect(sanctuaryChoices(altar).map((choice) => choice.id)).toEqual(active.altarOffers);
+  });
+});
+
+describe("sanctuary auto run preferences", () => {
+  it("keeps valid ids in the given order, drops unknown or duplicate ids and appends the rest", () => {
+    const prefs = parseSanctuaryAutoPreferences({
+      supply: ["storm_oil", "storm_oil", "scavenged_coffer", "nope"],
+      camp: "deep_rest",
+      altar: ["victory_vigor", "deep_mana"],
+    });
+    expect(prefs.supply).toEqual(["storm_oil", "field_rations", "mana_ampoule", "wind_barrier"]);
+    expect(prefs.camp).toEqual(DEFAULT_SANCTUARY_AUTO_PREFERENCES.camp);
+    expect(prefs.altar.slice(0, 2)).toEqual(["victory_vigor", "deep_mana"]);
+    expect(prefs.altar).toHaveLength(5);
+    expect(prefs.final_prep).toEqual(DEFAULT_SANCTUARY_AUTO_PREFERENCES.final_prep);
+    expect(parseSanctuaryAutoPreferences(null)).toEqual(DEFAULT_SANCTUARY_AUTO_PREFERENCES);
+  });
+  it("picks the highest preference that the current node offers", () => {
+    const active = createSanctuaryActive(1000, 300, () => 0);
+    const prefs = parseSanctuaryAutoPreferences({ supply: ["wind_barrier"], altar: ["victory_vigor", "deep_mana", "swift_fate"] });
+    expect(pickSanctuaryAutoChoice({ ...active, currentNodeId: "supply" }, prefs)).toBe("wind_barrier");
+    const altar = { ...active, currentNodeId: "altar" as const, altarOffers: ["tempest_might", "deep_mana", "storm_guard"] as typeof active.altarOffers };
+    expect(pickSanctuaryAutoChoice(altar, prefs)).toBe("deep_mana");
+    expect(pickSanctuaryAutoChoice(active, prefs)).toBeNull();
+  });
+  it("stores the last auto preferences with the dungeon state", () => {
+    const state = parseSanctuaryState({ autoPreferences: { camp: ["meditation"] } });
+    expect(state.autoPreferences.camp[0]).toBe("meditation");
+    expect(parseSanctuaryState({}).autoPreferences).toEqual(DEFAULT_SANCTUARY_AUTO_PREFERENCES);
   });
 });

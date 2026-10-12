@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { confirmGameAction } from "@/components/ui/gameDialog";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import type { LifeMajorActivity, LifeMajorActivityView, LifeMajorView } from "./lifeMajor";
+import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
 import {
   craftTemperingCatalyst,
   fetchLifeMajorView,
@@ -14,6 +16,9 @@ import {
   lifeMajorErrorLabel,
   saveLifeMajors,
 } from "./lifeMajorClient";
+
+const COOLDOWN_DAYS = LIFE_MAJOR_CHANGE_COOLDOWN_MS / 86_400_000;
+const CATALYST_RECIPE_TEXT = `1개당 명장 합금 2 + 명장 목재 1 · 강화 시 하락 확률을 최대 ${ENHANCE_CATALYST_DEMOTE_SHIFT}%p 낮춥니다.`;
 
 type Selection = { major: LifeMajorActivity | null; minor: LifeMajorActivity | null };
 
@@ -76,7 +81,7 @@ export function LifeMajorCard() {
     if (isChange) {
       const confirmed = await confirmGameAction({
         title: "전공 변경",
-        message: "전공을 바꾸면 30일 동안 다시 바꿀 수 없습니다. 쌓은 명장 단계는 그대로 남습니다.",
+        message: `전공을 바꾸면 ${COOLDOWN_DAYS}일 동안 다시 바꿀 수 없습니다. 쌓은 명장 단계는 그대로 남습니다.`,
         confirmLabel: "변경",
       });
       if (!confirmed) return;
@@ -141,6 +146,9 @@ export function LifeMajorCard() {
               </span>
             ) : null}
           </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            전공을 바꿔도 쌓은 명장 단계는 생활별로 남습니다. 지정한 전공을 바꾸거나 비우면 {COOLDOWN_DAYS}일 동안 다시 바꿀 수 없습니다.
+          </p>
         </>
       )}
 
@@ -152,7 +160,14 @@ export function LifeMajorCard() {
           onCrafted={(next) => setView(next)}
           onNotice={setNotice}
         />
-      ) : null}
+      ) : (
+        <div className={`${SURFACE_INSET} p-2.5`}>
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">단련 촉매</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            채광 주전공 명장 {view.crafting.requiredStage}단계부터 이곳에서 만듭니다. {CATALYST_RECIPE_TEXT}
+          </p>
+        </div>
+      )}
 
       <ul className="space-y-1.5">
         {view.activities.filter((entry) => entry.role || entry.stage > 0).map((entry) => (
@@ -193,7 +208,7 @@ function CatalystRow({
           명장 합금 {crafting.alloy} · 명장 목재 {crafting.wood} · 보유 촉매 {crafting.catalysts}
         </p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          1개당 명장 합금 2 + 명장 목재 1 · 강화 시 하락 확률을 최대 10%p 낮춥니다.
+          {CATALYST_RECIPE_TEXT}
         </p>
       </div>
       <Button size="sm" className="shrink-0" disabled={!canCraft} loading={busy} onClick={() => void craft()}>

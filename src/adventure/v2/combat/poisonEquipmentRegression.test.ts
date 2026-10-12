@@ -6,7 +6,7 @@ import { applyV2DotsToTarget, tickV2Dots, type V2Dot } from "./combatShared";
 import { applyPlayerV2SkillCast, initialBattleState, type PlayerCombat } from "./engine";
 import { castV2SkillOnAttackerTurnPvP, initialBattleStatePvP, applyPvPOnHitDots } from "./engine-pvp";
 import { applyPlayerOnHitDots } from "./engine";
-import { applyTier6UniquePveEvent } from "./tier6UniquePveAdapter";
+import { applyTier6UniquePveEvent, tier6DotContext } from "./tier6UniquePveAdapter";
 import { applyTier6UniquePvpEvent } from "./tier6UniquePvpAdapter";
 import type { Tier6UniqueEvent } from "./tier6UniqueEffects";
 import { resolvePlayerPhase } from "./engine.playerPhase";
@@ -378,5 +378,36 @@ describe.each([false, true])("장비 독 연동 PvP=%s", pvp => {
     expect(tickV2Dots(boostedTarget.dots, boss.hp).totalDmg).toBeGreaterThan(
       tickV2Dots(plainTarget.dots, boss.hp).totalDmg,
     );
+  });
+});
+
+describe("양면침 폭발 보스 최대 HP 비례 감산", () => {
+  const poison: V2Dot = {
+    tag: "poison", label: "중독", stacks: 7, maxStacks: 10, turns: 3,
+    flatPerStack: 0, atkCoefPerStack: 0, pctMaxHpPerStack: 0.004, sourceAtk: 3000,
+  };
+
+  it.each([
+    ["일반 적", {}, 1],
+    ["일반 보스", { isBoss: true }, 0.8],
+    ["협동 보스", { isBoss: true, maxHpDamageMult: 0.5 }, 0.5],
+  ] as const)("%s에게는 매 턴 중독과 같은 감산으로 남은 피해와 폭발을 계산한다", (_, overrides, mult) => {
+    const actor = { ...player, equipSignatures: [venom] };
+    const state = {
+      ...initialBattleState(actor, boss, "공격"),
+      ...overrides,
+      enemyV2Dots: [poison],
+    };
+    const perTick = tickV2Dots([poison], boss.hp, mult).totalDmg;
+    const remaining = tier6DotContext(state).poison.remainingDamage;
+    expect(remaining).toBe(perTick * poison.turns);
+
+    const after = applyTier6UniquePveEvent(state, actor, {
+      ...event,
+      attackKind: "basic",
+      poisonStacks: poison.stacks,
+      poisonRemainingDamage: remaining,
+    });
+    expect(state.enemyHp - after.enemyHp).toBe(Math.floor(remaining * 0.75));
   });
 });

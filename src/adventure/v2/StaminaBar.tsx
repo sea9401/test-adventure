@@ -320,6 +320,12 @@ export function StaminaPotionModal({
                 </span>
               )}
             </p>
+            {/* 남은 스태미나가 그대로 더해짐을 보여 준다(#776: 만피 제안 때문에 기존분이 사라진다는 오해). */}
+            {hasQty && (
+              <p className="mt-1 text-center text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                현재 {current.toLocaleString()} + 회복 {(projected - current).toLocaleString()}
+              </p>
+            )}
           </>
         )}
 

@@ -42,6 +42,12 @@ import {
 } from "./EquipmentCodexBulkDialog";
 import { compareEquipmentCodexCandidate } from "./equipmentCodexBulk";
 import { useEquipmentCodexContext } from "./GameStateProvider";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { CodexSpMilestones, codexNextSpLabel } from "./CodexSpMilestones";
+import {
+  filterCodexEquipmentIds,
+  type CodexEquipmentFilter,
+} from "./codexProgress";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -225,6 +231,8 @@ export function CodexEquipmentPanel({
   const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
   const [equipmentCodexSlot, setEquipmentCodexSlot] =
     useState<V2EquipSlot>("weapon");
+  const [equipmentCodexFilter, setEquipmentCodexFilter] =
+    useState<CodexEquipmentFilter>("all");
   const [bulkDialogSlot, setBulkDialogSlot] = useState<V2EquipSlot | null>(null);
   const [bulkCandidates, setBulkCandidates] = useState<
     EquipmentCodexBulkCandidate[]
@@ -432,10 +440,16 @@ export function CodexEquipmentPanel({
   })();
   const equipmentSlotEntries = equipmentEntries
     .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot);
-  const equipmentSlotPager = usePagination(
+  const equipmentSlotVisibleEntries = filterCodexEquipmentIds(
     equipmentSlotEntries,
+    equipmentCodexFilter,
+    equipmentRegisteredIds,
+    new Set(equipmentCounts.eligible.keys()),
+  );
+  const equipmentSlotPager = usePagination(
+    equipmentSlotVisibleEntries,
     EQUIPMENT_CODEX_PAGE_SIZE,
-    equipmentCodexSlot,
+    `${equipmentCodexSlot}:${equipmentCodexFilter}`,
   );
   const equipmentSlotRegisteredCount = equipmentSlotEntries.filter((id) =>
     equipmentRegisteredIds.has(id),
@@ -531,11 +545,12 @@ export function CodexEquipmentPanel({
                   {equipmentCodexMeta.total}종 · SP +{equipmentCodexMeta.spBonus}
                 </p>
               </div>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                다음 보상{" "}
-                {equipmentCodexMeta.nextMilestone
-                  ? `${equipmentCodexMeta.nextMilestone}종`
-                  : "신규 장비 추가 시 확장"}
+              <span className="text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+                {codexNextSpLabel(
+                  equipmentCodexMeta.registeredCount,
+                  equipmentCodexMeta.milestones,
+                  "신규 장비 추가 시 확장",
+                )}
               </span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -555,11 +570,10 @@ export function CodexEquipmentPanel({
                 }}
               />
             </div>
-            {equipmentCodexMeta.milestones.length > 0 && (
-              <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                SP 보상: {equipmentCodexMeta.milestones.join(" / ")}종
-              </p>
-            )}
+            <CodexSpMilestones
+              count={equipmentCodexMeta.registeredCount}
+              milestones={equipmentCodexMeta.milestones}
+            />
             {equipmentCodexMsg && (
               <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
                 {equipmentCodexMsg}
@@ -653,6 +667,25 @@ export function CodexEquipmentPanel({
                 })}
               </div>
 
+              <SegmentedControl
+                ariaLabel="장비 도감 보기"
+                value={equipmentCodexFilter}
+                onChange={setEquipmentCodexFilter}
+                options={[
+                  { key: "all", label: "전체" },
+                  {
+                    key: "unregistered",
+                    label: `미등록 ${
+                      equipmentSlotEntries.length - equipmentSlotRegisteredCount
+                    }`,
+                  },
+                  {
+                    key: "registerable",
+                    label: `등록 가능 ${equipmentSlotRegisterableCount}`,
+                  },
+                ]}
+              />
+
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   {V2_SLOT_LABEL[equipmentCodexSlot]}{" "}
@@ -673,10 +706,14 @@ export function CodexEquipmentPanel({
                 </button>
               </div>
 
-              {equipmentSlotEntries.length === 0 ? (
+              {equipmentSlotVisibleEntries.length === 0 ? (
                 <Card padding="md">
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    이 부위에는 등록할 장비가 없습니다.
+                    {equipmentSlotEntries.length === 0
+                      ? "이 부위에는 등록할 장비가 없습니다."
+                      : equipmentCodexFilter === "registerable"
+                        ? "지금 등록할 수 있는 보유 장비가 없습니다. 잠금을 풀거나 장착을 해제하면 등록할 수 있습니다."
+                        : "이 부위의 장비를 모두 등록했습니다."}
                   </p>
                 </Card>
               ) : (

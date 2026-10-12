@@ -252,10 +252,8 @@ export async function POST(req: Request) {
         now,
       });
       const tickets = guildDiningTicketProgress(userState, upgrade.weeklyMealTickets);
-      if (
-        userState.contributionPoints + points > tickets.contributionCap ||
-        weekly.pantryPoints + points > weekly.targetPoints
-      ) {
+      // 공동 준비가 먼저 끝나도 다른 길드원이 기여 식권을 얻을 수 있도록 개인 한도만 막는다.
+      if (userState.contributionPoints + points > tickets.contributionCap) {
         return { status: 409, body: { ok: false as const, error: "contribution_cap" } };
       }
       if (sourceInventory.owned < quantity) {
@@ -267,7 +265,10 @@ export async function POST(req: Request) {
       };
       const nextWeekly = {
         ...weekly,
-        pantryPoints: weekly.pantryPoints + points,
+        pantryPoints: Math.min(
+          weekly.targetPoints,
+          weekly.pantryPoints + points,
+        ),
       };
       await sourceInventory.consume(quantity);
       await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, nextUserState);

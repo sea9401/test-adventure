@@ -30,7 +30,6 @@ export function diningDonationQuantityLimit(args: {
   pointValue: number;
   contributionPoints: number;
   contributionCap: number | null;
-  pantryRemaining: number;
 }): number {
   const ownedBatches = Math.floor(args.owned / args.batchSize);
   const requestBatches = Math.floor(999 / args.batchSize);
@@ -45,7 +44,6 @@ export function diningDonationQuantityLimit(args: {
               (args.contributionCap ?? 0) - args.contributionPoints,
             ) / args.pointValue,
           ),
-          Math.floor(args.pantryRemaining / args.pointValue),
           requestBatches,
         );
   return Math.max(0, maxBatches) * args.batchSize;

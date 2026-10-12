@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 import { V2JobLadder } from "./V2JobLadder";
 
 afterEach(cleanup);
@@ -43,5 +44,41 @@ describe("성장의 신전 직업 행", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText(/직업 보너스 · 힘 \+5/)).toBeTruthy();
     expect(container.innerHTML).not.toMatch(/text-\[1[01]px\]/);
+  });
+
+  it("7차 직업은 펼치면 최초 전직 때 SP를 받는다고 알려 준다", () => {
+    const tier7Advancement = tier7AdvancementStatus({
+      targetJobId: "shadowblade",
+      currentJobId: "swordsaint",
+      currentLevel: 100,
+      jobCumLevel: { swordsaint: 100_000, blackmoon: 100_000 },
+      jobHistory: [],
+      materials: {},
+    })!;
+    render(
+      <V2JobLadder
+        level={100}
+        currentJobName="검성"
+        currentJobId="swordsaint"
+        atLevelCap
+        revisitExpedited={false}
+        rejobRequiredLevel={100}
+        jobs={[
+          {
+            id: "shadowblade",
+            name: "무영검신",
+            tier: 7,
+            unlocked: true,
+            condition: "검성 숙련도 100000, 흑월 숙련도 100000",
+            tier7Advancement,
+          },
+        ]}
+        onChanged={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText("SP +1은 최초 전직에 성공할 때 받습니다.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /무영검신 자세히/ }));
+    expect(screen.getByText("SP +1은 최초 전직에 성공할 때 받습니다.")).toBeTruthy();
   });
 });

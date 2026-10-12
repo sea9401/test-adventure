@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import type { FishId } from "./fish";
+import { FISHING_SPOTS } from "./fishingSpots";
 import {
   FISHING_DAILY_CHALLENGES,
   type FishingDailyState,
@@ -7,6 +9,7 @@ import {
   deriveFishingDailyViews,
   emptyFishingDaily,
   fishingContractById,
+  fishingContractsForDay,
   fishingDailyById,
   parseFishingDaily,
   rolloverFishingDaily,
@@ -170,15 +173,15 @@ describe("deriveViews", () => {
 
   it("의뢰는 일일 확장 카운터로 진행된다", () => {
     expect(fishingContractById("c_big80")).toBeDefined();
-    let s = emptyFishingDaily(DAY);
-    for (let i = 0; i < 5; i += 1) s = applyCatch(s, "carp", DAY, 90);
+    let s = emptyFishingDaily(CARP_DAY);
+    for (let i = 0; i < 5; i += 1) s = applyCatch(s, "carp", CARP_DAY, 90);
     const contracts = deriveFishingContractViews(s);
     expect(contracts.find((v) => v.id === "c_carp5")?.claimable).toBe(true);
     expect(contracts.find((v) => v.id === "c_big80")?.claimable).toBe(true);
   });
 
   it("의뢰 보상에 농장 씨앗 주머니를 노출한다", () => {
-    const contracts = deriveFishingContractViews(emptyFishingDaily(DAY));
+    const contracts = deriveFishingContractViews(emptyFishingDaily(CARP_DAY));
 
     expect(contracts.find((v) => v.id === "c_carp5")).toMatchObject({
       rewardSeedPouchName: "물가 씨앗 주머니",
@@ -190,5 +193,88 @@ describe("deriveViews", () => {
     expect(contracts.find((v) => v.id === "c_special1")).toMatchObject({
       rewardSeeds: { herb: 1, corn: 1 },
     });
+  });
+});
+
+function addDays(dayKey: string, days: number): string {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+const CARP_DAY = Array.from({ length: 7 }, (_, i) => addDays(DAY, i)).find(
+  (day) => fishingContractsForDay(day).some((c) => c.id === "c_carp5"),
+)!;
+
+describe("오늘의 의뢰 교체", () => {
+  it("매일 어종 납품 1건과 대물·물때 손님 의뢰를 낸다", () => {
+    const ids = fishingContractsForDay(DAY).map((c) => c.id);
+    expect(ids).toHaveLength(3);
+    expect(ids).toContain("c_big80");
+    expect(ids).toContain("c_special1");
+  });
+
+  it("어종 납품 의뢰가 이어지는 날마다 바뀌고 한 주 동안 모든 어종이 한 번씩 나온다", () => {
+    const orders = Array.from({ length: 7 }, (_, i) =>
+      fishingContractsForDay(addDays(DAY, i)).find(
+        (c) => c.id !== "c_big80" && c.id !== "c_special1",
+      )!.id,
+    );
+    for (let i = 1; i < orders.length; i += 1) {
+      expect(orders[i]).not.toBe(orders[i - 1]);
+    }
+    expect(new Set(orders).size).toBe(7);
+  });
+
+  it("어종 납품 의뢰를 모두 모으면 모든 낚시터가 한 번 이상 목적지가 된다", () => {
+    const fishIds = new Set<FishId>();
+    for (let i = 0; i < 7; i += 1) {
+      const order = fishingContractsForDay(addDays(DAY, i)).find(
+        (c) => c.id !== "c_big80" && c.id !== "c_special1",
+      )!;
+      for (const spot of Object.values(FISHING_SPOTS)) {
+        for (const fishId of spot.fishIds) {
+          if (order.progress(applyCatch(emptyFishingDaily(DAY), fishId, DAY)) > 0) {
+            fishIds.add(fishId);
+          }
+        }
+      }
+    }
+    for (const spot of Object.values(FISHING_SPOTS)) {
+      expect(spot.fishIds.some((fishId) => fishIds.has(fishId))).toBe(true);
+    }
+  });
+
+  it("오늘 의뢰가 아닌 어종 납품은 진행 목록에 나오지 않는다", () => {
+    const todayIds = new Set(fishingContractsForDay(DAY).map((c) => c.id));
+    const views = deriveFishingContractViews(emptyFishingDaily(DAY));
+    expect(views.map((v) => v.id).sort()).toEqual([...todayIds].sort());
+  });
+
+  it("어종 납품 의뢰 설명에 그 물고기가 나오는 낚시터를 알려 준다", () => {
+    const carp = fishingContractById("c_carp5")!;
+    expect(carp.desc).toContain("마을 선착장");
+    expect(carp.desc).toContain("안개 호수");
+  });
+
+  it("이웃한 날의 어종 납품 낚시터는 한 주에 한 번만 겹친다", () => {
+    const spotsOf = (day: string) => {
+      const order = fishingContractsForDay(day)[0];
+      return new Set(
+        Object.values(FISHING_SPOTS)
+          .filter((spot) =>
+            spot.fishIds.some(
+              (fishId) => order.progress(applyCatch(emptyFishingDaily(day), fishId, day)) > 0,
+            ),
+          )
+          .map((spot) => spot.id),
+      );
+    };
+    let overlaps = 0;
+    for (let i = 0; i < 7; i += 1) {
+      const today = spotsOf(addDays(DAY, i));
+      const next = spotsOf(addDays(DAY, i + 1));
+      if ([...today].some((id) => next.has(id))) overlaps += 1;
+    }
+    expect(overlaps).toBe(1);
   });
 });

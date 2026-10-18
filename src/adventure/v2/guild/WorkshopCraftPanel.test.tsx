@@ -141,6 +141,52 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).not.toContain("저항");
   });
 
+  it("옵션 성향과 구조 제작술의 선택지마다 효과 설명을 보여 준다", () => {
+    const controlledState: WorkshopState = {
+      ...workshopState(),
+      blacksmithProgression: { specialty: "weapon" },
+      recipes: [
+        {
+          ...guildWorkshopRecipeView(recipe, {}),
+          techniques: {
+            eligible: true,
+            optionFocuses: [
+              {
+                id: "weapon_offense",
+                name: "화력",
+                optionKeys: ["crit", "critMult"],
+              },
+            ],
+            structures: [
+              { id: "balanced", name: "균형 제작", requiredLevel: 20 },
+              { id: "primary", name: "주력 강화", requiredLevel: 20 },
+              { id: "option", name: "옵션 정밀", requiredLevel: 20 },
+              { id: "extreme", name: "극한 제작", requiredLevel: 20 },
+              { id: "stable", name: "안정 제작", requiredLevel: 22 },
+            ],
+            focusChancePct: 75,
+            catalystUnlocked: false,
+            catalystFocusChancePct: 90,
+            catalystPreserveChancePct: 0,
+            masterworkTechniquesUnlocked: false,
+            signatureUnlocked: false,
+            inspectionUnlocked: false,
+            catalyst: null,
+          },
+        },
+      ],
+    };
+
+    const html = renderWorkshop(new Set(), "ready", controlledState);
+    expect(html).toContain("치명타·치명타 피해");
+    expect(html).toContain("75%");
+    expect(html).toContain("굴림 배분을 바꾸지 않습니다");
+    expect(html).toContain("위력으로 옮깁니다");
+    expect(html).toContain("옵션 성향을 함께 골라야");
+    expect(html).toContain("편차를 넓힙니다");
+    expect(html).toContain("편차를 좁힙니다");
+  });
+
   it("적용 가능한 옵션 성향이 없는 전문 장비는 빈 선택 대신 이유를 표시한다", () => {
     const controlledState: WorkshopState = {
       ...workshopState(),

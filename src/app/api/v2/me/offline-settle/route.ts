@@ -195,6 +195,7 @@ export async function POST(req: Request) {
         rareMapFound:
           !!res.rareMapDrop &&
           RARE_MAP_KINDS[res.rareMapDrop]?.category === "hunt",
+        rareMapCount: res.rareMapCount,
         level: res.levelAfter,
       });
       if (autoStopReason) {
@@ -219,6 +220,7 @@ export async function POST(req: Request) {
     const autoStopped =
       stopped === "potion" ||
       stopped === "rare_map" ||
+      stopped === "rare_map_full" ||
       stopped === "level_100";
     const sessionDone = windowDone || autoStopped;
     await upsertSave(tx, userId, "character.v2", {

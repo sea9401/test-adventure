@@ -50,7 +50,7 @@ import {
 } from "@/adventure/tutorial/flags";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import type { Gender } from "@/adventure/profile/avatars";
-import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import { RARE_MAP_CAP, RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import type { RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -672,6 +672,7 @@ export function V2DungeonFloorView({
       mpCharges: statusMpCharges,
       hasMp: (mp?.maxMp ?? 0) > 0,
       rareMapFound: false,
+      rareMapCount: 0,
       level: currentLevel,
     });
     if (stopReason) {
@@ -878,6 +879,7 @@ export function V2DungeonFloorView({
           b.stoppedReason === "error" ||
           b.stoppedReason === "potion" ||
           b.stoppedReason === "rare_map" ||
+          b.stoppedReason === "rare_map_full" ||
           b.stoppedReason === "level_100"
             ? b.stoppedReason
             : rareMapIid && (b.rareMapRunsLeft ?? 0) <= 0
@@ -892,6 +894,7 @@ export function V2DungeonFloorView({
             rareMapFound: (b.rareMapDrops ?? []).some(
               (kind) => RARE_MAP_KINDS[kind]?.category === "hunt",
             ),
+            rareMapCount: b.rareMapCount ?? 0,
             level: b.finalLevelAfter ?? currentLevel + b.levelsGained,
           });
         if (stopReason) {
@@ -1003,6 +1006,7 @@ export function V2DungeonFloorView({
         mpCharges: statusMpCharges,
         hasMp: (mp?.maxMp ?? 0) > 0,
         rareMapFound: false,
+        rareMapCount: 0,
         level: currentLevel,
       });
       if (stopReason) {
@@ -1115,6 +1119,7 @@ export function V2DungeonFloorView({
                 rareMapFound:
                   !!r.rareMapDrop &&
                   RARE_MAP_KINDS[r.rareMapDrop]?.category === "hunt",
+                rareMapCount: r.rareMapCount ?? 0,
                 level: r.levelAfter ?? currentLevel + r.levelsGained,
               },
             );
@@ -1183,6 +1188,7 @@ export function V2DungeonFloorView({
       mpCharges: statusMpCharges,
       hasMp: (mp?.maxMp ?? 0) > 0,
       rareMapFound: false,
+      rareMapCount: 0,
       level: currentLevel,
     });
     if (stopReason) {
@@ -1554,19 +1560,36 @@ export function V2DungeonFloorView({
                 </p>
               </div>
 
-              {!isUnexplored && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoStopConfig.rareMapEnabled}
+                  onChange={(e) =>
+                    updateAutoStopConfig({ rareMapEnabled: e.target.checked })
+                  }
+                  className="size-4 accent-emerald-600"
+                />
+                <span>희귀 탐사맵 발견 시</span>
+              </label>
+
+              <div className="space-y-1">
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={autoStopConfig.rareMapEnabled}
+                    checked={autoStopConfig.rareMapFullEnabled}
                     onChange={(e) =>
-                      updateAutoStopConfig({ rareMapEnabled: e.target.checked })
+                      updateAutoStopConfig({
+                        rareMapFullEnabled: e.target.checked,
+                      })
                     }
                     className="size-4 accent-emerald-600"
                   />
-                  <span>희귀 탐사맵 발견 시</span>
+                  <span>레어맵 {RARE_MAP_CAP}장 보유 시</span>
                 </label>
-              )}
+                <p className="pl-6 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  개명 신전·비밀 상점 지도를 포함해 보유 한도가 차면 정지합니다.
+                </p>
+              </div>
 
               <label className="flex items-center gap-2 text-sm">
                 <input

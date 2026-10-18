@@ -18,6 +18,7 @@ import {
   Skull,
   Sword,
   Trophy,
+  UserMinus,
   UsersThree,
 } from "@phosphor-icons/react";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
@@ -30,9 +31,13 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
 import {
   auctionWonNotificationText,
+  guildDisbandedNotificationText,
+  guildKickedNotificationText,
   masterProductNotificationText,
   type MasterProductNotificationPayload,
   type AuctionWonNotificationPayload,
+  type GuildDisbandedNotificationPayload,
+  type GuildKickedNotificationPayload,
   unreadV2Notifications,
   type V2NotificationEntry,
   type V2NotificationType,
@@ -98,6 +103,20 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
     />
   ),
   guild_join_declined: (
+    <UsersThree
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-zinc-500 dark:text-zinc-400"
+    />
+  ),
+  guild_kicked: (
+    <UserMinus
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-rose-500 dark:text-rose-400"
+    />
+  ),
+  guild_disbanded: (
     <UsersThree
       size={16}
       weight="duotone"
@@ -237,6 +256,12 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
         거절되었습니다
       </>
     );
+  }
+  if (n.type === "guild_kicked") {
+    return guildKickedNotificationText(n.payload as GuildKickedNotificationPayload);
+  }
+  if (n.type === "guild_disbanded") {
+    return guildDisbandedNotificationText(n.payload as GuildDisbandedNotificationPayload);
   }
   if (n.type === "coop_defeated") {
     const p = n.payload as { bossName: string };

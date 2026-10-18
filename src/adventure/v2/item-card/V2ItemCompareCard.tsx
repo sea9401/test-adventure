@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Lock, LockOpen, X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +34,10 @@ import {
   powerNameClass,
   type ItemCardLockAction,
 } from "./shared";
+import {
+  useEquipmentPowerPreview,
+  type EquipmentPowerPreviewState,
+} from "./useEquipmentPowerPreview";
 
 // ── 장비 비교 카드 (장착 중 vs 후보) ─────────────────────────────────────────
 // 미장착 장비를 탭했을 때, 같은 슬롯의 장착 장비와 한 팝오버에서 좌우로 비교한다.
@@ -51,15 +54,7 @@ export type V2CompareSide = {
   craftedBy?: V2CraftedBy;
 };
 
-export type EquipmentPowerPreviewState =
-  | { status: "loading" }
-  | { status: "error" }
-  | {
-      status: "ready";
-      currentPower: number;
-      candidatePower: number;
-      delta: number;
-    };
+export type { EquipmentPowerPreviewState };
 
 // 증감 색 — 이득(초록)/손해(빨강)/동일(회색). 무게는 낮을수록 이득이라 방향이 아닌 better 로 색 결정.
 function compareDeltaClass(better: number): string {
@@ -318,63 +313,7 @@ export function V2ItemCompareCard({
   equippedIds?: ReadonlySet<V2EquipmentId>;
 }) {
   useEscapeKey(onClose);
-  const powerPreviewRequest = JSON.stringify(
-    candidate.iid
-      ? { iid: candidate.iid }
-      : {
-          candidate: {
-            itemId: candidate.item.id,
-            roll: candidate.roll,
-            enhance: candidate.enhance,
-            craftQuality: candidate.craftQuality,
-            craftedBy: candidate.craftedBy,
-          },
-        },
-  );
-  const [powerPreview, setPowerPreview] =
-    useState<EquipmentPowerPreviewState>({ status: "loading" });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void (async () => {
-      try {
-        const response = await fetch("/api/v2/me/equipment/power-preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: powerPreviewRequest,
-          signal: controller.signal,
-        });
-        const body = (await response.json()) as {
-          ok?: unknown;
-          currentPower?: unknown;
-          candidatePower?: unknown;
-          delta?: unknown;
-        };
-        const currentPower = Number(body.currentPower);
-        const candidatePower = Number(body.candidatePower);
-        const delta = Number(body.delta);
-        if (
-          !response.ok ||
-          body.ok !== true ||
-          !Number.isFinite(currentPower) ||
-          !Number.isFinite(candidatePower) ||
-          !Number.isFinite(delta)
-        ) {
-          throw new Error("power_preview_failed");
-        }
-        setPowerPreview({
-          status: "ready",
-          currentPower,
-          candidatePower,
-          delta,
-        });
-      } catch (_error) {
-        if (controller.signal.aborted) return;
-        setPowerPreview({ status: "error" });
-      }
-    })();
-    return () => controller.abort();
-  }, [powerPreviewRequest]);
+  const powerPreview = useEquipmentPowerPreview(candidate);
 
   const equippedRows = v2EquipStatRows(
     equipped.item,

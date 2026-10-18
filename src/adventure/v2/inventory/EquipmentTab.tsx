@@ -32,11 +32,50 @@ const NEXT_LOCK_FILTER: Record<EquipmentLockFilter, EquipmentLockFilter> = {
   unlocked: "all",
 };
 
+// 인벤토리·대장간 공용 잠금 보기 버튼.
+export function EquipmentLockFilterButton({
+  value,
+  onChange,
+  totalCount,
+  lockedCount,
+}: {
+  value: EquipmentLockFilter;
+  onChange: (next: EquipmentLockFilter) => void;
+  totalCount: number;
+  lockedCount: number;
+}) {
+  return (
+    <Button
+      type="button"
+      onClick={() => onChange(NEXT_LOCK_FILTER[value])}
+      aria-pressed={value !== "all"}
+      variant={value !== "all" ? "primary" : "secondary"}
+      size="sm"
+      className="shrink-0"
+    >
+      {value === "unlocked"
+        ? `미잠금만 보기 (${totalCount - lockedCount})`
+        : `잠금만 보기 (${lockedCount})`}
+    </Button>
+  );
+}
+
 export type EquipmentSaleSelection = {
   active: boolean;
   selectedIids: ReadonlySet<string>;
   selectedCount: number;
   selectedGold: number;
+  onStart: () => void;
+  onCancel: () => void;
+  onToggle: (inst: V2EquipInstance) => void;
+  onConfirm: () => void;
+};
+
+// 같은 부위 장비를 골라 한 표로 비교한다(건의 #792). 장착 장비는 기준으로 자동 포함.
+export type EquipmentCompareSelection = {
+  active: boolean;
+  selectedIids: ReadonlySet<string>;
+  max: number;
   onStart: () => void;
   onCancel: () => void;
   onToggle: (inst: V2EquipInstance) => void;
@@ -77,6 +116,7 @@ export function EquipmentTab({
   onRegisterCodex,
   codexBulk,
   selection,
+  compare,
 }: {
   search?: string;
   slot: V2EquipSlot;
@@ -99,6 +139,7 @@ export function EquipmentTab({
     onStart: () => void;
   };
   selection: EquipmentSaleSelection;
+  compare?: EquipmentCompareSelection;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -116,6 +157,10 @@ export function EquipmentTab({
       ),
     [lockFilter, sortedInstances, search],
   );
+  const comparing = compare?.active === true;
+  const compareCount = compare?.selectedIids.size ?? 0;
+  // 장착 장비가 기준 열로 들어가므로 후보 1개면 충분하다. 없으면 2개부터.
+  const compareReady = compareCount >= (equippedIid ? 1 : 2);
   const lockedCount = useMemo(
     () => instances.filter((instance) => instance.locked === true).length,
     [instances],
@@ -161,41 +206,55 @@ export function EquipmentTab({
                 </option>
               ))}
             </select>
-            <Button
-              type="button"
-              onClick={() => setLockFilter(NEXT_LOCK_FILTER[lockFilter])}
-              aria-pressed={lockFilter !== "all"}
-              variant={lockFilter !== "all" ? "primary" : "secondary"}
-              size="sm"
-              className="shrink-0"
-            >
-              {lockFilter === "unlocked"
-                ? `미잠금만 보기 (${instances.length - lockedCount})`
-                : `잠금만 보기 (${lockedCount})`}
-            </Button>
+            <EquipmentLockFilterButton
+              value={lockFilter}
+              onChange={setLockFilter}
+              totalCount={instances.length}
+              lockedCount={lockedCount}
+            />
           </div>
           {selection.active ? (
             <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
               판매할 장비를 선택하세요
             </p>
+          ) : comparing ? (
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+              비교할 장비를 최대 {compare.max}개 고르세요.
+              {equippedIid ? " 장착 중인 장비는 자동으로 함께 비교됩니다." : ""}
+            </p>
           ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-expanded={bulkOpen}
-              aria-controls={bulkPanelId}
-              onClick={() => setBulkOpen((open) => !open)}
-            >
-              일괄 작업
-              <CaretDown
-                size={14}
-                aria-hidden
-                className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
-              />
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-expanded={bulkOpen}
+                aria-controls={bulkPanelId}
+                onClick={() => setBulkOpen((open) => !open)}
+              >
+                일괄 작업
+                <CaretDown
+                  size={14}
+                  aria-hidden
+                  className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
+                />
+              </Button>
+              {compare ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setBulkOpen(false);
+                    compare.onStart();
+                  }}
+                  disabled={busy !== null}
+                >
+                  비교 선택
+                </Button>
+              ) : null}
+            </div>
           )}
           {/* 일괄 작업 — 현재 탭 부위 전체 대상, 장착·잠금 장비는 제외(전 장비 판매 가능) */}
-          {bulkOpen && !selection.active ? (
+          {bulkOpen && !selection.active && !comparing ? (
             <section
               id={bulkPanelId}
               aria-label="일괄 작업"
@@ -281,11 +340,21 @@ export function EquipmentTab({
         onOpenCard={onOpenCard}
         onRegisterCodex={onRegisterCodex}
         codexBusyIid={busy}
-        saleSelection={{
-          active: selection.active,
-          selectedIids: selection.selectedIids,
-          onToggle: selection.onToggle,
-        }}
+        saleSelection={
+          comparing
+            ? {
+                active: true,
+                selectedIids: compare.selectedIids,
+                onToggle: compare.onToggle,
+                purpose: "compare",
+                max: compare.max,
+              }
+            : {
+                active: selection.active,
+                selectedIids: selection.selectedIids,
+                onToggle: selection.onToggle,
+              }
+        }
         recentlyAcquiredIid={
           sortMode === "acquired" ? tabInstances[0]?.iid : undefined
         }
@@ -330,6 +399,29 @@ export function EquipmentTab({
               size="sm"
             >
               {busy === "selected-sell" ? "판매 중…" : "선택 판매"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {comparing ? (
+        <div
+          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          aria-live="polite"
+        >
+          <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+            선택 {compareCount}/{compare.max}개
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button onClick={compare.onCancel} variant="secondary" size="sm">
+              취소
+            </Button>
+            <Button
+              onClick={compare.onConfirm}
+              disabled={!compareReady}
+              variant="primary"
+              size="sm"
+            >
+              비교하기
             </Button>
           </div>
         </div>

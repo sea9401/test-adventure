@@ -17,6 +17,8 @@ const { q, spies } = vi.hoisted(() => ({
     ins: vi.fn(),
     clearAffiliation: vi.fn(async () => {}),
     logActivity: vi.fn(async () => {}),
+    notifyKicked: vi.fn(async () => {}),
+    notifyDisbanded: vi.fn(async () => {}),
   },
 }));
 
@@ -28,6 +30,10 @@ vi.mock("@/lib/server/guildAffiliation", () => ({
 }));
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: spies.logActivity,
+}));
+vi.mock("@/lib/server/guildNotifications", () => ({
+  notifyGuildKicked: spies.notifyKicked,
+  notifyGuildDisbanded: spies.notifyDisbanded,
 }));
 vi.mock("@/db", async () => {
   const { guildMembers, outpostOccupations, outpostVillages } = await import(
@@ -170,9 +176,21 @@ describe("POST /api/v2/guild/kick", () => {
 
   it("마스터가 멤버 추방 → 200, 삭제+무소속+쿨다운+로그", async () => {
     q.gmQueue = [[{ guildId: 7 }], [{ userId: "u-victim" }]];
-    q.guildRows = [{ masterId: "u-me" }];
+    q.guildRows = [{ masterId: "u-me", name: "은빛" }];
+    const before = Date.now();
     const res = await kickPOST(req({ targetUserId: "u-victim" }));
     expect(res.status).toBe(200);
+    // 추방당한 본인에게 길드 이름과 가입 제한 해제 시각을 알린다.
+    expect(spies.notifyKicked).toHaveBeenCalledWith({
+      userId: "u-victim",
+      guildId: 7,
+      guildName: "은빛",
+      cooldownUntil: expect.any(Number),
+    });
+    const sent = (spies.notifyKicked.mock.calls[0] as unknown[])[0] as {
+      cooldownUntil: number;
+    };
+    expect(sent.cooldownUntil).toBeGreaterThanOrEqual(before + 86_400_000);
     expect((await res.json()).removedUserId).toBe("u-victim");
     expect(spies.del).toHaveBeenCalledTimes(1);
     expect(spies.clearAffiliation).toHaveBeenCalledWith(
@@ -225,6 +243,7 @@ describe("POST /api/v2/guild/disband", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("confirm_mismatch");
     expect(spies.del).not.toHaveBeenCalled();
+    expect(spies.notifyDisbanded).not.toHaveBeenCalled();
   });
 
   it("마스터+이름 일치 → 200, 전원 무소속 + 길드 삭제", async () => {
@@ -239,5 +258,11 @@ describe("POST /api/v2/guild/disband", () => {
     expect(spies.clearAffiliation).toHaveBeenCalledTimes(2);
     expect(spies.del).toHaveBeenCalledTimes(2); // guildMembers 해제 + 건물 보관 레벨 삭제
     expect(spies.upd).toHaveBeenCalledTimes(1); // guilds 툼스톤(disbandedAt)
+    // 해산한 마스터 본인을 뺀 길드원에게 해산 알림.
+    expect(spies.notifyDisbanded).toHaveBeenCalledWith({
+      userIds: ["u-b"],
+      guildId: 7,
+      guildName: "은빛",
+    });
   });
 });

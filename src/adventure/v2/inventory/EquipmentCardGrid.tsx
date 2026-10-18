@@ -97,6 +97,11 @@ export type EquipmentSaleCardSelection = {
   active: boolean;
   selectedIids: ReadonlySet<string>;
   onToggle: (inst: V2EquipInstance) => void;
+  // 기본은 판매 선택. 비교 선택은 잠금 장비도 고를 수 있고, 장착 장비는 기준 열로
+  //   자동 포함되므로 고를 수 없다.
+  purpose?: "sale" | "compare";
+  // 비교 선택 상한. 닿으면 고르지 않은 카드는 막는다.
+  max?: number;
 };
 
 // 보유 장비 2열 카드 그리드 — 개체(instance) 단위. 슬롯 아이콘 + 장착 배지(✓/잠금) +
@@ -121,7 +126,8 @@ export function EquipmentCardGrid({
   // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
   // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
   selectedIid?: string | null;
-  // 인벤토리 선택 판매 모드. 장착·잠금 카드는 서버 규칙과 동일하게 선택할 수 없다.
+  // 인벤토리 선택 판매·비교 선택 모드. 판매는 장착·잠금 카드를 서버 규칙과 동일하게
+  //   선택할 수 없고, 비교는 장착 카드와 상한 초과만 막는다.
   saleSelection?: EquipmentSaleCardSelection;
   // 획득순에서 첫 카드가 최신임을 즉시 알아볼 수 있도록 표시한다.
   recentlyAcquiredIid?: string;
@@ -131,6 +137,12 @@ export function EquipmentCardGrid({
 }) {
   const selectable = selectedIid !== undefined;
   const saleSelectionActive = saleSelection?.active === true;
+  const comparing = saleSelection?.purpose === "compare";
+  const selectionVerb = comparing ? "비교" : "판매";
+  const selectionFull =
+    comparing &&
+    saleSelection?.max != null &&
+    saleSelection.selectedIids.size >= saleSelection.max;
   if (cards.length === 0) {
     return (
       <EmptyState
@@ -154,9 +166,13 @@ export function EquipmentCardGrid({
           saleSelectionActive && saleSelection.selectedIids.has(inst.iid);
         const saleBlockedReason = isEquipped
           ? "장착 중"
-          : inst.locked
-            ? "잠금됨"
-            : null;
+          : comparing
+            ? selectionFull && !isSaleSelected
+              ? `최대 ${saleSelection?.max}개`
+              : null
+            : inst.locked
+              ? "잠금됨"
+              : null;
         const highlighted = saleSelectionActive
           ? isSaleSelected
           : selectable
@@ -170,7 +186,9 @@ export function EquipmentCardGrid({
           <div
             key={inst.iid}
             className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 ${
-              isSaleSelected
+              isSaleSelected && comparing
+                ? "is-active border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200 dark:border-indigo-500 dark:bg-zinc-900 dark:ring-indigo-900/70"
+                : isSaleSelected
                 ? "is-active border-rose-400 bg-rose-50 ring-1 ring-rose-200 dark:border-rose-500 dark:bg-zinc-900 dark:ring-rose-900/70"
                 : highlighted
                 ? "is-active border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200 dark:border-emerald-500 dark:bg-zinc-900 dark:ring-emerald-900/70"
@@ -188,8 +206,8 @@ export function EquipmentCardGrid({
               aria-label={
                 saleSelectionActive
                   ? saleBlockedReason
-                    ? `${item.name} 판매 선택 불가: ${saleBlockedReason}`
-                    : `${item.name} 판매 ${isSaleSelected ? "선택됨" : "선택 안 됨"}`
+                    ? `${item.name} ${selectionVerb} 선택 불가: ${saleBlockedReason}`
+                    : `${item.name} ${selectionVerb} ${isSaleSelected ? "선택됨" : "선택 안 됨"}`
                   : `${item.name} 정보`
               }
               aria-pressed={saleSelectionActive ? isSaleSelected : undefined}
@@ -220,7 +238,7 @@ export function EquipmentCardGrid({
                   <CheckCircle
                     size={18}
                     weight="fill"
-                    className="text-rose-500"
+                    className={comparing ? "text-indigo-500" : "text-rose-500"}
                     aria-hidden
                   />
                 ) : null}

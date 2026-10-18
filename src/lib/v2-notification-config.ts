@@ -2,6 +2,8 @@
 // 우편함(아이템 첨부)과 분리된 "읽고 끝" 채널 — docs/v2-war-visibility-plan.md PR-5.
 // v1 클라 로컬 토스트(src/lib/notifications.ts)와는 별개 — 이쪽은 DB 영속·교차 세션.
 
+import { formatDateTime } from "@/lib/notifications";
+
 // GET /api/v2/notifications 가 돌려주는 최근 항목 수.
 export const NOTIF_FETCH_LIMIT = 30;
 
@@ -24,6 +26,8 @@ export const V2_NOTIFICATION_TYPES = [
   "guild_join_requested",
   "guild_join_accepted",
   "guild_join_declined",
+  "guild_kicked",
+  "guild_disbanded",
   "coop_defeated",
   "feedback_replied",
   "farm_ready",
@@ -46,6 +50,31 @@ export function auctionWonNotificationText(
   return `${payload.itemName} ×${payload.quantity.toLocaleString("ko-KR")}을(를) ${payload.totalPrice.toLocaleString("ko-KR")}골드에 낙찰받았습니다. 물품 지급이 완료되었습니다.`;
 }
 
+// guild_kicked — 길드에서 추방됨. cooldownUntil = 다른 길드 가입 제한 해제 시각(epoch ms).
+export type GuildKickedNotificationPayload = {
+  guildId: number;
+  guildName: string;
+  cooldownUntil: number;
+};
+
+export function guildKickedNotificationText(
+  payload: GuildKickedNotificationPayload,
+): string {
+  return `${payload.guildName} 길드에서 추방되었습니다. ${formatDateTime(payload.cooldownUntil)}까지 다른 길드에 가입할 수 없습니다.`;
+}
+
+// guild_disbanded — 소속 길드가 해산됨(해산한 마스터 본인 제외). 해산은 가입 제한이 없다.
+export type GuildDisbandedNotificationPayload = {
+  guildId: number;
+  guildName: string;
+};
+
+export function guildDisbandedNotificationText(
+  payload: GuildDisbandedNotificationPayload,
+): string {
+  return `${payload.guildName} 길드가 해산되었습니다. 바로 다른 길드에 가입할 수 있습니다.`;
+}
+
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
 // master_product — 생활 전공으로 명장 산물 획득. name 은 지급 시점 스냅샷.
 export type MasterProductNotificationPayload = {
@@ -64,6 +93,8 @@ export function masterProductNotificationText(
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
   | MasterProductNotificationPayload
+  | GuildKickedNotificationPayload
+  | GuildDisbandedNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.
   | {
       outpostId: string;

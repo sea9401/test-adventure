@@ -65,7 +65,7 @@ vi.mock("@/lib/server/savesKv", () => {
 
 import { POST } from "./route";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
-import { newRareMapInstance } from "@/adventure/data/v2/rareMaps";
+import { RARE_MAP_CAP, newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 
 const focused = { mode: "focused", poolId: "iron_legion" } as const;
@@ -175,5 +175,22 @@ describe("별의 무덤 일반 사냥 라우트", () => {
     if (rareMap) expect(specialty.result.rewardRolls).toBe(30);
     expect(specialty.result.enemyName).toBe(standard.result.enemyName);
     expect(random).toHaveBeenCalledTimes(standardCalls);
+  });
+});
+
+describe("일괄 사냥 레어맵 보유 한도 정지", () => {
+  function holdFullRareMaps() {
+    seed();
+    const character = store.get("character.v2") as Record<string, unknown>;
+    const rareMaps = Array.from({ length: RARE_MAP_CAP }, (_, i) =>
+      newRareMapInstance(i % 2 === 0 ? "rename_map" : "secret_shop_map", 1, Date.now(), `held-${i}`),
+    );
+    store.set("character.v2", { ...character, rareMaps });
+  }
+
+  it("개명 신전·비밀 상점을 포함해 보유 한도가 차 있으면 첫 판 뒤 멈춘다", async () => {
+    holdFullRareMaps();
+    const { batch } = await hunt({ count: 3, autoStopConfig: { rareMapFullEnabled: true } });
+    expect(batch).toMatchObject({ completed: 1, stoppedReason: "rare_map_full", rareMapCount: RARE_MAP_CAP });
   });
 });

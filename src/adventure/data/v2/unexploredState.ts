@@ -72,7 +72,8 @@ export type UnexploredSave = {
 
 const achievementIdSet = new Set<string>(UNEXPLORED_ACHIEVEMENT_IDS);
 const MAX_XP_POINTS = 30;
-const MAX_ACHIEVEMENT_POINTS = 10;
+// 업적마다 1포인트. 보스 업적이 늘면 상한도 함께 늘어나도록 목록 길이를 쓴다.
+const MAX_ACHIEVEMENT_POINTS = UNEXPLORED_ACHIEVEMENT_IDS.length;
 const MAX_CRAFT_RECEIPTS = 50;
 const EXPLORATION_PROGRESS_VERSION = 2;
 // v1은 사냥 EXP 원값을 저장했다. 운영 기본 배율에서 미개척지 1승이 3,300 EXP였으므로

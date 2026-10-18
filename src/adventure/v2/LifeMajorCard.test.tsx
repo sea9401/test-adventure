@@ -105,6 +105,12 @@ describe("생활 전공 카드", () => {
     expect(screen.getByText(/30일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
   });
 
+  it("명장 요리를 어디서 어떤 조건으로 만드는지 알려 준다", async () => {
+    render(<LifeMajorCard />);
+    await screen.findByLabelText("주전공");
+    expect(screen.getByText(/요리 주전공 명장 3단계부터 주방의 명장 요리 탭에서 만듭니다/)).toBeTruthy();
+  });
+
   it("변경 대기 중이면 다음 변경 시각을 보여 주고 저장 버튼을 막는다", async () => {
     current = view({ major: "farming", nextChangeAt: NOW + 3 * 86_400_000 });
     render(<LifeMajorCard />);

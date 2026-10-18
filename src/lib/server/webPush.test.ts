@@ -10,6 +10,19 @@ describe("시스템 푸시 이벤트 매핑", () => {
       }),
     ).toMatchObject({ title: "길드 가입 승인", url: "/guild" });
     expect(
+      pushMessageForNotification("guild_kicked", {
+        guildId: 1,
+        guildName: "테스트 길드",
+        cooldownUntil: Date.UTC(2026, 9, 16, 10, 33),
+      }),
+    ).toMatchObject({ title: "길드 추방", url: "/guild" });
+    expect(
+      pushMessageForNotification("guild_disbanded", {
+        guildId: 1,
+        guildName: "테스트 길드",
+      }),
+    ).toMatchObject({ title: "길드 해산", url: "/guild" });
+    expect(
       pushMessageForNotification("coop_defeated", {
         sessionId: "session-1",
         kindId: "boss-1",

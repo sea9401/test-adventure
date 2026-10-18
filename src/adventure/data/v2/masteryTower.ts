@@ -505,6 +505,21 @@ export function clearMasteryTowerFloor(
   };
 }
 
+/**
+ * 체크포인트에서 새 등반을 시작하면 건너뛴 아래층(시작층 - 1)까지 오늘 기록으로 인정한다.
+ * 시작층에서 바로 패배해도 그 아래층 일일 보상을 받을 수 있게 한다.
+ * 역대·주간 최고 기록은 실제 돌파로만 갱신한다.
+ */
+export function creditMasteryTowerCheckpointStart(
+  state: MasteryTowerState,
+  startFloor: number,
+): MasteryTowerState {
+  if (state.runFloor > 0) return state;
+  const skipped = clampFloor(startFloor - 1);
+  if (skipped <= state.todayBestFloor) return state;
+  return { ...state, todayBestFloor: skipped };
+}
+
 export function masteryTowerCheckpointStartFloor(
   state: MasteryTowerState,
 ): number | null {
@@ -659,6 +674,12 @@ export function masteryTowerAttemptLog({
           : `${floor}층 실패`,
       },
     );
+    if (!practice && claimPreview.total > 0) {
+      lines.push({
+        kind: "reward",
+        text: `[보상] 현재 수령 가능 숙련 증서 ${fmt(claimPreview.total)}`,
+      });
+    }
   }
 
   return lines;

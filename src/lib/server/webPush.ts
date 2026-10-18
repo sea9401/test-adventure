@@ -8,7 +8,11 @@ import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import type { GamePushMessage } from "@/lib/push-notifications";
 import {
   auctionWonNotificationText,
+  guildDisbandedNotificationText,
+  guildKickedNotificationText,
   type AuctionWonNotificationPayload,
+  type GuildDisbandedNotificationPayload,
+  type GuildKickedNotificationPayload,
   type V2NotificationPayload,
   type V2NotificationType,
 } from "@/lib/v2-notification-config";
@@ -159,6 +163,24 @@ export function pushMessageForNotification(
         body: `${value.guildName} 길드 가입 신청이 거절되었습니다.`,
         url: "/guild",
         tag: "guild-join-declined",
+      };
+    }
+    case "guild_kicked": {
+      const value = payload as GuildKickedNotificationPayload;
+      return {
+        title: "길드 추방",
+        body: guildKickedNotificationText(value),
+        url: "/guild",
+        tag: "guild-kicked",
+      };
+    }
+    case "guild_disbanded": {
+      const value = payload as GuildDisbandedNotificationPayload;
+      return {
+        title: "길드 해산",
+        body: guildDisbandedNotificationText(value),
+        url: "/guild",
+        tag: "guild-disbanded",
       };
     }
     case "coop_defeated": {

@@ -16,9 +16,13 @@ import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
   auctionWonNotificationText,
+  guildDisbandedNotificationText,
+  guildKickedNotificationText,
   masterProductNotificationText,
   type MasterProductNotificationPayload,
   type AuctionWonNotificationPayload,
+  type GuildDisbandedNotificationPayload,
+  type GuildKickedNotificationPayload,
   unreadV2Notifications,
   type V2NotificationEntry,
 } from "@/lib/v2-notification-config";
@@ -75,6 +79,10 @@ function previewText(notification: V2NotificationEntry): string {
       const p = payload as { guildName: string };
       return `${p.guildName} 길드 가입 신청이 거절되었습니다.`;
     }
+    case "guild_kicked":
+      return guildKickedNotificationText(payload as GuildKickedNotificationPayload);
+    case "guild_disbanded":
+      return guildDisbandedNotificationText(payload as GuildDisbandedNotificationPayload);
     case "coop_defeated": {
       const p = payload as { bossName: string };
       return `협동 보스 ${p.bossName}이(가) 처치되었습니다.`;

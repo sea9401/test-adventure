@@ -96,7 +96,7 @@ describe("unexplored save", () => {
     ]);
   });
 
-  it("shows the first XP point at level 100 and caps earned points at 40", () => {
+  it("shows the first XP point at level 100 and gives one point per achievement", () => {
     const empty = emptyUnexploredSave();
     expect(unexploredEarnedPoints(99, empty)).toBe(0);
     expect(unexploredEarnedPoints(100, empty)).toBe(1);
@@ -105,7 +105,10 @@ describe("unexplored save", () => {
       xpPoints: 99,
       achievementIds: [...UNEXPLORED_ACHIEVEMENT_IDS, "unknown"],
     });
-    expect(unexploredEarnedPoints(100, completed)).toBe(40);
+    expect(unexploredEarnedPoints(100, completed)).toBe(
+      30 + UNEXPLORED_ACHIEVEMENT_IDS.length,
+    );
+    expect(unexploredEarnedPoints(100, completed)).toBe(43);
   });
 
   it("requires level 100 to edit nodes and also requires start to hunt", () => {

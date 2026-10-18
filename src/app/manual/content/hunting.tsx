@@ -39,7 +39,8 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
+import { AUTO_HUNT_LEVEL_TARGET } from "@/adventure/v2/autoHuntStopPolicy";
+import { H2, P, UL, Em, Code, Table } from "./primitives";
 
 const HUNTING_THEMES = dungeonThemeCatalog(MAX_FRONTIER_DEPTH);
 const LAST_HUNTING_THEME = HUNTING_THEMES.at(-1);
@@ -136,10 +137,19 @@ export function HuntingContent() {
         속도로 회복되며, 마을 치료소에서 즉시 모두 채울 수 있습니다.
       </P>
 
-      <Note>
-        자동 사냥은 지원하지 않습니다. 사냥은 화면에서 직접 시작해야 하며,
-        접속하지 않은 동안에는 스태미나와 HP만 회복됩니다.
-      </Note>
+      <H2>자동 사냥과 정지 조건</H2>
+      <P>
+        사냥 버튼을 길게 누르면 손을 떼도 사냥이 이어지는 <Em>자동 사냥</Em>이
+        시작됩니다. 스태미나나 HP가 부족해지면 멈추며, 전투 설정(톱니바퀴)의
+        정지 조건으로 원하는 시점에 멈추게 할 수 있습니다. 정지 조건은 일괄
+        사냥에도 똑같이 적용되고, 일반 사냥터와 미개척지에서 같은 설정을 씁니다.
+      </P>
+      <UL>
+        <li><Em>충전약 기준</Em>: HP/MP 충전약 중 하나라도 정한 값 이하가 되면 멈춥니다.</li>
+        <li><Em>희귀 탐사맵 발견 시</Em>: 희귀 탐사 지도가 열리면 멈춥니다. 개명 신전과 비밀 상점 지도는 이 조건에 포함되지 않습니다.</li>
+        <li><Em>레어맵 {RARE_MAP_CAP}장 보유 시</Em>: 개명 신전·비밀 상점을 포함한 보유 레어맵이 한도에 닿으면 멈춥니다. 한도가 차면 새 레어맵이 열리지 않습니다.</li>
+        <li><Em>레벨 {AUTO_HUNT_LEVEL_TARGET} 도달 시</Em>: 레벨 {AUTO_HUNT_LEVEL_TARGET}이 되면 멈춥니다.</li>
+      </UL>
 
       <H2>던전</H2>
       <P>전투 메뉴의 던전에서 폭풍 원정과 태초의 성소를 선택합니다. 각 던전은 하루 3회씩 별도로 입장할 수 있으며, 매일 00:00에 입장 횟수가 초기화됩니다. 진행 중인 던전은 자정이 지나도 유지됩니다.</P>

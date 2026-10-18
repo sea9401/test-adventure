@@ -96,7 +96,13 @@ import {
   CraftQualityStars,
   powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
-import { sortEnhanceCandidates } from "@/adventure/v2/v2EnhanceList";
+import {
+  enhanceTierOptions,
+  filterEnhanceCandidates,
+  sortEnhanceCandidates,
+  type EnhanceCandidateFilter,
+} from "@/adventure/v2/v2EnhanceList";
+import { EnhanceCandidateFilters } from "./EnhanceCandidateFilters";
 import { EnhancePowerPreview } from "@/adventure/v2/EnhancePowerPreview";
 import { useSystemToast } from "./RewardToastProvider";
 import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
@@ -370,6 +376,11 @@ export function V2EnhanceView({
     null,
   );
   const [tab, setTab] = useState<V2EquipSlot>("weapon");
+  const [candidateFilter, setCandidateFilter] = useState<EnhanceCandidateFilter>({
+    search: "",
+    lock: "all",
+    tier: "all",
+  });
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
   const [stone, setStone] = useState<EnhanceChoice>("none");
   const [reforgeStone, setReforgeStone] = useState<ReforgeStoneId>("basic");
@@ -487,7 +498,28 @@ export function V2EnhanceView({
       ),
     [equipped, mode, owned, tab],
   );
-  const pager = usePagination(tabInstances, 8, tab);
+  const tierOptions = useMemo(() => enhanceTierOptions(tabInstances), [tabInstances]);
+  const lockedCount = useMemo(
+    () => tabInstances.filter((o) => o.locked === true).length,
+    [tabInstances],
+  );
+  // 강화↔개량 전환 등으로 고른 티어가 목록에서 사라지면 모든 티어로 본다.
+  const activeTier = tierOptions.some((o) => o.tier === candidateFilter.tier)
+    ? candidateFilter.tier
+    : "all";
+  const activeFilter = useMemo<EnhanceCandidateFilter>(
+    () => ({ ...candidateFilter, tier: activeTier }),
+    [activeTier, candidateFilter],
+  );
+  const filteredInstances = useMemo(
+    () => filterEnhanceCandidates(tabInstances, activeFilter),
+    [activeFilter, tabInstances],
+  );
+  const pager = usePagination(
+    filteredInstances,
+    8,
+    `${tab}:${activeFilter.search}:${activeFilter.lock}:${activeFilter.tier}`,
+  );
 
   const selected = owned.find((o) => o.iid === selectedIid) ?? null;
   const item = selected ? V2_EQUIPMENT[selected.id] : null;
@@ -1796,6 +1828,8 @@ export function V2EnhanceView({
             active={tab}
             onChange={(t) => {
               setTab(t);
+              // 티어 구성은 부위마다 달라 부위를 바꾸면 티어만 처음으로 돌린다.
+              setCandidateFilter((f) => ({ ...f, tier: "all" }));
               setSelectedIid(null);
               setMsg(null);
               setFeedIid(null);
@@ -1806,9 +1840,28 @@ export function V2EnhanceView({
             variant="highlight"
             scrollable
           />
+          {tabInstances.length > 0 && (
+            <div className="mt-2">
+              <EnhanceCandidateFilters
+                filter={activeFilter}
+                onChange={setCandidateFilter}
+                tierOptions={tierOptions}
+                totalCount={tabInstances.length}
+                lockedCount={lockedCount}
+              />
+            </div>
+          )}
           <div className="mt-2">
             <EquipmentCardGrid
               selectedIid={selectedIid}
+              emptyState={
+                tabInstances.length > 0
+                  ? {
+                      title: "조건에 맞는 장비가 없습니다",
+                      message: "검색어를 지우거나 티어·잠금 보기를 바꿔 주세요.",
+                    }
+                  : undefined
+              }
               cards={pager.pageItems.map(
                 (inst: V2EquipInstance): EquipmentCard => ({
                   inst,

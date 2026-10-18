@@ -86,6 +86,8 @@ export type HuntResult = {
   // 새로 생성된 지도 개체 — 결과 화면에서 해당 지도 바로가기용.
   rareMapDropInstance?: RareMapInstance | null;
   rareMapRunsLeft?: number | null;
+  // 전투 후 보유 레어맵 수(희귀 장소 포함) — 보유 한도 정지 조건용.
+  rareMapCount?: number;
   // 도전(미정복) 구역 클리어 시 갱신된 최고 도달 깊이.
   maxDepth?: number;
 };

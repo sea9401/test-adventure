@@ -163,8 +163,11 @@ export function LifeFestivalView({ onBack }: { onBack: () => void }) {
           previousSelection={lastDishSelection[dishOrder.id]}
           busy={busyKey === `order:${dishOrder.id}`}
           onClose={() => setDishOrderId(null)}
-          onConfirm={async (foodIds) => {
-            if (await deliver(dishOrder, 1, foodIds)) {
+          onConfirm={async (foodIds, times) => {
+            const scaled = Object.fromEntries(
+              Object.entries(foodIds).map(([foodId, count]) => [foodId, count * times]),
+            );
+            if (await deliver(dishOrder, times, scaled)) {
               setLastDishSelection((current) => ({ ...current, [dishOrder.id]: foodIds }));
               setDishOrderId(null);
             }
@@ -283,7 +286,8 @@ function DishPicker({
   previousSelection: Readonly<Record<string, number>> | undefined;
   busy: boolean;
   onClose: () => void;
-  onConfirm: (foodIds: Record<string, number>) => void;
+  /** foodIds 는 1회 납품 구성. 부모가 times 만큼 곱해 보낸다. */
+  onConfirm: (foodIds: Record<string, number>, times: number) => void;
 }) {
   const quantity = order.requirement.quantity;
   const allowMasterpiece =
@@ -294,6 +298,18 @@ function DishPicker({
       defaultDishSelection(options, quantity, allowMasterpiece),
   );
   const total = Object.values(selection).reduce((sum, count) => sum + count, 0);
+  const [times, setTimes] = useState(1);
+  const maxTimes =
+    total === quantity
+      ? Math.min(
+          LIFE_FESTIVAL_DELIVERY_TIMES_MAX,
+          ...Object.entries(selection).map(([foodId, count]) =>
+            Math.floor((options.find((option) => option.foodId === foodId)?.count ?? 0) / count),
+          ),
+        )
+      : 0;
+  // 구성을 바꿔 가능한 횟수가 줄면 화면과 납품 모두 줄어든 값을 쓴다.
+  const deliveryTimes = Math.max(1, Math.min(times, maxTimes));
   const change = (foodId: string, delta: number) =>
     setSelection((current) => {
       const nextCount = Math.max(0, (current[foodId] ?? 0) + delta);
@@ -364,11 +380,54 @@ function DishPicker({
             );
           })}
         </ul>
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">납품 횟수</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              요리 {formatNumber(quantity * deliveryTimes)}개 사용
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="납품 횟수 1회 빼기"
+              disabled={deliveryTimes <= 1}
+              onClick={() => setTimes(deliveryTimes - 1)}
+            >
+              <Minus size={16} aria-hidden />
+            </Button>
+            <span className="w-10 text-center text-sm font-bold tabular-nums">{deliveryTimes}회</span>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="납품 횟수 1회 더"
+              disabled={deliveryTimes >= maxTimes}
+              onClick={() => setTimes(deliveryTimes + 1)}
+            >
+              <Plus size={16} aria-hidden />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="최대 횟수"
+              disabled={deliveryTimes >= maxTimes}
+              onClick={() => setTimes(maxTimes)}
+            >
+              최대
+            </Button>
+          </div>
+        </div>
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             닫기
           </Button>
-          <Button variant="primary" disabled={total !== quantity} loading={busy} onClick={() => onConfirm(selection)}>
+          <Button
+            variant="primary"
+            disabled={total !== quantity}
+            loading={busy}
+            onClick={() => onConfirm(selection, deliveryTimes)}
+          >
             선택한 요리 납품
           </Button>
         </div>

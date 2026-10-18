@@ -20,6 +20,7 @@ vi.mock("@/adventure/v2/useDungeonHunt", () => ({
   }),
 }));
 
+import { RARE_MAP_CAP } from "@/adventure/data/v2/rareMaps";
 import { V2DungeonFloorView } from "./V2DungeonFloorView";
 
 beforeEach(() => {
@@ -129,5 +130,51 @@ describe("던전 자동사냥 연속 실행", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1));
     expect(mocks.huntBatch).toHaveBeenCalledTimes(2);
     expect(mocks.huntBatch).toHaveBeenLastCalledWith(1, count, expect.any(Object));
+  });
+});
+
+describe("자동사냥 정지 조건 설정", () => {
+  it("미개척지에서도 희귀 탐사 발견·레어맵 가득 참 정지 조건을 바꿀 수 있다", () => {
+    render(
+      <V2DungeonFloorView
+        floorId={105}
+        huntMode="unexplored"
+        unexploredSummary={{
+          difficulty: 105,
+          encounterShares: [{ kind: "base", share: 100 }],
+          rewardPct: {
+            gold: 0,
+            baseMaterial: 0,
+            equipment: 0,
+            quality: 0,
+            specialMaterial: 0,
+            rare: 0,
+          },
+          rareCopyChancePct: 0,
+          traceEnabled: false,
+          traceExtraChancePct: 0,
+        }}
+        outpostId="start"
+        playerName="모험가"
+        playerGender="male"
+        stamina={{ current: 100, lastUpdatedAt: Date.now() }}
+        setStamina={vi.fn()}
+        hp={{ hp: 100, maxHp: 100, anchorMs: Date.now() }}
+        setHp={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "전투 설정" }));
+
+    expect(
+      screen.getByRole("checkbox", { name: "희귀 탐사맵 발견 시" }),
+    ).toBeTruthy();
+    const fullStop = screen.getByRole("checkbox", {
+      name: `레어맵 ${RARE_MAP_CAP}장 보유 시`,
+    });
+    expect((fullStop as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(fullStop);
+    expect((fullStop as HTMLInputElement).checked).toBe(true);
   });
 });

@@ -21,6 +21,7 @@ import {
   LIFE_MAJOR_SAVE_KEY,
   lifeMajorBonusPct,
   lifeMajorCanCraft,
+  lifeMajorRole,
   lifeMajorStage,
   lifeMajorT100,
   lifeXpOverflow,
@@ -252,6 +253,7 @@ function signatureView(lifeMajorRaw: unknown, character: CharacterSave) {
   const held = (id: string) => Math.max(0, Math.floor(Number(materials[id]) || 0));
   return {
     unlocked: lifeMajorCanCraft(lifeMajor, "cooking"),
+    role: lifeMajorRole(lifeMajor, "cooking"),
     stage: lifeMajorStage(lifeMajor, "cooking"),
     requiredStage: LIFE_MAJOR_CRAFT_MIN_STAGE,
     products: {

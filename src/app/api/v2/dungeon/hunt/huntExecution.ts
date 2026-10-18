@@ -1215,6 +1215,8 @@ async function runOneHuntPhased(
         rareMapDrop,
         rareMapDropInstance,
         rareMapRunsLeft,
+        // 전투 후 보유 레어맵 수(희귀 장소 포함) — 보유 한도 정지 조건용.
+        rareMapCount: rareMaps.length,
         rewardRolls,
         // 충전식 회복약 잔량 — HP/MP 모두 전투 후 부족분 자동 소모 반영.
         hpCharges,

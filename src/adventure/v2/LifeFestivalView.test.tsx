@@ -235,6 +235,42 @@ describe("생활 축제 화면", () => {
       expect(posts()[1]).toMatchObject({ foodIds: { "food2:c:normal:o0:s0": 3 } });
     });
 
+    it("고른 구성 그대로 여러 회 납품한다", async () => {
+      getView = withSkewer();
+      await renderLoaded();
+      const dialog = await openPicker();
+      // 기본 구성(구운 고기 2 + 꼬치 1)은 구운 고기 재고 2개라 1회까지만 된다.
+      expect(within(dialog).getByText("1회")).toBeTruthy();
+      expect((within(dialog).getByRole("button", { name: "납품 횟수 1회 더" }) as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(within(dialog).getByRole("button", { name: "매운 꼬치 (일반) 채우기" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "납품 횟수 1회 더" }));
+      expect(within(dialog).getByText("2회")).toBeTruthy();
+      expect(within(dialog).getByText("요리 6개 사용")).toBeTruthy();
+      expect((within(dialog).getByRole("button", { name: "납품 횟수 1회 더" }) as HTMLButtonElement).disabled).toBe(true);
+      postResponse = { status: 200, body: { ok: true, gained: { tokens: 12, score: 120 }, view: withSkewer(0) } };
+      fireEvent.click(within(dialog).getByRole("button", { name: "선택한 요리 납품" }));
+      await waitFor(() => expect(posts()).toHaveLength(1));
+      expect(posts()[0]).toEqual({
+        action: "deliver",
+        orderId: "general_offense_dish",
+        times: 2,
+        foodIds: { "food2:c:normal:o0:s0": 6 },
+      });
+    });
+
+    it("최대 버튼은 고른 구성으로 가능한 횟수를 모두 채우고, 구성을 바꾸면 횟수를 줄인다", async () => {
+      getView = withSkewer(9);
+      await renderLoaded();
+      const dialog = await openPicker();
+      fireEvent.click(within(dialog).getByRole("button", { name: "매운 꼬치 (일반) 채우기" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "최대 횟수" }));
+      expect(within(dialog).getByText("3회")).toBeTruthy();
+      // 꼬치 2 + 구운 고기 1로 바꾸면 구운 고기 재고 2개가 한계라 2회로 줄어든다.
+      fireEvent.click(within(dialog).getByRole("button", { name: "매운 꼬치 (일반) 1개 빼기" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "구운 고기 (일반) 1개 더" }));
+      expect(within(dialog).getByText("2회")).toBeTruthy();
+    });
+
     it("직전 구성의 재고가 모자라면 기본 선택으로 돌아간다", async () => {
       getView = withSkewer();
       await renderLoaded();

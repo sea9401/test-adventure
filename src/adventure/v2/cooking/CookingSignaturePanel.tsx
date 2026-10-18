@@ -1,12 +1,26 @@
 "use client";
 
-import { Medal } from "@phosphor-icons/react";
+import { LockSimple, Medal } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { LIFE_MAJOR_PRODUCTS } from "../lifeMajorProducts";
+import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "../lifeMajorRules";
 import type { CookingFoodId } from "./foodShared";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
+
+const COOLDOWN_DAYS = LIFE_MAJOR_CHANGE_COOLDOWN_MS / 86_400_000;
+
+// 잠겨 있을 때 지금 상태와 여는 방법. 부전공은 단계가 충분해도 만들 수 없다.
+function lockedMessage({ role, stage }: CookingResponse["signature"]): string {
+  if (role === "minor") {
+    return `지금 요리는 부전공(명장 ${stage}단계)입니다. 생활 기록에서 요리를 주전공으로 바꾸면 쌓은 명장 단계가 그대로 적용됩니다. 전공을 바꾸면 ${COOLDOWN_DAYS}일 동안 다시 바꿀 수 없습니다.`;
+  }
+  if (role === "major") {
+    return `지금 요리 주전공 명장 ${stage}단계입니다. 요리 Lv.100 이후 쌓이는 경험치로 단계가 오릅니다.`;
+  }
+  return "생활 기록에서 Lv.100을 달성한 생활 중 주전공을 고를 수 있습니다.";
+}
 
 // 명장 요리 — 요리 주전공 명장 3단계 이상. 보유 걸작 1 + 명장 작물(해산물 분야는 명장 어획) 1로
 // 같은 레시피의 명장 요리를 만든다. 명장 요리는 효과가 더 크고 지속시간이 2배다.
@@ -33,7 +47,13 @@ export function CookingSignaturePanel({ data, busy, mutate }: {
           걸작 요리 1개와 명장 산물 1개로 효과가 더 크고 24시간 지속되는 명장 요리를 만듭니다.
         </p>
       </div>
-      {masterpieces.length === 0 ? (
+      {!data.signature.unlocked ? (
+        <EmptyState
+          icon={<LockSimple size={28} weight="duotone" aria-hidden />}
+          title={`요리 주전공 명장 ${data.signature.requiredStage}단계부터 만들 수 있습니다`}
+          message={lockedMessage(data.signature)}
+        />
+      ) : masterpieces.length === 0 ? (
         <EmptyState
           icon={<Medal size={28} weight="duotone" aria-hidden />}
           title="보유한 걸작 요리가 없습니다"

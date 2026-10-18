@@ -35,7 +35,7 @@ describe("숙련의 탑 시작 위치 선택", () => {
     );
 
     expect(html).toContain("1층부터");
-    expect(html).toContain("30층 체크포인트 돌파");
+    expect(html).toContain("30층까지 오늘 기록으로 인정");
     expect(html).toContain("31층부터 시작");
     expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
     expect(html).toContain("bg-zinc-50");
@@ -52,6 +52,6 @@ describe("숙련의 탑 시작 위치 선택", () => {
     );
 
     expect(html).toContain("1층부터");
-    expect(html).not.toContain("체크포인트 돌파");
+    expect(html).not.toContain("오늘 기록으로 인정");
   });
 });

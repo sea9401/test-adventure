@@ -82,6 +82,15 @@ import {
 } from "@/adventure/data/v2/guildWorkshop";
 import { GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
 import {
+  BLACKSMITH_FOCUS_CHANCE_PCT,
+  BLACKSMITH_OPTION_FOCUSES,
+  BLACKSMITH_SPECIALTY_NAMES,
+  BLACKSMITH_STRUCTURES,
+  BLACKSMITH_STRUCTURE_DESCRIPTIONS,
+  blacksmithOptionFocusDescription,
+  type BlacksmithSpecialtyId,
+} from "@/adventure/data/v2/blacksmithSpecialization";
+import {
   GUILD_RAID_DAILY_ATTACKS,
   GUILD_RAID_ELIGIBLE_ATTACKS,
 } from "@/adventure/data/v2/guildRaid";
@@ -654,6 +663,25 @@ export function GuildContent() {
         caption="옵션 성향과 구조 제작술은 새로운 스탯 상한을 추가하지 않고 기존 굴림 총량의 배분만 조절합니다. 최종 검수를 확정하기 전에는 다음 장비를 제작할 수 없습니다."
       />
       <Table
+        head={["전문 분야", "옵션 성향", "효과"]}
+        rows={(Object.keys(BLACKSMITH_OPTION_FOCUSES) as BlacksmithSpecialtyId[]).flatMap(
+          (specialty) =>
+            BLACKSMITH_OPTION_FOCUSES[specialty].map((focus) => [
+              BLACKSMITH_SPECIALTY_NAMES[specialty],
+              focus.name,
+              blacksmithOptionFocusDescription(focus.optionKeys, BLACKSMITH_FOCUS_CHANCE_PCT),
+            ]),
+        )}
+        caption="장비에 해당 옵션이 하나도 없으면 그 성향은 선택지에 나오지 않습니다."
+      />
+      <Table
+        head={["구조 제작술", "효과"]}
+        rows={BLACKSMITH_STRUCTURES.map((structure) => [
+          structure.name,
+          BLACKSMITH_STRUCTURE_DESCRIPTIONS[structure.id],
+        ])}
+      />
+      <Table
         head={["장비 티어", "원목·광석", "기본 총량", "촉매 총량"]}
         rows={[
           [4, "소나무·철", "없음"],
@@ -686,6 +714,8 @@ export function GuildContent() {
         <li>
           <Em>탈퇴 · 추방</Em>: 길드를 떠나거나(길드원 탭) 내보내면(마스터), 이후{" "}
           {GUILD_LEAVE_COOLDOWN_DAYS}일 동안 다른 길드에 가입할 수 없습니다.
+          추방되면 알림으로 알려 주고, 가입 제한 기간은 길드 둘러보기에서
+          시작·해제 시각과 남은 시간으로 확인할 수 있습니다.
           길드를 옮기거나 협회로 돌아가도 훈련장·제작소·연금 공방·식당·교역소의
           이번 주 이용량은 이어서 쓸 수 있습니다. 길드 토벌전만 그 주에 처음 공격한
           길드로 참여가 고정됩니다.
@@ -702,7 +732,8 @@ export function GuildContent() {
         </li>
         <li>
           <Em>해산</Em>: 관리 탭에서 확인하면 길드가 사라집니다. 금고 골드는 모두
-          소멸합니다. 해산은 되돌릴 수 없습니다.
+          소멸합니다. 해산은 되돌릴 수 없습니다. 길드원에게는 해산 알림이 가며,
+          가입 제한 없이 바로 다른 길드에 가입할 수 있습니다.
         </li>
       </UL>
 

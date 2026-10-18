@@ -54,6 +54,7 @@ import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { COOKING_BUFF_DURATION_MS } from "@/adventure/v2/cooking/food";
 import { COOKING_DAILY_REQUEST_COUNT, COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "@/adventure/v2/cooking/state";
 import {
+  LIFE_FESTIVAL_DELIVERY_TIMES_MAX,
   LIFE_FESTIVAL_RANK_REWARDS,
   LIFE_FESTIVAL_RANKING_SIZE,
   LIFE_FESTIVAL_THEMES,
@@ -180,6 +181,10 @@ export function PastimesContent() {
           6번째부터 50%, 16번째부터 20%의 증표와 점수를 받습니다.
         </li>
         <li>
+          요리 주문은 <Em>요리 고르기</Em>에서 1회분 구성을 정한 뒤 납품 횟수를 고르면
+          같은 구성으로 한 번에 최대 {LIFE_FESTIVAL_DELIVERY_TIMES_MAX}회까지 납품합니다.
+        </li>
+        <li>
           주간 점수 상위 {LIFE_FESTIVAL_RANKING_SIZE}명은 다음 주 월요일에 우편으로
           축제 증표를 받습니다: {rankRewardText()}.
         </li>
@@ -221,7 +226,7 @@ export function PastimesContent() {
       <UL>
         <li>
           <Em>명장 요리</Em>: 요리 주전공 명장 {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 주방의 명장
-          요리 탭에서 만듭니다. 보유한 걸작 요리 1개와 명장 작물 1개(해산물 요리는 명장 어획)를
+          요리 탭에서 만듭니다. 부전공으로는 만들 수 없습니다. 보유한 걸작 요리 1개와 명장 작물 1개(해산물 요리는 명장 어획)를
           쓰며, 효과가 걸작보다 크고{" "}
           {(COOKING_BUFF_DURATION_MS * COOKING_SIGNATURE_DURATION_MULTIPLIER) / 3_600_000}시간
           지속됩니다. 납품에서도 걸작 이상 조건을 채웁니다.

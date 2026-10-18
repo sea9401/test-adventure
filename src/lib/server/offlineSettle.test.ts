@@ -114,6 +114,7 @@ import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { requiredExpToNext } from "@/lib/leveling";
+import { RARE_MAP_CAP, newRareMapInstance } from "@/adventure/data/v2/rareMaps";
 
 function seedStrongWarrior(lastBattleAt: number, offlineSession = true) {
   store.clear();
@@ -274,6 +275,36 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     expect(json).toMatchObject({
       battles: 1,
       stopped: "rare_map",
+      active: false,
+    });
+  });
+
+  it("개명 신전·비밀 상점을 포함한 레어맵이 보유 한도에 닿으면 세션을 종료한다", async () => {
+    seedStrongWarrior(Date.now() - 60_000);
+    const now = Date.now();
+    store.set("character.v2", {
+      ...(store.get("character.v2") as Record<string, unknown>),
+      rareMaps: Array.from({ length: RARE_MAP_CAP - 1 }, (_, i) =>
+        newRareMapInstance(
+          i % 2 === 0 ? "rename_map" : "secret_shop_map",
+          1,
+          now,
+          `held-${i}`,
+        ),
+      ),
+    });
+    setOfflineStopConfig({ rareMapFullEnabled: true });
+    forceRareMap.value = true;
+
+    const res = await POST(settleRequest());
+    const json = (await res.json()) as {
+      battles: number;
+      stopped: string | null;
+      active: boolean;
+    };
+    expect(json).toMatchObject({
+      battles: 1,
+      stopped: "rare_map_full",
       active: false,
     });
   });

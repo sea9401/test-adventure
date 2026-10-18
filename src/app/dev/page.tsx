@@ -17,6 +17,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/hub-menus", title: "허브 메뉴 — 행 목록과 시설 그림", desc: "캐릭터·마을·전투·광장 메뉴를 한 카드 안의 행과 시설 썸네일로 확인합니다." },
   { href: "/dev/hunting-grounds", title: "사냥터 목록 — 지역 그림", desc: "사냥터 카드의 지역 그림과 열린 사냥터 머리 그림을 확인합니다." },
   { href: "/dev/navbar", title: "메인 nav — 가장자리 페이드", desc: "6탭(…길드·광장)이 좁은 폭에서 넘칠 때 우측 페이드로 '더 있음' 신호. 320/360/390/720px 박스." },
+  { href: "/dev/item-compare", title: "인벤토리 — 여러 장비 비교 창", desc: "같은 부위 장비를 한 표로 비교. 장착 장비 기준 증감과 기준 없을 때의 최고값 강조, 착용 조건 미달 버튼 표본." },
   { href: "/dev/inventory", title: "인벤토리 — 보유 장비 카드 그리드", desc: "보유 장비 2열 카드(슬롯 아이콘·등급색 이름·위력/속성/티어·장착 배지). 카드 탭 → 상세·장착 팝오버. 표본 mock." },
   { href: "/dev/trophy-cabinet", title: "트로피 전시대 — 격자형 수집함", desc: "대표 3종과 획득·미획득 트로피 격자, 상세 선택 UI를 DB 없이 확인." },
   { href: "/dev/guild-raid", title: "길드 토벌전 — 보스 선택", desc: "선택 전(관리자·길드원)과 스콜피온 선택 후 화면, 보스별 순위표 전환을 예시 데이터로 확인합니다." },

@@ -958,7 +958,13 @@ describe("/api/v2/cooking", () => {
     it("조회 응답은 전공이 아니면 잠긴 상태로 알려 준다", async () => {
       mocks.store.set("life-major.v1", { major: "farming" });
       const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
-      expect(json.signature).toMatchObject({ unlocked: false, requiredStage: 3 });
+      expect(json.signature).toMatchObject({ unlocked: false, role: null, requiredStage: 3 });
+    });
+
+    it("조회 응답은 요리 전공 역할과 쌓은 단계를 함께 알려 준다", async () => {
+      mocks.store.set("life-major.v1", { major: "farming", minor: "cooking", masteryXp: { cooking: lifeMajorStageXp("cooking", 5) } });
+      const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
+      expect(json.signature).toMatchObject({ unlocked: false, role: "minor", stage: 5, requiredStage: 3 });
     });
   });
 

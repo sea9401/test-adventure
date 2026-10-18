@@ -23,6 +23,7 @@ describe("자동사냥 물약 설정 계정 동기화", () => {
       potionEnabled: true,
       potionThreshold: 80,
       rareMapEnabled: false,
+      rareMapFullEnabled: true,
       level100Enabled: true,
     };
     localStorage.setItem(
@@ -56,6 +57,7 @@ describe("자동사냥 물약 설정 계정 동기화", () => {
       potionEnabled: true,
       potionThreshold: 120,
       rareMapEnabled: true,
+      rareMapFullEnabled: false,
       level100Enabled: false,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(localConfig));

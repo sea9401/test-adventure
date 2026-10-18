@@ -1651,6 +1651,10 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   statusDotDamagePct: "상태이상 지속 피해",
 };
 
+export function v2EquipOptionLabel(key: keyof V2EquipOptions): string {
+  return OPTION_LABELS[key];
+}
+
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
 const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
@@ -1939,6 +1943,86 @@ export function v2EquipCompareRows(
       ...(display?.detail ? { detail: display.detail } : {}),
       deltaText: delta === 0 ? "" : formatCompareDelta(label, delta),
       better,
+    });
+  }
+  return out;
+}
+
+// ── 여러 장비 비교(건의 #792) ────────────────────────────────────────────────
+// 같은 부위 장비 2개 이상을 한 표로 비교한다. 행=스탯, 칸=장비 순서.
+//   baseIndex 가 있으면(장착 장비 기준) 나머지 칸에 기준 대비 증감을 붙이고,
+//   best 는 기준 유무와 관계없이 그 줄의 최고값 칸(모두 같으면 없음)을 표시한다.
+
+export type V2EquipMultiCompareCell = {
+  /** 표시값(없으면 "—") — v2EquipStatRows 와 동일 포맷. */
+  value: string;
+  detail?: string;
+  /** 기준 대비 증감("" = 동일·기준 칸·기준 없음). */
+  deltaText: string;
+  /** 기준 대비 1 = 이득 · -1 = 손해 · 0 = 동일/기준 없음. */
+  better: 0 | 1 | -1;
+  /** 이 줄의 최고값 칸. */
+  best: boolean;
+};
+
+export type V2EquipMultiCompareRow = {
+  label: string;
+  cells: V2EquipMultiCompareCell[];
+};
+
+type V2EquipCompareInput = {
+  item: V2Equipment;
+  roll?: V2EquipRoll;
+  enhance?: V2EnhanceState;
+  craftQuality?: V2CraftQualityState;
+};
+
+export function v2EquipMultiCompareRows(
+  sides: readonly V2EquipCompareInput[],
+  baseIndex: number | null,
+): V2EquipMultiCompareRow[] {
+  const displays = sides.map(
+    (s) =>
+      new Map(
+        v2EquipStatRows(s.item, s.roll, s.enhance, s.craftQuality).map(
+          (r) => [r.label, r] as const,
+        ),
+      ),
+  );
+  const numerics = sides.map((s) =>
+    compareNumeric(s.item, s.roll, s.enhance, s.craftQuality),
+  );
+  const out: V2EquipMultiCompareRow[] = [];
+  for (const { label, lowerBetter } of COMPARE_FIELD_ORDER) {
+    const values = numerics.map((n) => n[label] ?? 0);
+    if (values.every((v) => v === 0)) continue;
+    const bestValue = lowerBetter ? Math.min(...values) : Math.max(...values);
+    const allSame = values.every((v) => v === values[0]);
+    const baseValue = baseIndex == null ? null : values[baseIndex];
+    out.push({
+      label,
+      cells: values.map((v, i) => {
+        const display = displays[i].get(label);
+        const delta =
+          baseValue == null || i === baseIndex ? 0 : v - baseValue;
+        const better: 0 | 1 | -1 =
+          delta === 0
+            ? 0
+            : lowerBetter
+              ? delta < 0
+                ? 1
+                : -1
+              : delta > 0
+                ? 1
+                : -1;
+        return {
+          value: display?.value ?? "—",
+          ...(display?.detail ? { detail: display.detail } : {}),
+          deltaText: delta === 0 ? "" : formatCompareDelta(label, delta),
+          better,
+          best: !allSame && v === bestValue,
+        };
+      }),
     });
   }
   return out;

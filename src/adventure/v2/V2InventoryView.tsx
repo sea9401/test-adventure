@@ -33,6 +33,7 @@ import {
   type BulkSellOpts,
 } from "@/adventure/data/v2/v2EquipVariance";
 import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
+import { V2ItemMultiCompareCard } from "./item-card/V2ItemMultiCompareCard";
 import {
   V2ItemCard,
   V2ItemCompareCard,
@@ -119,6 +120,16 @@ type EquipmentSaleSelectionState = {
   iids: Set<string>;
 };
 
+// 여러 장비 비교(건의 #792). open 이면 비교 창을 띄우고, 닫아도 고른 장비는 남겨
+//   바로 다시 고칠 수 있게 한다.
+type EquipmentCompareSelectionState = {
+  slot: V2EquipSlot;
+  iids: Set<string>;
+  open: boolean;
+};
+
+const MAX_COMPARE_CANDIDATES = 4;
+
 type EquipmentCodexBulkState = {
   slot: V2EquipSlot;
   candidates: EquipmentCodexBulkCandidate[];
@@ -140,6 +151,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   );
   const [saleSelection, setSaleSelection] =
     useState<EquipmentSaleSelectionState | null>(null);
+  const [compareSelection, setCompareSelection] =
+    useState<EquipmentCompareSelectionState | null>(null);
   const [codexBulk, setCodexBulk] =
     useState<EquipmentCodexBulkState | null>(null);
   useEffect(() => {
@@ -894,8 +907,30 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   const startSelectedSale = useCallback((slot: V2EquipSlot) => {
     setCard(null);
+    setCompareSelection(null);
     setSaleSelection({ slot, iids: new Set() });
   }, []);
+
+  const startCompareSelection = useCallback((slot: V2EquipSlot) => {
+    setCard(null);
+    setSaleSelection(null);
+    setCompareSelection({ slot, iids: new Set(), open: false });
+  }, []);
+
+  const toggleCompareSelection = useCallback(
+    (slot: V2EquipSlot, inst: V2EquipInstance) => {
+      // 장착 장비는 기준 열로 자동 포함되므로 고르지 않는다.
+      if (equipped[slot] === inst.iid) return;
+      setCompareSelection((current) => {
+        if (!current || current.slot !== slot) return current;
+        const iids = new Set(current.iids);
+        if (iids.has(inst.iid)) iids.delete(inst.iid);
+        else if (iids.size < MAX_COMPARE_CANDIDATES) iids.add(inst.iid);
+        return { ...current, iids };
+      });
+    },
+    [equipped],
+  );
 
   const cancelSelectedSale = useCallback(() => {
     setSaleSelection(null);
@@ -1113,6 +1148,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             active={tab}
             onChange={(nextTab) => {
               setSaleSelection(null);
+              setCompareSelection(null);
               setTab(nextTab);
             }}
             ariaLabel="인벤토리 카테고리"
@@ -1196,6 +1232,21 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 onToggle: (inst) => toggleSelectedSale(tab, inst),
                 onConfirm: applySelectedSale,
               }}
+              compare={{
+                active: compareSelection?.slot === tab,
+                selectedIids:
+                  compareSelection?.slot === tab
+                    ? compareSelection.iids
+                    : new Set<string>(),
+                max: MAX_COMPARE_CANDIDATES,
+                onStart: () => startCompareSelection(tab),
+                onCancel: () => setCompareSelection(null),
+                onToggle: (inst) => toggleCompareSelection(tab, inst),
+                onConfirm: () =>
+                  setCompareSelection((current) =>
+                    current ? { ...current, open: true } : current,
+                  ),
+              }}
             />
           )}
         </Card>
@@ -1236,6 +1287,65 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           onConfirm={() => void confirmEquipmentCodexBulk()}
         />
       ) : null}
+      {compareSelection?.open &&
+        (() => {
+          const slot = compareSelection.slot;
+          const equippedIid = equipped[slot] ?? null;
+          const equippedInst = equippedIid
+            ? owned.find((i) => i.iid === equippedIid)
+            : undefined;
+          // 판매·분해 등으로 사라졌거나 그새 장착된 장비는 후보에서 뺀다.
+          const candidates = owned
+            .filter(
+              (inst) =>
+                compareSelection.iids.has(inst.iid) && inst.iid !== equippedIid,
+            )
+            .map((inst) => {
+              const item = V2_EQUIPMENT[inst.id];
+              return {
+                iid: inst.iid,
+                item,
+                roll: inst.roll,
+                enhance: inst.enhance,
+                craftQuality: inst.craftQuality,
+                craftedBy: inst.craftedBy,
+                equip: {
+                  busy: busy === inst.iid,
+                  disabledReason: equipmentProgressionLock(item, frontierDepth)
+                    ?.label,
+                  onEquip: async () => {
+                    // 실패 시 창 유지(에러 확인) — 성공해야 비교를 끝낸다.
+                    if (await applyEquip(slot, inst.iid, inst.iid)) {
+                      setCompareSelection(null);
+                    }
+                  },
+                },
+              };
+            });
+          const closeCompare = () =>
+            setCompareSelection((current) =>
+              current ? { ...current, open: false } : current,
+            );
+          if (candidates.length === 0) return null;
+          return (
+            <V2ItemMultiCompareCard
+              equipped={
+                equippedInst
+                  ? {
+                      item: V2_EQUIPMENT[equippedInst.id],
+                      roll: equippedInst.roll,
+                      enhance: equippedInst.enhance,
+                      craftQuality: equippedInst.craftQuality,
+                      craftedBy: equippedInst.craftedBy,
+                    }
+                  : undefined
+              }
+              candidates={candidates}
+              onClose={closeCompare}
+              equippedIds={equippedItemIds}
+            />
+          );
+        })()}
       {card &&
         (() => {
           const candItem = V2_EQUIPMENT[card.inst.id];

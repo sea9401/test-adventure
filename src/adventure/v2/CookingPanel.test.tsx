@@ -60,7 +60,7 @@ function fixture(effectTag: CookingEffectTag = "offense"): CookingResponse {
     now: NOW,
     cooking,
     level: 20,
-    signature: { unlocked: false, stage: 0, requiredStage: 3, products: { crop: 0, catch: 0 } },
+    signature: { unlocked: false, role: null, stage: 0, requiredStage: 3, products: { crop: 0, catch: 0 } },
     currentLevelXp: cookingLevelXpThreshold(20),
     nextLevelXp: cookingLevelXpThreshold(21),
     recipeTotal: COOKING_PUBLIC_RECIPES.length,
@@ -130,10 +130,12 @@ describe("개편 요리 연구실", () => {
     expect(renderSection(section)).toContain(text);
   });
 
-  it("명장 요리 탭은 요리 주전공 3단계 이상에게만 보인다", () => {
-    const locked = renderToStaticMarkup(<CookingWorkspace data={fixture()} section="research" onSectionChange={vi.fn()} busy={false} mutate={vi.fn(async () => undefined)} />);
-    expect(locked).not.toContain("명장 요리");
-    const data = { ...fixture(), signature: { unlocked: true, stage: 3, requiredStage: 3, products: { crop: 1, catch: 0 } } };
+  it("명장 요리 탭은 잠겨 있어도 보이고 들어가면 여는 조건을 안내한다", () => {
+    const tabs = renderToStaticMarkup(<CookingWorkspace data={fixture()} section="research" onSectionChange={vi.fn()} busy={false} mutate={vi.fn(async () => undefined)} />);
+    expect(tabs).toContain("명장 요리");
+    const locked = renderToStaticMarkup(<CookingWorkspace data={fixture()} section="signature" onSectionChange={vi.fn()} busy={false} mutate={vi.fn(async () => undefined)} />);
+    expect(locked).toContain("요리 주전공 명장 3단계부터 만들 수 있습니다");
+    const data = { ...fixture(), signature: { unlocked: true, role: "major" as const, stage: 3, requiredStage: 3, products: { crop: 1, catch: 0 } } };
     const unlocked = renderToStaticMarkup(<CookingWorkspace data={data} section="signature" onSectionChange={vi.fn()} busy={false} mutate={vi.fn(async () => undefined)} />);
     expect(unlocked).toContain("명장 요리");
     expect(unlocked).toContain("걸작 요리 1개와 명장 산물 1개");

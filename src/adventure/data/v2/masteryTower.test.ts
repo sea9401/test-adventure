@@ -3,6 +3,7 @@ import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_REWARD_MAX_FLOOR,
   clearMasteryTowerFloor,
+  creditMasteryTowerCheckpointStart,
   failMasteryTowerRun,
   markMasteryTowerEntryStaminaPaid,
   masteryTowerAttemptLog,
@@ -526,6 +527,43 @@ describe("masteryTower", () => {
     expect(resolveMasteryTowerAttemptFloor(tower)).toEqual({ ok: true, floor: 81 });
     expect(tower.todayBestFloor).toBe(78);
     expect(masteryTowerEntryStaminaCost(tower)).toBe(0);
+  });
+
+  it("체크포인트에서 시작하면 바로 아래층까지 오늘 기록으로 인정한다", () => {
+    const fresh = parseMasteryTowerState({
+      date: "2026-10-16",
+      lifetimeBestFloor: 75,
+      weekBestFloor: 75,
+      entryStaminaPaid: true,
+    }, "2026-10-16");
+
+    const credited = creditMasteryTowerCheckpointStart(fresh, 71);
+    expect(credited.todayBestFloor).toBe(70);
+    expect(credited.runFloor).toBe(0);
+    expect(credited.lifetimeBestFloor).toBe(75);
+    expect(credited.weekBestFloor).toBe(75);
+
+    // 71층에서 바로 패배해도 70층 기준 보상은 남는다.
+    const failed = failMasteryTowerRun(credited, 1_000);
+    expect(failed.todayBestFloor).toBe(70);
+    expect(masteryTowerClaimPreview(failed).base).toBe(2_400);
+  });
+
+  it("체크포인트 인정은 오늘 더 높은 기록을 낮추지 않고 1층 시작·이어 하기에는 적용하지 않는다", () => {
+    const base = parseMasteryTowerState({
+      date: "2026-10-16",
+      lifetimeBestFloor: 45,
+    }, "2026-10-16");
+
+    expect(creditMasteryTowerCheckpointStart(base, 41).todayBestFloor).toBe(40);
+    expect(creditMasteryTowerCheckpointStart(base, 1)).toEqual(base);
+    expect(
+      creditMasteryTowerCheckpointStart({ ...base, todayBestFloor: 44 }, 41)
+        .todayBestFloor,
+    ).toBe(44);
+
+    const running = { ...base, runFloor: 42, todayBestFloor: 42 };
+    expect(creditMasteryTowerCheckpointStart(running, 43)).toEqual(running);
   });
 
   it("체크포인트가 없는 새 등반은 시작층을 생략해도 1층에서 시작한다", () => {

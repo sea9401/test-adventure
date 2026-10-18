@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { LockSimple } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { SURFACE_ACCENT, SURFACE_CARD } from "@/components/ui/surfaces";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
@@ -142,7 +143,8 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
     </section>
     <div className={`${SURFACE_CARD} px-1`}><TabBar tabs={[
       { key: "research", label: "연구" }, { key: "codex", label: "도감" }, { key: "public", label: "공개 발견" }, { key: "specialty", label: "전문 분야" }, { key: "delivery", label: "납품" }, { key: "processing", label: "재료 가공" },
-      ...(data.signature?.unlocked ? [{ key: "signature" as const, label: "명장 요리" }] : []),
+      // 잠겨 있어도 탭은 보인다. 들어가면 여는 조건을 안내한다.
+      { key: "signature", label: "명장 요리", ...(data.signature?.unlocked ? {} : { icon: <LockSimple size={14} weight="bold" /> }) },
     ]} active={section} onChange={onSectionChange} ariaLabel="요리 연구실 메뉴" className="justify-around" scrollable /></div>
     {section === "research" ? <CookingResearchPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "codex" ? <CookingCodexPanel data={data} busy={busy} mutate={mutate} /> : null}
@@ -150,7 +152,7 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
     {section === "specialty" ? <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "delivery" ? <CookingDeliveryPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "processing" ? <CookingProcessingPanel data={data} busy={busy} mutate={mutate} /> : null}
-    {section === "signature" && data.signature?.unlocked ? <CookingSignaturePanel data={data} busy={busy} mutate={mutate} /> : null}
+    {section === "signature" ? <CookingSignaturePanel data={data} busy={busy} mutate={mutate} /> : null}
   </div>;
 }
 

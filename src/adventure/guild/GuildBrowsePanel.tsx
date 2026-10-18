@@ -14,6 +14,7 @@ import {
   type GuildBrowseEntry,
   type GuildBrowseResponse,
 } from "./api";
+import { leaveCooldownWindowText } from "./leaveCooldown";
 
 // 길드 둘러보기 — 활성 길드 목록(명성순) + 이름 검색.
 // join 모드는 미소속 유저의 가입 신청/취소를 함께 제공하고, browse 모드는 소속 유저에게
@@ -134,9 +135,12 @@ export function GuildBrowsePanel({
           />
         </div>
 
-        {canJoin && cooldownActive ? (
+        {canJoin && cooldownActive && cooldownUntilMs !== null ? (
           <div className={`${SURFACE_ACCENT} px-3 py-2 text-xs text-amber-800 dark:text-amber-300`}>
-            탈퇴/추방 쿨다운 중에는 가입 신청을 보낼 수 없습니다.
+            <p>탈퇴/추방 쿨다운 중에는 가입 신청을 보낼 수 없습니다.</p>
+            <p className="mt-0.5 tabular-nums">
+              {leaveCooldownWindowText(cooldownUntilMs, now)}
+            </p>
           </div>
         ) : null}
 

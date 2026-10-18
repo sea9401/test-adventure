@@ -32,9 +32,11 @@ import {
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
   guildWorkshopMaterialName,
 } from "@/adventure/data/v2/guildWorkshop";
-import type {
-  BlacksmithOptionFocusId,
-  BlacksmithStructureId,
+import {
+  BLACKSMITH_STRUCTURE_DESCRIPTIONS,
+  blacksmithOptionFocusDescription,
+  type BlacksmithOptionFocusId,
+  type BlacksmithStructureId,
 } from "@/adventure/data/v2/blacksmithSpecialization";
 import {
   CRAFTED_EQUIP_TAG_SET_IDS,
@@ -786,6 +788,39 @@ export function WorkshopCraftPanel({
                   </select>
                 </label>
               </div>
+              <details className={`${SURFACE_INSET} px-2 py-1.5 text-xs`}>
+                <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-200">
+                  선택지 설명
+                </summary>
+                <dl className="mt-1.5 space-y-1 text-zinc-600 dark:text-zinc-300">
+                  {techniques.optionFocuses.map((focus) => (
+                    <div key={focus.id}>
+                      <dt className="inline font-semibold text-zinc-800 dark:text-zinc-100">
+                        {focus.name}
+                      </dt>{" "}
+                      <dd className="inline">
+                        {blacksmithOptionFocusDescription(
+                          focus.optionKeys,
+                          techniques.focusChancePct,
+                        )}
+                      </dd>
+                    </div>
+                  ))}
+                  {techniques.structures.map((structure) => (
+                    <div key={structure.id}>
+                      <dt className="inline font-semibold text-zinc-800 dark:text-zinc-100">
+                        {structure.name}
+                      </dt>{" "}
+                      <dd className="inline">
+                        {BLACKSMITH_STRUCTURE_DESCRIPTIONS[structure.id]}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-1.5 text-zinc-500 dark:text-zinc-400">
+                  두 설정 모두 옵션 굴림 총량은 그대로 두고 배분만 바꿉니다.
+                </p>
+              </details>
               {techniques.catalystUnlocked && techniques.catalyst ? (
                 <label className={`${SURFACE_ACCENT} flex items-start gap-2 p-2`}>
                   <input

@@ -126,7 +126,6 @@ describe("미개척지 사냥 화면", () => {
     expect(html).toContain("미개척지 · 난이도 105");
     expect(html).not.toContain("희귀 탐사 진행 중");
     expect(html).not.toContain("일반 사냥터로");
-    expect(html).not.toContain("희귀 탐사맵 발견 시");
     expect(html).not.toContain("오프라인 사냥");
   });
 });

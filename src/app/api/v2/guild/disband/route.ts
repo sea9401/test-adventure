@@ -4,6 +4,7 @@ import { guildMembers, guilds, guildSettlementBuildingLevels } from "@/db/schema
 import { ensureUser } from "@/lib/server/ensureUser";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 import { neutralizeGuildTiles } from "@/lib/server/tileOccupation";
+import { notifyGuildDisbanded } from "@/lib/server/guildNotifications";
 
 // POST /api/v2/guild/disband — 길드 해산 (마스터 전용). body: { confirm: <길드 이름> }
 //
@@ -17,6 +18,7 @@ import { neutralizeGuildTiles } from "@/lib/server/tileOccupation";
 //   · 금고 골드는 멤버가 없어 회수 불가 = 사실상 즉시 소멸(결정대로 sink). 거점/금고를 tx 에서
 //     직접 안 건드려 claim 라우트와의 reciprocal-siege 데드락을 피한다.
 //   · 모든 read 가 disbandedAt IS NULL 로 필터하므로 툼스톤 즉시 길드는 사실상 사라진다.
+//   · 커밋 후 마스터 본인을 뺀 길드원에게 해산 알림(해산은 가입 제한 없음).
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -83,8 +85,14 @@ export async function POST(req: Request) {
     return {
       status: 200,
       body: { ok: true as const, disbanded: true, guildId: mem.guildId },
+      disbanded: {
+        userIds: members.map((m) => m.userId).filter((id) => id !== userId),
+        guildId: mem.guildId,
+        guildName: guild.name,
+      },
     };
   });
 
+  if (result.disbanded) await notifyGuildDisbanded(result.disbanded);
   return Response.json(result.body, { status: result.status });
 }

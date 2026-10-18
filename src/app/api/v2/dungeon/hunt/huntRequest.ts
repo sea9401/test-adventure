@@ -114,6 +114,7 @@ export async function handleHunt(req: Request, userId: string) {
     const rareMapDrops: RareMapKindId[] = [];
     const rareMapDropInstances: RareMapInstance[] = [];
     let rareMapRunsLeft: number | null = null;
+    let rareMapCount: number | null = null;
     let stoppedReason:
       | "stamina"
       | "death"
@@ -208,16 +209,12 @@ export async function handleHunt(req: Request, userId: string) {
       droppedEquipments.push(...res.droppedEquipments);
       droppedUniques.push(...res.droppedUniques);
       if (res.rareMapDrop) rareMapDrops.push(res.rareMapDrop);
-      if (res.rareMapDropInstance) {
-        rareMapDropInstances.push(res.rareMapDropInstance);
-      }
+      if (res.rareMapDropInstance) rareMapDropInstances.push(res.rareMapDropInstance);
       rareMapRunsLeft = res.rareMapRunsLeft ?? rareMapRunsLeft;
+      rareMapCount = res.rareMapCount;
       if (res.ejected && !ejected) ejected = res.ejected;
       if ("unexploredSummary" in res && res.unexploredSummary) {
-        unexploredSummary = res.unexploredSummary as unknown as Record<
-          string,
-          unknown
-        >;
+        unexploredSummary = res.unexploredSummary as unknown as Record<string, unknown>;
       }
       replays.push({
         index: completed,
@@ -251,6 +248,7 @@ export async function handleHunt(req: Request, userId: string) {
         rareMapFound:
           !!res.rareMapDrop &&
           RARE_MAP_KINDS[res.rareMapDrop]?.category === "hunt",
+        rareMapCount: res.rareMapCount,
         level: res.levelAfter,
       });
       if (autoStopReason) {
@@ -362,6 +360,7 @@ export async function handleHunt(req: Request, userId: string) {
           rareMapDrops,
           rareMapDropInstances,
           rareMapRunsLeft,
+          rareMapCount,
           stoppedReason,
           finalHpAfter,
           finalMaxHp,

@@ -5,12 +5,14 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 import { releaseMemberFromGuildTiles } from "@/lib/server/tileOccupation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { notifyGuildKicked } from "@/lib/server/guildNotifications";
 import { GUILD_LEAVE_COOLDOWN_DAYS } from "@/adventure/data/guild";
 
 // POST /api/v2/guild/kick — 길드원 추방 (마스터 전용). body: { targetUserId }
 //
 // 마스터만 추방 가능(역할 변경 라우트와 동일 권한 모델). 마스터 본인은 추방 불가(해산/양도로).
 // 대상의 guildMembers row 삭제 + affiliation "무소속" + 재가입 쿨다운(1일) + 활동 로그.
+// 커밋 후 대상에게 추방 알림(길드 이름 + 가입 제한 해제 시각).
 // 락: 대상 멤버십 row FOR UPDATE.
 
 export async function POST(req: Request) {
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     }
     // 권한 원천(masterId)을 FOR UPDATE 로 잠가 동시 transfer 와의 TOCTOU 방지.
     const [guild] = await tx
-      .select({ masterId: guilds.masterId })
+      .select({ masterId: guilds.masterId, name: guilds.name })
       .from(guilds)
       .where(eq(guilds.id, mem.guildId))
       .for("update")
@@ -101,8 +103,15 @@ export async function POST(req: Request) {
     return {
       status: 200,
       body: { ok: true as const, removedUserId: targetUserId },
+      kicked: {
+        userId: targetUserId,
+        guildId: mem.guildId,
+        guildName: guild.name,
+        cooldownUntil: until.getTime(),
+      },
     };
   });
 
+  if (result.kicked) await notifyGuildKicked(result.kicked);
   return Response.json(result.body, { status: result.status });
 }

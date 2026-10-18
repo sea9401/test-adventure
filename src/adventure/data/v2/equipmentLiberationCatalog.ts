@@ -27,7 +27,7 @@ export const LIBERATION_OPTION_DEFINITIONS = {
   max_hp_flat: { label: "최대 HP", maxValue: 500, unit: "integer" },
   max_mp_flat: { label: "최대 MP", maxValue: 500, unit: "integer" },
   max_hp_pct: { label: "최대 HP", maxValue: 9, unit: "pct" },
-  accuracy_flat: { label: "명중", maxValue: 60, unit: "integer" },
+  accuracy_flat: { label: "적중도", maxValue: 60, unit: "integer" },
   evasion_flat: { label: "회피 수치", maxValue: 40, unit: "integer" },
   final_evasion_effect_pp: {
     label: "최종 회피 효과",

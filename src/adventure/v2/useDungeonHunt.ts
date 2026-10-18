@@ -113,6 +113,8 @@ export type BatchHuntPayload = {
   // 이번 일괄에서 발견한 지도 개체 — 결과 화면 바로가기용 iid/depth 포함.
   rareMapDropInstances?: RareMapInstance[];
   rareMapRunsLeft?: number | null;
+  // 일괄 마지막 전투 후 보유 레어맵 수(희귀 장소 포함).
+  rareMapCount?: number | null;
   stoppedReason:
     | "stamina"
     | "death"
@@ -121,6 +123,7 @@ export type BatchHuntPayload = {
     | "error"
     | "potion"
     | "rare_map"
+    | "rare_map_full"
     | "level_100"
     | null;
   finalHpAfter: number | null;

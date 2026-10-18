@@ -4,12 +4,14 @@ import {
   getAutoHuntStopReason,
   normalizeAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
+import { RARE_MAP_CAP } from "@/adventure/data/v2/rareMaps";
 
 const snapshot = {
   hpCharges: 101,
   mpCharges: 101,
   hasMp: true,
   rareMapFound: false,
+  rareMapCount: 0,
   level: 99,
 };
 
@@ -59,6 +61,26 @@ describe("getAutoHuntStopReason", () => {
       ),
     ).toBe("level_100");
   });
+
+  it("stops when held rare maps of every kind fill the cap", () => {
+    const config = { ...DEFAULT_AUTO_HUNT_STOP_CONFIG, rareMapFullEnabled: true };
+
+    expect(
+      getAutoHuntStopReason(config, { ...snapshot, rareMapCount: RARE_MAP_CAP }),
+    ).toBe("rare_map_full");
+    expect(
+      getAutoHuntStopReason(config, {
+        ...snapshot,
+        rareMapCount: RARE_MAP_CAP - 1,
+      }),
+    ).toBeNull();
+    expect(
+      getAutoHuntStopReason(DEFAULT_AUTO_HUNT_STOP_CONFIG, {
+        ...snapshot,
+        rareMapCount: RARE_MAP_CAP,
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("normalizeAutoHuntStopConfig", () => {
@@ -70,6 +92,7 @@ describe("normalizeAutoHuntStopConfig", () => {
         potionEnabled: "yes",
         potionThreshold: -10,
         rareMapEnabled: true,
+        rareMapFullEnabled: "yes",
         level100Enabled: null,
       }),
     ).toEqual({
@@ -78,6 +101,7 @@ describe("normalizeAutoHuntStopConfig", () => {
       potionEnabled: false,
       potionThreshold: 0,
       rareMapEnabled: true,
+      rareMapFullEnabled: false,
       level100Enabled: false,
     });
   });

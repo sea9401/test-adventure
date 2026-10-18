@@ -20,6 +20,7 @@ import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_SAVE_KEY,
   clearMasteryTowerFloor,
+  creditMasteryTowerCheckpointStart,
   failMasteryTowerRun,
   kstDateKey,
   markMasteryTowerEntryStaminaPaid,
@@ -207,6 +208,7 @@ export async function POST(req: Request) {
     if (entryStaminaCost > 0) {
       tower = markMasteryTowerEntryStaminaPaid(tower);
     }
+    tower = creditMasteryTowerCheckpointStart(tower, floor);
 
     const requiredPower = masteryTowerRequiredPower(floor);
     const guardian = masteryTowerGuardianForFloor(floor);

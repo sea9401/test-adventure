@@ -617,7 +617,7 @@ export function MasteryTowerStartPicker({
             <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
               {option.checkpointFloor === null
                 ? "처음부터 전체 구간 등반"
-                : `${option.checkpointFloor}층 체크포인트 돌파`}
+                : `${option.checkpointFloor}층까지 오늘 기록으로 인정`}
             </span>
           </button>
         );

@@ -169,6 +169,13 @@ export function LifeMajorCard() {
         </div>
       )}
 
+      <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">명장 요리</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          요리 주전공 명장 {view.crafting.requiredStage}단계부터 주방의 명장 요리 탭에서 만듭니다. 걸작 요리 1개와 명장 작물 1개(해산물 요리는 명장 어획)가 듭니다.
+        </p>
+      </div>
+
       <ul className="space-y-1.5">
         {view.activities.filter((entry) => entry.role || entry.stage > 0).map((entry) => (
           <MajorRow key={entry.id} entry={entry} />

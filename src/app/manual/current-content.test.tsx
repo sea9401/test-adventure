@@ -146,6 +146,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("명장 합금 2개와 명장 목재 1개");
     expect(html).toContain("하락 확률을 최대 10%p");
     expect(html).toContain("명장 3단계");
+    expect(html).toContain("부전공으로는 만들 수 없습니다");
   });
 
   it("생활 전공의 지정 조건·변경 주기·명장 단계·산물을 안내한다", () => {

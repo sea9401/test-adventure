@@ -57,6 +57,8 @@ export type CookingResponse = {
   result?: Record<string, unknown>;
   signature: {
     unlocked: boolean;
+    /** 요리의 전공 역할 — 잠긴 이유 안내용. */
+    role: "major" | "minor" | null;
     stage: number;
     requiredStage: number;
     products: { crop: number; catch: number };

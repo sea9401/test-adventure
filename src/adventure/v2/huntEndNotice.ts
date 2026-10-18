@@ -1,3 +1,4 @@
+import { RARE_MAP_CAP } from "@/adventure/data/v2/rareMaps";
 import { AUTO_HUNT_LEVEL_TARGET } from "@/adventure/v2/autoHuntStopPolicy";
 
 export type HuntEndReason =
@@ -9,6 +10,7 @@ export type HuntEndReason =
   | "potion"
   | "rare_map"
   | "rare_map_exhausted"
+  | "rare_map_full"
   | "level_100"
   | "request_failed";
 
@@ -29,6 +31,8 @@ export function huntEndReasonText(
       return `HP/MP 충전약 중 하나가 ${potionThreshold.toLocaleString()} 이하입니다.`;
     case "rare_map":
       return "희귀 탐사맵을 발견했습니다.";
+    case "rare_map_full":
+      return `레어맵 보유 한도(${RARE_MAP_CAP}장)가 찼습니다.`;
     case "rare_map_exhausted":
       return "희귀 탐사의 남은 전투 횟수를 모두 사용했습니다.";
     case "level_100":

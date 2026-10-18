@@ -25,7 +25,7 @@ function fixture(products: { crop: number; catch: number }): CookingResponse {
       [seaId]: { recipe: sea, name: `${sea.name} (걸작)`, quality: "masterpiece" },
       [carefulId]: { recipe: land, name: `${land.name} (정성작)`, quality: "careful" },
     },
-    signature: { unlocked: true, stage: 3, requiredStage: 3, products },
+    signature: { unlocked: true, role: "major", stage: 3, requiredStage: 3, products },
   } as unknown as CookingResponse;
 }
 
@@ -52,5 +52,18 @@ describe("명장 요리 패널", () => {
     const data = { ...fixture({ crop: 1, catch: 1 }), cookingFoods: {} } as CookingResponse;
     render(<CookingSignaturePanel data={data} busy={false} mutate={vi.fn()} />);
     expect(screen.getByText("보유한 걸작 요리가 없습니다")).toBeTruthy();
+  });
+
+  it.each([
+    ["부전공", { role: "minor", stage: 5 }, /지금 요리는 부전공\(명장 5단계\)입니다\. 생활 기록에서 요리를 주전공으로 바꾸면 쌓은 명장 단계가 그대로 적용됩니다/],
+    ["주전공 단계 부족", { role: "major", stage: 2 }, /지금 요리 주전공 명장 2단계입니다/],
+    ["전공 아님", { role: null, stage: 0 }, /생활 기록에서 Lv\.100을 달성한 생활 중 주전공을 고를 수 있습니다/],
+  ] as const)("%s이면 잠긴 이유와 여는 방법을 안내하고 만들기 버튼을 숨긴다", (_label, state, message) => {
+    const base = fixture({ crop: 1, catch: 1 });
+    const data = { ...base, signature: { ...base.signature, unlocked: false, ...state } } as CookingResponse;
+    render(<CookingSignaturePanel data={data} busy={false} mutate={vi.fn()} />);
+    expect(screen.getByText("요리 주전공 명장 3단계부터 만들 수 있습니다")).toBeTruthy();
+    expect(screen.getByText(message)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "명장 요리로" })).toBeNull();
   });
 });

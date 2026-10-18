@@ -11,6 +11,7 @@ import {
   type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
+  v2EquipOptionLabel,
 } from "./v2Equipment";
 import {
   equipRollFromPercentiles,
@@ -180,6 +181,28 @@ export const BLACKSMITH_STRUCTURES: readonly BlacksmithStructureDefinition[] = [
   { id: "extreme", name: "극한 제작", requiredLevel: 20 },
   { id: "stable", name: "안정 제작", requiredLevel: 22 },
 ];
+
+// 구조 제작술은 굴림 총량을 유지한 채 배분만 바꾼다. applyBlacksmithCraftControl과 같은 순서로 설명한다.
+export const BLACKSMITH_STRUCTURE_DESCRIPTIONS: Record<
+  BlacksmithStructureId,
+  string
+> = {
+  balanced: "굴림 배분을 바꾸지 않습니다.",
+  primary: `보조 옵션 굴림 몫의 ${BLACKSMITH_STRUCTURE_TRANSFER_BUDGET * 100}%를 위력으로 옮깁니다.`,
+  option: `위력 굴림 몫의 ${BLACKSMITH_STRUCTURE_TRANSFER_BUDGET * 100}%를 고른 성향 옵션으로 옮깁니다. 옵션 성향을 함께 골라야 적용됩니다.`,
+  extreme: "결과가 중간값에서 더 멀어지도록 편차를 넓힙니다. 좋은 옵션은 더 좋게, 나쁜 옵션은 더 나쁘게 나옵니다.",
+  stable: "결과가 중간값 쪽으로 모이도록 편차를 좁힙니다. 크게 망하지 않는 대신 최고치도 덜 나옵니다.",
+};
+
+export function blacksmithOptionFocusDescription(
+  optionKeys: readonly string[],
+  chancePct: number,
+): string {
+  const labels = V2_EQUIP_OPTION_KEYS.filter((key) => optionKeys.includes(key))
+    .map((key) => v2EquipOptionLabel(key))
+    .join("·");
+  return `${chancePct}% 확률로 ${labels} 옵션에 좋은 굴림을 먼저 배정합니다.`;
+}
 
 const SPECIALTY_IDS = new Set<BlacksmithSpecialtyId>([
   "weapon",

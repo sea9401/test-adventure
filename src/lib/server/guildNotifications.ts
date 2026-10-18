@@ -82,3 +82,36 @@ export async function notifyGuildJoinDeclined(params: {
     console.warn("[guildNotifications] join decline notify failed", err);
   }
 }
+
+export async function notifyGuildKicked(params: {
+  userId: string;
+  guildId: number;
+  guildName: string;
+  cooldownUntil: number;
+}): Promise<void> {
+  try {
+    await insertNotification(params.userId, "guild_kicked", {
+      guildId: params.guildId,
+      guildName: params.guildName,
+      cooldownUntil: params.cooldownUntil,
+    });
+  } catch (err) {
+    console.warn("[guildNotifications] kick notify failed", err);
+  }
+}
+
+export async function notifyGuildDisbanded(params: {
+  userIds: readonly string[];
+  guildId: number;
+  guildName: string;
+}): Promise<void> {
+  try {
+    if (params.userIds.length === 0) return;
+    await insertNotificationMany(params.userIds, "guild_disbanded", {
+      guildId: params.guildId,
+      guildName: params.guildName,
+    });
+  } catch (err) {
+    console.warn("[guildNotifications] disband notify failed", err);
+  }
+}

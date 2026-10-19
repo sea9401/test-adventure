@@ -41,6 +41,7 @@ import { UNEXPLORED_ACHIEVEMENTS } from "@/adventure/data/v2/unexploredProgressi
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import {
   buildUnexploredTreeModel,
+  unexploredDifficultyCapNotice,
   type UnexploredClientSnapshot,
   type UnexploredTreeNodeModel,
 } from "./unexploredTreeModel";
@@ -117,6 +118,11 @@ function nodeColors(node: UnexploredTreeNodeModel, selected: boolean) {
     return { fill: "#f5f3ff", stroke: "#8b5cf6", text: "#5b21b6" };
   }
   return { fill: "#e4e4e7", stroke: "#a1a1aa", text: "#71717a" };
+}
+
+function isDifficultyCapped(node: UnexploredTreeNodeModel): boolean {
+  return node.difficultyApplication !== null &&
+    node.difficultyApplication.applied < node.difficultyApplication.total;
 }
 
 function formatPct(value: number): string {
@@ -441,6 +447,11 @@ export function V2UnexploredTreeView({
   }
 
   const selected = model.selected;
+  const selectedCapNotice = unexploredDifficultyCapNotice(
+    model.selectedDifficultyApplication,
+    selected?.state === "active",
+  );
+  const cappedNodeCount = model.nodes.filter(isDifficultyCapped).length;
   const completedAchievementIds = new Set(snapshot.achievementIds);
   const spendableGold = snapshot.gold + snapshot.bankedGold;
   const refundGoldCost = snapshot.refundGoldCost * (model.plan?.nodeIds.length ?? 0);
@@ -628,11 +639,13 @@ export function V2UnexploredTreeView({
                 const isSelected = node.id === selectedNodeId;
                 const colors = nodeColors(node, isSelected);
                 const radius = unexploredNodeRadius(node);
+                const capped = isDifficultyCapped(node);
                 return (
                   <g
                     key={node.id}
                     data-unexplored-node={node.id}
                     data-unexplored-plan={node.planState ?? undefined}
+                    data-unexplored-capped={capped || undefined}
                     role="button"
                     tabIndex={0}
                     aria-label={`노드 선택: ${node.name}${
@@ -641,7 +654,7 @@ export function V2UnexploredTreeView({
                         : node.planState === "refund"
                           ? " · 반환 대기"
                           : ""
-                    }`}
+                    }${capped ? " · 120단 초과로 보상 덜 반영" : ""}`}
                     onClick={() => setSelectedNodeId(node.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -657,6 +670,7 @@ export function V2UnexploredTreeView({
                       fill={colors.fill}
                       stroke={colors.stroke}
                       strokeWidth={isSelected ? 8 : 5}
+                      strokeDasharray={capped ? "8 6" : undefined}
                     />
                     <text
                       x={node.x}
@@ -755,12 +769,16 @@ export function V2UnexploredTreeView({
                       <> → <strong className="text-violet-600 dark:text-violet-300">{model.previewDifficulty}</strong></>
                     )}
                   </p>
-                  {selected.effects.some((effect) =>
+                  {selectedCapNotice ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      {selectedCapNotice}
+                    </p>
+                  ) : selected.effects.some((effect) =>
                     effect.kind === "difficulty_reward" ||
                     (effect.kind === "deep" && effect.effect === "contract"),
                   ) && (
                     <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                      120단에서는 이 노드로 경로를 연결할 수 있지만 추가 난이도·보상은 적용되지 않습니다.
+                      난이도는 먼저 찍은 노드부터 120단까지 반영됩니다. 120단을 넘겨 찍은 노드는 경로만 연결하고 보상은 적용되지 않습니다.
                     </p>
                   )}
                 </div>
@@ -854,6 +872,11 @@ export function V2UnexploredTreeView({
 
           <section className={`${SURFACE_CARD} p-4 text-sm`}>
             <h3 className="mb-2 font-bold">현재 보상 보정</h3>
+            {cappedNodeCount > 0 && (
+              <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
+                120단을 넘겨 보상이 덜 반영된 난이도 노드 {cappedNodeCount}개 (점선 테두리)
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <span>골드</span><strong className="text-right">{formatPct(snapshot.rewardSummary.gold)}</strong>
               <span>공통·기본 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.baseMaterial)}</strong>

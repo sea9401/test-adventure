@@ -5,6 +5,7 @@ import {
 } from "@/adventure/data/v2/unexploredTree";
 import {
   buildUnexploredTreeModel,
+  unexploredDifficultyCapNotice,
   type UnexploredClientSnapshot,
 } from "./unexploredTreeModel";
 
@@ -393,6 +394,44 @@ describe("unexplored tree model", () => {
     expect(model.selected?.state).toBe("available");
     expect(model.selected?.activationError).toBeNull();
     expect(model.previewDifficulty).toBe(120);
+    expect(model.selectedDifficultyApplication).toEqual({ applied: 0, total: 4 });
+  });
+
+  it("120단을 넘겨 찍은 위험 노드는 보상 미적용으로 표시한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selectedNodeIds = [
+      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+    ];
+    const lastId = difficultyIds.at(-1)!;
+    const model = buildUnexploredTreeModel(
+      snapshot({
+        earnedPoints: 160,
+        spentPoints: selectedNodeIds.length,
+        selectedNodeIds,
+      }),
+      lastId,
+    );
+
+    const byId = new Map(model.nodes.map((node) => [node.id, node]));
+    expect(byId.get(difficultyIds[0])?.difficultyApplication).toEqual({ applied: 1, total: 1 });
+    expect(byId.get(lastId)?.difficultyApplication).toEqual({ applied: 0, total: 4 });
+    expect(byId.get("start")?.difficultyApplication).toBeNull();
+    expect(model.selectedDifficultyApplication).toEqual({ applied: 0, total: 4 });
+  });
+
+  it("상한 전에는 활성화할 위험 노드의 난이도가 전부 반영된다고 미리 보여 준다", () => {
+    const targetId = UNEXPLORED_NODES.find((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    )!.id;
+    const model = buildUnexploredTreeModel(
+      snapshot({ earnedPoints: 160 }),
+      targetId,
+    );
+
+    expect(model.plan?.error).toBeNull();
+    expect(model.selectedDifficultyApplication).toEqual({ applied: 1, total: 1 });
   });
 
   it("locks every inactive node below level 100 without deleting progress", () => {
@@ -406,5 +445,23 @@ describe("unexplored tree model", () => {
         .filter((node) => node.state !== "active")
         .every((node) => node.state === "locked"),
     ).toBe(true);
+  });
+});
+
+describe("unexploredDifficultyCapNotice", () => {
+  it("전부 반영되거나 위험 노드가 아니면 안내하지 않는다", () => {
+    expect(unexploredDifficultyCapNotice(null, true)).toBeNull();
+    expect(unexploredDifficultyCapNotice({ applied: 3, total: 3 }, true)).toBeNull();
+  });
+
+  it("미적용과 일부 적용을 활성 여부에 맞춰 안내한다", () => {
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, true)).toContain("120단을 넘겨 찍은 노드라");
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, false)).toContain("지금 찍으면 120단 상한에 걸려");
+    expect(unexploredDifficultyCapNotice({ applied: 1, total: 3 }, true)).toBe(
+      "난이도 +3 중 +1만 반영되어 보상도 1/3만 적용됩니다.",
+    );
+    expect(unexploredDifficultyCapNotice({ applied: 1, total: 3 }, false)).toBe(
+      "지금 찍으면 난이도 +3 중 +1만 반영되어 보상도 1/3만 적용됩니다.",
+    );
   });
 });

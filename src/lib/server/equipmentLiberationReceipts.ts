@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { equipmentLiberationRequests } from "@/db/schema";
 import type { DbExecutor } from "./savesKv";
 
@@ -50,4 +50,18 @@ export async function insertEquipmentLiberationReceipt<Response = EquipmentLiber
   receipt: EquipmentLiberationReceipt<Response>,
 ): Promise<void> {
   await executor.insert(equipmentLiberationRequests).values(receipt);
+}
+
+/** 영수증은 성공한 마법부여·이전만 남으므로 응답의 spentGold 합이 누적 사용 골드다. */
+export async function sumEquipmentEnchantGoldSpent(
+  executor: DbExecutor,
+  userId: string,
+): Promise<number> {
+  const rows = await executor
+    .select({
+      total: sql<string>`coalesce(sum((${equipmentLiberationRequests.response}->>'spentGold')::bigint), 0)::bigint`,
+    })
+    .from(equipmentLiberationRequests)
+    .where(eq(equipmentLiberationRequests.userId, userId));
+  return Number(rows[0]?.total ?? 0);
 }

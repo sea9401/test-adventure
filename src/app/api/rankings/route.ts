@@ -452,6 +452,10 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       SELECT referrer_user_id AS user_id, COUNT(*)::bigint AS referral_count
       FROM referral_conversions
       GROUP BY referrer_user_id
+    ), enchant_gold AS (
+      SELECT user_id, COALESCE(SUM((response->>'spentGold')::bigint), 0)::bigint AS spent
+      FROM equipment_liberation_requests
+      GROUP BY user_id
     )
     SELECT
       u.id AS user_id,
@@ -483,6 +487,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
       (COALESCE(guild_activity.workshop_deliveries, 0) + COALESCE(guild_activity_archived.workshop_deliveries, 0))::bigint AS guild_workshop_deliveries,
       (COALESCE(guild_activity.alchemy_crafts, 0) + COALESCE(guild_activity_archived.alchemy_crafts, 0))::bigint AS guild_alchemy_crafts,
       (COALESCE(guild_activity.trade_contracts, 0) + COALESCE(guild_activity_archived.trade_contracts, 0))::bigint AS guild_trade_contracts,
+      COALESCE(enchant_gold.spent, 0)::bigint AS enchant_gold_spent,
       EXISTS (SELECT 1 FROM guild_members gm WHERE gm.user_id = u.id) AS has_guild,
       EXISTS (
         SELECT 1 FROM marketplace_listings_v2 ml
@@ -514,6 +519,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     LEFT JOIN referrals ON referrals.user_id = u.id
     LEFT JOIN guild_activity ON guild_activity.user_id = u.id
     LEFT JOIN guild_activity_archived ON guild_activity_archived.user_id = u.id
+    LEFT JOIN enchant_gold ON enchant_gold.user_id = u.id
     WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
   `));
@@ -533,6 +539,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
     guild_workshop_deliveries: number | string;
     guild_alchemy_crafts: number | string;
     guild_trade_contracts: number | string;
+    enchant_gold_spent: number | string;
     has_guild: boolean; has_traded: boolean;
     updated_at: Date | string;
   };
@@ -575,6 +582,7 @@ async function fetchAchievementRows(): Promise<RankRow[]> {
           guildWorkshopDeliveries: Number(r.guild_workshop_deliveries ?? 0),
           guildAlchemyCrafts: Number(r.guild_alchemy_crafts ?? 0),
           guildTradeContracts: Number(r.guild_trade_contracts ?? 0),
+          enchantGoldSpent: Number(r.enchant_gold_spent ?? 0),
         },
       });
       const summary = achievementSummary(ctx, claimed);

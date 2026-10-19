@@ -174,6 +174,8 @@ export type QuestCtx = {
   guildWorkshopDeliveries: number;
   guildAlchemyCrafts: number;
   guildTradeContracts: number;
+  /** 마법부여·마법부여 이전에 쓴 누적 골드. equipment_liberation_requests 영수증 합. */
+  enchantGoldSpent: number;
 };
 
 export type QuestDef = {
@@ -674,6 +676,21 @@ const EQUIPMENT: QuestDef[] = [
     { id: "e_plus10", title: "전설의 +10", goal: 10, points: 50, titleId: "ach_plus_ten", badgeTier: "legendary" },
     { id: "equipment_plus12", title: "한계를 두드리다", goal: 12, points: 60 },
   ]),
+  ...milestones(
+    "equipment",
+    "마법부여에 쓴 골드",
+    (c) => c.enchantGoldSpent,
+    [
+      { id: "enchant_gold_15m", title: "첫 마법부여", goal: 15_000_000, points: 5 },
+      { id: "enchant_gold_150m", title: "마력에 이끌려", goal: 150_000_000, points: 10, badgeTier: "bronze" },
+      { id: "enchant_gold_750m", title: "마법부여 단골", goal: 750_000_000, points: 20, badgeTier: "silver" },
+      { id: "enchant_gold_1500m", title: "마력에 바친 황금", goal: 1_500_000_000, points: 30 },
+      { id: "enchant_gold_3b", title: "끝없는 재부여", goal: 3_000_000_000, points: 40, badgeTier: "gold" },
+      { id: "enchant_gold_7500m", title: "마도의 후원자", goal: 7_500_000_000, points: 50 },
+      { id: "enchant_gold_15b", title: "황금을 마력으로", goal: 15_000_000_000, points: 60, badgeTier: "legendary" },
+    ],
+    (goal) => `마법부여와 마법부여 이전에 골드를 누적 ${goal.toLocaleString()} G 쓰세요.`,
+  ),
   { id: "e_stone", line: "equipment", title: "반짝이는 돌", desc: "강화석을 1개 이상 보유하세요.", reward: {}, points: 5, progress: (c) => c.enhanceStones, goal: 1, check: (c) => c.enhanceStones >= 1 },
 ];
 
@@ -1137,7 +1154,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   { id: "combat", name: "전투와 토벌", subtitle: "전투 횟수·몬스터 도감·협동 보스 기록.", sequential: false },
   { id: "frontier", name: "사냥터 개척", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
   { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·전투직 재전직 기록.", sequential: false },
-  { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화 기록.", sequential: false },
+  { id: "equipment", name: "장비와 도감", subtitle: "장비 수집·도감 등록·강화·마법부여 기록.", sequential: false },
   { id: "arena_social", name: "경쟁과 교류", subtitle: "길드·거래소·투기장 승리 기록.", sequential: false },
   { id: "promotion", name: "게임 홍보", subtitle: "내 홍보 링크로 합류한 새 모험가 기록.", sequential: false },
   { id: "farming", name: "농사", subtitle: "수확·희귀 작물·납품·농사 레벨.", sequential: false },

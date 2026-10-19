@@ -282,6 +282,7 @@ describe("POST /api/v2/farm/harvest", () => {
       guildWorkshopDeliveries: 0,
       guildAlchemyCrafts: 0,
       guildTradeContracts: 0,
+      enchantGoldSpent: 0,
       fishSpecies: 0,
       fishCaught: 0,
       arenaTimes: [],

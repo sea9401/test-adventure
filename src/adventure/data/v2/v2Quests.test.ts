@@ -85,6 +85,7 @@ const ZERO: QuestCtx = {
   guildWorkshopDeliveries: 0,
   guildAlchemyCrafts: 0,
   guildTradeContracts: 0,
+  enchantGoldSpent: 0,
   referralCount: 0,
 };
 
@@ -922,6 +923,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       guildWorkshopDeliveries: 50,
       guildAlchemyCrafts: 25,
       guildTradeContracts: 25,
+      enchantGoldSpent: 15_000_000_000,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -1140,6 +1142,23 @@ describe("오늘 추가된 요리·길드 시설 업적", () => {
     expect(questById("guild_delivery10")!.check({ ...ZERO, guildWorkshopDeliveries: 10 })).toBe(true);
     expect(questById("guild_alchemy25")!.check({ ...ZERO, guildAlchemyCrafts: 25 })).toBe(true);
     expect(questById("guild_trade25")!.check({ ...ZERO, guildTradeContracts: 25 })).toBe(true);
+  });
+});
+
+describe("마법부여 골드 사용 업적", () => {
+  it("마법부여와 이전에 쓴 누적 골드로 단계가 이어진다", () => {
+    const first = questById("enchant_gold_15m")!;
+    expect(first.line).toBe("equipment");
+    expect(first.desc).toBe("마법부여와 마법부여 이전에 골드를 누적 15,000,000 G 쓰세요.");
+    expect(first.check({ ...ZERO, enchantGoldSpent: 14_999_999 })).toBe(false);
+    expect(first.check({ ...ZERO, enchantGoldSpent: 15_000_000 })).toBe(true);
+    expect(first.progress!({ ...ZERO, enchantGoldSpent: 450_000_000 })).toBe(450_000_000);
+
+    const chain = V2_QUESTS.filter((q) => q.chain === first.chain);
+    expect(chain.map((q) => q.goal)).toEqual([
+      15_000_000, 150_000_000, 750_000_000, 1_500_000_000,
+      3_000_000_000, 7_500_000_000, 15_000_000_000,
+    ]);
   });
 });
 

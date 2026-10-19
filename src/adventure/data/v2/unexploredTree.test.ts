@@ -112,6 +112,36 @@ describe("unexplored tree catalogue", () => {
     expect(after.rareCopyChancePct).toBe(before.rareCopyChancePct);
   });
 
+  it("reports how much difficulty each risk node applied in selection order", () => {
+    const difficultyNodes = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    );
+    const effects = deriveUnexploredEffects(difficultyNodes.map((node) => node.id));
+    const totals = difficultyNodes.map((node) => {
+      const effect = node.effects.find((e) => e.kind === "difficulty_reward");
+      return effect?.kind === "difficulty_reward" ? effect.difficulty : 0;
+    });
+
+    let remaining = 25;
+    difficultyNodes.forEach((node, index) => {
+      const applied = Math.min(totals[index], remaining);
+      remaining -= applied;
+      expect(effects.difficultyApplication[node.id]).toEqual({
+        applied,
+        total: totals[index],
+      });
+    });
+
+    const reversed = deriveUnexploredEffects(
+      difficultyNodes.map((node) => node.id).reverse(),
+    );
+    expect(reversed.difficultyApplication[difficultyNodes[0].id]).toEqual({
+      applied: 0,
+      total: totals[0],
+    });
+    expect(effects.difficultyApplication.start).toBeUndefined();
+  });
+
   it("uses loot search for the front six pools and trace search for the boss six", () => {
     for (const poolId of FRONT_UNEXPLORED_POOL_IDS) {
       const node = UNEXPLORED_NODES.find(

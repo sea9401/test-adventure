@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { V2UnexploredTreeView } from "./V2UnexploredTreeView";
 import type { UnexploredClientSnapshot } from "./unexploredTreeModel";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
-import { shortestUnexploredPath } from "@/adventure/data/v2/unexploredTree";
+import { UNEXPLORED_NODES, shortestUnexploredPath } from "@/adventure/data/v2/unexploredTree";
 import {
   UNEXPLORED_BOSS_CORE_MATERIAL,
   UNEXPLORED_BOSS_IDS,
@@ -256,6 +256,39 @@ describe("V2UnexploredTreeView", () => {
     expect((screen.getByRole("button", { name: /7개 활성화/ }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(container.querySelector('[data-unexplored-node="inner-0-0"]')!);
     expect(screen.queryByText(/최단 경로 · 탐사 포인트/)).toBeNull();
+  });
+
+  it("120단을 넘겨 찍은 난이도 노드를 점선으로 표시하고 보상 미적용을 안내한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selectedNodeIds = [
+      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+    ];
+    const lastId = difficultyIds.at(-1)!;
+    const { container } = render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          earnedPoints: 160,
+          spentPoints: selectedNodeIds.length,
+          selectedNodeIds,
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    const lastNode = container.querySelector(`[data-unexplored-node="${lastId}"]`)!;
+    expect(lastNode.getAttribute("data-unexplored-capped")).toBe("true");
+    expect(lastNode.querySelector("circle")?.getAttribute("stroke-dasharray")).toBe("8 6");
+    expect(
+      container.querySelector(`[data-unexplored-node="${difficultyIds[0]}"]`)!
+        .getAttribute("data-unexplored-capped"),
+    ).toBeNull();
+    expect(screen.getByText(/120단을 넘겨 보상이 덜 반영된 난이도 노드/)).toBeTruthy();
+
+    fireEvent.click(lastNode);
+    expect(screen.getByText(/120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고/)).toBeTruthy();
   });
 
   it("특화 노드를 선택하면 연결 몬스터와 획득 가능한 전용 아이템을 표시한다", () => {

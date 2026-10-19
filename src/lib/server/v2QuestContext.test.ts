@@ -31,6 +31,7 @@ const EXTRAS: QuestExtras = {
   guildWorkshopDeliveries: 7,
   guildAlchemyCrafts: 3,
   guildTradeContracts: 2,
+  enchantGoldSpent: 450_000_000,
   fishSpecies: 0,
   fishCaught: 0,
   arenaTimes: [],
@@ -103,6 +104,7 @@ describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
       guildWorkshopDeliveries: 7,
       guildAlchemyCrafts: 3,
       guildTradeContracts: 2,
+      enchantGoldSpent: 450_000_000,
     });
   });
 

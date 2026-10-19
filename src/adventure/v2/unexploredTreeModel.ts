@@ -74,11 +74,15 @@ export type UnexploredClientSnapshot = {
 
 export type UnexploredNodeState = "active" | "available" | "locked";
 
+export type UnexploredDifficultyApplication = { applied: number; total: number };
+
 export type UnexploredTreeNodeModel = UnexploredNode & {
   state: UnexploredNodeState;
   planState: "activate" | "refund" | null;
   categoryLabel: string;
   activationError: UnexploredActivationError | "level_required" | null;
+  /** 활성 위험 노드가 120단 상한 안에서 실제로 반영한 난이도. 그 외 노드는 null. */
+  difficultyApplication: UnexploredDifficultyApplication | null;
 };
 
 export type UnexploredPoolRewardItem = {
@@ -104,6 +108,21 @@ export type UnexploredTreePlan = {
     | "level_required"
     | null;
 };
+
+/** 위험 노드가 120단 상한에 걸려 난이도·보상이 덜 반영될 때 상세 패널에 띄울 안내. 전부 반영되면 null. */
+export function unexploredDifficultyCapNotice(
+  application: UnexploredDifficultyApplication | null,
+  active: boolean,
+): string | null {
+  if (!application || application.applied >= application.total) return null;
+  if (application.applied === 0) {
+    return active
+      ? "120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고 경로만 연결합니다. 먼저 찍은 난이도 노드를 반환하면 이 노드의 보상이 반영됩니다."
+      : "지금 찍으면 120단 상한에 걸려 난이도와 보상이 적용되지 않고 경로만 연결합니다.";
+  }
+  const ratio = `난이도 +${application.total} 중 +${application.applied}만 반영되어 보상도 ${application.applied}/${application.total}만 적용`;
+  return active ? `${ratio}됩니다.` : `지금 찍으면 ${ratio}됩니다.`;
+}
 
 function categoryLabel(node: UnexploredNode): string {
   if (
@@ -208,6 +227,7 @@ export function buildUnexploredTreeModel(
   const refundPlan = new Set(
     plan?.action === "refund" && plan.error === null ? plan.nodeIds : [],
   );
+  const currentEffects = deriveUnexploredEffects(snapshot.selectedNodeIds);
   const nodes: UnexploredTreeNodeModel[] = UNEXPLORED_NODES.map((node) => {
     const activationError = active.has(node.id)
       ? null
@@ -233,6 +253,9 @@ export function buildUnexploredTreeModel(
           : null,
       categoryLabel: categoryLabel(node),
       activationError,
+      difficultyApplication: active.has(node.id)
+        ? currentEffects.difficultyApplication[node.id] ?? null
+        : null,
     };
   });
   const selected = nodes.find((node) => node.id === selectedNodeId) ?? null;
@@ -244,7 +267,14 @@ export function buildUnexploredTreeModel(
       ? [...snapshot.selectedNodeIds, ...plan.nodeIds]
       : snapshot.selectedNodeIds.filter((nodeId) => !refundPlan.has(nodeId))
     : snapshot.selectedNodeIds;
-  const previewDifficulty = deriveUnexploredEffects(previewNodeIds).difficulty;
+  const previewEffects = deriveUnexploredEffects(previewNodeIds);
+  const previewDifficulty = previewEffects.difficulty;
+  // 활성 노드는 지금 반영분, 활성화 예정 노드는 찍은 뒤 반영분을 보여 준다.
+  const selectedDifficultyApplication = selected?.state === "active"
+    ? selected.difficultyApplication
+    : selected && activationPlan.has(selected.id)
+      ? previewEffects.difficultyApplication[selected.id] ?? null
+      : null;
   const edges = UNEXPLORED_EDGES.map(([left, right], index) => ({
     left,
     right,
@@ -262,9 +292,7 @@ export function buildUnexploredTreeModel(
           ? ("preview" as const)
           : ("inactive" as const),
   }));
-  const focusedPoolIds = new Set(
-    deriveUnexploredEffects(snapshot.selectedNodeIds).focusedPoolIds,
-  );
+  const focusedPoolIds = new Set(currentEffects.focusedPoolIds);
   const poolSummary = snapshot.encounterShares.flatMap((share) =>
     share.kind === "pool"
       ? (() => {
@@ -298,6 +326,7 @@ export function buildUnexploredTreeModel(
     routePointPreview,
     currentDifficulty: snapshot.difficulty,
     previewDifficulty,
+    selectedDifficultyApplication,
     poolSummary,
     selectedPoolRewards,
   };

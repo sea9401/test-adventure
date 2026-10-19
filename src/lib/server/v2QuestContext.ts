@@ -87,6 +87,7 @@ import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
 import { parseLifeRequestsState } from "@/adventure/v2/lifeRequests";
 import { lifeFieldRecordSummary } from "@/adventure/v2/lifeFieldRecords";
 import { uniqueEquipmentAcquisitionProgress } from "@/lib/server/uniqueEquipmentAchievement";
+import { sumEquipmentEnchantGoldSpent } from "@/lib/server/equipmentLiberationReceipts";
 
 type CharSave = {
   class?: unknown;
@@ -124,6 +125,7 @@ export type QuestExtras = {
   guildWorkshopDeliveries: number;
   guildAlchemyCrafts: number;
   guildTradeContracts: number;
+  enchantGoldSpent: number;
   // 생활의 달인 — 도감 세이브 파생(fishing-codex.v1).
   fishSpecies: number;
   // 반복 퀘스트(차분 판정) — 누적치/타임스탬프.
@@ -364,6 +366,7 @@ export function buildQuestCtx(args: {
     guildWorkshopDeliveries: args.extras.guildWorkshopDeliveries,
     guildAlchemyCrafts: args.extras.guildAlchemyCrafts,
     guildTradeContracts: args.extras.guildTradeContracts,
+    enchantGoldSpent: Math.max(0, Number(args.extras.enchantGoldSpent) || 0),
   };
 }
 
@@ -443,6 +446,7 @@ export async function assembleQuestExtras(
         eq(guildActivityRollups.periodKey, "lifetime"),
       ),
     );
+  const enchantGoldSpent = await sumEquipmentEnchantGoldSpent(ex, userId);
   const arenaHistory = parseArenaHistory(arenaRaw);
 
   const fishCodex = parseFishCodex(fishRaw);
@@ -475,6 +479,7 @@ export async function assembleQuestExtras(
     guildTradeContracts:
       Number(guildActivityAgg[0]?.tradeContracts ?? 0) +
       Number(archivedGuildActivityAgg[0]?.tradeContracts ?? 0),
+    enchantGoldSpent,
     fishSpecies: Object.keys(fishCodex.fish).length,
     fishCaught: Object.values(fishCodex.fish).reduce(
       (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),

@@ -804,6 +804,8 @@ export type UnexploredEffects = {
   poolLootPctByPool: Partial<Record<UnexploredPoolId, number>>;
   basePoolRewardPct: number;
   conversion: null | "gold" | "collector" | "armory";
+  /** 난이도를 올리는 노드별로 120단 상한 안에서 실제 반영된 난이도. 먼저 찍은 노드부터 채운다. */
+  difficultyApplication: Partial<Record<string, { applied: number; total: number }>>;
 };
 
 function addRecordValue<K extends string>(
@@ -837,6 +839,7 @@ export function deriveUnexploredEffects(
   let baseMinShare: 25 | 30 = 30;
   let basePoolRewardPct = 0;
   let conversion: UnexploredEffects["conversion"] = null;
+  const difficultyApplication: UnexploredEffects["difficultyApplication"] = {};
 
   for (const id of selected) {
     const node = nodeById.get(id)!;
@@ -861,6 +864,7 @@ export function deriveUnexploredEffects(
           // 남은 난이도만큼 보상을 적용한다. 120단 뒤의 노드는 경로만 연결한다.
           const applied = Math.min(effect.difficulty, Math.max(0, 25 - difficultyIncrease));
           difficultyIncrease += applied;
+          difficultyApplication[id] = { applied, total: effect.difficulty };
           const amount = Math.round(effect.amount * applied / effect.difficulty);
           if (effect.reward === "gold") rewardPct.gold += amount;
           else if (effect.reward === "base") {
@@ -914,6 +918,7 @@ export function deriveUnexploredEffects(
           } else if (effect.effect === "contract") {
             const applied = Math.min(5, Math.max(0, 25 - difficultyIncrease));
             difficultyIncrease += applied;
+            difficultyApplication[id] = { applied, total: 5 };
             rewardPct.gold += applied;
             const bonus = applied * 3;
             rewardPct.baseMaterial += bonus;
@@ -961,6 +966,7 @@ export function deriveUnexploredEffects(
     poolLootPctByPool,
     basePoolRewardPct,
     conversion,
+    difficultyApplication,
   };
 }
 

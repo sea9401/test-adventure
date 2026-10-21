@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canEnterSanctuary, createSanctuaryActive, parseSanctuaryState,
-  advanceSanctuary, sanctuaryNode, sanctuaryChoices,
+  advanceSanctuary, sanctuaryNode, sanctuaryChoices, sanctuaryEnemy,
   DEFAULT_SANCTUARY_AUTO_PREFERENCES, parseSanctuaryAutoPreferences, pickSanctuaryAutoChoice,
 } from "./sanctuaryDungeon";
 
@@ -65,5 +65,30 @@ describe("sanctuary auto run preferences", () => {
     const state = parseSanctuaryState({ autoPreferences: { camp: ["meditation"] } });
     expect(state.autoPreferences.camp[0]).toBe("meditation");
     expect(parseSanctuaryState({}).autoPreferences).toEqual(DEFAULT_SANCTUARY_AUTO_PREFERENCES);
+  });
+});
+
+describe("sanctuary difficulty", () => {
+  it("reads legacy or idle saves as normal and keeps hard only for an active run", () => {
+    const active = createSanctuaryActive(1000, 300, () => 0);
+    expect(parseSanctuaryState({ active }).difficulty).toBe("normal");
+    expect(parseSanctuaryState({ active, difficulty: "hard" }).difficulty).toBe("hard");
+    expect(parseSanctuaryState({ active, difficulty: "nightmare" }).difficulty).toBe("normal");
+    expect(parseSanctuaryState({ difficulty: "hard" }).difficulty).toBe("normal");
+  });
+  it("makes every hard encounter stronger while keeping its name", () => {
+    let active = createSanctuaryActive(1000, 300, () => 0);
+    while (true) {
+      if (sanctuaryNode(active).kind === "battle") {
+        const normal = sanctuaryEnemy(active);
+        const hard = sanctuaryEnemy(active, "hard");
+        expect(hard.name).toBe(normal.name);
+        expect(hard.hp).toBeGreaterThan(normal.hp);
+        expect(hard.atk).toBeGreaterThan(normal.atk);
+      }
+      const next = advanceSanctuary(active);
+      if (!next) break;
+      active = next;
+    }
   });
 });

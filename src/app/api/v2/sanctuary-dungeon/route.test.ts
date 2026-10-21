@@ -14,7 +14,7 @@ vi.mock("@/adventure/v2/combat/engine", () => ({ resolveBattle: f.battle }));
 vi.mock("@/adventure/data/v2/replayPayload", () => ({ toReplayPayload: () => ({ log: [] }) }));
 import { LIMITED_RECOVERY_SKILL_IDS } from "@/adventure/data/v2/v2Skills";
 import { GET, POST } from "./route";
-import { SANCTUARY_SAVE_KEY, createSanctuaryActive, parseSanctuaryState, sanctuaryNode, type SanctuaryState } from "@/adventure/data/v2/sanctuaryDungeon";
+import { SANCTUARY_SAVE_KEY, createSanctuaryActive, parseSanctuaryState, sanctuaryEnemy, sanctuaryNode, type SanctuaryState } from "@/adventure/data/v2/sanctuaryDungeon";
 import { stormExpeditionDateKey } from "@/adventure/data/v2/stormExpedition";
 import { parseEmblemState } from "@/adventure/data/v2/emblems";
 const post = (body: unknown) => POST(new Request("http://test/api/v2/sanctuary-dungeon", { method: "POST", body: JSON.stringify(body) }));
@@ -128,7 +128,7 @@ describe("sanctuary dungeon authority", () => {
     f.battle.mockReturnValueOnce({ outcome: "lose", turns: 3, finalState: { playerHp: 0, playerMp: 0, v2SkillCooldowns: {} } });
     const json = await (await action("auto")).json();
     expect(json.auto.runs).toHaveLength(3);
-    expect(json.auto.runs[0]).toEqual({ cleared: false, endedAt: "문장의 파수꾼", gainedEmblems: [], lostEmblems: 4 });
+    expect(json.auto.runs[0]).toEqual({ difficulty: "normal", cleared: false, endedAt: "문장의 파수꾼", gainedEmblems: [], lostEmblems: 4 });
     expect(json.auto.runs[1].cleared).toBe(true);
     expect(current()).toMatchObject({ attemptsUsed: 3, clears: 2, active: null, pendingEmblems: [] });
     expect(parseEmblemState((f.store.get("character.v2") as Record<string, unknown>).emblems).owned).toHaveLength(14);
@@ -154,5 +154,34 @@ describe("sanctuary dungeon authority", () => {
     expect((await action("fight")).status).toBe(200);
     expect(f.battle.mock.calls[0][3].v2Skills.equipped).toEqual(["attack"]);
     expect(current().active?.usedRecoverySkillIds).toContain(recoveryId);
+  });
+  it("runs a hard attempt against stronger enemies and grants two boss emblems", async () => {
+    expect((await action("start", { difficulty: "hard" })).status).toBe(200);
+    expect(current().difficulty).toBe("hard");
+    expect(current().attemptsUsed).toBe(1);
+    const first = current().active!;
+    await action("fight");
+    expect(f.battle.mock.calls[0][1].hp).toBe(sanctuaryEnemy(first, "hard").hp);
+    expect(f.battle.mock.calls[0][1].hp).toBeGreaterThan(sanctuaryEnemy(first).hp);
+    for (let step = 1; step < 11; step++) {
+      const active = current().active!;
+      const node = sanctuaryNode(active);
+      const choiceId = node.kind === "supply" ? "field_rations" : node.kind === "camp" ? "deep_rest" : node.kind === "altar" ? active.altarOffers[0] : "repair_armor";
+      expect((await action(node.kind === "battle" ? "fight" : "choose", { choiceId })).status).toBe(200);
+    }
+    expect(current()).toMatchObject({ active: null, clears: 1, difficulty: "normal" });
+    expect(parseEmblemState((f.store.get("character.v2") as Record<string, unknown>).emblems).owned).toHaveLength(8);
+  });
+  it("rejects an unknown difficulty without spending an attempt", async () => {
+    expect((await action("start", { difficulty: "nightmare" })).status).toBe(400);
+    expect((await action("auto", { difficulty: "nightmare" })).status).toBe(400);
+    expect(current().attemptsUsed).toBe(0);
+    expect(f.prepare).not.toHaveBeenCalled();
+  });
+  it("auto-runs new attempts at the requested difficulty after finishing the current run at its own", async () => {
+    await action("start");
+    const json = await (await action("auto", { difficulty: "hard" })).json();
+    expect(json.auto.runs.map((run: { difficulty: string }) => run.difficulty)).toEqual(["normal", "hard", "hard"]);
+    expect(json.auto.runs.map((run: { gainedEmblems: unknown[] }) => run.gainedEmblems.length)).toEqual([7, 8, 8]);
   });
 });

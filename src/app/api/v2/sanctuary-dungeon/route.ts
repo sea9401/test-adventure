@@ -10,12 +10,13 @@ import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import { LIMITED_RECOVERY_SKILL_IDS, type LimitedRecoverySkillId } from "@/adventure/data/v2/v2Skills";
-import { parseEmblemState, rollEmblemDrop, type Emblem } from "@/adventure/data/v2/emblems";
+import { parseEmblemState, rollEmblemDrops, type Emblem } from "@/adventure/data/v2/emblems";
 import {
   SANCTUARY_SAVE_KEY, SANCTUARY_DAILY_ATTEMPTS, SANCTUARY_NAME,
   canEnterSanctuary, parseSanctuaryState, createSanctuaryActive,
   advanceSanctuary, sanctuaryNode, sanctuaryChoices, sanctuaryEnemy, type SanctuaryState,
   parseSanctuaryAutoPreferences, pickSanctuaryAutoChoice, type SanctuaryAutoRun,
+  parseSanctuaryDifficulty, type SanctuaryDifficulty,
 } from "@/adventure/data/v2/sanctuaryDungeon";
 import type { StormExpeditionActive, StormExpeditionChoiceKind, StormExpeditionEncounterKind } from "@/adventure/data/v2/stormExpedition";
 
@@ -65,9 +66,11 @@ export async function POST(req: Request) {
     };
     type Prepared = NonNullable<Awaited<ReturnType<typeof prepareV2BattleActor>>>;
     const prepare = () => prepareV2BattleActor({ tx, userId, charSave: character, deriveSkills: "sanitized" });
-    const startRun = (prepared: Prepared) => {
-      state = { ...state, attemptsUsed: state.attemptsUsed + 1, active: createSanctuaryActive(prepared.player.player.maxHp, prepared.player.player.maxMp ?? 0), pendingEmblems: [] };
+    const startRun = (prepared: Prepared, difficulty: SanctuaryDifficulty) => {
+      state = { ...state, attemptsUsed: state.attemptsUsed + 1, active: createSanctuaryActive(prepared.player.player.maxHp, prepared.player.player.maxMp ?? 0), difficulty, pendingEmblems: [] };
     };
+    // 난이도를 보내지 않은 구형 요청은 노말로 본다.
+    const requestedDifficulty = input.difficulty === undefined ? "normal" : parseSanctuaryDifficulty(input.difficulty);
     const chooseStep = (active: StormExpeditionActive, kind: StormExpeditionChoiceKind, choiceId: string, prepared: Prepared) => {
       const next = applyChoice(active, kind, choiceId, prepared.player.player.maxHp, prepared.player.player.maxMp ?? 0);
       if (!next) return false;
@@ -81,7 +84,8 @@ export async function POST(req: Request) {
       const player = applyBattleBonuses({ ...prepared.player.player, hp: Math.min(maxHp, active.hp), mp: Math.min(maxMp, active.mp), maxHp, maxMp }, active, encounterKind);
       const used = new Set(active.usedRecoverySkillIds);
       const skills = { ...prepared.skills, equipped: prepared.skills.equipped.filter((id) => !used.has(id as LimitedRecoverySkillId)) };
-      const enemy = sanctuaryEnemy(active);
+      const difficulty = state.difficulty;
+      const enemy = sanctuaryEnemy(active, difficulty);
       const battle = resolveBattle(player, enemy, playerName, {
         pickAction: (battleState) => pickAutoAction(battleState, { rules: [], potions: {} }),
         potions: {}, v2Skills: skills, maxTurns: 100,
@@ -90,16 +94,16 @@ export async function POST(req: Request) {
       });
       const success = battle.outcome === "win";
       const finalClear = success && encounterKind === "final_boss";
-      const droppedEmblem = success ? rollEmblemDrop(encounterKind, randomUUID()) : null;
-      const pendingEmblems = [...state.pendingEmblems, ...(droppedEmblem ? [droppedEmblem] : [])];
+      const droppedEmblems = success ? rollEmblemDrops(encounterKind, difficulty, randomUUID) : [];
+      const pendingEmblems = [...state.pendingEmblems, ...droppedEmblems];
       const lostEmblems = success ? 0 : state.pendingEmblems.length;
       let gainedEmblems: Emblem[] = [];
       if (!success) {
-        state = { ...state, active: null, pendingEmblems: [] };
+        state = { ...state, active: null, difficulty: "normal", pendingEmblems: [] };
       } else if (finalClear) {
         gainedEmblems = pendingEmblems;
         await claim(gainedEmblems);
-        state = { ...state, active: null, pendingEmblems: [], clears: state.clears + 1 };
+        state = { ...state, active: null, difficulty: "normal", pendingEmblems: [], clears: state.clears + 1 };
       } else {
         state = { ...state, pendingEmblems, active: advanceSanctuary({
           ...active, maxHp, maxMp,
@@ -109,18 +113,19 @@ export async function POST(req: Request) {
           usedRecoverySkillIds: [...new Set([...active.usedRecoverySkillIds, ...LIMITED_RECOVERY_SKILL_IDS.filter((id) => (battle.finalState.v2SkillCooldowns[id] ?? 0) > 0)])],
         }) };
       }
-      return { success, finalClear, droppedEmblem, gainedEmblems, lostEmblems, enemy, battle, player };
+      return { success, finalClear, difficulty, droppedEmblems, gainedEmblems, lostEmblems, enemy, battle, player };
     };
     const readPlayerName = async () => {
       const profile = await readSave<{ name?: string; gender?: string }>(tx, userId, "character-profile.v2", {});
       return { playerName: profile.name?.trim() || "모험가", gender: profile.gender ?? "male1" };
     };
+    if ((input.action === "start" || input.action === "auto") && !requestedDifficulty) return fail("invalid_difficulty", 400);
     if (input.action === "start") {
       if (state.active) return fail("already_active");
       if (state.attemptsUsed >= SANCTUARY_DAILY_ATTEMPTS) return fail("no_attempts");
       const prepared = await prepare();
       if (!prepared) return fail("no_character", 404);
-      startRun(prepared);
+      startRun(prepared, requestedDifficulty!);
       return save();
     }
     if (input.action === "auto") {
@@ -133,7 +138,7 @@ export async function POST(req: Request) {
       state = { ...state, autoPreferences: preferences };
       const runs: SanctuaryAutoRun[] = [];
       while (state.active || state.attemptsUsed < SANCTUARY_DAILY_ATTEMPTS) {
-        if (!state.active) startRun(prepared);
+        if (!state.active) startRun(prepared, requestedDifficulty!);
         let run: SanctuaryAutoRun | null = null;
         while (!run) {
           const active = state.active!;
@@ -146,8 +151,8 @@ export async function POST(req: Request) {
           }
           if (!node.encounterKind) throw new Error("sanctuary_auto_battle_missing");
           const result = await fightStep(active, node.encounterKind, prepared, playerName);
-          if (!result.success) run = { cleared: false, endedAt: result.enemy.name, gainedEmblems: [], lostEmblems: result.lostEmblems };
-          else if (result.finalClear) run = { cleared: true, endedAt: result.enemy.name, gainedEmblems: result.gainedEmblems, lostEmblems: 0 };
+          if (!result.success) run = { difficulty: result.difficulty, cleared: false, endedAt: result.enemy.name, gainedEmblems: [], lostEmblems: result.lostEmblems };
+          else if (result.finalClear) run = { difficulty: result.difficulty, cleared: true, endedAt: result.enemy.name, gainedEmblems: result.gainedEmblems, lostEmblems: 0 };
         }
         runs.push(run);
       }
@@ -159,7 +164,7 @@ export async function POST(req: Request) {
     if (input.action === "withdraw") {
       const gainedEmblems = state.pendingEmblems;
       await claim(gainedEmblems);
-      state = { ...state, active: null, pendingEmblems: [] };
+      state = { ...state, active: null, difficulty: "normal", pendingEmblems: [] };
       return save({ withdrawn: true, gainedEmblems });
     }
     const node = sanctuaryNode(active);
@@ -175,8 +180,8 @@ export async function POST(req: Request) {
     const prepared = await prepare();
     if (!prepared) return fail("no_character", 404);
     const { playerName, gender } = await readPlayerName();
-    const { success, finalClear, droppedEmblem, gainedEmblems, enemy, battle, player } = await fightStep(active, node.encounterKind, prepared, playerName);
-    return save({ success, finalClear, failed: !success, droppedEmblem, gainedEmblems, enemyName: enemy.name, turns: battle.turns,
+    const { success, finalClear, droppedEmblems, gainedEmblems, enemy, battle, player } = await fightStep(active, node.encounterKind, prepared, playerName);
+    return save({ success, finalClear, failed: !success, droppedEmblems, gainedEmblems, enemyName: enemy.name, turns: battle.turns,
       startPlayerHp: player.hp, playerName, gender, replay: toReplayPayload(battle.finalState, { playerCombat: player }) });
   });
 }

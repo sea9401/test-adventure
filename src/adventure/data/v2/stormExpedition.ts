@@ -332,11 +332,13 @@ export function stormExpeditionEnemy(
   routeId: StormExpeditionRouteId,
   kindOrLegacyStage: StormExpeditionEncounterKind | number,
   encounterIndex = 0,
+  /** 태초의 성소 하드처럼 같은 적을 더 깊은 사다리 배율로 강화할 때의 가산 깊이. */
+  depthBonus = 0,
 ): Monster {
   const kind = typeof kindOrLegacyStage === "number"
     ? (["early_trash", "late_trash", "elite", "guardian"] as const)[clampInt(kindOrLegacyStage, 0, 3)]
     : kindOrLegacyStage;
-  const depth = stormExpeditionEncounterDepth(kind, encounterIndex);
+  const depth = stormExpeditionEncounterDepth(kind, encounterIndex) + Math.max(0, Math.floor(depthBonus));
   return scaleMonsterForFloor(stormExpeditionEnemyBase(routeId, kind, encounterIndex), depth);
 }
 

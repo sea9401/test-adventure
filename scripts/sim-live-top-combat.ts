@@ -431,7 +431,7 @@ function preparePlayer(candidate: Candidate): SimPlayer | null {
   };
 }
 
-export async function loadTopPlayers(pool: Pool): Promise<SimPlayer[]> {
+export async function loadTopPlayers(pool: Pool, limit: number = TOP_COUNT): Promise<SimPlayer[]> {
   const result = await pool.query<DbRow>(
     `
       SELECT
@@ -478,7 +478,7 @@ export async function loadTopPlayers(pool: Pool): Promise<SimPlayer[]> {
         right.rankingPower - left.rankingPower ||
         left.userId.localeCompare(right.userId),
     )
-    .slice(0, TOP_COUNT)
+    .slice(0, limit)
     .map(preparePlayer)
     .filter((player): player is SimPlayer => player != null);
 }

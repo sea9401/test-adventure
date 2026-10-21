@@ -24,7 +24,7 @@ describe("sanctuary play screen", () => {
     expect(within(map).getAllByRole("button")).toHaveLength(9);
     fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 현재/ }));
     expect(within(screen.getByRole("dialog")).getByRole("button", { name: "전투 시작" })).toBeTruthy();
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ action: "start", expectedRevision: 0 });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ action: "start", difficulty: "normal", expectedRevision: 0 });
   });
   it("shows checkpoint effects and requires confirmation before withdrawal", async () => {
     const active = { ...createSanctuaryActive(1000, 300), currentNodeId: "supply", visitedNodeIds: ["wreckage_outer", "supply"] };
@@ -77,8 +77,8 @@ describe("sanctuary play screen", () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response({ ...state, revision: 4 }))
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 0, state: done, auto: { runs: [
-        { cleared: true, endedAt: "태초의 문지기", gainedEmblems: [{ iid: "a", kind: "hp", grade: 1 }], lostEmblems: 0 },
-        { cleared: false, endedAt: "문장의 파수꾼", gainedEmblems: [], lostEmblems: 4 },
+        { difficulty: "normal", cleared: true, endedAt: "태초의 문지기", gainedEmblems: [{ iid: "a", kind: "hp", grade: 1 }], lostEmblems: 0 },
+        { difficulty: "hard", cleared: false, endedAt: "문장의 파수꾼", gainedEmblems: [], lostEmblems: 4 },
       ] } }) });
     vi.stubGlobal("fetch", fetchMock);
     render(<V2SanctuaryDungeonView />);
@@ -91,12 +91,37 @@ describe("sanctuary play screen", () => {
     await screen.findByText("일괄 진행 결과");
     expect(confirmGameAction).toHaveBeenCalled();
     const body = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(body).toMatchObject({ action: "auto", expectedRevision: 4 });
+    expect(body).toMatchObject({ action: "auto", difficulty: "normal", expectedRevision: 4 });
     expect(body.preferences.supply[0]).toBe("storm_oil");
     expect(body.preferences.camp[0]).toBe("meditation");
     expect(body.preferences.altar.slice(0, 2)).toEqual(["storm_guard", "tempest_might"]);
-    expect(screen.getByText("1회차 · 클리어 · 문장 1개")).toBeTruthy();
-    expect(screen.getByText("2회차 · 문장의 파수꾼에서 패배 · 임시 문장 4개 잃음")).toBeTruthy();
+    expect(screen.getByText("1회차 노말 · 클리어 · 문장 1개")).toBeTruthy();
+    expect(screen.getByText("2회차 하드 · 문장의 파수꾼에서 패배 · 임시 문장 4개 잃음")).toBeTruthy();
     expect((screen.getByRole("button", { name: /일괄 진행/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("enters and auto-runs on the selected difficulty and shows its reward rates", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response(parseSanctuaryState({})))
+      .mockResolvedValueOnce(response({ ...parseSanctuaryState({}), revision: 1, active: createSanctuaryActive(1000, 300), difficulty: "hard" }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2SanctuaryDungeonView />);
+    const rates = await screen.findByTestId("sanctuary-rates");
+    expect(rates.textContent).toContain("최종 보스 1개 확정");
+    fireEvent.click(screen.getByRole("button", { name: "하드" }));
+    expect(rates.textContent).toContain("정예·수호자 30%");
+    expect(rates.textContent).toContain("최종 보스 2개 확정");
+    expect(rates.textContent).toContain("1등급 70% · 2등급 25% · 3등급 5%");
+    fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 이동 가능/ }));
+    fireEvent.click(screen.getByRole("button", { name: "성소 입장" }));
+    await screen.findByText(/하드 진행 중/);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ action: "start", difficulty: "hard", expectedRevision: 0 });
+  });
+  it("shows the hard boss reward on the final node of a hard run", async () => {
+    const active = { ...createSanctuaryActive(1000, 300), currentNodeId: "storm_heart",
+      visitedNodeIds: ["wreckage_outer", "supply", "wreckage_middle", "wreckage_camp", "wreckage_elite", "altar", "wreckage_guardian", "final_prep", "storm_heart"] };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ ...parseSanctuaryState({}), active, difficulty: "hard" })));
+    render(<V2SanctuaryDungeonView />);
+    fireEvent.click(await screen.findByRole("button", { name: /태초의 문지기, 현재/ }));
+    expect(screen.getByRole("dialog").textContent).toContain("문장 2개 확정");
   });
 });

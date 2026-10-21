@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  mutateEmblems, parseEmblemState, rollEmblemDrop, rollEmblemGrowth,
+  mutateEmblems, parseEmblemState, rollEmblemDrop, rollEmblemDrops, rollEmblemGrowth,
   type Emblem, type EmblemState,
 } from "./emblems";
 
@@ -86,5 +86,25 @@ describe("emblem rewards", () => {
   it.each([[0, 1], [0.88999, 1], [0.89, 2], [0.98999, 2], [0.99, 3], [0.99999, 3]] as const)("guarantees a boss drop and uses grade boundary %s", (roll, grade) => {
     const rng = vi.fn().mockReturnValueOnce(roll).mockReturnValueOnce(0.999);
     expect(rollEmblemDrop("final_boss", "boss", rng)).toEqual(item("boss", "luk", grade));
+  });
+});
+
+describe("hard emblem rewards", () => {
+  it.each([["early_trash", 0.10], ["late_trash", 0.10], ["elite", 0.30], ["guardian", 0.30]] as const)("rolls hard %s rewards only below its threshold", (kind, threshold) => {
+    expect(rollEmblemDrop(kind, "drop", () => threshold, "hard")).toBeNull();
+    const rng = vi.fn().mockReturnValueOnce(threshold - 0.001).mockReturnValue(0);
+    expect(rollEmblemDrop(kind, "drop", rng, "hard")).toEqual(item("drop"));
+  });
+  it.each([[0, 1], [0.69999, 1], [0.7, 2], [0.94999, 2], [0.95, 3], [0.99999, 3]] as const)("uses hard grade boundary %s", (roll, grade) => {
+    const rng = vi.fn().mockReturnValueOnce(roll).mockReturnValueOnce(0.999);
+    expect(rollEmblemDrop("final_boss", "boss", rng, "hard")).toEqual(item("boss", "luk", grade));
+  });
+  it("guarantees one boss emblem on normal and two on hard", () => {
+    let n = 0;
+    const nextIid = () => `e${n++}`;
+    expect(rollEmblemDrops("final_boss", "normal", nextIid, () => 0.5)).toHaveLength(1);
+    expect(rollEmblemDrops("final_boss", "hard", nextIid, () => 0.5).map((emblem) => emblem.iid)).toEqual(["e1", "e2"]);
+    expect(rollEmblemDrops("elite", "hard", nextIid, () => 0)).toHaveLength(1);
+    expect(rollEmblemDrops("elite", "hard", nextIid, () => 0.5)).toEqual([]);
   });
 });

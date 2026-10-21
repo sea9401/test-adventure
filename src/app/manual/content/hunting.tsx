@@ -1,4 +1,5 @@
-import { EMBLEM_GROWTH_MAX, EMBLEM_FUSION_CHANCE, type EmblemGrade } from "@/adventure/data/v2/emblems";
+import { EMBLEM_BOSS_DROP_COUNT, EMBLEM_DIFFICULTIES, EMBLEM_DROP_CHANCE, EMBLEM_GRADE_PCT, EMBLEM_GROWTH_MAX, EMBLEM_FUSION_CHANCE, type EmblemGrade } from "@/adventure/data/v2/emblems";
+import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
   HUNT_COST,
   MAX_STAMINA,
@@ -156,15 +157,17 @@ export function HuntingContent() {
       <H2>태초의 성소와 문장</H2>
       <P>미개척지 해금 이후 입장할 수 있습니다. 일반 전투 2연전 → 보급 → 일반 전투 2연전 → 휴식 → 정예 → 제단 → 수호자 → 최종 정비 → 최종 보스의 일자 경로를 진행합니다.</P>
       <UL>
-        <li>일반 전투 승리마다 5%, 정예·수호자 승리마다 15% 확률로 문장이 나오며 최종 보스는 1개를 확정 지급합니다.</li>
+        <li>입장할 때 노말과 하드 중 하나를 고릅니다. 하드는 몬스터가 크게 강해지는 대신 문장을 더 많이, 더 높은 등급으로 줍니다. 하루 입장 횟수는 두 난이도가 함께 씁니다.</li>
+        <li>일반 전투·정예·수호자를 이기면 아래 표의 확률로 문장이 나오고, 최종 보스는 정해진 개수를 확정 지급합니다.</li>
         <li>문장은 임시 전리품입니다. 귀환하거나 최종 보스를 처치하면 획득하며, 패배하면 이번 탐험의 임시 문장을 잃습니다.</li>
         <li>일괄 진행은 진행 중인 탐험과 남은 입장을 끝까지 자동으로 진행합니다. 보급품·샘·최종 정비는 정해 둔 효과를, 제단은 제시된 효과 중 순위가 가장 높은 것을 고르며, 중간에 귀환하지 않습니다. 마지막으로 쓴 설정은 저장됩니다.</li>
-        <li>HP·MP·힘·활력·민첩·지능·정신·행운 8종은 각각 12.5% 확률입니다. 등급 확률은 1등급 89%, 2등급 10%, 3등급 1%이며 4·5등급은 합성으로만 획득합니다.</li>
+        <li>HP·MP·힘·활력·민첩·지능·정신·행운 8종은 각각 12.5% 확률입니다. 4·5등급은 합성으로만 획득합니다.</li>
         <li>캐릭터 → 문장에서 4개 슬롯에 장착합니다. 같은 종류를 여러 개 장착할 수 있고 모든 문장은 거래 불가입니다.</li>
         <li>장착 중 실제 레벨업할 때 문장마다 0~최대치의 정수 값을 따로 추첨해 추가 성장합니다. 이전 레벨에는 소급하지 않으며, 장착 해제해도 이미 얻은 능력치는 유지됩니다.</li>
         <li>스탯 문장에는 기존 수행 한계치가 적용됩니다. 재전직으로 레벨이 초기화되면 해당 생애의 추가 성장도 초기화되지만 문장과 등급은 유지됩니다.</li>
         <li>동일 종류·동일 등급 문장 1개를 재료로 합성합니다. 성공하면 대상 등급이 하나 오르고, 실패하면 대상은 유지됩니다. 재료는 항상 소모하며 장착 중인 문장은 재료로 쓸 수 없습니다.</li>
       </UL>
+      <Table head={["난이도", "일반 전투", "정예·수호자", "최종 보스", "등급 확률(1/2/3등급)"]} rows={EMBLEM_DIFFICULTIES.map((difficulty) => [SANCTUARY_DIFFICULTY_LABELS[difficulty], `${Math.round(EMBLEM_DROP_CHANCE[difficulty].early_trash * 100)}%`, `${Math.round(EMBLEM_DROP_CHANCE[difficulty].elite * 100)}%`, `${EMBLEM_BOSS_DROP_COUNT[difficulty]}개 확정`, `${EMBLEM_GRADE_PCT[difficulty][1]}% / ${EMBLEM_GRADE_PCT[difficulty][2]}% / ${EMBLEM_GRADE_PCT[difficulty][3]}%`])} />
       <Table head={["등급", "HP 성장", "MP 성장", "스탯 성장", "다음 등급 합성 성공률"]} rows={([1, 2, 3, 4, 5] as EmblemGrade[]).map((grade) => [String(grade), `0~${EMBLEM_GROWTH_MAX.hp[grade]}`, `0~${EMBLEM_GROWTH_MAX.mp[grade]}`, `0~${EMBLEM_GROWTH_MAX.stat[grade]}`, grade === 5 ? "최대 등급" : `${Math.round(EMBLEM_FUSION_CHANCE[grade] * 100)}%`])} />
       <H2>폭풍 원정</H2>
       <P>

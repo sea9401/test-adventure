@@ -23,6 +23,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   EMBLEM_FUSION_CHANCE,
   EMBLEM_LABELS,
+  EMBLEM_GRADE_PCT,
   EMBLEM_SLOT_COUNT,
   emblemGrowthMax,
   parseEmblemState,
@@ -175,7 +176,7 @@ export function V2EmblemView() {
             <p>이미 얻은 능력치는 해제해도 유지되며, 이전 레벨에는 소급하지 않습니다.</p>
             <p>스탯 성장에는 수행 한계치가 적용됩니다. 재전직 시 이번 생애의 추가 성장은 초기화되며, 문장과 등급은 유지됩니다.</p>
             <p>장착 칸 {EMBLEM_SLOT_COUNT}개 · 같은 종류 여러 개 장착 가능 · 모든 문장 거래 불가</p>
-            <p>태초의 성소에서 획득합니다. 드롭 등급: 1등급 89% · 2등급 10% · 3등급 1%. 4·5등급은 합성으로만 얻습니다.</p>
+            <p>태초의 성소에서 획득합니다. 드롭 등급: 노말 1등급 {EMBLEM_GRADE_PCT.normal[1]}% · 2등급 {EMBLEM_GRADE_PCT.normal[2]}% · 3등급 {EMBLEM_GRADE_PCT.normal[3]}%, 하드 1등급 {EMBLEM_GRADE_PCT.hard[1]}% · 2등급 {EMBLEM_GRADE_PCT.hard[2]}% · 3등급 {EMBLEM_GRADE_PCT.hard[3]}%. 4·5등급은 합성으로만 얻습니다.</p>
           </div>
         </details>
       </Card>

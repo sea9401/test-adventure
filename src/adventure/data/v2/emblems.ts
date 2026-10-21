@@ -19,8 +19,18 @@ export const EMBLEM_GROWTH_MAX = {
   mp: [0, 2, 4, 7, 11, 18],
   stat: [0, 1, 2, 4, 6, 9],
 } as const;
-export const EMBLEM_DROP_CHANCE: Record<StormExpeditionEncounterKind, number> = {
-  early_trash: 0.05, late_trash: 0.05, elite: 0.15, guardian: 0.15, final_boss: 1,
+export type EmblemDifficulty = "normal" | "hard";
+export const EMBLEM_DIFFICULTIES = ["normal", "hard"] as const satisfies readonly EmblemDifficulty[];
+export const EMBLEM_DROP_CHANCE: Record<EmblemDifficulty, Record<StormExpeditionEncounterKind, number>> = {
+  normal: { early_trash: 0.05, late_trash: 0.05, elite: 0.15, guardian: 0.15, final_boss: 1 },
+  hard: { early_trash: 0.10, late_trash: 0.10, elite: 0.30, guardian: 0.30, final_boss: 1 },
+};
+/** 최종 보스가 확정 지급하는 문장 개수. */
+export const EMBLEM_BOSS_DROP_COUNT: Record<EmblemDifficulty, number> = { normal: 1, hard: 2 };
+/** 등급별 확률(%). 4·5등급은 합성으로만 얻는다. */
+export const EMBLEM_GRADE_PCT: Record<EmblemDifficulty, { 1: number; 2: number; 3: number }> = {
+  normal: { 1: 89, 2: 10, 3: 1 },
+  hard: { 1: 70, 2: 25, 3: 5 },
 };
 
 function record(raw: unknown): Record<string, unknown> {
@@ -117,10 +127,27 @@ export function rollEmblemGrowth(state: EmblemState, levelsGained: number, rng: 
   return growth;
 }
 
-/** Drop chance first, then independent grade (89/10/1%) and kind (12.5% each). */
-export function rollEmblemDrop(kind: StormExpeditionEncounterKind, iid: string, rng: () => number = Math.random): Emblem | null {
-  if (kind !== "final_boss" && unit(rng) >= EMBLEM_DROP_CHANCE[kind]) return null;
+/** Drop chance first, then independent grade (EMBLEM_GRADE_PCT) and kind (12.5% each). */
+export function rollEmblemDrop(
+  kind: StormExpeditionEncounterKind,
+  iid: string,
+  rng: () => number = Math.random,
+  difficulty: EmblemDifficulty = "normal",
+): Emblem | null {
+  if (kind !== "final_boss" && unit(rng) >= EMBLEM_DROP_CHANCE[difficulty][kind]) return null;
   const gradeRoll = unit(rng);
-  const grade: EmblemGrade = gradeRoll < 0.89 ? 1 : gradeRoll < 0.99 ? 2 : 3;
+  const pct = EMBLEM_GRADE_PCT[difficulty];
+  const grade: EmblemGrade = gradeRoll < pct[1] / 100 ? 1 : gradeRoll < (pct[1] + pct[2]) / 100 ? 2 : 3;
   return { iid, grade, kind: EMBLEM_KINDS[Math.floor(unit(rng) * EMBLEM_KINDS.length)] };
+}
+
+/** 전투 1회의 문장 보상. 최종 보스는 난이도별 개수를 확정 지급하고, 그 외는 0~1개다. */
+export function rollEmblemDrops(
+  kind: StormExpeditionEncounterKind,
+  difficulty: EmblemDifficulty,
+  nextIid: () => string,
+  rng: () => number = Math.random,
+): Emblem[] {
+  const rolls = kind === "final_boss" ? EMBLEM_BOSS_DROP_COUNT[difficulty] : 1;
+  return Array.from({ length: rolls }, () => rollEmblemDrop(kind, nextIid(), rng, difficulty)).filter((emblem): emblem is Emblem => emblem !== null);
 }

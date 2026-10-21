@@ -6,11 +6,19 @@ import {
 } from "./stormExpedition";
 import { stormExpeditionMapNode, type StormExpeditionMapNode, type StormExpeditionMapNodeId } from "./stormExpeditionMap";
 import { parseUnexploredSave, canChangeUnexploredNodes } from "./unexploredState";
-import { parseEmblemState, type Emblem } from "./emblems";
+import { EMBLEM_DIFFICULTIES, parseEmblemState, type Emblem, type EmblemDifficulty } from "./emblems";
 
 export const SANCTUARY_SAVE_KEY = "sanctuary-dungeon.v1";
 export const SANCTUARY_DAILY_ATTEMPTS = 3;
 export const SANCTUARY_NAME = "태초의 성소";
+export type SanctuaryDifficulty = EmblemDifficulty;
+export const SANCTUARY_DIFFICULTIES = EMBLEM_DIFFICULTIES;
+export const SANCTUARY_DIFFICULTY_LABELS: Record<SanctuaryDifficulty, string> = { normal: "노말", hard: "하드" };
+/** 하드 적의 몬스터 깊이 가산치. 운영 상위 캐릭터 시뮬로 맞춘다. */
+export const SANCTUARY_HARD_DEPTH_BONUS = 10;
+export function parseSanctuaryDifficulty(raw: unknown): SanctuaryDifficulty | null {
+  return (SANCTUARY_DIFFICULTIES as readonly unknown[]).includes(raw) ? raw as SanctuaryDifficulty : null;
+}
 const STEPS = [
   ["wreckage_outer", "성소 외곽"], ["supply", "탐험대 보급품"],
   ["wreckage_middle", "각인의 회랑"], ["wreckage_camp", "고요한 샘"],
@@ -20,11 +28,13 @@ const STEPS = [
 ] as const satisfies readonly (readonly [StormExpeditionMapNodeId, string])[];
 export const SANCTUARY_NODES: readonly StormExpeditionMapNode[] = STEPS.map(([id, name], index) => ({
   ...stormExpeditionMapNode(id)!, id, name, x: index * 100, y: 0,
-  description: index === 8 ? "최종 보스 · 문장 1개 확정" : stormExpeditionMapNode(id)!.description.replace("항로", "성소").replace("폭풍의 심장", "최종 보스"),
+  description: index === 8 ? "최종 보스 · 문장 확정 지급" : stormExpeditionMapNode(id)!.description.replace("항로", "성소").replace("폭풍의 심장", "최종 보스"),
   nextNodeIds: index < STEPS.length - 1 ? [STEPS[index + 1][0]] : [],
 }));
 export type SanctuaryState = StormExpeditionState & {
   revision: number;
+  /** 진행 중인 탐험의 난이도. 진행 중인 탐험이 없으면 normal. */
+  difficulty: SanctuaryDifficulty;
   pendingEmblems: Emblem[];
   autoPreferences: SanctuaryAutoPreferences;
 };
@@ -55,7 +65,7 @@ export const DEFAULT_SANCTUARY_AUTO_PREFERENCES: SanctuaryAutoPreferences = Obje
 ) as SanctuaryAutoPreferences;
 
 /** 일괄 진행 결과의 탐험 1회. endedAt은 클리어면 최종 보스, 패배면 진 상대 이름. */
-export type SanctuaryAutoRun = { cleared: boolean; endedAt: string; gainedEmblems: Emblem[]; lostEmblems: number };
+export type SanctuaryAutoRun = { difficulty: SanctuaryDifficulty; cleared: boolean; endedAt: string; gainedEmblems: Emblem[]; lostEmblems: number };
 
 export function parseSanctuaryAutoPreferences(raw: unknown): SanctuaryAutoPreferences {
   const obj = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
@@ -83,6 +93,7 @@ export function parseSanctuaryState(raw: unknown, date?: string): SanctuaryState
   return {
     ...state, active,
     revision: typeof obj.revision === "number" && Number.isSafeInteger(obj.revision) && obj.revision >= 0 ? obj.revision : 0,
+    difficulty: active ? parseSanctuaryDifficulty(obj.difficulty) ?? "normal" : "normal",
     pendingEmblems: active ? parseEmblemState({ owned: obj.pendingEmblems }).owned : [],
     autoPreferences: parseSanctuaryAutoPreferences(obj.autoPreferences),
   };
@@ -133,10 +144,10 @@ export function pickSanctuaryAutoChoice(active: StormExpeditionActive, preferenc
   return preferences[kind].find((id) => offered.includes(id)) ?? offered[0] ?? null;
 }
 
-export function sanctuaryEnemy(active: StormExpeditionActive) {
+export function sanctuaryEnemy(active: StormExpeditionActive, difficulty: SanctuaryDifficulty = "normal") {
   const node = sanctuaryNode(active);
   if (!node.encounterKind) throw new Error("battle_required");
-  const monster = stormExpeditionEnemy("wreckage", node.encounterKind, active.encounterIndex);
+  const monster = stormExpeditionEnemy("wreckage", node.encounterKind, active.encounterIndex, difficulty === "hard" ? SANCTUARY_HARD_DEPTH_BONUS : 0);
   const name = node.encounterKind === "early_trash" ? ["각인석 정찰병", "성소 석상"][active.encounterIndex]
     : node.encounterKind === "late_trash" ? ["문장 회수자", "태초의 석병"][active.encounterIndex] : node.name;
   return { ...monster, name };

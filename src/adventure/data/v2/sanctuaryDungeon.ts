@@ -14,8 +14,12 @@ export const SANCTUARY_NAME = "태초의 성소";
 export type SanctuaryDifficulty = EmblemDifficulty;
 export const SANCTUARY_DIFFICULTIES = EMBLEM_DIFFICULTIES;
 export const SANCTUARY_DIFFICULTY_LABELS: Record<SanctuaryDifficulty, string> = { normal: "노말", hard: "하드" };
-/** 하드 적의 몬스터 깊이 가산치. 운영 상위 캐릭터 시뮬로 맞춘다. */
-export const SANCTUARY_HARD_DEPTH_BONUS = 10;
+/**
+ * 하드 적의 몬스터 깊이 가산치(체력 약 4~6배·공격 약 3.3~3.7배).
+ * 2026-10-21 운영 시뮬(scripts/sim-sanctuary-hard.ts): 입장 가능 439명 중 완주 가능 +10 약 22% · +24 14.6% · +36 13.2%.
+ * +24 이후는 완주 인원이 거의 줄지 않아(사다리보다 훨씬 강한 빌드만 남음) 수치만 키우지 않고 +24로 둔다.
+ */
+export const SANCTUARY_HARD_DEPTH_BONUS = 24;
 export function parseSanctuaryDifficulty(raw: unknown): SanctuaryDifficulty | null {
   return (SANCTUARY_DIFFICULTIES as readonly unknown[]).includes(raw) ? raw as SanctuaryDifficulty : null;
 }

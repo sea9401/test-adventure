@@ -17,6 +17,7 @@ import {
   type DangerousGearKind,
 } from "@/adventure/data/v2/dangerousFishing";
 import { materialSellPriceOf } from "@/adventure/data/v2/dungeonDrops";
+import { GUILD_WORKSHOP_MATERIALS } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { selectCatchMaterials } from "./dangerousFishingExchange";
 import type {
   DangerousFishingExchangeEntryView,
@@ -134,6 +135,9 @@ function outputLabel(
           ? DANGEROUS_REELS[output.gearId as keyof typeof DANGEROUS_REELS]
           : DANGEROUS_LINES[output.gearId as keyof typeof DANGEROUS_LINES];
     return item?.name ?? entry.name;
+  }
+  if (output.kind === "material") {
+    return `${GUILD_WORKSHOP_MATERIALS[output.materialId].name} ${output.count * batches}개`;
   }
   if (output.kind === "title") return `칭호 · ${entry.name}`;
   return `영구 프로필 테두리 · ${entry.name}`;
@@ -606,6 +610,11 @@ export function DangerousFishingExchangeSection({
     { label: "증표 장비 교환", entries: model.entries.filter((entry) => entry.output.kind === "gear") },
     { label: "수집 보상", entries: model.entries.filter((entry) => entry.output.kind === "title" || entry.output.kind === "cosmetic") },
     { label: "반복 미끼 교환", entries: model.entries.filter((entry) => entry.cost.kind === "materials" && entry.output.kind === "bait") },
+    {
+      label: "제작 재료 교환",
+      note: `증표를 제작소 재료로 바꿉니다. 이번 주 태양석 교환 ${model.weeklySunstone.used}/${model.weeklySunstone.limit}개 · 매주 월요일 초기화`,
+      entries: model.entries.filter((entry) => entry.output.kind === "material"),
+    },
   ];
   const ownedSellableCatches = Object.values(DANGEROUS_FISH).flatMap((fish) => {
     const materialId = dangerousCatchMaterialId(fish.id);
@@ -682,7 +691,7 @@ export function DangerousFishingExchangeSection({
       <div>
         <h2 className="font-bold">위험 해역 교환</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          안전 귀환한 어획물과 거대어 증표를 특수 미끼, 장비, 한정 보상으로 교환합니다. 위험 해역 어획물은 일반 낚시의 요리용 어획물과는 별도 재료이며, 특수 미끼는 낚시 코인으로도 계속 구매할 수 있습니다.
+          안전 귀환한 어획물과 거대어 증표를 특수 미끼, 장비, 한정 보상, 제작소 재료로 교환합니다. 위험 해역 어획물은 일반 낚시의 요리용 어획물과는 별도 재료이며, 특수 미끼는 낚시 코인으로도 계속 구매할 수 있습니다.
         </p>
       </div>
       {message ? <p className="text-sm text-zinc-700 dark:text-zinc-200">{message}</p> : null}
@@ -731,6 +740,9 @@ export function DangerousFishingExchangeSection({
       {groups.map((group) => (
         <div key={group.label} className="space-y-2">
           <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">{group.label}</h3>
+          {"note" in group ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{group.note}</p>
+          ) : null}
           <div className="grid gap-2">
             {group.entries.map((entry) => (
               <EntryCard

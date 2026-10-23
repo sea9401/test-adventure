@@ -1,4 +1,6 @@
 import { applyPainCastPvp, settlePainPvp, painDeferLog } from "./darkPriestAdapters";
+import { bossUniqueCritBonusPvp } from "./unexploredBossUniquePvpAdapter";
+import { carryBossUniqueStacks } from "./unexploredBossUniquePvpSurvival";
 import { deferPain } from "./darkPriest";
 import { canMartialCounterHit } from "./martialCounter";
 import { directMagicSkillDamageBonus } from "./shieldedMagicDamage";
@@ -436,7 +438,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
   //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
   const rawSkillCritPct =
-    (side.player.critChancePct ?? 0) +
+    (side.player.critChancePct ?? 0) + bossUniqueCritBonusPvp(side) +
     (castDefinition?.skillCritChancePct ?? 0);
   const skillCritResolution = resolveCriticalChanceAfterResistance(
     rawSkillCritPct,
@@ -1227,6 +1229,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     });
   }
   let nextOppBerserker = opp.berserker;
+  let nextOppBossStacks: ReturnType<typeof carryBossUniqueStacks> = {};
   let berserkerSurvivalTriggered = false;
   if (skillDamageToHp > 0) {
     const survival = applyBerserkerHostileDamagePvP(
@@ -1236,6 +1239,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     );
     nextOppHp = survival.side.hp;
     nextOppBerserker = survival.side.berserker;
+    nextOppBossStacks = carryBossUniqueStacks(survival.side);
     berserkerSurvivalTriggered = survival.triggered;
   }
   if (berserkerSurvivalTriggered) {
@@ -1921,6 +1925,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     v2Dots: nextOppDots,
     stacks: {
       ...opp.stacks,
+      ...nextOppBossStacks,
       ...(nextOppPain ? { pain: nextOppPain } : {}),
       ...(nextOppTier7 ? { tier7: nextOppTier7 } : {}),
       tripleWard: nextOppTripleWard,

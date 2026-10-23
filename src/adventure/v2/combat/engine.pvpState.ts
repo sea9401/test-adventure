@@ -81,6 +81,9 @@ export type PvPSideBuffs = {
 
 export type PvPSideStacks = {
   unexplored?: UnexploredSetPvpRuntime;
+  unexploredBoss?: import("./unexploredBossUniqueEffects").BossUniqueRuntime;
+  /** 사이드 단위 관문(영겁)에서 생긴 로그. 행동 종료 시 비운다. */
+  unexploredBossLogs?: string[];
   /** 전투 패턴 교대 행동의 정렬된 A/B 순서쌍별 마지막 실제 발동 스킬. */
   patternAlternateLastSkillByPair?: Record<string, string>;
   tripleWard: TripleWardState;

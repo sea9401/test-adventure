@@ -2,6 +2,7 @@ import { appendLog } from "./engineSupport";
 import { recordCombatMetric } from "./combatDiagnostics";
 import { type PvPBattleState, type PvPSide } from "./engine.pvpState";
 import { applyBerserkerLethalDamage, clampBerserkerGuardedHp } from "./berserkerCombat";
+import { bossUniqueLethalSavePvp } from "./unexploredBossUniquePvpSurvival";
 
 export type PvPHostileDamageSurvival = {
   side: PvPSide;
@@ -9,10 +10,20 @@ export type PvPHostileDamageSurvival = {
   enduranceTriggered: boolean;
 };
 
+/** 보호막·경감 뒤 적대 피해를 사망 극복 → 영겁 → 일반 불굴 순으로 넘기는 PvP 공통 관문. */
 export function applyBerserkerHostileDamagePvP(
   side: PvPSide,
   hpAfterDamage: number,
   diagnosticTarget = "unknown",
+): { side: PvPSide; triggered: boolean } {
+  const result = applyBerserkerSurvivalPvP(side, hpAfterDamage, diagnosticTarget);
+  return { ...result, side: bossUniqueLethalSavePvp(result.side) };
+}
+
+function applyBerserkerSurvivalPvP(
+  side: PvPSide,
+  hpAfterDamage: number,
+  diagnosticTarget: string,
 ): { side: PvPSide; triggered: boolean } {
   if (!side.berserker) {
     return {

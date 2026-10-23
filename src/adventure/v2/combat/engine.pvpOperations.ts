@@ -1,4 +1,5 @@
 import { settlePainPvp } from "./darkPriestAdapters";
+import { markBossUniqueDodgePvp } from "./unexploredBossUniquePvpAdapter";
 import { computeMpRestoreAmount, type Potion } from "@/adventure/data/potions";
 import {
 BLEED_MAX_STACKS,
@@ -508,6 +509,7 @@ export function applyDodgeEffects(
   const berserkerAtAttackStart = state[atkKey].berserker;
   let st: PvPBattleState = {
     ...state,
+    [defKey]: markBossUniqueDodgePvp(state[defKey]),
     log: appendLog(state.log, { kind: "info", text: dodgeLogText }),
   };
   if (st[defKey].stacks.tier6Uniques) {

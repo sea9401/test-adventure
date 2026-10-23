@@ -13,6 +13,7 @@ import { battleStartShield, trackedBattleStartShield } from "./signatureEffects"
 import { hasTier6Unique, initialTier6UniqueRuntime } from "./tier6UniqueEffects";
 import { initialTripleWardState } from "./tripleWard";
 import { initialUnexploredSetRuntime } from "./unexploredSetEffects";
+import { initialBossUniquePvp } from "./unexploredBossUniquePvpAdapter";
 
 // ── 초기화 ──────────────────────────────────────────────────────────────────
 
@@ -26,10 +27,11 @@ export function buildSide(
   const rawStartShield =
     (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0) +
     (hasUnexploredEffect(player, "mana_redeployment") ? Math.floor(player.maxHp * 0.08) : 0);
+  const bossUnique = initialBossUniquePvp(player, sustainMultiplier);
   const startShield = scalePositivePvPValue(
     rawStartShield,
     sustainMultiplier,
-  );
+  ) + (bossUnique?.startShield ?? 0);
   const trackedStartShield = trackedBattleStartShield(
     player.equipSignatures,
     player.maxHp,
@@ -115,6 +117,7 @@ export function buildSide(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
+      ...(bossUnique ? { unexploredBoss: bossUnique.runtime } : {}),
       ...(player.unexploredSetEffects?.length ? { unexplored: {
         ...initialUnexploredSetRuntime(), battleStartDef: player.def,
         battleStartMaxHp: player.maxHp, ironWallDefBonus: 0,

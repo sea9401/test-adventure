@@ -4,6 +4,7 @@ import { healingReductionPct } from "./burnHealing";
 import { recordCombatMetric } from "./combatDiagnostics";
 import { type BattleLogEntry, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
+import { startBossUniquePlayerActionPve } from "./unexploredBossUniquePveAdapter";
 import { healingAfterReceivedMultiplier, type V2SkillCastResult } from "./combatShared";
 import { healToShield } from "./signatureEffects";
 
@@ -69,7 +70,9 @@ export function skillSelfHealingAmount(
   );
 }
 
+/** 자기 행동 하나가 끝날 때마다 한 번 호출되는 재생 지점. 보스 고유의 행동당 효과도 여기서 처리한다. */
 export function applyColonyRegenerationPve(state: BattleState, player: PlayerCombat, playerName: string): BattleState {
+  state = startBossUniquePlayerActionPve(state, player);
   if (!player.unexploredSetEffects?.some(effect => effect.kind === "colony_regeneration")) return state;
   const heal = colonyRegeneration({
     hp: state.playerHp, maxHp: state.playerMaxHp,

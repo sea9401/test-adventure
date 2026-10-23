@@ -1,4 +1,6 @@
 import { settlePainPvp } from "./darkPriestAdapters";
+import { consumeBossUniqueHastePvp } from "./unexploredBossUniquePvpAdapter";
+import { bossUniqueSelfSpeedMult, bossUniqueTargetSpeedMult } from "./unexploredBossUniqueEffects";
 import type { PotionId } from "@/adventure/data/potions";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 import { combatRandom } from "./combatRandom";
@@ -77,7 +79,9 @@ export function effectiveSideSpd(
     spd *= other.buffs.enemySpdMult;
   }
   return spd * equippedWeightSpeedMultiplier(side.stacks.mutationWeight, side.v2Skills?.equipped) *
-    (1 - (side.unexploredDebuffs?.speedReductionPct ?? 0) / 100);
+    (1 - (side.unexploredDebuffs?.speedReductionPct ?? 0) / 100) *
+    bossUniqueSelfSpeedMult(side.stacks.unexploredBoss) *
+    bossUniqueTargetSpeedMult(other.stacks.unexploredBoss);
 }
 
 function nextActorPvP(
@@ -401,6 +405,13 @@ export function resolveBattlePvPAtb(
     const painLogStart = state.log.length;
     state = settlePainPvp(state, who);
     state = tagNewLogEntries(state, painLogStart, who, nextTick);
+    const bossHaste = consumeBossUniqueHastePvp(state, other);
+    state = bossHaste.state;
+    if (bossHaste.pct > 0) {
+      const pull = actionInterval(effectiveSideSpd(state, other)) * (bossHaste.pct / 100);
+      if (other === "p1") p1NextTick = Math.max(nextTick + 1, p1NextTick - pull);
+      else p2NextTick = Math.max(nextTick + 1, p2NextTick - pull);
+    }
     const shadowReleaseHastePct =
       state[other].stacks.tier7?.shadowReleaseHastePct ?? 0;
     if (shadowReleaseHastePct > 0) {

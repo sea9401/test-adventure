@@ -99,6 +99,15 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     }
   });
 
+  it("미개척지 보스 고유 효과를 장비 단품으로 전달하고 미장착 필드는 생략한다", () => {
+    const equipped = { weapon: "v2_unexplored_toxic_blood_claw", armor: "v2_unexplored_invincible_fortress_armor" } as const;
+    expect(derivePlayerCombatV2Pure({ level: 50, v2Equipped: equipped }).player.unexploredBossEffects).toEqual([
+      "toxic_claw",
+      "invincible_bulwark",
+    ]);
+    expect(derivePlayerCombatV2Pure({ level: 50 }).player).not.toHaveProperty("unexploredBossEffects");
+  });
+
   it("무통의 성물 상태이상 피해 감소를 전투 스탯으로 전달한다", () => {
     const aggregate = aggregateV2Equipment({
       necklace: "v2_crafted_painless_relic",

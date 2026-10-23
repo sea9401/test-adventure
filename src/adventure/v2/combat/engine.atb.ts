@@ -10,6 +10,7 @@ import { decrementTimedBuffs, distributeV2DotTicks, healingAfterReceivedMultipli
 import { ATB_TIMELINE_TICK_CAP, actionInterval, depthSpdCorrection, nextActor1v1 } from "./combatTimeline";
 import { consumeDuelistCritHaste } from "./duelistCombat";
 import { finishUnexploredFrostEnemyAction, hasUnexploredEffect, sumMagicBarrierDamage, unyieldingDamagePve } from "./unexploredSetPveAdapter";
+import { consumeBossUniqueHastePve } from "./unexploredBossUniquePveAdapter";
 import { applyImmortalBerserkerLifeToEnemy, settleImmortalBerserkerAfterEnemyAction, settleImmortalBerserkerAfterPlayerDamage } from "./engine.atbBerserker";
 import { fireSkywardCrystalEyeAtbArtillery, settleSkywardCrystalEyeAfterPlayerAction, settleSkywardCrystalEyeExposureDamage } from "./engine.atbCrystal";
 import { appendInvincibleFortressDamageEvents, applyInvincibleFortressTierToEnemy, settleInvincibleFortressAfterPlayerDamage } from "./engine.atbFortress";
@@ -1117,6 +1118,16 @@ export function resolveBattleAtb(
         nextTick,
       );
       if (state.phase !== "ended") state = tickEnemyTargetDebuffs(state);
+      const bossHaste = consumeBossUniqueHastePve(state);
+      state = bossHaste.state;
+      if (bossHaste.pct > 0) {
+        playerNextTick = Math.max(
+          nextTick + 1,
+          playerNextTick -
+            actionInterval(effectivePlayerSpd(atbPlayer, state)) *
+              (bossHaste.pct / 100),
+        );
+      }
       const shadowReleaseHastePct =
         state.stacks.tier7?.shadowReleaseHastePct ?? 0;
       if (shadowReleaseHastePct > 0) {

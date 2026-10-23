@@ -27,6 +27,7 @@ import type { GameConfirmOptions } from "@/components/ui/gameDialog";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 import type { UnexploredSetEffect } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
+import { unexploredBossUniqueEffectOf } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 
 // 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
@@ -532,3 +533,9 @@ export type ItemCardLockAction = {
   busy: boolean;
   onToggle: () => void;
 };
+
+/** 미개척지 보스 고유 장비의 단품 효과 한 줄. 해당 장비가 아니면 null. */
+export function bossUniqueEffectText(item: Pick<V2Equipment, "id">): string | null {
+  const effect = unexploredBossUniqueEffectOf(item.id);
+  return effect ? `◆ ${effect.label}: ${effect.description}` : null;
+}

@@ -4,6 +4,7 @@ import { monsterActionSpd } from "./combatTimeline";
 import { type BattleState, type PlayerCombat } from "./engineState";
 import { glacialChillSpeedMultiplier } from "./glacialColossusMechanic";
 import { equippedWeightSpeedMultiplier } from "./mutationCombat";
+import { bossUniqueSelfSpeedMult, bossUniqueTargetSpeedMult } from "./unexploredBossUniqueEffects";
 
 export function rollEnemyAttackCount(enemy: Monster): number {
   const chance = enemy.bonusAttackChancePct ?? 0;
@@ -20,7 +21,8 @@ export function effectivePlayerSpd(
   const buffed = state.buffs.playerSpdTurnsLeft > 0
     ? player.spd * state.buffs.playerSpdMult
     : player.spd;
-  const weighted = buffed * equippedWeightSpeedMultiplier(state.stacks.mutationWeight, state.v2Skills?.equipped);
+  const weighted = buffed * equippedWeightSpeedMultiplier(state.stacks.mutationWeight, state.v2Skills?.equipped) *
+    bossUniqueSelfSpeedMult(state.unexploredBossRuntime);
   return state.bossMechanic?.kind === "glacial_colossus"
     ? weighted *
         glacialChillSpeedMultiplier(state.bossMechanic.glacialChillStacks)
@@ -36,7 +38,7 @@ export function effectiveEnemyTimelineSpd(
   const buffed = state.buffs.enemySpdTurnsLeft > 0
     ? base * state.buffs.enemySpdMult
     : base;
-  return buffed * (1 - frostReductionPct / 100);
+  return buffed * (1 - frostReductionPct / 100) * bossUniqueTargetSpeedMult(state.unexploredBossRuntime);
 }
 
 export function activeFrostSpeedReduction(state: BattleState): number {

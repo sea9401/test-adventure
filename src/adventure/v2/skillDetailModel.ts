@@ -16,6 +16,7 @@ import {
   classifySkillForLibrary,
   SKILL_DAMAGE_TYPE_LABELS,
   skillDamageTypes,
+  skillSourceJob,
 } from "./skillLibraryFilters";
 
 export type SkillDetailSectionId =
@@ -162,7 +163,9 @@ export function buildSkillDetailModel(skillId: string): SkillDetailModel | null 
     classification?.tier === "common"
       ? "공용"
       : classification?.tier
-        ? `${classification.tier}차`
+        ? [`${classification.tier}차`, skillSourceJob(skill.id)?.name]
+            .filter(Boolean)
+            .join(" ")
         : "",
     CATEGORY_LABELS[skill.category],
     STAT_LABELS[skill.stat],

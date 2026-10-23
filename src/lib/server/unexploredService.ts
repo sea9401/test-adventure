@@ -4,6 +4,7 @@ import {
   deriveUnexploredEffects,
   unexploredActivationError,
   unexploredActivationPath,
+  unexploredDifficultyReorder,
   unexploredRefundError,
   unexploredRefundPath,
 } from "@/adventure/data/v2/unexploredTree";
@@ -37,6 +38,7 @@ export type UnexploredMutation = (
   | { action: "activate_path"; nodeId: string }
   | { action: "refund"; nodeId: string }
   | { action: "refund_path"; nodeId: string }
+  | { action: "difficulty_order"; nodeId: string; placement: "first" | "last" }
   | { action: "reset" }
   | { action: "switch_preset"; presetIndex: UnexploredPresetIndex }
 ) & { expectedPresetIndex?: UnexploredPresetIndex };
@@ -53,6 +55,7 @@ export type UnexploredMutationError =
   | "not_active"
   | "start_required"
   | "would_disconnect"
+  | "not_difficulty_node"
   | "insufficient_gold";
 
 function normalizedLevel(value: unknown): number {
@@ -205,6 +208,19 @@ export function applyUnexploredMutation(
       unexploredAchievementCandidates({ activePoolCount }),
     );
     return successfulMutation(character, achievementGrant.save);
+  }
+
+  if (mutation.action === "difficulty_order") {
+    const plan = unexploredDifficultyReorder(
+      save.selectedNodeIds,
+      mutation.nodeId,
+      mutation.placement,
+    );
+    if (!plan.ok) return plan;
+    return successfulMutation(character, {
+      ...save,
+      selectedNodeIds: plan.nodeIds,
+    });
   }
 
   if (mutation.action === "refund") {

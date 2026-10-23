@@ -8,9 +8,11 @@ import {
 import {
   DANGEROUS_FISHING_EXCHANGE_ENTRIES,
   DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID,
+  DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT,
   eligibleCatchMaterialIds,
   selectCatchMaterials,
   validateCatchSelection,
+  weeklyLimitedSunstone,
 } from "./dangerousFishingExchange";
 
 describe("위험 해역 교환 카탈로그", () => {
@@ -33,8 +35,35 @@ describe("위험 해역 교환 카탈로그", () => {
     });
   });
 
-  it("장비·칭호·영구 꾸미기·반복 미끼 교환을 모두 정의한다", () => {
-    expect(DANGEROUS_FISHING_EXCHANGE_ENTRIES).toHaveLength(12);
+  it("증표 제작 재료 교환은 태양석만 주간 한도 대상이다", () => {
+    const sunstone = (id: string) =>
+      weeklyLimitedSunstone(DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get(id)!);
+    expect(DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT).toBe(5);
+    expect(DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get("token_tidal_to_sunstone")).toMatchObject({
+      cost: { materials: { danger_boss_tidal_colossus: 3 }, fishingCoins: 0 },
+      output: { kind: "material", materialId: "v2_craft_sunstone", count: 1 },
+      repeatable: true,
+    });
+    expect(DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get("token_abyss_to_sunstone")).toMatchObject({
+      cost: { materials: { danger_boss_abyss_kraken: 2 } },
+      output: { materialId: "v2_craft_sunstone", count: 1 },
+    });
+    expect(DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get("token_tidal_to_starsteel")).toMatchObject({
+      cost: { materials: { danger_boss_tidal_colossus: 1 } },
+      output: { materialId: "v2_craft_abyssal_starsteel", count: 2 },
+    });
+    expect(DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get("token_abyss_to_starsteel")).toMatchObject({
+      cost: { materials: { danger_boss_abyss_kraken: 1 } },
+      output: { materialId: "v2_craft_abyssal_starsteel", count: 3 },
+    });
+    expect(sunstone("token_tidal_to_sunstone")).toBe(1);
+    expect(sunstone("token_abyss_to_sunstone")).toBe(1);
+    expect(sunstone("token_tidal_to_starsteel")).toBe(0);
+    expect(sunstone("token_tidal_to_luminous_bait")).toBe(0);
+  });
+
+  it("장비·칭호·영구 꾸미기·반복 미끼·제작 재료 교환을 모두 정의한다", () => {
+    expect(DANGEROUS_FISHING_EXCHANGE_ENTRIES).toHaveLength(16);
     expect(
       DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID.get("token_leviathan_rod"),
     ).toMatchObject({

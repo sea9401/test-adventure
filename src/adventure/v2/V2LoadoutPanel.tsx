@@ -32,12 +32,17 @@ import {
 } from "./SkillDetailDialog";
 import { useSystemMessageState } from "./RewardToastProvider";
 import {
+  jobHasEarlierLineage,
   matchesSkillDamageType,
+  matchesSkillJob,
   matchesSkillLibraryClassification,
   SKILL_DAMAGE_TYPE_OPTIONS,
   SKILL_JOB_TIER_OPTIONS,
   SKILL_LINEAGE_OPTIONS,
+  skillJobFilterGroups,
+  skillSourceJobLabel,
   type SkillDamageTypeFilter,
+  type SkillJobFilter,
   type SkillJobTierFilter,
   type SkillLineageFilter,
 } from "./skillLibraryFilters";
@@ -245,6 +250,8 @@ export function V2LoadoutPanel({
     useState<SkillLineageFilter>("all");
   const [skillDamageTypeFilter, setSkillDamageTypeFilter] =
     useState<SkillDamageTypeFilter>("all");
+  const [skillJobFilter, setSkillJobFilter] = useState<SkillJobFilter>("all");
+  const [includeEarlierLineage, setIncludeEarlierLineage] = useState(false);
   const [domain, setDomain] = useState<SkillDomain>("combat");
   const [viewMode, setViewMode] =
     useState<SkillLibraryViewMode>("compact");
@@ -381,7 +388,11 @@ export function V2LoadoutPanel({
           const text = def
             ? v2SkillSearchText(def)
             : `${skill.skillId} ${skill.name}`.toLowerCase();
-          return [skill.skillId, text] as const;
+          const jobLabel = skillSourceJobLabel(skill.skillId);
+          return [
+            skill.skillId,
+            jobLabel ? `${text} ${jobLabel.toLowerCase()}` : text,
+          ] as const;
         }),
       ),
     [loadout.library],
@@ -433,6 +444,9 @@ export function V2LoadoutPanel({
         ) {
           return false;
         }
+        if (!matchesSkillJob(s.skillId, skillJobFilter, includeEarlierLineage)) {
+          return false;
+        }
         // 피해 유형은 전투 스킬 목록에서만 고를 수 있으므로 생활 스킬에는 적용하지 않는다.
         if (
           domain === "combat" &&
@@ -453,9 +467,11 @@ export function V2LoadoutPanel({
       favoriteSet,
       filter,
       displayedDomainLibrary,
+      includeEarlierLineage,
       queryTerms,
       searchIndex,
       skillDamageTypeFilter,
+      skillJobFilter,
       skillLineageFilter,
       skillTierFilter,
       learnedSkillIds,
@@ -464,6 +480,17 @@ export function V2LoadoutPanel({
       spBudget,
     ],
   );
+  const jobFilterGroups = useMemo(
+    () =>
+      skillJobFilterGroups(
+        domainLibrary.map((skill) => skill.skillId),
+        domain === "combat" ? [currentJobId] : [],
+      ),
+    [currentJobId, domain, domainLibrary],
+  );
+  const selectedJobHasEarlierLineage =
+    skillJobFilter !== "all" && jobHasEarlierLineage(skillJobFilter);
+
   const allFilterDefs: Array<{ id: SkillFilter; label: string }> = [
     { id: "all", label: "전체" },
     { id: "favorite", label: "즐겨찾기" },
@@ -1112,6 +1139,8 @@ export function V2LoadoutPanel({
                 onClick={() => {
                   setDomain(item);
                   setFilter("all");
+                  setSkillJobFilter("all");
+                  setIncludeEarlierLineage(false);
                 }}
                 aria-pressed={active}
                 className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
@@ -1306,6 +1335,40 @@ export function V2LoadoutPanel({
               </select>
             </label>
           )}
+          <label className="space-y-1">
+            <span className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              직업
+            </span>
+            <select
+              value={skillJobFilter}
+              onChange={(event) => setSkillJobFilter(event.target.value)}
+              className="h-8 w-full rounded-md border border-zinc-300 bg-white px-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            >
+              <option value="all">전체 직업</option>
+              {jobFilterGroups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          {selectedJobHasEarlierLineage && (
+            <label className="col-span-2 flex h-8 items-center gap-1.5 self-end text-xs text-zinc-700 sm:col-span-1 dark:text-zinc-200">
+              <input
+                type="checkbox"
+                checked={includeEarlierLineage}
+                onChange={(event) =>
+                  setIncludeEarlierLineage(event.target.checked)
+                }
+                className="h-3.5 w-3.5 accent-sky-600"
+              />
+              이전 차수 계보 포함
+            </label>
+          )}
         </div>
         <div className="mt-2 flex min-w-0 max-w-full overflow-x-auto gap-1.5 pb-1">
           {filterDefs.map((f) => (
@@ -1335,12 +1398,15 @@ export function V2LoadoutPanel({
               setSkillTierFilter("all");
               setSkillLineageFilter("all");
               setSkillDamageTypeFilter("all");
+              setSkillJobFilter("all");
+              setIncludeEarlierLineage(false);
             }}
             disabled={
               query.length === 0 &&
               filter === "all" &&
               skillTierFilter === "all" &&
               skillLineageFilter === "all" &&
+              skillJobFilter === "all" &&
               (domain === "lifestyle" || skillDamageTypeFilter === "all")
             }
             className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -1361,6 +1427,7 @@ export function V2LoadoutPanel({
             const passive = Boolean(skillDef?.passive || s.category === "passive");
             const kindLabel = passive ? "패시브" : "액티브";
             const compactTags = skillLibraryTags(s.skillId);
+            const jobLabel = lifestyle ? null : skillSourceJobLabel(s.skillId);
             const conditionalPassive = isConditionalPassiveSkill(s.skillId);
             const expanded =
               viewMode === "compact" && expandedSkillId === s.skillId;
@@ -1404,6 +1471,11 @@ export function V2LoadoutPanel({
                 <span className="min-w-0 truncate text-sm font-semibold">
                   {s.name}
                 </span>
+                {jobLabel && (
+                  <span className="max-w-[6rem] shrink-0 truncate rounded border border-zinc-300 px-1.5 text-xs text-zinc-600 dark:border-zinc-600 dark:text-zinc-300">
+                    {jobLabel}
+                  </span>
+                )}
                 <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                   SP {effectiveSpCost}
                 </span>

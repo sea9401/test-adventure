@@ -1,4 +1,5 @@
 import { CRIT_PCT_CAP } from "@/adventure/data/stats";
+import { carryBossUniqueStacks } from "./unexploredBossUniquePvpSurvival";
 import { canMartialCounterHit } from "./martialCounter";
 import { deferPain } from "./darkPriest";
 import { painDeferLog, settlePainPvp } from "./darkPriestAdapters";
@@ -1401,6 +1402,7 @@ function advanceTurnPvPBody(
     },
     stacks: {
       ...defender.stacks,
+      ...carryBossUniqueStacks(defenderAfterSurvival),
       ...(defender.stacks.tier7?.ruinCharge
         ? {
             tier7: {

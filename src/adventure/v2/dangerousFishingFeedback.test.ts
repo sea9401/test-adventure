@@ -186,7 +186,7 @@ describe("dangerous fishing feedback", () => {
       tone: "success",
       title: "해일의 거신 보상 수령",
       detail:
-        "낚시 코인 +190 · 거대어 증표 +3 · 전용 장비·미끼·칭호·꾸미기 교환에 사용할 수 있습니다.",
+        "낚시 코인 +190 · 거대어 증표 +3 · 전용 장비·미끼·칭호·꾸미기·제작 재료 교환에 사용할 수 있습니다.",
       terminal: true,
     });
   });

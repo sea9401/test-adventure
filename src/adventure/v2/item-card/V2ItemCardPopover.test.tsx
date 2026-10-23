@@ -359,3 +359,25 @@ describe("V2ItemCompareCard 읽기 전용", () => {
     expect(html).toContain("합연산");
   });
 });
+
+describe("미개척지 보스 고유 효과 표시", () => {
+  it("장비 카드와 비교 카드에 단품 효과를 한 줄로 보여준다", () => {
+    const card = renderToStaticMarkup(
+      <V2ItemCard
+        item={V2_EQUIPMENT.v2_unexplored_eternal_life_core}
+        anchor={{ top: 20, bottom: 60, left: 20 }}
+        onClose={() => undefined}
+      />,
+    );
+    expect(card).toContain("◆ 영겁: 쓰러질 피해를 받으면 쓰러지지 않고 최대 HP 35%");
+    const compare = renderToStaticMarkup(
+      <V2ItemCompareCard
+        candidate={{ item: V2_EQUIPMENT.v2_unexplored_toxic_blood_claw }}
+        equipped={{ item: V2_EQUIPMENT.v2_iron_sword }}
+        onClose={() => undefined}
+      />,
+    );
+    expect(compare).toContain("★ 공격 적중 시 35% 확률로 중독 1스택");
+    expect(compare).toContain("◆ 독혈 침투: 대상 중독이 5스택 이상이면");
+  });
+});

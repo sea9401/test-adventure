@@ -17,6 +17,7 @@ import {
   EquipmentTierBadge,
   QualityPctText,
   powerNameClass,
+  bossUniqueEffectText,
 } from "./shared";
 import { useEquipmentPowerPreview } from "./useEquipmentPowerPreview";
 
@@ -109,7 +110,7 @@ export function V2ItemMultiCompareCard({
   const baseIndex = equipped ? 0 : null;
   const rows = v2EquipMultiCompareRows(sides, baseIndex);
   const showSet = sides.some((side) => side.item.setId);
-  const showSignature = sides.some((side) => side.item.signature);
+  const showSignature = sides.some((side) => side.item.signature || bossUniqueEffectText(side.item));
   const anyBusy = candidates.some((c) => c.equip?.busy);
   // 기준 열 칸은 candidates 와 인덱스가 1 어긋난다.
   const candidateAt = (index: number) =>
@@ -237,7 +238,12 @@ export function V2ItemMultiCompareCard({
                       key={candidateAt(index)?.iid ?? "equipped"}
                       className={`${VALUE_CELL} text-left font-medium text-amber-600 dark:text-amber-400`}
                     >
-                      {side.item.signature ? `★ ${signatureLabel(side.item.signature)}` : "—"}
+                      {side.item.signature || bossUniqueEffectText(side.item)
+                        ? [
+                            side.item.signature ? `★ ${signatureLabel(side.item.signature)}` : null,
+                            bossUniqueEffectText(side.item),
+                          ].filter(Boolean).join(" ")
+                        : "—"}
                     </td>
                   ))}
                 </tr>

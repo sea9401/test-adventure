@@ -5,6 +5,8 @@ import {
   GUILD_BASE_MEMBER_CAP,
   GUILD_LEVEL_UPGRADE_COSTS,
   GUILD_MAX_LEVEL,
+  GUILD_MESSAGE_DAILY_LIMIT,
+  GUILD_MESSAGE_MAX_LENGTH,
 } from "@/adventure/data/guild";
 import { GUILD_LEADERSHIP_INACTIVE_DAYS } from "@/adventure/data/guildLeadership";
 import {
@@ -150,6 +152,13 @@ export function GuildContent() {
         목록에서는 가입 후에도 다른 길드의 이름·레벨·인원·명성·길드장과 소개를
         검색해서 볼 수 있습니다. 마스터·관리자에게는 <Em>관리</Em> 탭이 추가되며,
         초대·가입 신청·직책·길드 연구와 설정을 관리할 수 있습니다.
+      </P>
+      <P>
+        마스터·관리자는 관리 탭의 멤버 화면에서 <Em>길드 쪽지</Em>를 보내 길드원
+        전체 우편함에 같은 내용을 한 번에 전할 수 있습니다. 한 통은 최대{" "}
+        {GUILD_MESSAGE_MAX_LENGTH}자이고, 마스터와 관리자가 함께 24시간 동안{" "}
+        {GUILD_MESSAGE_DAILY_LIMIT}번까지 보낼 수 있습니다. 보낸 사람과 서로
+        차단한 길드원에게는 전달되지 않습니다.
       </P>
 
       <H2>길드 토벌전</H2>

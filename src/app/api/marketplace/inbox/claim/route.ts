@@ -259,8 +259,9 @@ export async function POST(req: Request) {
           continue;
         }
         switch (parsed.kind) {
-          // user_message / guild_invite: 부수효과 없음 — claimedAt 만 마킹.
+          // user_message / guild_message / guild_invite: 부수효과 없음 — claimedAt 만 마킹.
           case "user_message":
+          case "guild_message":
           case "price_alert":
           case "guild_invite":
             break;

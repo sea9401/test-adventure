@@ -102,4 +102,14 @@ describe("buildSkillDetailModel", () => {
       expect.arrayContaining(["마법 공격", "연소"]),
     );
   });
+
+  it("shows the skill's source job next to its tier", () => {
+    expect(buildSkillDetailModel("v2c_dreadnought_armor")?.badges[0]).toBe(
+      "7차 드레드노트",
+    );
+    expect(buildSkillDetailModel("v2c_warrior_strike")?.badges[0]).toBe(
+      "1차 견습 병사",
+    );
+    expect(buildSkillDetailModel("v2_skill_strike")?.badges[0]).toBe("공용");
+  });
 });

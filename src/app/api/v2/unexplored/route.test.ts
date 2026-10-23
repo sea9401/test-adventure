@@ -241,6 +241,37 @@ describe("/api/v2/unexplored", () => {
     expect(upsertSave).toHaveBeenCalledOnce();
   });
 
+  it("persists a risk node reorder and rejects an unknown placement", async () => {
+    mocks.saves.set("character.v2", {
+      level: 100,
+      gold: 1_000_000,
+      unexplored: { xpPoints: 30, selectedNodeIds: ["start", "deep-contract", "inner-0-0"] },
+    });
+
+    const invalid = await POST(request({
+      action: "difficulty_order",
+      nodeId: "deep-contract",
+      placement: "middle",
+    }));
+    expect(invalid.status).toBe(400);
+    expect(upsertSave).not.toHaveBeenCalled();
+
+    const response = await POST(request({
+      action: "difficulty_order",
+      nodeId: "deep-contract",
+      placement: "last",
+    }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      snapshot: {
+        gold: 1_000_000,
+        selectedNodeIds: ["start", "inner-0-0", "deep-contract"],
+      },
+    });
+    expect(upsertSave).toHaveBeenCalledOnce();
+  });
+
   it("does not persist a rejected mutation", async () => {
     const response = await POST(request({ action: "activate", nodeId: "deep-boss" }));
     expect(response.status).toBe(409);

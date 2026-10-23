@@ -120,7 +120,7 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).toContain("기본 보상 자격 확보");
     expect(html).toContain("개인 시도 1회 성공");
     expect(html).toContain("낚시 코인·거대어 증표");
-    expect(html).toContain("전용 장비·미끼·칭호·꾸미기");
+    expect(html).toContain("전용 장비·미끼·칭호·꾸미기·제작 재료");
     expect(html).not.toContain("기여 순위");
     expect(html).not.toContain("1위");
   });
@@ -409,7 +409,7 @@ describe("거대어 비동기 기여 패널", () => {
     expect(html).toContain("현재 포착된 거대어가 없습니다");
     expect(html).toContain("위험도 4 이상");
     expect(html).toContain("거대어를 발견하면 모든 낚시꾼이 함께 제압");
-    expect(html).toContain("거대어 증표는 전용 장비·미끼·칭호·꾸미기 교환");
+    expect(html).toContain("거대어 증표는 전용 장비·미끼·칭호·꾸미기·제작 재료 교환");
     expect(html).toContain("dangerous-fishing-abyssal-rift.webp");
   });
 

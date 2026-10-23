@@ -1,4 +1,5 @@
 import { applyPainCastPvp, settlePainPvp, painDeferLog } from "./darkPriestAdapters";
+import { carryBossUniqueStacks } from "./unexploredBossUniquePvpSurvival";
 import { deferPain } from "./darkPriest";
 import { canMartialCounterHit } from "./martialCounter";
 import { directMagicSkillDamageBonus } from "./shieldedMagicDamage";
@@ -1227,6 +1228,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     });
   }
   let nextOppBerserker = opp.berserker;
+  let nextOppBossStacks: ReturnType<typeof carryBossUniqueStacks> = {};
   let berserkerSurvivalTriggered = false;
   if (skillDamageToHp > 0) {
     const survival = applyBerserkerHostileDamagePvP(
@@ -1236,6 +1238,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     );
     nextOppHp = survival.side.hp;
     nextOppBerserker = survival.side.berserker;
+    nextOppBossStacks = carryBossUniqueStacks(survival.side);
     berserkerSurvivalTriggered = survival.triggered;
   }
   if (berserkerSurvivalTriggered) {
@@ -1921,6 +1924,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     v2Dots: nextOppDots,
     stacks: {
       ...opp.stacks,
+      ...nextOppBossStacks,
       ...(nextOppPain ? { pain: nextOppPain } : {}),
       ...(nextOppTier7 ? { tier7: nextOppTier7 } : {}),
       tripleWard: nextOppTripleWard,

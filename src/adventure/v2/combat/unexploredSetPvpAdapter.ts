@@ -1,6 +1,8 @@
 import { healingAfterBurn } from "./burnHealing";
 import { hasUnexploredEffect } from "./unexploredSetPveAdapter";
 import { type PvPSide } from "./engine.pvpState";
+import { beginBossUniqueAttackPvp, bossUniqueDamageTakenPvp, finishBossUniqueActionPvp, finishBossUniqueAttackPvp, recordBossUniqueHitPvp } from "./unexploredBossUniquePvpAdapter";
+import { bossUniqueResourceSnapshot } from "./unexploredBossUniqueEffects";
 import { setSide } from "./engine.pvpSide";
 import { scalePvPHealing, scalePvPShield } from "./engine.pvpScaling";
 import { type PvPBattleState } from "./engine.pvpState";
@@ -12,21 +14,26 @@ import { afterimageShield, colonyRegeneration, crystalFocusStep, defenseAfterCol
 export function pvpSideResourceSnapshot(side: PvPSide): Record<string, number | string> | undefined {
   const existing = mergeFrostChillSnapshot(playerResourceSnapshot(side.stacks), side.stacks.frostChillStacks);
   const unexplored = unexploredResourceSnapshot(side.stacks.unexplored, side.unexploredDebuffs);
-  return unexplored ? { ...existing, ...unexplored } : existing;
+  const boss = bossUniqueResourceSnapshot(side.stacks.unexploredBoss);
+  return unexplored || boss ? { ...existing, ...unexplored, ...boss } : existing;
 }
 
 export function unexploredDefensePvP(defense: number, attacker: PvPSide, context: UnexploredAttackContext): number {
-  return hasUnexploredEffect(attacker.player, "colossus_crush")
+  const afterSet = hasUnexploredEffect(attacker.player, "colossus_crush")
     ? defenseAfterColossusCrush({ defense, context }) : defense;
+  return context.bossDefenseMult ? Math.floor(afterSet * context.bossDefenseMult) : afterSet;
 }
 
 export function beginUnexploredAttackPvP(
   state: PvPBattleState, actor: "p1" | "p2", kind: UnexploredAttackContext["kind"], mpActuallySpent = 0,
 ): { state: PvPBattleState; context: UnexploredAttackContext; damageMult: number } {
-  const context: UnexploredAttackContext = { kind, mpActuallySpent, hit: false, anyCrit: false, multiHitIndex: 0, multiHitCount: 1 };
+  const boss = beginBossUniqueAttackPvp(state, actor, kind);
+  state = boss.state;
+  const context: UnexploredAttackContext = { kind, mpActuallySpent, hit: false, anyCrit: false, multiHitIndex: 0, multiHitCount: 1,
+    ...(boss.defenseMult !== 1 ? { bossDefenseMult: boss.defenseMult } : {}) };
   const side = state[actor];
   const runtime = side.stacks.unexplored;
-  if (!runtime) return { state, context, damageMult: 1 };
+  if (!runtime) return { state, context, damageMult: boss.damageMult };
   const crystal = crystalFocusStep({ count: runtime.paidDirectSkillCount,
     isPaidDirectSkill: hasUnexploredEffect(side.player, "crystal_focus") && kind === "direct_skill" && mpActuallySpent > 0 });
   const precision = precisionShotStep({ count: runtime.manualBasicAttackCount,
@@ -36,7 +43,7 @@ export function beginUnexploredAttackPvP(
       ...runtime, paidDirectSkillCount: crystal.count, manualBasicAttackCount: precision.count,
     } } }), context,
     // PvP has deterministic ordinary evasion reduction; precision never bypasses it or full evades.
-    damageMult: crystal.damageMult * precision.damageMult * revengeDamageMultiplier({
+    damageMult: boss.damageMult * crystal.damageMult * precision.damageMult * revengeDamageMultiplier({
       pending: hasUnexploredEffect(side.player, "battle_revenge") && runtime.revengePending, context,
     }),
   };
@@ -68,6 +75,7 @@ export function tickUnexploredDebuffs(state: PvPBattleState, actor: "p1" | "p2")
 export function finishUnexploredAttackPvP(
   state: PvPBattleState, actor: "p1" | "p2", target: "p1" | "p2", context: UnexploredAttackContext, hpDamage: number,
 ): PvPBattleState {
+  state = finishBossUniqueAttackPvp(state, actor, context);
   const side = state[actor];
   const runtime = side.stacks.unexplored;
   if (!runtime) return state;
@@ -79,11 +87,13 @@ export function finishUnexploredAttackPvP(
 }
 
 export function unyieldingDamagePvP(side: PvPSide, damage: number, hpBefore = side.hp): number {
-  return hasUnexploredEffect(side.player, "unyielding_dead")
+  const afterSet = hasUnexploredEffect(side.player, "unyielding_dead")
     ? unyieldingDamage({ damage, hpBefore, maxHp: side.maxHp, eligibleKind: true }) : damage;
+  return bossUniqueDamageTakenPvp(side, afterSet);
 }
 
 export function recordUnexploredHitPvP(side: PvPSide, hit: EnemyHitResolution): PvPSide {
+  side = recordBossUniqueHitPvp(side, hit);
   const runtime = side.stacks.unexplored;
   if (!runtime || hit.fullyEvaded) return side;
   return { ...side, stacks: { ...side.stacks, unexplored: {
@@ -110,6 +120,7 @@ export function appendIronWallGainLogPvP(
 export function finishUnexploredActionPvP(
   state: PvPBattleState, actor: "p1" | "p2", target: "p1" | "p2", successful = true,
 ): PvPBattleState {
+  state = finishBossUniqueActionPvp(state, actor, target, successful);
   const defender = state[target];
   const runtime = defender.stacks.unexplored;
   if (runtime) {

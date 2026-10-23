@@ -519,7 +519,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function hashSeed(...parts: readonly (string | number)[]): number {
+export function hashSeed(...parts: readonly (string | number)[]): number {
   let hash = 2_166_136_261;
   for (const character of parts.join(":")) {
     hash ^= character.charCodeAt(0);
@@ -528,7 +528,7 @@ function hashSeed(...parts: readonly (string | number)[]): number {
   return hash >>> 0;
 }
 
-function withSeededRandom<T>(seed: number, run: () => T): T {
+export function withSeededRandom<T>(seed: number, run: () => T): T {
   const original = Math.random;
   Math.random = mulberry32(seed);
   try {
@@ -538,7 +538,7 @@ function withSeededRandom<T>(seed: number, run: () => T): T {
   }
 }
 
-function median(values: readonly number[]): number {
+export function median(values: readonly number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((left, right) => left - right);
   return sorted[Math.floor((sorted.length - 1) / 2)];

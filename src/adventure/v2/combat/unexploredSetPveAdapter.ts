@@ -1,6 +1,7 @@
 import { type BattleState, type PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
 import { type MagicBarrierDamageResult } from "./magicBarrier";
+import { beginBossUniqueAttackPve, bossUniqueDamageTakenPve, finishBossUniqueAttackPve, finishBossUniqueEnemyActionPve, recordBossUniqueHitPve } from "./unexploredBossUniquePveAdapter";
 import { afterimageShield, crystalFocusStep, defenseAfterColossusCrush, frostMark, ironWallDefGain, precisionShotStep, revengeDamageMultiplier, revengePendingAfterAttack, shouldQueueRevenge, unyieldingDamage, type EnemyHitResolution, type UnexploredAttackContext } from "./unexploredSetEffects";
 
 export function hasUnexploredEffect(
@@ -13,15 +14,17 @@ export function hasUnexploredEffect(
 export function unyieldingDamagePve(
   state: BattleState, player: PlayerCombat, damage: number,
 ): number {
-  return hasUnexploredEffect(player, "unyielding_dead")
+  const afterSet = hasUnexploredEffect(player, "unyielding_dead")
     ? unyieldingDamage({ damage, hpBefore: state.playerHp, maxHp: state.playerMaxHp, eligibleKind: true })
     : damage;
+  return bossUniqueDamageTakenPve(state, player, afterSet);
 }
 
 export function recordUnexploredEnemyHit(
   state: BattleState, player: PlayerCombat, hit: EnemyHitResolution,
   shieldAfterAbsorption = state.stacks.playerShield,
 ): BattleState {
+  state = recordBossUniqueHitPve(state, hit, shieldAfterAbsorption);
   const runtime = state.unexploredSetRuntime;
   if (!runtime || hit.fullyEvaded) return state;
   const ironWallDefBonus = hasUnexploredEffect(player, "iron_wall")
@@ -54,6 +57,7 @@ export function recordUnexploredEnemyHit(
 export function finishUnexploredEnemyAction(
   state: BattleState, player: PlayerCombat,
 ): BattleState {
+  state = finishBossUniqueEnemyActionPve(state, player);
   const runtime = state.unexploredSetRuntime;
   if (!runtime) return state;
   const shield = hasUnexploredEffect(player, "afterimage_coating")
@@ -113,11 +117,14 @@ export function beginUnexploredPlayerAttack(
   state: BattleState, player: PlayerCombat,
   kind: UnexploredAttackContext["kind"], mpActuallySpent = 0,
 ): { state: BattleState; context: UnexploredAttackContext; damageMult: number; ignoreNormalMiss: boolean } {
+  const boss = beginBossUniqueAttackPve(state, player, kind);
+  state = boss.state;
   const context: UnexploredAttackContext = {
     kind, mpActuallySpent, hit: false, anyCrit: false, multiHitIndex: 0, multiHitCount: 1,
+    ...(boss.defenseMult !== 1 ? { bossDefenseMult: boss.defenseMult } : {}),
   };
   const runtime = state.unexploredSetRuntime;
-  if (!runtime) return { state, context, damageMult: 1, ignoreNormalMiss: false };
+  if (!runtime) return { state, context, damageMult: boss.damageMult, ignoreNormalMiss: false };
   const crystal = crystalFocusStep({
     count: runtime.paidDirectSkillCount,
     isPaidDirectSkill: hasUnexploredEffect(player, "crystal_focus") && kind === "direct_skill" && mpActuallySpent > 0,
@@ -131,7 +138,7 @@ export function beginUnexploredPlayerAttack(
       paidDirectSkillCount: crystal.count, manualBasicAttackCount: precision.count,
     } },
     context,
-    damageMult: crystal.damageMult * precision.damageMult * revengeDamageMultiplier({
+    damageMult: boss.damageMult * crystal.damageMult * precision.damageMult * revengeDamageMultiplier({
       pending: hasUnexploredEffect(player, "battle_revenge") && runtime.revengePending, context,
     }),
     // PvE currently has no ordinary miss roll. This must never bypass damage mitigation.
@@ -142,6 +149,7 @@ export function beginUnexploredPlayerAttack(
 export function finishUnexploredPlayerAttack(
   state: BattleState, player: PlayerCombat, context: UnexploredAttackContext, hpDamage: number,
 ): BattleState {
+  state = finishBossUniqueAttackPve(state, player, context);
   const runtime = state.unexploredSetRuntime;
   if (!runtime) return state;
   const mark = frostMark({
@@ -173,6 +181,7 @@ export function finishUnexploredFrostEnemyAction(state: BattleState): BattleStat
 export function unexploredDefensePve(
   defense: number, player: PlayerCombat, context: UnexploredAttackContext,
 ): number {
-  return hasUnexploredEffect(player, "colossus_crush")
+  const afterSet = hasUnexploredEffect(player, "colossus_crush")
     ? defenseAfterColossusCrush({ defense, context }) : defense;
+  return context.bossDefenseMult ? Math.floor(afterSet * context.bossDefenseMult) : afterSet;
 }

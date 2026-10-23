@@ -6,9 +6,10 @@ import { mergeLawInscriptionSnapshot } from "./lawInscription";
 import { mergeWindCurrentSnapshot } from "@/adventure/data/v2/windCurrent";
 import { mergeHolyPowerSnapshot } from "./holyPower";
 import { unexploredResourceSnapshot, type UnexploredSetPveRuntime } from "./unexploredSetEffects";
+import { bossUniqueResourceSnapshot, type BossUniqueRuntime } from "./unexploredBossUniqueEffects";
 
 /** ATB/레거시와 PvE/PvP가 같은 자원 표시를 사용한다. */
-export function playerResourceSnapshot(stacks: Pick<BattleState["stacks"], "tier6Uniques" | "tier7" | "tripleWard" | "lawInscriptions" | "holyPower" | "windCurrent" | "windCurrentReboundReady" | "pain">, unexploredRuntime?: UnexploredSetPveRuntime) {
+export function playerResourceSnapshot(stacks: Pick<BattleState["stacks"], "tier6Uniques" | "tier7" | "tripleWard" | "lawInscriptions" | "holyPower" | "windCurrent" | "windCurrentReboundReady" | "pain">, unexploredRuntime?: UnexploredSetPveRuntime, bossRuntime?: BossUniqueRuntime) {
   const base = mergeHolyPowerSnapshot(
     mergeLawInscriptionSnapshot(
       mergeTripleWardResourceSnapshot(
@@ -21,5 +22,6 @@ export function playerResourceSnapshot(stacks: Pick<BattleState["stacks"], "tier
   );
   const existing = mergePainSnapshot(mergeWindCurrentSnapshot(base, stacks.windCurrent, stacks.windCurrentReboundReady), stacks.pain);
   const unexplored = unexploredResourceSnapshot(unexploredRuntime, undefined);
-  return unexplored ? { ...existing, ...unexplored } : existing;
+  const boss = bossUniqueResourceSnapshot(bossRuntime);
+  return unexplored || boss ? { ...existing, ...unexplored, ...boss } : existing;
 }

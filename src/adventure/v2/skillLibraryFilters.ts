@@ -2,6 +2,7 @@ import {
   DROPPED_SPEC_TO_SURVIVING,
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
+  type V2JobDefinition,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 
@@ -13,7 +14,8 @@ export type SkillJobTierFilter =
   | "3"
   | "4"
   | "5"
-  | "6";
+  | "6"
+  | "7";
 
 export type SkillLineageFilter =
   | "all"
@@ -41,6 +43,7 @@ export const SKILL_JOB_TIER_OPTIONS: ReadonlyArray<
   ["4", "4차"],
   ["5", "5차"],
   ["6", "6차"],
+  ["7", "7차"],
 ];
 
 export const SKILL_LINEAGE_OPTIONS: ReadonlyArray<
@@ -65,21 +68,35 @@ const SKILL_LINEAGES = new Set<SkillLibraryClassification["lineage"]>([
   "mutant",
 ]);
 
-export function classifySkillForLibrary(
-  skillId: string,
-): SkillLibraryClassification | null {
-  if (skillId.startsWith("v2_skill_") || skillId.startsWith("v2c_none_")) {
-    return { tier: "common", lineage: "common" };
-  }
-  if (!skillId.startsWith("v2c_")) return null;
+function isCommonSkillId(skillId: string): boolean {
+  return skillId.startsWith("v2_skill_") || skillId.startsWith("v2c_none_");
+}
 
+/** 스킬이 속한 직업. 공용·몬스터·알 수 없는 스킬은 null. 사라진 계파 id 는 이어받은 직업으로 정규화한다. */
+export function skillSourceJob(skillId: string): V2JobDefinition | null {
+  if (isCommonSkillId(skillId) || !skillId.startsWith("v2c_")) return null;
   const sourceJobId = skillId.split("_")[1];
   if (!sourceJobId) return null;
   const jobId = DROPPED_SPEC_TO_SURVIVING[sourceJobId] ?? sourceJobId;
-  const job = V2_JOB_CATALOG[jobId];
-  const lineage = LEGACY_CLASS_SPEC_BY_JOB[jobId]?.class;
+  return V2_JOB_CATALOG[jobId] ?? null;
+}
+
+/** 스킬 카드에 붙이는 출처 표시. 공용 스킬은 "공용", 출처를 모르면 null. */
+export function skillSourceJobLabel(skillId: string): string | null {
+  if (isCommonSkillId(skillId)) return "공용";
+  return skillSourceJob(skillId)?.name ?? null;
+}
+
+export function classifySkillForLibrary(
+  skillId: string,
+): SkillLibraryClassification | null {
+  if (isCommonSkillId(skillId)) {
+    return { tier: "common", lineage: "common" };
+  }
+  const job = skillSourceJob(skillId);
+  if (!job) return null;
+  const lineage = LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class;
   if (
-    !job ||
     !lineage ||
     !SKILL_LINEAGES.has(lineage as SkillLibraryClassification["lineage"])
   ) {
@@ -87,7 +104,6 @@ export function classifySkillForLibrary(
   }
 
   const tier = job.tier === 0 ? 1 : job.tier;
-  if (tier < 1 || tier > 6) return null;
   return {
     tier: String(tier) as SkillLibraryClassification["tier"],
     lineage: lineage as SkillLibraryClassification["lineage"],
@@ -105,6 +121,80 @@ export function matchesSkillLibraryClassification(
     (tierFilter === "all" || classification.tier === tierFilter) &&
     (lineageFilter === "all" || classification.lineage === lineageFilter)
   );
+}
+
+/** "all" 또는 직업 id. */
+export type SkillJobFilter = string;
+
+const jobLineageCache = new Map<string, ReadonlySet<string>>();
+
+/** 직업 자신과 전직 조건을 거슬러 올라간 모든 이전 차수 직업. 7차는 두 선행 계보를 모두 담는다. */
+function jobLineageIds(jobId: string): ReadonlySet<string> {
+  const cached = jobLineageCache.get(jobId);
+  if (cached) return cached;
+  const found = new Set<string>();
+  const stack = [jobId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (found.has(id)) continue;
+    const job = V2_JOB_CATALOG[id];
+    if (!job) continue;
+    found.add(id);
+    stack.push(...Object.keys(job.unlock.prereqs));
+    for (const condition of job.unlock.extraConditions ?? []) {
+      if (condition.type === "jobUnlocked") stack.push(condition.jobId);
+    }
+  }
+  jobLineageCache.set(jobId, found);
+  return found;
+}
+
+export function jobHasEarlierLineage(jobId: string): boolean {
+  return jobLineageIds(jobId).size > 1;
+}
+
+export function matchesSkillJob(
+  skillId: string,
+  jobFilter: SkillJobFilter,
+  includeEarlierLineage: boolean,
+): boolean {
+  if (jobFilter === "all") return true;
+  const job = skillSourceJob(skillId);
+  if (!job) return false;
+  return includeEarlierLineage
+    ? jobLineageIds(jobFilter).has(job.id)
+    : job.id === jobFilter;
+}
+
+export type SkillJobFilterGroup = {
+  label: string;
+  jobs: Array<{ id: string; name: string }>;
+};
+
+/** 직업 선택지. 보유 스킬의 출처 직업과 추가 직업(현재 직업 등)을 차수별·카탈로그 순서로 묶는다. */
+export function skillJobFilterGroups(
+  skillIds: readonly string[],
+  extraJobIds: readonly (string | null | undefined)[] = [],
+): SkillJobFilterGroup[] {
+  const jobIds = new Set<string>();
+  for (const skillId of skillIds) {
+    const job = skillSourceJob(skillId);
+    if (job) jobIds.add(job.id);
+  }
+  for (const jobId of extraJobIds) {
+    if (jobId && jobId !== "none" && V2_JOB_CATALOG[jobId]) jobIds.add(jobId);
+  }
+  const byTier = new Map<number, SkillJobFilterGroup["jobs"]>();
+  for (const job of Object.values(V2_JOB_CATALOG)) {
+    if (!jobIds.has(job.id)) continue;
+    const tier = job.tier === 0 ? 1 : job.tier;
+    const jobs = byTier.get(tier) ?? [];
+    jobs.push({ id: job.id, name: job.name });
+    byTier.set(tier, jobs);
+  }
+  return [...byTier.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([tier, jobs]) => ({ label: `${tier}차`, jobs }));
 }
 
 export type SkillDamageType = "physical" | "magic" | "bleed" | "poison" | "burn";

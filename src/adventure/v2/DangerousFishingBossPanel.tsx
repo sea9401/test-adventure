@@ -134,7 +134,7 @@ export function DangerousFishingBossPanel({
         <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs leading-5`}>
           <p>거대어를 발견하면 모든 낚시꾼이 함께 제압합니다.</p>
           <p>개인 시도를 한 번 성공하면 기본 보상 자격을 얻습니다.</p>
-          <p>거대어 증표는 전용 장비·미끼·칭호·꾸미기 교환에 사용합니다.</p>
+          <p>거대어 증표는 전용 장비·미끼·칭호·꾸미기·제작 재료 교환에 사용합니다.</p>
         </div>
         {feedback ? <DangerousFishingFeedbackCard feedback={feedback} /> : null}
       </section>
@@ -378,7 +378,7 @@ export function DangerousFishingBossPanel({
         <div className={`${SURFACE_INSET} space-y-1 p-3 text-xs leading-5`}>
           <p>개인 시도 1회 성공 시 기본 보상 자격을 얻습니다.</p>
           <p>거대어 제압 후 낚시 코인·거대어 증표를 받을 수 있습니다.</p>
-          <p>증표는 전용 장비·미끼·칭호·꾸미기 교환에 사용합니다.</p>
+          <p>증표는 전용 장비·미끼·칭호·꾸미기·제작 재료 교환에 사용합니다.</p>
         </div>
       ) : null}
 
@@ -439,7 +439,7 @@ export function DangerousFishingBossPanel({
           {model.rewardPreview ? (
             <div className="space-y-1 text-center text-xs text-zinc-600 dark:text-zinc-300">
               <p>{model.rewardPreview.tier} · 낚시 코인 {model.rewardPreview.fishingCoins} · 증표 {model.rewardPreview.materialCount}개</p>
-              <p>증표는 낚시 상점에서 최상급 장비, 칭호·영구 프로필 테두리, 특수 미끼로 교환할 수 있습니다.</p>
+              <p>증표는 낚시 상점에서 최상급 장비, 칭호·영구 프로필 테두리, 특수 미끼, 태양석·심해성철로 교환할 수 있습니다.</p>
             </div>
           ) : null}
           <Button

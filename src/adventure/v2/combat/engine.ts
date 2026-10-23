@@ -81,7 +81,7 @@ export { DAMAGE_FLOOR_FRACTION,damageBetween };
 
 // 그 시점 HP 스냅샷 — 매 턴 종료 시 + 전투 종료 시 로그 마지막에 박는다.
 function hpBarEntry(s: BattleState): BattleLogEntry {
-  const playerResources = playerResourceSnapshot(s.stacks, s.unexploredSetRuntime);
+  const playerResources = playerResourceSnapshot(s.stacks, s.unexploredSetRuntime, s.unexploredBossRuntime);
   const enemyResources = mergeFrostChillSnapshot(
     undefined,
     s.stacks.enemyFrostChillStacks,

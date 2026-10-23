@@ -151,6 +151,7 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
 
 const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
+  guild_message: "길드 쪽지",
   sale_proceeds: "판매 대금",
   bid_refund: "입찰금 반환",
   buy_order_refund: "구매 주문 환불",
@@ -168,7 +169,7 @@ const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
 };
 
 function mailBody(item: InboxItem): string {
-  if (item.kind === "user_message") {
+  if (item.kind === "user_message" || item.kind === "guild_message") {
     const text = item.payload.text;
     return typeof text === "string" && text.length > 0 ? text : "(내용 없음)";
   }

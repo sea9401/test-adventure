@@ -736,6 +736,8 @@ export type DangerousBossReward = {
   discovererBonus: boolean;
 };
 
+const BOSS_EXTRA_COINS_PER_STEP = 20;
+
 export function dangerousBossReward(
   successfulAttempts: number,
   totalContribution: number,
@@ -752,10 +754,17 @@ export function dangerousBossReward(
         : ratio >= 0.02
           ? { tier: "silver" as const, fishingCoins: 140, materialCount: 2 }
           : { tier: "base" as const, fishingCoins: 80, materialCount: 1 };
+  // 건의 #804: 10%를 넘는 기여는 완성된 10%마다 증표 1개·코인 20을 더 준다(100% 상한).
+  const cappedContribution = Math.min(totalContribution, Math.max(1, maxStamina));
+  const extraSteps = Math.max(
+    0,
+    Math.floor((cappedContribution * 10) / Math.max(1, maxStamina)) - 1,
+  );
   return {
     ...base,
-    fishingCoins: base.fishingCoins + (discoverer ? 40 : 0),
-    materialCount: base.materialCount + (discoverer ? 1 : 0),
+    fishingCoins:
+      base.fishingCoins + extraSteps * BOSS_EXTRA_COINS_PER_STEP + (discoverer ? 40 : 0),
+    materialCount: base.materialCount + extraSteps + (discoverer ? 1 : 0),
     discovererBonus: discoverer,
   };
 }

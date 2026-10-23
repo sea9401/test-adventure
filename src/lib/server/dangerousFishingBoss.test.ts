@@ -483,7 +483,7 @@ describe("비동기 거대어 서비스", () => {
     expect(second).toMatchObject({ ok: false, error: "already_defeated" });
   });
 
-  it("기여 보상은 1회 성공부터 열리고 고기여 구간에서 완만해진다", () => {
+  it("기여 보상은 1회 성공부터 열리고 10% 초과분은 10%마다 더 준다", () => {
     expect(dangerousBossReward(1, 240, 18_000, false)).toEqual({
       tier: "base",
       fishingCoins: 80,
@@ -495,14 +495,40 @@ describe("비동기 거대어 서비스", () => {
       fishingCoins: 190,
       materialCount: 3,
     });
-    expect(dangerousBossReward(30, 18_000, 18_000, false)).toMatchObject({
+    // 10%·19.9%는 추가 보상 없이 기존 legend 구간 그대로다.
+    expect(dangerousBossReward(8, 1_800, 18_000, false)).toMatchObject({
       tier: "legend",
       fishingCoins: 220,
       materialCount: 4,
     });
-    expect(dangerousBossReward(31, 180_000, 18_000, false)).toEqual(
-      dangerousBossReward(30, 18_000, 18_000, false),
+    expect(dangerousBossReward(15, 3_582, 18_000, false)).toMatchObject({
+      fishingCoins: 220,
+      materialCount: 4,
+    });
+    expect(dangerousBossReward(19, 4_500, 18_000, false)).toMatchObject({
+      tier: "legend",
+      fishingCoins: 240,
+      materialCount: 5,
+    });
+    expect(dangerousBossReward(38, 9_000, 18_000, false)).toMatchObject({
+      fishingCoins: 300,
+      materialCount: 8,
+    });
+    expect(dangerousBossReward(75, 18_000, 18_000, false)).toMatchObject({
+      tier: "legend",
+      fishingCoins: 400,
+      materialCount: 13,
+    });
+    // 막타 초과분은 100%로 상한한다.
+    expect(dangerousBossReward(76, 180_000, 18_000, false)).toEqual(
+      dangerousBossReward(75, 18_000, 18_000, false),
     );
+    expect(dangerousBossReward(100, 32_000, 32_000, true)).toEqual({
+      tier: "legend",
+      fishingCoins: 440,
+      materialCount: 14,
+      discovererBonus: true,
+    });
   });
 
   it("발견자 보너스는 가산되고 막타 기록에는 독점 아이템이 없다", () => {

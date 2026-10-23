@@ -111,6 +111,7 @@ function exchangeModel(): DangerousFishingExchangeViewModel {
     ],
     ownedTitleIds: [],
     ownedCosmeticIds: [],
+    weeklySunstone: { limit: 5, used: 0, remaining: 5 },
     entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => ({
       ...entry,
       alreadyOwned: false,

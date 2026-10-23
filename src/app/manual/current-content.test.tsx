@@ -575,6 +575,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("은행 예치금");
     expect(html).toContain("거래소에서도 계속 거래");
     expect(html).toContain("거대어 증표 교환 경로는 그대로");
+    expect(html).toContain("10%마다 증표 1개·낚시 코인 20");
+    expect(html).toContain("태양석은 두 증표를 합쳐 주마다 5개까지");
     expect(html).toContain("일간·주간·월간 단위로 초기화되지 않습니다");
     expect(html).toContain("기존 세 가지 조작으로 완료");
     expect(html).toContain("제한 시간이 지나면 정상적으로 만료");

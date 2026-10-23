@@ -126,3 +126,16 @@ describe("반복 길드 활동 로그", () => {
     expect(html).toContain("새길드원 님이 길드에 합류했어요");
   });
 });
+
+describe("원정대 회수 활동 로그", () => {
+  it("길드원 전원 보상을 함께 표시한다", () => {
+    const html = renderToStaticMarkup(<GuildActivityList activity={[{
+      id: 200, type: "exploration_expedition_claim", actorName: "쿠키", targetName: null,
+      meta: { questTitle: "얼어붙은 봉우리", mapFragments: 110, memberRewardName: "스태미나 회복약 1개" },
+      createdAt: new Date().toISOString(),
+    }]} />);
+    expect(html).toContain(
+      "쿠키 님이 얼어붙은 봉우리 보상을 회수했어요 · 지도 조각 +110 · 길드원 전원 스태미나 회복약 1개",
+    );
+  });
+});

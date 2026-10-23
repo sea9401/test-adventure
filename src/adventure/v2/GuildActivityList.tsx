@@ -57,6 +57,7 @@ export type GuildActivity = {
     rewardGold?: number;
     rewardFame?: number;
     mapFragments?: number;
+    memberRewardName?: string;
     chargeTarget?: "hp" | "mp" | "balanced";
     chargeAmount?: number;
     staminaPotions?: number;
@@ -140,7 +141,7 @@ function describe(a: GuildActivity): string {
         a.meta?.mapFragments
           ? ` · 지도 조각 +${a.meta.mapFragments.toLocaleString()}`
           : ""
-      }`;
+      }${a.meta?.memberRewardName ? ` · 길드원 전원 ${a.meta.memberRewardName}` : ""}`;
     case "exploration_event_resolve":
       return `${actor} 님이 ${a.meta?.questTitle ?? "탐사 사건"}에서 ${a.meta?.deliveryTitle ?? "선택지"}을 선택했어요`;
     case "workshop_delivery":

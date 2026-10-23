@@ -45,6 +45,29 @@ export function guildExplorationEventRewardText(
     .join(" · ");
 }
 
+// 원정 회수 같은 탐사 본부 행동 뒤 보상 알림 문구. 길드원 전원 보상은 받은 인원과 함께 보여 준다.
+export function guildExplorationActionRewardText(
+  result: Pick<
+    ExplorationState,
+    | "rewardGold"
+    | "rewardFame"
+    | "mapFragments"
+    | "memberRewardName"
+    | "memberRewardRecipients"
+  >,
+): string {
+  return [
+    result.rewardGold ? `길드 금고 +${result.rewardGold.toLocaleString()}G` : null,
+    result.rewardFame ? `명성 +${result.rewardFame.toLocaleString()}` : null,
+    result.mapFragments
+      ? `지도 조각 +${result.mapFragments.toLocaleString()}`
+      : null,
+    result.memberRewardName && result.memberRewardRecipients
+      ? `길드원 ${result.memberRewardRecipients.toLocaleString()}명에게 ${result.memberRewardName}`
+      : null,
+  ].filter(Boolean).join(" · ");
+}
+
 import { GuildExpeditionBoard } from "./GuildExpeditionBoard";
 
 export { guildExplorationExpeditionScheduleText } from "./guildExplorationSchedule";
@@ -74,6 +97,7 @@ type ExplorationState = {
   progressBonusPct?: number;
   concurrentLimit?: number;
   memberRewardRecipients?: number;
+  memberRewardName?: string;
   state?: GuildExplorationWeeklyState;
   content?: GuildExplorationContentState;
   expeditions?: Record<GuildExplorationExpeditionId, GuildExplorationExpeditionDef>;
@@ -212,13 +236,7 @@ export function GuildExplorationPanel({
       if (body.action === "dispatch") {
         setConfirmingExpeditionId(null);
       }
-      const rewardText = [
-        json.rewardGold ? `길드 금고 +${json.rewardGold.toLocaleString()}G` : null,
-        json.rewardFame ? `명성 +${json.rewardFame.toLocaleString()}` : null,
-        json.mapFragments
-          ? `지도 조각 +${json.mapFragments.toLocaleString()}`
-          : null,
-      ].filter(Boolean).join(" · ");
+      const rewardText = guildExplorationActionRewardText(json);
       if (rewardText) {
         notifyReward("탐사 본부", rewardText);
       }

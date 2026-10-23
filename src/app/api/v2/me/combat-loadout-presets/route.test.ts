@@ -66,8 +66,16 @@ import {
   GET,
   POST,
 } from "./route";
-import { V2_JOB_LIST } from "@/adventure/data/v2/v2JobCatalog";
-import { emptyProficiency } from "@/adventure/data/v2/proficiency";
+import {
+  V2_JOB_LIST,
+  jobUnlockSpBonus,
+} from "@/adventure/data/v2/v2JobCatalog";
+import {
+  emptyProficiency,
+  parseProficiencyForChar,
+} from "@/adventure/data/v2/proficiency";
+import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_SKILLS, spCostOf } from "@/adventure/data/v2/v2Skills";
 
 const STRIKE = "v2c_warrior_strike";
 const MIGHT = "v2c_warrior_might";
@@ -212,6 +220,45 @@ describe("통합 전투 프리셋 API", () => {
     const loaded = await GET();
     expect(loaded.status).toBe(200);
     expect((await loaded.json()).activeSlot).toBe(2);
+  });
+
+  it("최대 SP와 현재·프리셋별 사용 SP를 함께 돌려준다", async () => {
+    mocks.saves.set(COMBAT_LOADOUT_PRESETS_KEY, [
+      null,
+      {
+        name: "두 스킬",
+        savedAt: "2026-08-12T00:00:00.000Z",
+        skills: [STRIKE, MIGHT],
+        pattern: null,
+        equipment: {},
+      },
+    ]);
+    const proficiency = parseProficiencyForChar(
+      mocks.saves.get("proficiency.v2"),
+      mocks.saves.get("character.v2") as { class?: unknown; level?: unknown },
+    );
+    const expectedBudget = calcSpBudget(
+      proficiency.groups,
+      0,
+      0,
+      jobUnlockSpBonus(proficiency, {}),
+    );
+
+    const json = await (await GET()).json();
+
+    expect(json.sp.budget).toBe(expectedBudget);
+    expect(json.sp.budget).toBeGreaterThan(0);
+    expect(json.sp.currentUsed).toBe(spCostOf(V2_SKILLS[STRIKE]));
+    expect(json.sp.presetUsed).toHaveLength(10);
+    expect(json.sp.presetUsed[0]).toBeNull();
+    expect(json.sp.presetUsed[1]).toBe(
+      spCostOf(V2_SKILLS[STRIKE]) + spCostOf(V2_SKILLS[MIGHT]),
+    );
+
+    const saved = await (
+      await POST(request({ action: "save", slot: 0, name: "현재" }))
+    ).json();
+    expect(saved.sp.presetUsed[0]).toBe(spCostOf(V2_SKILLS[STRIKE]));
   });
 
   it("덮어쓰기와 삭제는 지정 슬롯만 바꾸고 열 슬롯 위치를 보존한다", async () => {

@@ -5,6 +5,7 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import type { CombatLoadoutPreset } from "@/adventure/data/v2/combatLoadoutPresets";
 import {
   CombatLoadoutPresetList,
+  type CombatLoadoutSpSummary,
   applyResultMessage,
   firstEmptyPresetSlot,
 } from "./V2CombatLoadoutPresetsView";
@@ -44,11 +45,13 @@ const noop = vi.fn();
 function renderList(
   presets: Array<CombatLoadoutPreset | null>,
   activeSlot: number | null = null,
+  sp: CombatLoadoutSpSummary | null = null,
 ) {
   return renderToStaticMarkup(
     <CombatLoadoutPresetList
       presets={presets}
       activeSlot={activeSlot}
+      sp={sp}
       busySlot={null}
       draftName=""
       onDraftNameChange={noop}
@@ -83,6 +86,26 @@ describe("통합 전투 프리셋 화면", () => {
     expect(html).toContain('aria-label="보스 사냥 프리셋 적용"');
     expect(html).toContain('aria-label="보스 사냥 프리셋을 현재 세팅으로 덮어쓰기"');
     expect(html).toContain('aria-label="보스 사냥 프리셋 삭제"');
+  });
+
+  it("최대 SP와 현재 장착 SP, 프리셋별 사용 SP를 보여 준다", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderList([saved, saved, null], null, {
+      budget: 1200,
+      currentUsed: 1100,
+      presetUsed: [1150, 1300, null],
+    });
+    const text = container.textContent ?? "";
+
+    expect(text).toContain("장착 SP 1,100 / 최대 1,200");
+    expect(text).toContain("스킬 2 · SP 1,150/1,200 · 패턴 3 · 장비 6/6");
+    expect(text).toContain("SP 1,300/1,200 (100 초과)");
+  });
+
+  it("SP 정보가 없으면 SP 표기를 생략한다", () => {
+    const html = renderList([saved], null, null);
+
+    expect(html).not.toContain("SP");
   });
 
   it("저장된 프리셋이 없으면 빈 상태를 안내한다", () => {

@@ -61,6 +61,27 @@ function parseJobSpRebalanceNotice(raw: unknown): JobSpRebalanceNotice | null {
   return removedSkillIds.length > 0 ? { version: 1, removedSkillIds } : null;
 }
 
+// 직업 해금 보너스까지 포함한 현재 SP 한도 — 프리셋 적용(strict)이 정리하는 기준과 같다.
+export function currentJobSpBudget(
+  charSave: unknown,
+  proficiencyRaw: unknown,
+  collectionBonusSp: number,
+  jobUnlockCtx: JobUnlockContext | undefined,
+): number {
+  const cs = (charSave ?? {}) as {
+    class?: unknown;
+    level?: unknown;
+    spFruitUsed?: unknown;
+  };
+  const prof = parseProficiencyForChar(proficiencyRaw, cs);
+  return calcSpBudget(
+    prof.groups,
+    spCapBonusFromRaw(cs.spFruitUsed),
+    collectionBonusSp,
+    jobUnlockSpForCount(unlockedJobCount(prof, jobUnlockCtx)),
+  );
+}
+
 function resolveJobSpLoadout(
   skills: V2SkillsState,
   charSave: unknown,

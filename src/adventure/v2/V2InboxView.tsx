@@ -74,10 +74,10 @@ const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
 // 마켓 정산·선물 등 나머지는 수령(claim).
 const IS_INVITE = (it: InboxItem) => it.kind === "guild_invite";
 
-// 표시 본문 — user_message 는 본문이 payload.text 에 있고 message 컬럼은 비어있다(보내기
+// 표시 본문 — user_message·guild_message 는 본문이 payload.text 에 있고 message 컬럼은 비어있다(보내기
 // 라우트가 text 를 payload 에만 저장). guild_invite 는 길드명 안내. 그 외는 message ?? 라벨.
 function bodyOf(it: InboxItem): string {
-  if (it.kind === "user_message") {
+  if (it.kind === "user_message" || it.kind === "guild_message") {
     const t = (it.payload as { text?: unknown })?.text;
     return typeof t === "string" && t.length > 0 ? t : "(내용 없음)";
   }
@@ -271,6 +271,7 @@ function rewardLinesOf(it: InboxItem): string[] {
       pushTitleRewards(lines, p.titleIds);
       break;
     case "user_message":
+    case "guild_message":
     case "price_alert":
     case "guild_invite":
       break;
@@ -281,6 +282,7 @@ function rewardLinesOf(it: InboxItem): string[] {
 
 const KIND_LABEL: Record<InboxItem["kind"], string> = {
   user_message: "쪽지",
+  guild_message: "길드 쪽지",
   sale_proceeds: "판매 대금",
   bid_refund: "입찰금 반환",
   buy_order_refund: "구매 주문 환불",
@@ -298,6 +300,12 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
 };
 
 function inboxKindLabel(item: InboxItem): string {
+  if (item.kind === "guild_message") {
+    const guildName = item.payload.guild_name;
+    return typeof guildName === "string" && guildName.length > 0
+      ? `길드 쪽지 · ${guildName}`
+      : KIND_LABEL.guild_message;
+  }
   return item.kind === "admin_gift" && item.payload.source === "guild_weekly_supplies"
     ? "길드 지원품"
     : KIND_LABEL[item.kind];
@@ -1056,7 +1064,9 @@ export function MailDetailModal({
             {bodyOf(item)}
           </div>
 
-          {!sent && item.kind === "user_message" && item.fromName && (
+          {!sent &&
+            (item.kind === "user_message" || item.kind === "guild_message") &&
+            item.fromName && (
             <ContentSafetyActions
               sourceType="inbox_message"
               sourceId={item.id}

@@ -384,7 +384,7 @@ export function V2ItemCard({
         )}
 
         {bossUniqueEffectText(item) && (
-          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium leading-relaxed text-amber-600 dark:border-zinc-700 dark:text-amber-400">
+          <div className="mt-2 border-t border-zinc-200 pt-2 text-xs font-medium leading-relaxed text-amber-600 dark:border-zinc-700 dark:text-amber-400">
             {bossUniqueEffectText(item)}
           </div>
         )}

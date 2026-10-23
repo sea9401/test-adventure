@@ -442,7 +442,7 @@ export function V2ItemCompareCard({
               </p>
             )}
             {bossUniqueEffectText(candidate.item) && (
-              <p className="text-[11px] font-medium leading-relaxed text-amber-600 dark:text-amber-400">
+              <p className="text-xs font-medium leading-relaxed text-amber-600 dark:text-amber-400">
                 {bossUniqueEffectText(candidate.item)}
               </p>
             )}

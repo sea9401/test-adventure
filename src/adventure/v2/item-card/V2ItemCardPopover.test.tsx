@@ -369,7 +369,7 @@ describe("미개척지 보스 고유 효과 표시", () => {
         onClose={() => undefined}
       />,
     );
-    expect(card).toContain("◆ 영겁: 쓰러질 피해를 받으면 HP 1로 버티고");
+    expect(card).toContain("◆ 영겁: 쓰러질 피해를 받으면 쓰러지지 않고 최대 HP 35%");
     const compare = renderToStaticMarkup(
       <V2ItemCompareCard
         candidate={{ item: V2_EQUIPMENT.v2_unexplored_toxic_blood_claw }}

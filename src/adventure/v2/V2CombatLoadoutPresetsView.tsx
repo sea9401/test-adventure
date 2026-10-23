@@ -32,12 +32,23 @@ type ExcludedPresetItems = {
   equipmentIids: string[];
 };
 
+export type CombatLoadoutSpSummary = {
+  budget: number;
+  currentUsed: number;
+  presetUsed: Array<number | null>;
+};
+
 type PresetResponse = {
   ok: true;
   presets: CombatLoadoutPresetSlotData;
   activeSlot: number | null;
+  sp?: CombatLoadoutSpSummary;
   excluded?: ExcludedPresetItems;
 };
+
+function formatSp(value: number): string {
+  return value.toLocaleString("ko-KR");
+}
 
 function formatSavedAt(value: string): string {
   const time = Date.parse(value);
@@ -82,6 +93,7 @@ export function firstEmptyPresetSlot(
 export function CombatLoadoutPresetList({
   presets,
   activeSlot,
+  sp,
   busySlot,
   draftName,
   onDraftNameChange,
@@ -92,6 +104,7 @@ export function CombatLoadoutPresetList({
 }: {
   presets: CombatLoadoutPresetSlotData;
   activeSlot: number | null;
+  sp: CombatLoadoutSpSummary | null;
   busySlot: number | null;
   draftName: string;
   onDraftNameChange: (name: string) => void;
@@ -114,9 +127,16 @@ export function CombatLoadoutPresetList({
   return (
     <div className="space-y-4">
       <section className={`${SURFACE_CARD} space-y-3 p-4`} aria-label="현재 세팅 저장">
-        <label className="block text-sm font-semibold" htmlFor="preset-name">
-          지금 장착한 스킬·전투패턴·장비 저장
-        </label>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <label className="text-sm font-semibold" htmlFor="preset-name">
+            지금 장착한 스킬·전투패턴·장비 저장
+          </label>
+          {sp ? (
+            <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              장착 SP {formatSp(sp.currentUsed)} / 최대 {formatSp(sp.budget)}
+            </span>
+          ) : null}
+        </div>
         <div className="flex gap-2">
           <TextInput
             id="preset-name"
@@ -157,6 +177,8 @@ export function CombatLoadoutPresetList({
         >
           {saved.map(({ slot, preset }) => {
             const equipmentCount = Object.values(preset.equipment).filter(Boolean).length;
+            const spUsed = sp?.presetUsed[slot] ?? null;
+            const spOver = sp && spUsed !== null ? spUsed - sp.budget : 0;
             return (
               <article key={slot} className="space-y-2 px-4 py-3" aria-label={`전투 프리셋 ${preset.name}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -165,7 +187,23 @@ export function CombatLoadoutPresetList({
                       {preset.name}
                     </h2>
                     <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      스킬 {preset.skills.length} · 패턴 {preset.pattern?.blocks.length ?? 0} · 장비{" "}
+                      스킬 {preset.skills.length}
+                      {sp && spUsed !== null ? (
+                        <>
+                          {" · "}
+                          <span
+                            className={
+                              spOver > 0
+                                ? "font-semibold text-amber-700 dark:text-amber-300"
+                                : undefined
+                            }
+                          >
+                            SP {formatSp(spUsed)}/{formatSp(sp.budget)}
+                            {spOver > 0 ? ` (${formatSp(spOver)} 초과)` : null}
+                          </span>
+                        </>
+                      ) : null}
+                      {" · "}패턴 {preset.pattern?.blocks.length ?? 0} · 장비{" "}
                       {equipmentCount}/6
                       <span className="mx-1">·</span>
                       {formatSavedAt(preset.savedAt)} 저장
@@ -228,6 +266,7 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
     null,
   ]);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
+  const [sp, setSp] = useState<CombatLoadoutSpSummary | null>(null);
   const [draftName, setDraftName] = useState("");
   const [busySlot, setBusySlot] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -238,6 +277,7 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
   const acceptResponse = useCallback((response: PresetResponse) => {
     setPresets(response.presets);
     setActiveSlot(response.activeSlot);
+    setSp(response.sp ?? null);
   }, []);
 
   const load = useCallback(async () => {
@@ -377,6 +417,7 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
         <CombatLoadoutPresetList
           presets={presets}
           activeSlot={activeSlot}
+          sp={sp}
           busySlot={busySlot}
           draftName={draftName}
           onDraftNameChange={setDraftName}

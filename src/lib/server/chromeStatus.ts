@@ -5,6 +5,7 @@ import {
   isNull,
   ne,
   notExists,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -23,6 +24,7 @@ import {
 } from "@/adventure/v2/farmReadyNotification";
 import { FARM_SAVE_KEY, emptyFarmState } from "@/adventure/v2/farm";
 import { readSave } from "@/lib/server/savesKv";
+import { PERSONAL_MESSAGE_KINDS } from "@/lib/server/inboxPrivacy";
 
 export type ChromeStatus = {
   notificationUnread: number;
@@ -32,7 +34,7 @@ export type ChromeStatus = {
 
 function visibleInboxWhere(userId: string) {
   return or(
-    ne(marketplaceInbox.kind, "user_message"),
+    notInArray(marketplaceInbox.kind, [...PERSONAL_MESSAGE_KINDS]),
     isNull(marketplaceInbox.fromUserId),
     notExists(
       db

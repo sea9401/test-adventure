@@ -18,6 +18,7 @@ export type InboxItem = {
     | "purchase_item"
     | "cancel_return"
     | "user_message"
+    | "guild_message"
     | "recipe_gift"
     | "listing_expired"
     | "guild_invite"

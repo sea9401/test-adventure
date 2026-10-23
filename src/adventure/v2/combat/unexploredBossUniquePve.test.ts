@@ -63,16 +63,6 @@ describe("PvE boss unique wiring", () => {
     expect(strike.unexploredBossRuntime?.pursuit).toBe(1);
   });
 
-  it("starpath aim adds its stored crit chance to basic crit rolls", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.15);
-    const player = { ...withBoss("starpath_aim"), critMult: 2 };
-    const initial = initialBattleState(player, ENEMY, "용사");
-    const normal = initial.enemyHp - attack(initial, player).enemyHp;
-    const primed = attack(runtime(initial, { starpathCritPct: 20 }), player);
-    expect(initial.enemyHp - primed.enemyHp).toBeGreaterThan(normal);
-    expect(primed.unexploredBossRuntime?.starpathCritPct).toBe(0);
-  });
-
   it("coagulated venom poisons the attacker on the third damaged enemy action", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const player = withBoss("coagulated_venom");
@@ -82,17 +72,17 @@ describe("PvE boss unique wiring", () => {
     expect(state.enemyV2Dots.find(dot => dot.tag === "poison")?.stacks).toBe(2);
   });
 
-  it("uncorrupted heart cleanses dots, heals 12%, and strikes back for 8% max HP", () => {
+  it("uncorrupted heart cleanses dots, heals 15%, and strikes back for 8% max HP", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const player = withBoss("uncorrupted_heart");
     const poison = { tag: "poison" as const, label: "중독", stacks: 1, maxStacks: 10, turns: 3, flatPerStack: 10, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 };
-    const initial = runtime({ ...initialBattleState(player, ENEMY, "용사"), playerHp: 500, playerV2Dots: [poison] }, { toxicBlood: 9 });
+    const initial = runtime({ ...initialBattleState(player, ENEMY, "용사"), playerHp: 500, playerV2Dots: [poison] }, { toxicBlood: 5 });
     const plainPlayer = withBoss();
     const plain = enemyHit({ ...initialBattleState(plainPlayer, ENEMY, "용사"), playerHp: 500 }, plainPlayer);
     const next = enemyHit(initial, player);
     expect(logsOf(next, "[독혈 역류]").length).toBeGreaterThan(0);
     expect(next.playerV2Dots).toEqual([]);
-    expect(next.playerHp).toBe(plain.playerHp + 120);
+    expect(next.playerHp).toBe(plain.playerHp + 150);
     expect(initial.enemyHp - next.enemyHp).toBe(80);
     expect(next.enemyV2Dots.find(dot => dot.tag === "poison")?.stacks).toBe(3);
   });
@@ -106,7 +96,7 @@ describe("PvE boss unique wiring", () => {
     expect(logsOf(frozen, "[절대영도]")).toHaveLength(1);
     expect(frozen.unexploredBossRuntime?.freezeBonusPending).toBe(true);
     const chilled = runtime(initial, { targetChill: 10 });
-    expect(effectiveEnemyTimelineSpd(chilled, 0)).toBeCloseTo(effectiveEnemyTimelineSpd(initial, 0) * 0.85 / 0.88);
+    expect(effectiveEnemyTimelineSpd(chilled, 0)).toBeCloseTo(effectiveEnemyTimelineSpd(initial, 0) * 0.8 / 0.84);
   });
 
   it("freeze respects shock immunity", () => {

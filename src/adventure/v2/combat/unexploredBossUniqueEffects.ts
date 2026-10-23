@@ -9,18 +9,18 @@ export const TRACKING_EDGE_MAX = 5;
 export const TRACKING_EDGE_PCT = 3;
 export const PHANTOM_HASTE_PCT = 15;
 export const ORBIT_PURSUIT_MAX = 10;
-export const ORBIT_DAMAGE_MULT = 1.8;
+export const ORBIT_DAMAGE_MULT = 2;
 export const ORBIT_DEFENSE_MULT = 0.5;
 export const TOXIC_CLAW_POISON_STACKS = 5;
 export const TOXIC_CLAW_MULT = 1.08;
 export const COAGULATION_MAX = 3;
 export const COAGULATION_POISON = 2;
-export const TOXIC_BLOOD_MAX = 10;
-export const TOXIC_BLOOD_HEAL_PCT = 12;
+export const TOXIC_BLOOD_MAX = 6;
+export const TOXIC_BLOOD_HEAL_PCT = 15;
 export const TOXIC_BLOOD_DAMAGE_PCT = 8;
 export const TOXIC_BLOOD_POISON = 3;
 export const CHILL_MAX = 10;
-export const CHILL_SPEED_PCT_PER_STACK = 1.5;
+export const CHILL_SPEED_PCT_PER_STACK = 2;
 export const FREEZE_DAMAGE_MULT = 1.3;
 export const MAGISTEEL_SHIELD_PCT = 5;
 export const MAGISTEEL_DAMAGE_MULT = 0.92;
@@ -32,15 +32,14 @@ export const BULWARK_REFLECT_PCT = 40;
 export const BULWARK_REBUILD_ACTIONS = 6;
 export const CORRECTION_MULT = 1.25;
 export const CORRECTION_HITS = 3;
-export const STARPATH_STEP_PCT = 4;
-export const STARPATH_MAX_PCT = 20;
+export const STARPATH_MULT = 1.15;
 export const FOCUS_MAX = 20;
 export const FOCUS_DAMAGE_MULT = 1.5;
 export const FOCUS_DEBUFF_PCT = 20;
 export const FOCUS_DEBUFF_ACTIONS = 3;
 export const FRENZY_PCT_PER_STEP = 2;
 export const FRENZY_MAX_STEPS = 7;
-export const PULSING_REGEN_PCT = 2;
+export const PULSING_REGEN_PCT = 1;
 export const ETERNAL_CHARGES_PVE = 2;
 export const ETERNAL_CHARGES_PVP = 1;
 export const ETERNAL_HEAL_PCTS = [35, 20] as const;
@@ -57,7 +56,7 @@ export type BossUniqueRuntime = {
   freezeBonusPending: boolean;
   correctionHits: number;
   correctionPending: boolean;
-  starpathCritPct: number;
+  starpathPending: boolean;
   focus: number;
   /** 공용 보호막 중 불괴 방벽 전용 잔량. 다른 보호막이 먼저 깎인다. */
   bulwarkShield: number;
@@ -111,7 +110,7 @@ export function initialBossUniqueRuntime(
       freezeBonusPending: false,
       correctionHits: 0,
       correctionPending: false,
-      starpathCritPct: 0,
+      starpathPending: false,
       focus: 0,
       bulwarkShield: bulwark,
       bulwarkSize: bulwark,
@@ -161,6 +160,11 @@ export function beginBossUniqueAttack(
     next = { ...next, freezeBonusPending: false };
     logs.push("빙결 일격");
   }
+  if (next.starpathPending) {
+    damageMult *= STARPATH_MULT;
+    next = { ...next, starpathPending: false };
+    logs.push("별궤 조준");
+  }
   if (next.correctionPending) {
     damageMult *= CORRECTION_MULT;
     next = { ...next, correctionPending: false };
@@ -173,10 +177,6 @@ export function beginBossUniqueAttack(
   }
   if (next.eternalFrenzy) damageMult *= ETERNAL_DAMAGE_MULT;
   return { runtime: next, damageMult, defenseMult, logs };
-}
-
-export function bossUniqueCritBonusPct(runtime: BossUniqueRuntime | undefined, effects: Effects): number {
-  return runtime && has(effects, "starpath_aim") ? runtime.starpathCritPct : 0;
 }
 
 /** 공격 시도가 끝난 뒤 한 번. hit=false는 완전 회피(피해 0)다. */
@@ -204,7 +204,7 @@ export function finishBossUniqueAttack(
       ? { ...next, correctionHits: 0, correctionPending: true }
       : { ...next, correctionHits };
   }
-  const chillGain = (has(effects, "glacial_crush") ? 1 : 0) + (has(effects, "absolute_zero") ? 2 : 0);
+  const chillGain = (has(effects, "glacial_crush") ? 2 : 0) + (has(effects, "absolute_zero") ? 3 : 0);
   if (chillGain > 0) {
     next = { ...next, targetChill: Math.min(CHILL_MAX, next.targetChill + chillGain) };
   }
@@ -212,11 +212,8 @@ export function finishBossUniqueAttack(
     next = { ...next, targetChill: 0, freezeBonusPending: true };
     commands.push({ kind: "freeze", label: "절대영도" });
   }
-  if (has(effects, "starpath_aim")) {
-    next = {
-      ...next,
-      starpathCritPct: input.crit ? 0 : Math.min(STARPATH_MAX_PCT, next.starpathCritPct + STARPATH_STEP_PCT),
-    };
+  if (has(effects, "starpath_aim") && !input.crit) {
+    next = { ...next, starpathPending: true };
   }
   if (has(effects, "infinite_focus")) {
     const focus = next.focus + (input.crit ? 2 : 1);
@@ -397,7 +394,6 @@ export function bossUniqueResourceSnapshot(
   if (runtime.coagulation > 0) out.unexploredBossCoagulation = `응고 ${runtime.coagulation}/${COAGULATION_MAX}`;
   if (runtime.toxicBlood > 0) out.unexploredBossToxicBlood = `독혈 ${runtime.toxicBlood}/${TOXIC_BLOOD_MAX}`;
   if (runtime.targetChill > 0) out.unexploredBossChill = `혹한 ${runtime.targetChill}/${CHILL_MAX}`;
-  if (runtime.starpathCritPct > 0) out.unexploredBossStarpath = `별궤 +${runtime.starpathCritPct}%`;
   if (runtime.focus > 0) out.unexploredBossFocus = `조준 ${runtime.focus}/${FOCUS_MAX}`;
   if (runtime.bulwarkShield > 0) out.unexploredBossBulwark = `불괴 방벽 ${runtime.bulwarkShield}`;
   if (runtime.eternalFrenzy) out.unexploredBossEternal = "영겁";

@@ -12,7 +12,6 @@ import { appendPvPSurvivalLogs, resolvePvPHostileDamageSurvival } from "./pvpHos
 import { canApplyShock } from "./shockAction";
 import {
   beginBossUniqueAttack,
-  bossUniqueCritBonusPct,
   bossUniqueDamageTaken,
   consumeBossUniqueHaste,
   finishBossUniqueAttack,
@@ -36,6 +35,7 @@ const BEGIN_LOG_TEXT: Record<string, string> = {
   "궤도 절단": "방어·마법방어 50% 무시, 피해 +80%",
   "빙결 일격": "빙결된 상대에게 피해 +30%",
   "보정 사격": "피해 +25%",
+  "별궤 조준": "피해 +15%",
 };
 
 export function initialBossUniquePvp(
@@ -54,10 +54,6 @@ export function peekBossUniqueDefenseMultPvp(side: PvPSide): number {
   return runtime && side.player.unexploredBossEffects?.includes("infinite_orbit") && runtime.pursuit >= ORBIT_PURSUIT_MAX
     ? ORBIT_DEFENSE_MULT
     : 1;
-}
-
-export function bossUniqueCritBonusPvp(side: PvPSide): number {
-  return bossUniqueCritBonusPct(side.stacks.unexploredBoss, side.player.unexploredBossEffects);
 }
 
 const withRuntime = (side: PvPSide, runtime: BossUniqueRuntime): PvPSide =>

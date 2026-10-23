@@ -72,7 +72,7 @@ describe.each(["p1", "p2"] as const)("%s boss unique PvP", side => {
     expect(logsOf(next, "[절대영도]")).toHaveLength(1);
     const chilled = withBoss(initial, side, { targetChill: 10 });
     const plain = withBoss(initial, side, { targetChill: 0 });
-    expect(effectiveSideSpd(chilled, target)).toBeCloseTo(effectiveSideSpd(plain, target) * 0.85);
+    expect(effectiveSideSpd(chilled, target)).toBeCloseTo(effectiveSideSpd(plain, target) * 0.8);
   });
 
   it("coagulated venom poisons the attacker after three damaged actions", () => {

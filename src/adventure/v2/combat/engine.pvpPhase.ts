@@ -1,5 +1,4 @@
 import { CRIT_PCT_CAP } from "@/adventure/data/stats";
-import { bossUniqueCritBonusPvp } from "./unexploredBossUniquePvpAdapter";
 import { carryBossUniqueStacks } from "./unexploredBossUniquePvpSurvival";
 import { canMartialCounterHit } from "./martialCounter";
 import { deferPain } from "./darkPriest";
@@ -151,8 +150,7 @@ function computeAttackDamagePvP(
     universalLuckBonus +
     cyclingChiThisTurn +
     skillCritThisTurn +
-    duelistModifiers.basicCritChancePct +
-    bossUniqueCritBonusPvp(attacker);
+    duelistModifiers.basicCritChancePct;
   // PR-2 — 피격자(defender)의 치명타 저항(정신)만큼 공격자 크리 확률 차감. PvE 몹은 크리 없어 PvP 한정.
   const basicCritCap = Math.max(
     CRIT_PCT_CAP,

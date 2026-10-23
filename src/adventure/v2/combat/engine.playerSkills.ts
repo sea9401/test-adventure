@@ -28,7 +28,7 @@ import { applyBleedChangeToDots, applyComboFinisherToHits, applyV2BuffsToMap, ap
 import { distributeBoostedHits } from "./hitDistribution";
 import { duelistDeclarationSummary } from "./duelistCombat";
 import { beginUnexploredPlayerAttack, finishUnexploredPlayerAttack, hasUnexploredEffect, unexploredDefensePve } from "./unexploredSetPveAdapter";
-import { bossUniqueCritBonusPve, peekBossUniqueDefenseMultPve } from "./unexploredBossUniquePveAdapter";
+import { peekBossUniqueDefenseMultPve } from "./unexploredBossUniquePveAdapter";
 import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
 import { playerFacingEnemyDef } from "./engine.pveOperations";
 import { computeCritOverflowBonus, computeDirectSkillDamage } from "./engine.damageHelpers";
@@ -491,7 +491,7 @@ export function applyPlayerV2SkillCast(
     result.enemyDamage > 0 &&
     (result.berserkerTransition.forceSkillCrit ||
       skillCritAfterEvadeFired ||
-      ((player.critChancePct ?? 0) + bossUniqueCritBonusPve(state, player) +
+      ((player.critChancePct ?? 0) +
         (result.castSkillId
           ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
           : 0) >
@@ -499,7 +499,7 @@ export function applyPlayerV2SkillCast(
         combatRandom() * 100 <
           Math.min(
             CRIT_PCT_CAP,
-            (player.critChancePct ?? 0) + bossUniqueCritBonusPve(state, player) +
+            (player.critChancePct ?? 0) +
               (result.castSkillId
                 ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
                 : 0),

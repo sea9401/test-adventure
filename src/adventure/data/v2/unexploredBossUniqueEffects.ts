@@ -42,7 +42,7 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_infinite_orbit_heart: {
     kind: "infinite_orbit",
     label: "궤도 절단",
-    description: "직접 공격 적중 시 추적 1중첩. 10중첩이면 다음 직접 공격 1회가 대상 방어·마법방어 50%를 무시하고 피해 +80%.",
+    description: "직접 공격 적중 시 추적 1중첩. 10중첩이면 다음 직접 공격 1회가 대상 방어·마법방어 50%를 무시하고 피해 +100%.",
   },
   v2_unexplored_toxic_blood_claw: {
     kind: "toxic_claw",
@@ -57,22 +57,22 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_uncorrupted_heart: {
     kind: "uncorrupted_heart",
     label: "독혈 역류",
-    description: "피해를 받을 때마다(적 행동당 1회) 독혈 1중첩. 10중첩이면 자신의 지속 피해를 정화하고 최대 HP 12% 회복, 공격자에게 자신 최대 HP 8% 고정 피해와 중독 3스택.",
+    description: "피해를 받을 때마다(적 행동당 1회) 독혈 1중첩. 6중첩이면 자신의 지속 피해를 정화하고 최대 HP 15% 회복, 공격자에게 자신 최대 HP 8% 고정 피해와 중독 3스택.",
   },
   v2_unexplored_glacial_crushing_hammer: {
     kind: "glacial_crush",
     label: "빙하 중압",
-    description: "직접 공격 적중 시 대상 혹한 +1(최대 10). 혹한 1중첩당 대상 행동 속도 −1.5%.",
+    description: "직접 공격 적중 시 대상 혹한 +2(최대 10). 혹한 1중첩당 대상 행동 속도 −2%.",
   },
   v2_unexplored_frozen_great_armor: {
     kind: "frozen_bulwark",
     label: "영구빙 갑주",
-    description: "피해를 받으면(적 행동당 1회) 공격자 혹한 +1(최대 10). 혹한 1중첩당 대상 행동 속도 −1.5%.",
+    description: "피해를 받으면(적 행동당 1회) 공격자 혹한 +1(최대 10). 혹한 1중첩당 대상 행동 속도 −2%.",
   },
   v2_unexplored_absolute_zero_core: {
     kind: "absolute_zero",
     label: "절대영도",
-    description: "직접 공격 적중 시 대상 혹한 +2. 혹한 10이면 모두 소비해 빙결: 대상의 다음 행동 1회 취소, 다음 직접 공격 피해 +30%. 혹한 1중첩당 대상 행동 속도 −1.5%.",
+    description: "직접 공격 적중 시 대상 혹한 +3. 혹한 10이면 모두 소비해 빙결: 대상의 다음 행동 1회 취소, 다음 직접 공격 피해 +30%. 혹한 1중첩당 대상 행동 속도 −2%.",
   },
   v2_unexplored_magisteel_guard_gauntlets: {
     kind: "magisteel_guard",
@@ -97,7 +97,7 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_starpath_aiming_ring: {
     kind: "starpath_aim",
     label: "별궤 조준",
-    description: "치명타가 아닌 직접 공격 적중마다 치명타 확률 +4%p(최대 +20%p). 치명타가 나면 초기화.",
+    description: "치명타가 아닌 직접 공격이 적중하면 다음 직접 공격 피해 +15%.",
   },
   v2_unexplored_infinite_focus_crystal_eye: {
     kind: "infinite_focus",
@@ -112,7 +112,7 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_pulsing_berserker_gauntlets: {
     kind: "pulsing_regen",
     label: "재생 고동",
-    description: "자신의 행동마다 잃은 HP의 2% 회복.",
+    description: "자신의 행동마다 잃은 HP의 1% 회복.",
   },
   v2_unexplored_eternal_life_core: {
     kind: "eternal_life",

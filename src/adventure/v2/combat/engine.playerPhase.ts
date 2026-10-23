@@ -18,7 +18,6 @@ import { combatRandom } from "./combatRandom";
 import { applyV2DotsToTarget, damageBetween, extractApEffect, healingAfterReceivedMultiplier, v2AtkBuffMult, v2DefBuffMult } from "./combatShared";
 import { consumeDuelistBasicHit, duelistDeclarationProgress, interruptDuelistRamp, type DuelistBasicHitModifiers } from "./duelistCombat";
 import { beginUnexploredPlayerAttack, finishUnexploredPlayerAttack, unexploredDefensePve } from "./unexploredSetPveAdapter";
-import { bossUniqueCritBonusPve } from "./unexploredBossUniquePveAdapter";
 import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
 import { applyDefIgnore, computeAfterCrush, computeBalanceCritBonus, computeBerserkBonus, computeCritOverflowBonus, computeStormBonus } from "./engine.damageHelpers";
 import { applyEnemyDamage, applyPhaseTriggerIfAny, applyPlayerOnHitDots, applyPotionEffect, finishPlayerTurn, playerFacingEnemyDef, rollPlayerAttackCountWithBleed } from "./engine.pveOperations";
@@ -156,8 +155,7 @@ function computeAttackDamage(
   // LUK 투자 의미를 유지(빌드 수렴 방지, 회피 오버플로와 대칭).
   const rawCritPct =
     baseCritPct + luckCritBonus + balanceCritBonus + universalLuckBonus +
-    cyclingChiThisTurn + duelistModifiers.basicCritChancePct +
-    bossUniqueCritBonusPve(state, player);
+    cyclingChiThisTurn + duelistModifiers.basicCritChancePct;
   const basicCritCap = Math.max(
     CRIT_PCT_CAP,
     player.basicCritChanceCap ?? CRIT_PCT_CAP,

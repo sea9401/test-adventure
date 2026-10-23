@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { UnexploredBossEffectKind } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import {
   beginBossUniqueAttack,
-  bossUniqueCritBonusPct,
   bossUniqueDamageTaken,
   bossUniqueLethalSave,
   bossUniqueResourceSnapshot,
@@ -46,7 +45,6 @@ describe("no effects", () => {
     expect(finish(runtime, []).commands).toEqual([]);
     expect(endEnemy(hitTaken(runtime), []).commands).toEqual([]);
     expect(bossUniqueDamageTaken(runtime, [], { damage: 500, shield: 0 })).toBe(500);
-    expect(bossUniqueCritBonusPct(runtime, [])).toBe(0);
     expect(bossUniqueSelfSpeedMult(runtime)).toBe(1);
     expect(bossUniqueTargetSpeedMult(runtime)).toBe(1);
     expect(initialBossUniqueRuntime([], { maxHp: MAX_HP, pvp: false }).startShield).toBe(0);
@@ -77,11 +75,11 @@ describe("추적 병기", () => {
     expect(consumeBossUniqueHaste(runtime).pct).toBeCloseTo(12.75);
     expect(consumeBossUniqueHaste(endEnemy(hitTaken(init(...effects)), effects).runtime).pct).toBe(0);
   });
-  it("infinite orbit releases a 50% defense-ignoring +80% strike after 10 hits", () => {
+  it("infinite orbit releases a 50% defense-ignoring +100% strike after 10 hits", () => {
     const effects: UnexploredBossEffectKind[] = ["infinite_orbit"];
     const runtime = hits(init(...effects), effects, 10).runtime;
     const strike = begin(runtime, effects);
-    expect(strike.damageMult).toBeCloseTo(1.8);
+    expect(strike.damageMult).toBeCloseTo(2);
     expect(strike.defenseMult).toBe(0.5);
     expect(strike.logs).toContain("궤도 절단");
     expect(begin(strike.runtime, effects).damageMult).toBe(1);
@@ -109,14 +107,14 @@ describe("독혈 군주", () => {
     const runtime = endEnemy(hitTaken(init("coagulated_venom"), { fullyEvaded: true }), ["coagulated_venom"]).runtime;
     expect(runtime.coagulation).toBe(0);
   });
-  it("uncorrupted heart cleanses, heals 12%, and strikes back on the 10th damaged action", () => {
+  it("uncorrupted heart cleanses, heals 15%, and strikes back on the 6th damaged action", () => {
     const effects: UnexploredBossEffectKind[] = ["uncorrupted_heart"];
     let runtime = init(...effects);
-    for (let action = 0; action < 9; action += 1) runtime = endEnemy(hitTaken(runtime), effects).runtime;
+    for (let action = 0; action < 5; action += 1) runtime = endEnemy(hitTaken(runtime), effects).runtime;
     const burst = endEnemy(hitTaken(runtime, { hpDamage: 0, shieldAbsorbed: 50 }), effects);
     expect(burst.commands).toEqual([
       { kind: "cleanse_dots", label: "독혈 역류" },
-      { kind: "heal", label: "독혈 역류", amount: 1_200 },
+      { kind: "heal", label: "독혈 역류", amount: 1_500 },
       { kind: "damage_fixed", label: "독혈 역류", amount: 800 },
       { kind: "apply_poison", label: "독혈 역류", stacks: 3 },
     ]);
@@ -125,19 +123,22 @@ describe("독혈 군주", () => {
 });
 
 describe("빙하 거수", () => {
-  it("glacial crush and frozen bulwark share chill that slows 1.5% per stack up to 10", () => {
+  it("glacial crush (+2 per hit) and frozen bulwark (+1 per damaged action) share chill that slows 2% per stack up to 10", () => {
     const effects: UnexploredBossEffectKind[] = ["glacial_crush", "frozen_bulwark"];
-    let runtime = hits(init(...effects), effects, 8).runtime;
+    let runtime = hits(init(...effects), effects, 3).runtime;
+    expect(runtime.targetChill).toBe(6);
     runtime = endEnemy(hitTaken(runtime), effects).runtime;
-    expect(runtime.targetChill).toBe(9);
-    runtime = hits(runtime, effects, 5).runtime;
+    expect(runtime.targetChill).toBe(7);
+    expect(bossUniqueTargetSpeedMult(runtime)).toBeCloseTo(0.86);
+    runtime = hits(runtime, effects, 2).runtime;
     expect(runtime.targetChill).toBe(10);
-    expect(bossUniqueTargetSpeedMult(runtime)).toBeCloseTo(0.85);
+    expect(bossUniqueTargetSpeedMult(runtime)).toBeCloseTo(0.8);
   });
-  it("absolute zero freezes at 10 chill, consumes it, and boosts the next direct attack by 30%", () => {
+  it("absolute zero adds 3 chill per hit, freezes at 10, consumes it, and boosts the next direct attack by 30%", () => {
     const effects: UnexploredBossEffectKind[] = ["absolute_zero"];
-    const four = hits(init(...effects), effects, 4);
+    const four = hits(init(...effects), effects, 3);
     expect(four.commands).toEqual([]);
+    expect(four.runtime.targetChill).toBe(9);
     const fifth = hits(four.runtime, effects, 1);
     expect(fifth.commands).toEqual([{ kind: "freeze", label: "절대영도" }]);
     expect(fifth.runtime.targetChill).toBe(0);
@@ -204,12 +205,15 @@ describe("천공의 수정안", () => {
     expect(boosted.logs).toContain("보정 사격");
     expect(begin(boosted.runtime, effects).damageMult).toBe(1);
   });
-  it("starpath aim adds 4%p per non-crit hit up to 20 and resets on crit", () => {
+  it("starpath aim boosts the next direct attack by 15% after a non-crit direct hit", () => {
     const effects: UnexploredBossEffectKind[] = ["starpath_aim"];
-    let runtime = hits(init(...effects), effects, 6).runtime;
-    expect(bossUniqueCritBonusPct(runtime, effects)).toBe(20);
-    runtime = hits(runtime, effects, 1, true).runtime;
-    expect(bossUniqueCritBonusPct(runtime, effects)).toBe(0);
+    const crit = hits(init(...effects), effects, 1, true).runtime;
+    expect(begin(crit, effects).damageMult).toBe(1);
+    const primed = hits(init(...effects), effects, 1).runtime;
+    const boosted = begin(primed, effects);
+    expect(boosted.damageMult).toBeCloseTo(1.15);
+    expect(boosted.logs).toContain("별궤 조준");
+    expect(begin(boosted.runtime, effects).damageMult).toBe(1);
   });
   it("infinite focus fires a 150% sky barrage with defense breaks at 20 aim", () => {
     const effects: UnexploredBossEffectKind[] = ["infinite_focus"];
@@ -232,9 +236,9 @@ describe("불멸의 광전왕", () => {
     expect(begin(runtime, ["immortal_frenzy"], { hp: 7_000 }).damageMult).toBeCloseTo(1.06);
     expect(begin(runtime, ["immortal_frenzy"], { hp: 100 }).damageMult).toBeCloseTo(1.14);
   });
-  it("pulsing regen heals 2% of missing HP each own action, scaled by heal multiplier", () => {
+  it("pulsing regen heals 1% of missing HP each own action, scaled by heal multiplier", () => {
     const done = startBossUniquePlayerAction(init("pulsing_regen"), ["pulsing_regen"], { hp: 5_000, maxHp: MAX_HP, healMult: 0.5 });
-    expect(done.commands).toEqual([{ kind: "heal", label: "재생 고동", amount: 50 }]);
+    expect(done.commands).toEqual([{ kind: "heal", label: "재생 고동", amount: 25 }]);
   });
   it("eternal saves lethal damage at 35% then 20% max HP in PvE and grants frenzy", () => {
     const effects: UnexploredBossEffectKind[] = ["eternal_life"];
@@ -264,7 +268,7 @@ describe("resource snapshot", () => {
     const runtime = hits(init("infinite_orbit", "glacial_crush"), ["infinite_orbit", "glacial_crush"], 3).runtime;
     expect(bossUniqueResourceSnapshot(runtime)).toEqual({
       unexploredBossPursuit: "추적 3/10",
-      unexploredBossChill: "혹한 3/10",
+      unexploredBossChill: "혹한 6/10",
     });
   });
 });

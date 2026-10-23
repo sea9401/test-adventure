@@ -7,7 +7,6 @@ import { applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamag
 import { canApplyShock } from "./shockAction";
 import {
   beginBossUniqueAttack,
-  bossUniqueCritBonusPct,
   bossUniqueDamageTaken,
   bossUniqueLethalSave,
   consumeBossUniqueHaste,
@@ -29,6 +28,7 @@ const BEGIN_LOG_TEXT: Record<string, string> = {
   "궤도 절단": "방어·마법방어 50% 무시, 피해 +80%",
   "빙결 일격": "빙결된 적에게 피해 +30%",
   "보정 사격": "피해 +25%",
+  "별궤 조준": "피해 +15%",
 };
 
 const isDirect = (kind: UnexploredAttackContext["kind"]) =>
@@ -86,10 +86,6 @@ export function finishBossUniqueAttackPve(
     magicAtk: player.magicAtk ?? player.atk,
   });
   return applyBossUniqueCommandsPve({ ...state, unexploredBossRuntime: done.runtime }, player, done.commands, "player");
-}
-
-export function bossUniqueCritBonusPve(state: BattleState, player: PlayerCombat): number {
-  return bossUniqueCritBonusPct(state.unexploredBossRuntime, player.unexploredBossEffects);
 }
 
 export function recordBossUniqueHitPve(

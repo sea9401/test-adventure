@@ -69,6 +69,8 @@ export type UnexploredAttackContext = {
   anyCrit: boolean;
   multiHitIndex: number;
   multiHitCount: number;
+  /** 미개척지 보스 고유(궤도 절단)의 방어 배율. 없으면 1. */
+  bossDefenseMult?: number;
 };
 
 function isDirectAttack(context: UnexploredAttackContext): boolean {

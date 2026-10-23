@@ -25,7 +25,7 @@ const begin = (runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[], 
 const finish = (runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[], overrides: Partial<Parameters<typeof finishBossUniqueAttack>[2]> = {}) =>
   finishBossUniqueAttack(runtime, effects, { direct: true, hit: true, crit: false, atk: 1_000, magicAtk: 400, ...overrides });
 const hitTaken = (runtime: BossUniqueRuntime, overrides: Partial<Parameters<typeof recordBossUniqueHit>[1]> = {}) =>
-  recordBossUniqueHit(runtime, { fullyEvaded: false, hpDamage: 100, shieldAbsorbed: 0, shieldAfter: 0, ...overrides });
+  recordBossUniqueHit(runtime, { fullyEvaded: false, evadedFraction: 0, hpDamage: 100, shieldAbsorbed: 0, shieldAfter: 0, ...overrides });
 const endEnemy = (runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[], overrides: Partial<Parameters<typeof finishBossUniqueEnemyAction>[2]> = {}) =>
   finishBossUniqueEnemyAction(runtime, effects, { maxHp: MAX_HP, hasDots: false, ...overrides });
 function hits(runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[], count: number, crit = false) {
@@ -62,13 +62,20 @@ describe("추적 병기", () => {
     runtime = finish(runtime, effects, { hit: false }).runtime;
     expect(begin(runtime, effects).damageMult).toBe(1);
   });
-  it("phantom haste queues 15% once after a dodged enemy action", () => {
+  it("phantom haste queues 15% after a full dodge, once per enemy action", () => {
     const effects: UnexploredBossEffectKind[] = ["phantom_haste"];
     let runtime = hitTaken(hitTaken(init(...effects), { fullyEvaded: true }), { fullyEvaded: true });
     runtime = endEnemy(runtime, effects).runtime;
     const consumed = consumeBossUniqueHaste(runtime);
     expect(consumed.pct).toBe(15);
     expect(consumeBossUniqueHaste(consumed.runtime).pct).toBe(0);
+  });
+  it("phantom haste scales with the largest evaded fraction of the action", () => {
+    const effects: UnexploredBossEffectKind[] = ["phantom_haste"];
+    let runtime = hitTaken(hitTaken(init(...effects), { evadedFraction: 0.4 }), { evadedFraction: 0.85 });
+    runtime = endEnemy(runtime, effects).runtime;
+    expect(consumeBossUniqueHaste(runtime).pct).toBeCloseTo(12.75);
+    expect(consumeBossUniqueHaste(endEnemy(hitTaken(init(...effects)), effects).runtime).pct).toBe(0);
   });
   it("infinite orbit releases a 50% defense-ignoring +80% strike after 10 hits", () => {
     const effects: UnexploredBossEffectKind[] = ["infinite_orbit"];
@@ -253,9 +260,9 @@ describe("불멸의 광전왕", () => {
 
 describe("resource snapshot", () => {
   it("shows only active counters", () => {
-    expect(bossUniqueResourceSnapshot(init(), [])).toBeUndefined();
+    expect(bossUniqueResourceSnapshot(init())).toBeUndefined();
     const runtime = hits(init("infinite_orbit", "glacial_crush"), ["infinite_orbit", "glacial_crush"], 3).runtime;
-    expect(bossUniqueResourceSnapshot(runtime, ["infinite_orbit", "glacial_crush"])).toEqual({
+    expect(bossUniqueResourceSnapshot(runtime)).toEqual({
       unexploredBossPursuit: "추적 3/10",
       unexploredBossChill: "혹한 3/10",
     });

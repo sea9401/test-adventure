@@ -366,6 +366,7 @@ export type BattleStacks = {
 
 export type BattleState = {
   unexploredSetRuntime?: import("./unexploredSetEffects").UnexploredSetPveRuntime;
+  unexploredBossRuntime?: import("./unexploredBossUniqueEffects").BossUniqueRuntime;
   enemy: Monster;
   enemyHp: number;
   /** 토벌전 피해 계측 모드에서 적 HP 클램프와 무관하게 누적한 실제 판정 피해. */

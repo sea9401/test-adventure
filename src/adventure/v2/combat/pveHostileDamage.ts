@@ -2,9 +2,20 @@ import { applyBerserkerLethalDamage, clampBerserkerGuardedHp } from "./berserker
 import { recordCombatMetric } from "./combatDiagnostics";
 import type { BattleState, PlayerCombat } from "./engineState";
 import { appendLog } from "./engineSupport";
+import { bossUniqueLethalSavePve } from "./unexploredBossUniquePveAdapter";
 
-/** 보호막·경감 뒤 적대 피해를 사망 극복 → 일반 불굴 순으로 넘기기 위한 PvE 공통 관문. */
+/** 보호막·경감 뒤 적대 피해를 사망 극복 → 영겁 → 일반 불굴 순으로 넘기기 위한 PvE 공통 관문. */
 export function applyBerserkerHostileDamage(
+  state: BattleState,
+  player: PlayerCombat,
+  hpAfterDamage: number,
+  turn: "player" | "enemy" = "enemy",
+): { state: BattleState; triggered: boolean } {
+  const result = applyBerserkerSurvival(state, player, hpAfterDamage, turn);
+  return { ...result, state: bossUniqueLethalSavePve(result.state, player, turn) };
+}
+
+function applyBerserkerSurvival(
   state: BattleState,
   player: PlayerCombat,
   hpAfterDamage: number,

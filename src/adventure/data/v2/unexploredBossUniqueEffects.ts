@@ -37,7 +37,7 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_phantom_acceleration_boots: {
     kind: "phantom_haste",
     label: "잔상 가속",
-    description: "적 공격을 완전 회피하면 다음 행동이 행동 간격의 15%만큼 앞당겨진다(적 행동당 1회).",
+    description: "적 공격을 회피하면 회피로 줄인 피해 비율만큼 다음 행동이 앞당겨진다(완전 회피 시 행동 간격의 15%, 적 행동당 1회).",
   },
   v2_unexplored_infinite_orbit_heart: {
     kind: "infinite_orbit",

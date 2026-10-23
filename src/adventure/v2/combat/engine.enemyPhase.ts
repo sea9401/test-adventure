@@ -1,4 +1,5 @@
 import type { Monster } from "@/adventure/data/monsters";
+import { markBossUniqueDodgePve } from "./unexploredBossUniquePveAdapter";
 import { applyEvasionDamageReduction } from "@/adventure/data/v2/v2CombatConstants";
 import { martialCounterVitality, canMartialCounterHit } from "./martialCounter";
 import { deferPain } from "./darkPriest";
@@ -311,8 +312,9 @@ function resolveEnemyPhaseHit(
     effectiveDef === basePlayer.def
       ? basePlayer
       : { ...basePlayer, def: effectiveDef };
-  const applyTier6Dodge = (next: BattleState): BattleState =>
-    next.stacks.tier6Uniques
+  const applyTier6Dodge = (next: BattleState): BattleState => {
+    next = markBossUniqueDodgePve(next);
+    return next.stacks.tier6Uniques
       ? applyTier6UniquePveEvent(next, player, {
           kind: "dodge",
           origin: {
@@ -321,6 +323,7 @@ function resolveEnemyPhaseHit(
           },
         })
       : next;
+  };
   // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
   // 출혈의 미러. threshold 이상부터 발동. 스택은 적 chill 공격 적중 시 누적(아래 적 공격부).
   // 이미 몸에 스민 추위는 천뢰 일격 silence 와 무관하게 틱한다.

@@ -17,6 +17,7 @@ import { combatRandom } from "./combatRandom";
 import { applyPlayerPoisonDamageScaling, applyV2DotsToTarget, damageBetween, decrementTimedBuffs, defaultV2MaxMpFor, healingAfterReceivedMultiplier, makeBleedDot, potionHealAmount, rollAttackCount, v2AtkBuffMult, v2DefBuffMult, type V2SkillCastResult, type V2SkillDotApply } from "./combatShared";
 import { BOSS_MAX_HP_DAMAGE_MULT } from "./engineState";
 import { hasUnexploredEffect } from "./unexploredSetPveAdapter";
+import { initialBossUniquePve } from "./unexploredBossUniquePveAdapter";
 import { reducedMagicDefense } from "./engine.damageHelpers";
 import { applyEnchantRegenIfAny, applyPassiveTurnHealIfAny, applyRegenIfAny } from "./engine.pveRecovery";
 import { applyColonyRegenerationPve } from "./engine.skillHealing";
@@ -673,9 +674,17 @@ export function initialBattleState(
     player.equipSignatures,
     player.maxHp,
   );
+  const bossUnique = initialBossUniquePve(player);
   const startShield =
     bulwarkStart + barrierStart + (sigStartShield?.amount ?? 0) +
-    (hasUnexploredEffect(player, "mana_redeployment") ? Math.floor(player.maxHp * 0.08) : 0);
+    (hasUnexploredEffect(player, "mana_redeployment") ? Math.floor(player.maxHp * 0.08) : 0) +
+    (bossUnique?.startShield ?? 0);
+  if (bossUnique && bossUnique.runtime.bulwarkShield > 0) {
+    log.push({ kind: "info", text: `[불괴 방벽] 방벽 ${bossUnique.runtime.bulwarkShield} 전개` });
+  }
+  if (bossUnique && bossUnique.startShield > bossUnique.runtime.bulwarkShield) {
+    log.push({ kind: "info", text: `[장갑판] 보호막 ${bossUnique.startShield - bossUnique.runtime.bulwarkShield} 전개` });
+  }
   if (bulwarkStart > 0) {
     log.push({ kind: "info", text: `[철벽] 보호막 ${bulwarkStart} 전개` });
   }
@@ -712,6 +721,7 @@ export function initialBattleState(
     .tripleWardRank;
   return {
     enemy,
+    ...(bossUnique ? { unexploredBossRuntime: bossUnique.runtime } : {}),
     ...(player.unexploredSetEffects?.length ? {
       unexploredSetRuntime: {
         ...initialUnexploredSetRuntime(), battleStartDef: player.def,

@@ -71,7 +71,8 @@ export type BossUniqueRuntime = {
   eternalFrenzy: boolean;
   pendingHastePct: number;
   actionDamaged: boolean;
-  actionDodged: boolean;
+  /** 이번 적 행동에서 회피로 줄인 피해 비율의 최댓값(완전 회피 = 1). */
+  actionEvadedFraction: number;
 };
 
 export type BossUniqueCommand =
@@ -124,7 +125,7 @@ export function initialBossUniqueRuntime(
       eternalFrenzy: false,
       pendingHastePct: 0,
       actionDamaged: false,
-      actionDodged: false,
+      actionEvadedFraction: 0,
     },
     startShield: bulwark + magisteel,
   };
@@ -236,10 +237,11 @@ export function finishBossUniqueAttack(
 /** 적의 타격마다 한 번. shieldAfter는 이 타격 뒤 남은 공용 보호막이다. */
 export function recordBossUniqueHit(
   runtime: BossUniqueRuntime,
-  hit: { fullyEvaded: boolean; hpDamage: number; shieldAbsorbed: number; shieldAfter: number },
+  hit: { fullyEvaded: boolean; evadedFraction: number; hpDamage: number; shieldAbsorbed: number; shieldAfter: number },
 ): BossUniqueRuntime {
-  if (hit.fullyEvaded) return runtime.actionDodged ? runtime : { ...runtime, actionDodged: true };
-  let next = runtime;
+  const evaded = hit.fullyEvaded ? 1 : Math.min(1, Math.max(0, hit.evadedFraction || 0));
+  let next = evaded > runtime.actionEvadedFraction ? { ...runtime, actionEvadedFraction: evaded } : runtime;
+  if (hit.fullyEvaded) return next;
   if (hit.hpDamage + hit.shieldAbsorbed > 0 && !next.actionDamaged) {
     next = { ...next, actionDamaged: true };
   }
@@ -313,8 +315,8 @@ export function finishBossUniqueEnemyAction(
       next = { ...next, targetChill: Math.min(CHILL_MAX, next.targetChill + 1) };
     }
   }
-  if (next.actionDodged && has(effects, "phantom_haste")) {
-    next = { ...next, pendingHastePct: PHANTOM_HASTE_PCT };
+  if (next.actionEvadedFraction > 0 && has(effects, "phantom_haste")) {
+    next = { ...next, pendingHastePct: Math.max(next.pendingHastePct, PHANTOM_HASTE_PCT * next.actionEvadedFraction) };
   }
   if (next.bulwarkBrokePending) {
     commands.push({
@@ -328,7 +330,7 @@ export function finishBossUniqueEnemyAction(
     commands.push({ kind: "shield", label: "봉인 결계", amount: scale(pctOf(input.maxHp, SEAL_SHIELD_PCT)) });
     next = { ...next, sealCharges: next.sealCharges - 1 };
   }
-  return { runtime: { ...next, actionDamaged: false, actionDodged: false }, commands };
+  return { runtime: { ...next, actionDamaged: false, actionEvadedFraction: 0 }, commands };
 }
 
 /** 받는 피해 보정. shield는 이 피해를 받을 때 남아 있는 공용 보호막이다. */
@@ -387,9 +389,8 @@ export function bossUniqueTargetSpeedMult(runtime: BossUniqueRuntime | undefined
 
 export function bossUniqueResourceSnapshot(
   runtime: BossUniqueRuntime | undefined,
-  effects: Effects,
 ): Record<string, string> | undefined {
-  if (!runtime || !effects?.length) return undefined;
+  if (!runtime) return undefined;
   const out: Record<string, string> = {};
   if (runtime.orbitCalc > 0) out.unexploredBossOrbit = `궤도 ${runtime.orbitCalc}/${TRACKING_EDGE_MAX}`;
   if (runtime.pursuit > 0) out.unexploredBossPursuit = `추적 ${runtime.pursuit}/${ORBIT_PURSUIT_MAX}`;

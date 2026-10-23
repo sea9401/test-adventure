@@ -87,6 +87,8 @@ export type InboxPayload =
       instance?: EquipmentInstance;
     }
   | { kind: "user_message"; text: string }
+  // 길드 마스터·관리자가 길드원 전체에 보낸 쪽지. 발송 시각(createdAt)이 같은 행끼리 한 번의 발송.
+  | { kind: "guild_message"; text: string; guild_id: number; guild_name: string }
   | { kind: "recipe_gift"; recipe_id: string; recipe_name: string }
   | {
       kind: "guild_invite";
@@ -147,6 +149,7 @@ const KINDS = new Set<string>([
   "cancel_return",
   "listing_expired",
   "user_message",
+  "guild_message",
   "recipe_gift",
   "guild_invite",
   "guild_quest_reward",
@@ -243,6 +246,13 @@ export function parseInboxPayload(
       if (text == null) return null;
       return { kind, text };
     }
+    case "guild_message": {
+      const text = asString(p.text);
+      const guild_id = asNonNegInt(p.guild_id);
+      const guild_name = asString(p.guild_name);
+      if (text == null || guild_id == null || !guild_name) return null;
+      return { kind, text, guild_id, guild_name };
+    }
     case "price_alert": {
       const text = asString(p.text);
       if (text == null) return null;
@@ -334,6 +344,7 @@ export function inboxClaimState(
 
   switch (parsed.kind) {
     case "user_message":
+    case "guild_message":
     case "price_alert":
       return "none";
     case "guild_invite":
@@ -387,6 +398,7 @@ type InboxInsertValues = {
   fromUserId?: string | null;
   fromName?: string | null;
   claimedAt?: Date | null;
+  createdAt?: Date;
 };
 
 export function inboxValues(args: {
@@ -397,6 +409,7 @@ export function inboxValues(args: {
   fromUserId?: string | null;
   fromName?: string | null;
   claimedAt?: Date | null;
+  createdAt?: Date;
 }): InboxInsertValues {
   const { payload, ...rest } = args;
   const { kind, ...body } = payload;

@@ -225,6 +225,40 @@ describe("unexplored service", () => {
     expect(result.snapshot.spentPoints).toBe(1);
   });
 
+  it("reorders which risk node fills the 120 cap for free and keeps the preset in sync", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selectedNodeIds = ["start", ...difficultyIds];
+    const lastId = difficultyIds.at(-1)!;
+    const result = applyUnexploredMutation(character({
+      unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds }),
+    }), { action: "difficulty_order", nodeId: lastId, placement: "first" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.character.gold).toBe(1_000_000);
+    expect(result.character.unexplored.selectedNodeIds.slice(0, 2)).toEqual(["start", lastId]);
+    expect(result.character.unexplored.nodePresets[0]).toEqual(
+      result.character.unexplored.selectedNodeIds,
+    );
+    expect(result.snapshot.difficulty).toBe(120);
+    expect(result.snapshot.effects.difficultyApplication[lastId]?.applied).toBeGreaterThan(0);
+
+    expect(
+      applyUnexploredMutation(character({
+        unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds: ["start", "inner-0-0"] }),
+      }), { action: "difficulty_order", nodeId: "inner-0-0", placement: "last" }),
+    ).toMatchObject({ ok: false, error: "not_difficulty_node" });
+    expect(
+      applyUnexploredMutation(character({ level: 99 }), {
+        action: "difficulty_order",
+        nodeId: lastId,
+        placement: "first",
+      }),
+    ).toMatchObject({ ok: false, error: "level_required" });
+  });
+
   it("catalogue fixture still contains nodes used by the service tests", () => {
     expect(UNEXPLORED_NODES.some((node) => node.id === "sector-medium-5")).toBe(true);
   });

@@ -816,7 +816,7 @@ export const DANGEROUS_FISHING_MATERIALS: Record<
         {
           id,
           name: `${boss.name}의 증표`,
-          description: `${boss.name} 공동 제압에 기여한 낚시꾼에게 주어지는 증표. 최상급 전용 장비와 한정 꾸미기 교환 또는 거래소에서 사용한다.`,
+          description: `${boss.name} 공동 제압에 기여한 낚시꾼에게 주어지는 증표. 최상급 전용 장비·한정 꾸미기·제작소 재료 교환 또는 거래소에서 사용한다.`,
         },
       ];
     }),

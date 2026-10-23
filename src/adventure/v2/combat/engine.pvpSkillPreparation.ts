@@ -3,6 +3,7 @@ import { type UnexploredAttackContext } from "./unexploredSetEffects";
 import { setSide } from "./engine.pvpSide";
 import { preparePvPSkillCast } from "./engine.pvpSkillInput";
 import { unexploredDefensePvP } from "./unexploredSetPvpAdapter";
+import { peekBossUniqueDefenseMultPvp } from "./unexploredBossUniquePvpAdapter";
 
 export function beginPvPSkillCast(state: PvPBattleState, who: "p1" | "p2") {
   const sideStart = state[who];
@@ -12,7 +13,9 @@ export function beginPvPSkillCast(state: PvPBattleState, who: "p1" | "p2") {
   st = setSide({ ...st, log: preLog }, who, sideStart);
   const side = st[who];
   const opp = st[otherKey];
-  const directContext: UnexploredAttackContext = { kind: "direct_skill", mpActuallySpent: 0, hit: false, anyCrit: false, multiHitIndex: 0, multiHitCount: 1 };
+  const bossDefenseMult = peekBossUniqueDefenseMultPvp(side);
+  const directContext: UnexploredAttackContext = { kind: "direct_skill", mpActuallySpent: 0, hit: false, anyCrit: false, multiHitIndex: 0, multiHitCount: 1,
+    ...(bossDefenseMult !== 1 ? { bossDefenseMult } : {}) };
   const {
     tier6UnityMult,
     tier6UnityMagicAtk,

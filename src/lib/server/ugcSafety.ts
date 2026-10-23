@@ -85,6 +85,11 @@ export async function usersCannotInteract(
   return Boolean(row);
 }
 
+function inboxPayloadText(payload: unknown): string {
+  const text = (payload as { text?: unknown } | null)?.text;
+  return typeof text === "string" ? text : "";
+}
+
 export async function resolveUgcSource(
   viewerUserId: string,
   sourceType: UgcSourceType,
@@ -286,6 +291,7 @@ export async function resolveUgcSource(
         senderName: marketplaceInbox.fromName,
         kind: marketplaceInbox.kind,
         message: marketplaceInbox.message,
+        payload: marketplaceInbox.payload,
         createdAt: marketplaceInbox.createdAt,
       })
       .from(marketplaceInbox)
@@ -293,7 +299,7 @@ export async function resolveUgcSource(
       .limit(1);
     if (
       !row ||
-      row.kind !== "user_message" ||
+      (row.kind !== "user_message" && row.kind !== "guild_message") ||
       row.recipientUserId !== viewerUserId ||
       !row.senderUserId ||
       !row.senderName
@@ -305,7 +311,8 @@ export async function resolveUgcSource(
       sourceId: String(validNumericSourceId),
       targetUserId: row.senderUserId,
       targetName: row.senderName,
-      contentSnapshot: row.message ?? "",
+      // 쪽지 본문은 message 컬럼이 아니라 payload.text 에 저장된다.
+      contentSnapshot: row.message || inboxPayloadText(row.payload),
       contextSnapshot: { createdAt: row.createdAt.toISOString() },
     };
   }

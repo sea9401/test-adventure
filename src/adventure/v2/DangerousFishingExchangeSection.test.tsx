@@ -127,6 +127,7 @@ function exchangeModel(): DangerousFishingExchangeViewModel {
     ],
     ownedTitleIds: [],
     ownedCosmeticIds: [],
+    weeklySunstone: { limit: 5, used: 0, remaining: 5 },
     entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => ({
       ...entry,
       alreadyOwned: entry.id === "token_maelstrom_reel",
@@ -507,7 +508,44 @@ describe("위험 해역 교환 UI", () => {
     expect(html).toContain("핏빛 미끼 10개");
   });
 
+  it("증표 제작 재료 교환 묶음과 이번 주 태양석 한도를 표시한다", () => {
+    const model = exchangeModel();
+    const render = (next: DangerousFishingExchangeViewModel) =>
+      renderToStaticMarkup(
+        <DangerousFishingExchangeSection
+          model={next}
+          loading={false}
+          error={null}
+          exchanging={null}
+          onRefresh={vi.fn(async () => true)}
+          onExchange={vi.fn(async () => ({ ok: true, message: "완료" }))}
+        />,
+      );
+    const html = render(model);
+    expect(html).toContain("제작 재료 교환");
+    expect(html).toContain("이번 주 태양석 교환 0/5개");
+    expect(html).toContain("해일의 거신의 증표 3개");
+    expect(html).toContain("태양석 1개");
+    expect(html).toContain("심해성철 3개");
+
+    const exhausted = render({
+      ...model,
+      weeklySunstone: { limit: 5, used: 5, remaining: 0 },
+    });
+    expect(exhausted).toContain("이번 주 태양석 교환 5/5개");
+  });
+
+  it("응답에 주간 태양석 한도가 없으면 교환 목록을 신뢰하지 않는다", async () => {
+    const { weeklySunstone: _omit, ...legacy } = exchangeModel();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(legacy)));
+    const hook = renderHook(() => useDangerousFishingExchange());
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    expect(hook.result.current.model).toBeNull();
+    expect(hook.result.current.error).toContain("불러오지 못했다");
+  });
+
   it("교환 오류를 다음 행동이 드러나는 문장으로 바꾼다", () => {
+    expect(dangerousFishingExchangeMessage(false, "weekly_limit")).toContain("이번 주");
     expect(dangerousFishingExchangeMessage(false, "insufficient_materials")).toContain("재료");
     expect(dangerousFishingExchangeMessage(false, "insufficient_coins")).toContain("코인");
     expect(dangerousFishingExchangeMessage(false, "already_owned")).toContain("보유");

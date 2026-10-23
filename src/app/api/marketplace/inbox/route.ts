@@ -4,7 +4,6 @@ import {
   eq,
   isNotNull,
   isNull,
-  ne,
   notExists,
   notInArray,
   or,
@@ -15,6 +14,7 @@ import { marketplaceInbox, userBlocks, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   ANONYMOUS_MARKETPLACE_MAIL_KINDS,
+  PERSONAL_MESSAGE_KINDS,
   visibleInboxSenderName,
 } from "@/lib/server/inboxPrivacy";
 import { inboxClaimState } from "@/lib/server/inboxPayload";
@@ -24,7 +24,7 @@ const HISTORY_LIMIT = 100;
 
 function visiblePersonalMessageWhere(userId: string) {
   return or(
-    ne(marketplaceInbox.kind, "user_message"),
+    notInArray(marketplaceInbox.kind, [...PERSONAL_MESSAGE_KINDS]),
     isNull(marketplaceInbox.fromUserId),
     notExists(
       db

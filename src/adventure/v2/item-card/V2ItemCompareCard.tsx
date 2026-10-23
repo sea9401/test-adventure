@@ -33,6 +33,7 @@ import {
   unexploredTagSetBonusDescription,
   powerNameClass,
   type ItemCardLockAction,
+  bossUniqueEffectText,
 } from "./shared";
 import {
   useEquipmentPowerPreview,
@@ -438,6 +439,11 @@ export function V2ItemCompareCard({
             {candidate.item.signature && (
               <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                 ★ {signatureLabel(candidate.item.signature)}
+              </p>
+            )}
+            {bossUniqueEffectText(candidate.item) && (
+              <p className="text-xs font-medium leading-relaxed text-amber-600 dark:text-amber-400">
+                {bossUniqueEffectText(candidate.item)}
               </p>
             )}
           </div>

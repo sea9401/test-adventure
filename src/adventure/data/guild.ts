@@ -73,6 +73,11 @@ export const NATION_NAME_MAX = 16;
 
 // 소개글 — 마스터가 자유롭게 적는 짧은 한 줄. 빈 문자열 = 미설정.
 export const GUILD_DESCRIPTION_MAX = 120;
+
+// 길드 쪽지 — 마스터·관리자가 길드원 전체 우편함으로 한 번에 보내는 쪽지(건의 #799).
+// 길이는 1:1 쪽지와 같고, 발송 횟수는 마스터·관리자가 함께 쓰는 길드 단위 24시간 한도.
+export const GUILD_MESSAGE_MAX_LENGTH = 200;
+export const GUILD_MESSAGE_DAILY_LIMIT = 3;
 const GUILD_NAME_REGEX = /^[\p{L}\p{N} ]+$/u;
 const GUILD_NAME_BANNED_WORDS = ["운영자", "관리자", "admin", "system"];
 

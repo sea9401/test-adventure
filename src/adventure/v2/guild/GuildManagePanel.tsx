@@ -28,6 +28,7 @@ import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
 import { GuildLevelUpgradePanel } from "./GuildLevelUpgradePanel";
 import { GuildEmblemImage } from "./GuildEmblemImage";
+import { GuildMessageComposer } from "./GuildMessageComposer";
 import {
   fmtDate,
   type GuildInfoResponse,
@@ -529,6 +530,14 @@ export function GuildManagePanel({
             </button>
           </div>
         </div>
+      )}
+
+      {activeManageTab === "members" && guildId != null && (
+        <GuildMessageComposer
+          acting={acting}
+          setActing={setActing}
+          setNotice={setNotice}
+        />
       )}
 
       {/* ── 길드 설정: 소개 · 엠블럼 · 위험 구역(해산) ── */}

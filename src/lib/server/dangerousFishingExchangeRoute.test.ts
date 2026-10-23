@@ -1010,4 +1010,113 @@ describe("위험 해역 교환 Route Handler", () => {
       ]),
     });
   });
+
+  describe("증표 제작 재료 교환 (#804)", () => {
+    const tidal = dangerousBossMaterialId("tidal_colossus");
+    const abyss = dangerousBossMaterialId("abyss_kraken");
+    const sunstone = "v2_craft_sunstone";
+    const starsteel = "v2_craft_abyssal_starsteel";
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1_000;
+
+    it("해일 증표 3개로 태양석 1개를 주고 주간 사용량을 기록한다", async () => {
+      seedUnlocked({ [tidal]: 7, [sunstone]: 2 });
+      const response = await POST(exchangeRequest(requestBody({
+        entryId: "token_tidal_to_sunstone",
+        batches: 2,
+      })));
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      expect(savedCharacter().materials).toEqual({ [tidal]: 1, [sunstone]: 4 });
+      expect(payload.weeklySunstone).toEqual({ limit: 5, used: 2, remaining: 3 });
+      expect(payload.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "token_tidal_to_sunstone", maxBatches: 0 }),
+      ]));
+    });
+
+    it("심연 증표 2개로 태양석, 증표 1개로 심해성철 2·3개를 교환한다", async () => {
+      seedUnlocked({ [tidal]: 4, [abyss]: 4 });
+      expect((await POST(exchangeRequest(requestBody({
+        entryId: "token_abyss_to_sunstone",
+      })))).status).toBe(200);
+      expect((await POST(exchangeRequest(requestBody({
+        operationId: "b0f3c0de-6b51-4d38-9a43-1b2a37f0c001",
+        entryId: "token_tidal_to_starsteel",
+        batches: 4,
+      })))).status).toBe(200);
+      expect((await POST(exchangeRequest(requestBody({
+        operationId: "b0f3c0de-6b51-4d38-9a43-1b2a37f0c002",
+        entryId: "token_abyss_to_starsteel",
+        batches: 2,
+      })))).status).toBe(200);
+      expect(savedCharacter().materials).toEqual({ [sunstone]: 1, [starsteel]: 14 });
+    });
+
+    it("주간 태양석 한도를 넘는 요청은 아무것도 차감하지 않고 거절한다", async () => {
+      seedUnlocked({ [tidal]: 30, [abyss]: 30 });
+      expect((await POST(exchangeRequest(requestBody({
+        entryId: "token_tidal_to_sunstone",
+        batches: 4,
+      })))).status).toBe(200);
+      const over = await POST(exchangeRequest(requestBody({
+        operationId: "b0f3c0de-6b51-4d38-9a43-1b2a37f0c003",
+        entryId: "token_abyss_to_sunstone",
+        batches: 2,
+      })));
+      expect(over.status).toBe(409);
+      await expect(over.json()).resolves.toMatchObject({
+        error: "weekly_limit",
+        weeklySunstone: { limit: 5, used: 4, remaining: 1 },
+      });
+      expect(savedCharacter().materials).toEqual({
+        [tidal]: 18,
+        [abyss]: 30,
+        [sunstone]: 4,
+      });
+      const view = await (await GET()).json();
+      expect(view.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "token_abyss_to_sunstone", maxBatches: 1 }),
+        expect.objectContaining({ id: "token_tidal_to_starsteel", maxBatches: 18 }),
+      ]));
+    });
+
+    it("주가 바뀌면 태양석 사용량을 0부터 다시 센다", async () => {
+      seedUnlocked({ [tidal]: 30 });
+      expect((await POST(exchangeRequest(requestBody({
+        entryId: "token_tidal_to_sunstone",
+        batches: 5,
+      })))).status).toBe(200);
+      vi.spyOn(Date, "now").mockReturnValue(NOW + WEEK_MS);
+      const view = await (await GET()).json();
+      expect(view.weeklySunstone).toEqual({ limit: 5, used: 0, remaining: 5 });
+      const next = await POST(exchangeRequest(requestBody({
+        operationId: "b0f3c0de-6b51-4d38-9a43-1b2a37f0c004",
+        entryId: "token_tidal_to_sunstone",
+        batches: 5,
+      })));
+      expect(next.status).toBe(200);
+      expect(savedCharacter().materials[sunstone]).toBe(10);
+    });
+
+    it("장비 강화와 다른 교환을 해도 이번 주 태양석 사용량은 유지된다", async () => {
+      seedOwnedBreakerRod(
+        {
+          [tidal]: 9,
+          danger_catch_razor_sardine: 6,
+          danger_catch_ironjaw_tuna: 4,
+        },
+        10_000,
+      );
+      expect((await POST(exchangeRequest(requestBody({
+        entryId: "token_tidal_to_sunstone",
+        batches: 2,
+      })))).status).toBe(200);
+      expect((await POST(exchangeRequest(enhanceBody()))).status).toBe(200);
+      expect((await POST(exchangeRequest(requestBody({
+        operationId: "b0f3c0de-6b51-4d38-9a43-1b2a37f0c005",
+        entryId: "token_tidal_to_luminous_bait",
+      })))).status).toBe(200);
+      const view = await (await GET()).json();
+      expect(view.weeklySunstone).toEqual({ limit: 5, used: 2, remaining: 3 });
+    });
+  });
 });

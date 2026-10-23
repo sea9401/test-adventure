@@ -1,4 +1,6 @@
 import { EMBLEM_BOSS_DROP_COUNT, EMBLEM_DIFFICULTIES, EMBLEM_DROP_CHANCE, EMBLEM_GRADE_PCT, EMBLEM_GROWTH_MAX, EMBLEM_FUSION_CHANCE, type EmblemGrade } from "@/adventure/data/v2/emblems";
+import { UNEXPLORED_BOSSES } from "@/adventure/data/v2/unexploredBosses";
+import { unexploredBossUniqueEffectOf } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
   HUNT_COST,
@@ -379,12 +381,34 @@ export function HuntingContent() {
         <Em>SP 열매 VI</Em>를 0.005% 확률로 얻습니다. 특화 사냥의 장비 확률과는 별도이며
         드롭 배율·추가 복사·천장이 적용되지 않습니다. 사용 시 최대 SP +1, 종류별 사용 한도는 VI 기준 5회입니다.
       </P>
+      <H2>미개척지 개인 보스 고유 장비</H2>
+      <P>
+        개인 보스를 처치하면 고유 장비 세 종류를 각각 따로 판정합니다. 모든 고유 장비는
+        <Em>장비 하나만 착용해도 효과가 발동</Em>하며, 같은 보스의 장비를 함께 끼면 같은 자원을
+        나눠 써서 더 자주 터집니다. 효과는 사냥·보스·투기장에 똑같이 적용됩니다.
+      </P>
+      <Table
+        head={["보스", "장비", "확률", "효과"]}
+        rows={Object.values(UNEXPLORED_BOSSES).flatMap((boss) =>
+          boss.uniqueDrops.map((drop) => {
+            const effect = unexploredBossUniqueEffectOf(drop.equipmentId);
+            return [
+              boss.name,
+              drop.equipmentName,
+              `${drop.chancePct}%`,
+              effect ? `${effect.label}: ${effect.description}` : "",
+            ];
+          }),
+        )}
+      />
       <H2>난이도 노드와 120단 상한</H2>
       <P>
         난이도를 올리고 보상을 주는 노드는 기본 95단에서 최대 120단까지만 반영됩니다.
         먼저 찍은 노드부터 난이도를 채우고, 120단을 넘겨 찍은 노드는 경로만 연결하며
         보상은 적용되지 않습니다. 이런 노드는 탐사망에서 점선 테두리로 표시됩니다.
-        먼저 찍은 난이도 노드를 반환하면 그만큼 뒤에 찍은 노드의 보상이 반영됩니다.
+        반영 순서는 노드 상세에서 바꿀 수 있습니다. 점선 노드에서 <Em>먼저 반영</Em>을 누르면
+        그 노드부터 채우고, 반영된 노드에서 <Em>후순위로 미루기</Em>를 누르면 가장 나중에 채웁니다.
+        노드를 반환하지 않으므로 골드가 들지 않습니다.
         난이도가 붙지 않은 보상 노드는 120단에서도 그대로 쌓입니다.
       </P>
     </>

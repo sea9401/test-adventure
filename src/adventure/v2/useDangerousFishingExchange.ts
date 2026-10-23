@@ -48,7 +48,14 @@ export type DangerousFishingExchangeViewModel = {
   enhancementItems: DangerousFishingEnhancementItemView[];
   ownedTitleIds: string[];
   ownedCosmeticIds: string[];
+  weeklySunstone: DangerousFishingWeeklySunstone;
   entries: DangerousFishingExchangeEntryView[];
+};
+
+export type DangerousFishingWeeklySunstone = {
+  limit: number;
+  used: number;
+  remaining: number;
 };
 
 export type DangerousFishingEnhancementCost = {
@@ -110,6 +117,7 @@ export function dangerousFishingExchangeMessage(
   if (error === "insufficient_materials") return "교환에 필요한 재료가 부족하다.";
   if (error === "insufficient_coins") return "교환에 필요한 낚시 코인이 부족하다.";
   if (error === "already_owned") return "이미 보유한 보상이다.";
+  if (error === "weekly_limit") return "이번 주 태양석 교환 한도를 모두 사용했다. 다음 주 월요일에 다시 열린다.";
   if (error === "invalid_material_selection") return "납품할 어획물 구성이 올바르지 않다.";
   if (error === "invalid_quantity") return "교환 횟수를 다시 확인해 주세요.";
   if (error === "invalid_entry" || error === "bad_request") return "교환할 수 없는 항목이다.";
@@ -248,6 +256,20 @@ function readCountRecord(
   return result;
 }
 
+function readWeeklySunstone(raw: unknown): DangerousFishingWeeklySunstone | null {
+  if (!isRecord(raw) || !hasExactKeys(raw, ["limit", "used", "remaining"])) return null;
+  const { limit, used, remaining } = raw;
+  if (
+    !isSafeNonnegativeInteger(limit) ||
+    !isSafeNonnegativeInteger(used) ||
+    !isSafeNonnegativeInteger(remaining) ||
+    remaining !== Math.max(0, limit - used)
+  ) {
+    return null;
+  }
+  return { limit, used, remaining };
+}
+
 function readEnhancementCost(raw: unknown, level: 1 | 2 | 3) {
   if (!sameData(raw, DANGEROUS_GEAR_ENHANCEMENT_COSTS[level])) return null;
   return DANGEROUS_GEAR_ENHANCEMENT_COSTS[level];
@@ -260,8 +282,10 @@ function parseExchangeView(
   if (!isRecord(raw)) return null;
   const view = raw;
   const materials = readDangerousMaterialBalances(view.materials);
+  const weeklySunstone = readWeeklySunstone(view.weeklySunstone);
   if (
     view.ok !== expectedOk ||
+    !weeklySunstone ||
     typeof view.unlocked !== "boolean" ||
     !isSafeNonnegativeInteger(view.requiredLevel) ||
     !isSafeNonnegativeInteger(view.fishingLevel) ||
@@ -436,6 +460,7 @@ function parseExchangeView(
     enhancementItems,
     ownedTitleIds,
     ownedCosmeticIds,
+    weeklySunstone,
     entries,
   };
 }

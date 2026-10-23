@@ -29,7 +29,11 @@ import {
   emptyProficiency,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { validateLoadout } from "@/adventure/data/v2/v2Loadout";
+import {
+  currentJobSpBudget,
+  sanitizeCombatLoadout,
+} from "@/lib/server/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import { COMBAT_LOADOUT_PRESETS_KEY } from "@/lib/storage-keys";
@@ -42,10 +46,43 @@ type CurrentCombatLoadout = {
   equipment: ReturnType<typeof parseEquipmentSave>["equipped"];
 };
 
+// 프리셋 비용은 현재 학습 상태 기준(원소 공명 할인 포함)으로 센다. 배우지 않은 스킬도 비용에 넣어
+// 적용하면 빠질 몫까지 보이게 한다.
+function spSummary(
+  presets: CombatLoadoutPresetSlots,
+  skills: V2SkillsState,
+  budget: number,
+) {
+  const used = (equipped: V2SkillsState["equipped"]) =>
+    validateLoadout(equipped, skills.learned, budget).spUsed;
+  return {
+    budget,
+    currentUsed: used(skills.equipped),
+    presetUsed: presets.map((preset) => (preset ? used(preset.skills) : null)),
+  };
+}
+
+async function readSpBudget(executor: DbExecutor, userId: string) {
+  const [character, proficiencyRaw, codexBonus, jobUnlockCtx] =
+    await Promise.all([
+      readSave(executor, userId, "character.v2", {}),
+      readSave(executor, userId, "proficiency.v2", emptyProficiency()),
+      readCodexSpBonus(executor, userId),
+      readJobUnlockContext(executor, userId),
+    ]);
+  return currentJobSpBudget(
+    character,
+    proficiencyRaw,
+    codexBonus.total,
+    jobUnlockCtx,
+  );
+}
+
 function stateResponse(
   presets: CombatLoadoutPresetSlots,
   skillsRaw: unknown,
   equipmentRaw: unknown,
+  spBudget: number,
 ) {
   const skills = parseV2SkillsState(skillsRaw);
   const { equipped } = parseEquipmentSave(equipmentRaw);
@@ -62,6 +99,7 @@ function stateResponse(
     presets,
     activeSlot: activeIndex >= 0 ? activeIndex : null,
     current,
+    sp: spSummary(presets, skills, spBudget),
   };
 }
 
@@ -78,15 +116,17 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [presetsRaw, current] = await Promise.all([
+  const [presetsRaw, current, spBudget] = await Promise.all([
     readSave(db, userId, COMBAT_LOADOUT_PRESETS_KEY, []),
     readCurrent(db, userId),
+    readSpBudget(db, userId),
   ]);
   return Response.json(
     stateResponse(
       parseCombatLoadoutPresets(presetsRaw),
       current.skillsRaw,
       current.equipmentRaw,
+      spBudget,
     ),
   );
 }
@@ -170,7 +210,12 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, COMBAT_LOADOUT_PRESETS_KEY, parsedNext);
       return {
         status: 200,
-        body: stateResponse(parsedNext, skills, equipmentRaw),
+        body: stateResponse(
+          parsedNext,
+          skills,
+          equipmentRaw,
+          await readSpBudget(tx, userId),
+        ),
       };
     }
 
@@ -181,7 +226,12 @@ export async function POST(req: Request) {
       const current = await readCurrent(tx, userId);
       return {
         status: 200,
-        body: stateResponse(next, current.skillsRaw, current.equipmentRaw),
+        body: stateResponse(
+          next,
+          current.skillsRaw,
+          current.equipmentRaw,
+          await readSpBudget(tx, userId),
+        ),
       };
     }
 
@@ -220,12 +270,14 @@ export async function POST(req: Request) {
     const skills = parseV2SkillsState(skillsRaw);
     const equipmentSave = parseEquipmentSave(equipmentRaw);
     const eligibleSkills = eligiblePresetSkills(preset, skills.learned);
+    const codexSpBonus = (await readCodexSpBonus(tx, userId)).total;
+    const jobUnlockCtx = await readJobUnlockContext(tx, userId);
     const sanitized = sanitizeCombatLoadout(
       { ...skills, equipped: eligibleSkills.skills },
       character,
       proficiencyRaw,
-      (await readCodexSpBonus(tx, userId)).total,
-      await readJobUnlockContext(tx, userId),
+      codexSpBonus,
+      jobUnlockCtx,
       "strict",
     );
     const finalSkillSet = new Set(sanitized.equipped);
@@ -271,7 +323,17 @@ export async function POST(req: Request) {
     return {
       status: 200,
       body: {
-        ...stateResponse(presets, nextSkills, nextEquipment),
+        ...stateResponse(
+          presets,
+          nextSkills,
+          nextEquipment,
+          currentJobSpBudget(
+            character,
+            proficiencyRaw,
+            codexSpBonus,
+            jobUnlockCtx,
+          ),
+        ),
         excluded: {
           skillIds: [...new Set(excludedSkillIds)],
           equipmentIids: eligibleEquipment.unavailableEquipmentIids,

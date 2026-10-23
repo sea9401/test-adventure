@@ -186,7 +186,7 @@ export function dangerousFishingBossClaimFeedback(
     scope: "boss",
     tone: "success",
     title: `${bossName} 보상 수령`,
-    detail: `낚시 코인 +${coins.toLocaleString()} · 거대어 증표 +${materialCount.toLocaleString()} · 전용 장비·미끼·칭호·꾸미기 교환에 사용할 수 있습니다.`,
+    detail: `낚시 코인 +${coins.toLocaleString()} · 거대어 증표 +${materialCount.toLocaleString()} · 전용 장비·미끼·칭호·꾸미기·제작 재료 교환에 사용할 수 있습니다.`,
     terminal: true,
   };
 }

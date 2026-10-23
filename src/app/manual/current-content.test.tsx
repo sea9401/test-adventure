@@ -575,6 +575,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("은행 예치금");
     expect(html).toContain("거래소에서도 계속 거래");
     expect(html).toContain("거대어 증표 교환 경로는 그대로");
+    expect(html).toContain("10%마다 증표 1개·낚시 코인 20");
+    expect(html).toContain("태양석은 두 증표를 합쳐 주마다 5개까지");
     expect(html).toContain("일간·주간·월간 단위로 초기화되지 않습니다");
     expect(html).toContain("기존 세 가지 조작으로 완료");
     expect(html).toContain("제한 시간이 지나면 정상적으로 만료");
@@ -653,6 +655,19 @@ describe("최신 게임 안내서 내용", () => {
     expect(skills).toContain(`계승 공격은 ${shadowCore.inheritedRecordPct}%`);
     expect(skills).toContain("검의가 정확히 3개");
     expect(skills).toContain("다음 행동 기회에 자동 해방");
+  });
+
+  it("미개척지 개인 보스 고유 장비 18종의 효과를 장비 데이터 그대로 안내한다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+    expect(hunting).toContain("미개척지 개인 보스 고유 장비");
+    expect(hunting).toContain("장비 하나만 착용해도 효과가 발동");
+    expect(hunting).toContain("영겁의 생명핵");
+    expect(hunting).toContain("쓰러질 피해를 받으면 쓰러지지 않고 최대 HP 35%");
+    expect(hunting).toContain("직접 공격 적중 시 대상 혹한 +3");
+    const section = hunting.slice(hunting.indexOf("미개척지 개인 보스 고유 장비"));
+    for (const name of ["추적날 단검", "부패하지 않는 심장", "불괴의 성채갑", "무한초점 수정안", "맥동 광전완갑"]) {
+      expect(section).toContain(name);
+    }
   });
 
   it("태초의 성소 일괄 진행 규칙을 안내한다", () => {

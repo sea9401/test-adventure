@@ -9,6 +9,9 @@ export const ANONYMOUS_MARKETPLACE_MAIL_KINDS = [
   "buy_order_equipment",
 ] as const;
 
+// 사람이 쓴 쪽지. 받는 사람이 발신자를 차단하면 우편함·미확인 수에서 숨긴다.
+export const PERSONAL_MESSAGE_KINDS = ["user_message", "guild_message"] as const;
+
 export function isAnonymousMarketplaceMail(kind: string): boolean {
   return ANONYMOUS_MARKETPLACE_MAIL_KINDS.some(
     (anonymousKind) => anonymousKind === kind,

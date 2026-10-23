@@ -291,6 +291,41 @@ describe("V2UnexploredTreeView", () => {
     expect(screen.getByText(/120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고/)).toBeTruthy();
   });
 
+  it("상한에 걸린 난이도 노드에서 먼저 반영을 누르면 반영 순서 변경을 요청한다", async () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selectedNodeIds = [
+      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+    ];
+    const lastId = difficultyIds.at(-1)!;
+    const initialSnapshot = {
+      ...SNAPSHOT,
+      earnedPoints: 160,
+      spentPoints: selectedNodeIds.length,
+      selectedNodeIds,
+    };
+    const fetchMock = vi.fn(async () => Response.json({ ok: true, snapshot: initialSnapshot }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={initialSnapshot} onBack={vi.fn()} />,
+    );
+
+    fireEvent.click(container.querySelector(`[data-unexplored-node="${difficultyIds[0]}"]`)!);
+    expect(screen.getByRole("button", { name: "후순위로 미루기" })).toBeTruthy();
+
+    fireEvent.click(container.querySelector(`[data-unexplored-node="${lastId}"]`)!);
+    fireEvent.click(screen.getByRole("button", { name: "먼저 반영" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v2/unexplored", expect.objectContaining({
+      body: JSON.stringify({
+        action: "difficulty_order",
+        nodeId: lastId,
+        placement: "first",
+        expectedPresetIndex: 0,
+      }),
+    })));
+  });
+
   it("특화 노드를 선택하면 연결 몬스터와 획득 가능한 전용 아이템을 표시한다", () => {
     const { container } = render(
       <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,

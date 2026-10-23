@@ -9,6 +9,10 @@ import {
   type DangerousReelId,
   type DangerousRodId,
 } from "@/adventure/data/v2/dangerousFishing";
+import {
+  GUILD_WORKSHOP_MATERIAL_ID,
+  type GuildWorkshopMaterialId,
+} from "@/adventure/data/v2/guildWorkshopMaterials";
 
 export const DANGEROUS_TIDAL_TITLE_ID = "dangerous_tidal_conqueror";
 export const DANGEROUS_ABYSS_TITLE_ID = "dangerous_abyss_conqueror";
@@ -23,7 +27,8 @@ export type DangerousFishingExchangeOutput =
       gearId: DangerousRodId | DangerousReelId | DangerousLineId;
     }
   | { kind: "title"; titleId: string }
-  | { kind: "cosmetic"; itemId: string };
+  | { kind: "cosmetic"; itemId: string }
+  | { kind: "material"; materialId: GuildWorkshopMaterialId; count: number };
 
 export type DangerousFishingExchangeCost =
   | { kind: "catch"; rarity: DangerousFishRarity; count: number }
@@ -44,6 +49,9 @@ export type DangerousFishingExchangeEntry = {
 
 const tidalTokenId = dangerousBossMaterialId("tidal_colossus");
 const abyssTokenId = dangerousBossMaterialId("abyss_kraken");
+
+// 건의 #804: 증표를 본편 제작소 재료로 반복 교환한다. 태양석만 주간 합산 한도를 둔다.
+export const DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT = 5;
 
 export const DANGEROUS_FISHING_EXCHANGE_ENTRIES: readonly DangerousFishingExchangeEntry[] = [
   {
@@ -181,7 +189,81 @@ export const DANGEROUS_FISHING_EXCHANGE_ENTRIES: readonly DangerousFishingExchan
     output: { kind: "bait", baitId: "abyss_bait", count: 5 },
     repeatable: true,
   },
+  {
+    id: "token_tidal_to_sunstone",
+    name: "해일 증표 태양석 교환",
+    description: "해일의 거신 증표를 제작소 재료 태양석으로 바꿉니다. 주간 한도가 있습니다.",
+    cost: {
+      kind: "materials",
+      materials: { [tidalTokenId]: 3 },
+      fishingCoins: 0,
+    },
+    output: {
+      kind: "material",
+      materialId: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+      count: 1,
+    },
+    repeatable: true,
+  },
+  {
+    id: "token_abyss_to_sunstone",
+    name: "심연 증표 태양석 교환",
+    description: "심연 크라켄 증표를 제작소 재료 태양석으로 바꿉니다. 주간 한도가 있습니다.",
+    cost: {
+      kind: "materials",
+      materials: { [abyssTokenId]: 2 },
+      fishingCoins: 0,
+    },
+    output: {
+      kind: "material",
+      materialId: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+      count: 1,
+    },
+    repeatable: true,
+  },
+  {
+    id: "token_tidal_to_starsteel",
+    name: "해일 증표 심해성철 교환",
+    description: "해일의 거신 증표를 제작소 재료 심해성철로 바꿉니다.",
+    cost: {
+      kind: "materials",
+      materials: { [tidalTokenId]: 1 },
+      fishingCoins: 0,
+    },
+    output: {
+      kind: "material",
+      materialId: GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+      count: 2,
+    },
+    repeatable: true,
+  },
+  {
+    id: "token_abyss_to_starsteel",
+    name: "심연 증표 심해성철 교환",
+    description: "심연 크라켄 증표를 제작소 재료 심해성철로 바꿉니다.",
+    cost: {
+      kind: "materials",
+      materials: { [abyssTokenId]: 1 },
+      fishingCoins: 0,
+    },
+    output: {
+      kind: "material",
+      materialId: GUILD_WORKSHOP_MATERIAL_ID.abyssalStarsteel,
+      count: 3,
+    },
+    repeatable: true,
+  },
 ];
+
+/** 1회 교환이 주간 한도에서 쓰는 태양석 수. 한도 대상이 아니면 0. */
+export function weeklyLimitedSunstone(
+  entry: DangerousFishingExchangeEntry,
+): number {
+  return entry.output.kind === "material" &&
+    entry.output.materialId === GUILD_WORKSHOP_MATERIAL_ID.sunstone
+    ? entry.output.count
+    : 0;
+}
 
 export const DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID = new Map(
   DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => [entry.id, entry]),

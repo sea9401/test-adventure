@@ -89,6 +89,30 @@ describe("MailDetailModal 장문 가독성", () => {
     expect(html).toContain("우편 삭제");
   });
 
+  it("길드 쪽지는 길드 이름과 본문, 신고 메뉴를 함께 표시한다", () => {
+    const item = inboxItem({
+      kind: "guild_message",
+      payload: { text: "오늘 밤 토벌전 모여요", guild_id: 7, guild_name: "새벽별" },
+      fromName: "길마",
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(MailDetailModal, {
+        item,
+        busy: false,
+        onClose: vi.fn(),
+        onClaim: vi.fn(),
+        onRespondInvite: vi.fn(),
+        onBlocked: vi.fn(),
+        onDelete: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain("길드 쪽지 · 새벽별");
+    expect(html).toContain("오늘 밤 토벌전 모여요");
+    expect(html).toContain("길마 신고 및 차단 메뉴");
+  });
+
   it("읽음 처리 실패를 상세 모달 안에서 안내한다", () => {
     const html = renderToStaticMarkup(
       createElement(MailDetailModal, {

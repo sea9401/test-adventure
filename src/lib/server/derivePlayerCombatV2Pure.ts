@@ -8,6 +8,7 @@ import { trainedIntSpiMpBonus, type V2LifeResourceGrowth } from "@/adventure/dat
 import { type LiberationCycleGrowth } from "@/adventure/data/v2/proficiency";
 import { equipmentCritMultToMagicSkillCritBonus } from "@/adventure/data/v2/skillCritical";
 import { collectUnexploredSetEffects } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
+import { collectUnexploredBossUniqueEffects } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import {
 PLAYER_BLEED_ATK_COEF_PER_STACK,
 POISON_PCT_PER_POINT,
@@ -301,6 +302,7 @@ export function derivePlayerCombatV2Pure(
   // 발동형 시그니처(Phase 2) — 활성 세트/마퀴 단품. 없으면 빈 배열(아래서 undefined 로).
   const equipSignatures = collectEquipSignatures(v2Equipped);
   const unexploredSetEffects = collectUnexploredSetEffects(v2Equipped);
+  const unexploredBossEffects = collectUnexploredBossUniqueEffects(v2Equipped);
 
   const playerClass = input.playerClass ?? "none";
   const { baseAllocatedStats, totalStats } = derivePrimaryStats(input);
@@ -657,6 +659,7 @@ export function derivePlayerCombatV2Pure(
     //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     ...(unexploredSetEffects.length > 0 ? { unexploredSetEffects } : {}),
+    ...(unexploredBossEffects.length > 0 ? { unexploredBossEffects } : {}),
     ...(equipAcc.basicAttackDamagePct ? { basicAttackDamagePct: equipAcc.basicAttackDamagePct } : {}),
     ...(equipAcc.extraBasicAttackDamagePct ? { extraBasicAttackDamagePct: equipAcc.extraBasicAttackDamagePct } : {}),
     ...(equipAcc.statusDotDamagePct ? { statusDotDamagePct: equipAcc.statusDotDamagePct } : {}),

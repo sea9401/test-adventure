@@ -1018,6 +1018,7 @@ export const marketplaceListings = pgTable(
 //   listing_expired:    { item_kind, item_id, grade, quantity }                     — TTL 유찰 환불
 //   buy_order_equipment:{ order_id, item_id, instance_payload }                     — 장비 구매 주문 체결
 //   user_message:       { text: string }                                            — 유저 간 쪽지
+//   guild_message:      { text, guild_id, guild_name }                              — 길드원 전체 쪽지
 //   recipe_gift:        { recipe_id, recipe_name }                                  — 제작서 선물
 //   guild_invite:       { invite_id, guild_id, guild_name, expires_at }             — 길드 초대
 //   guild_quest_reward: { quest_id, quest_name, gold, materials[], items[] }        — 길드 의뢰 보상

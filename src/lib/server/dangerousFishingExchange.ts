@@ -9,11 +9,14 @@ import {
   type DangerousReelId,
   type DangerousRodId,
 } from "@/adventure/data/v2/dangerousFishing";
+import { kstWeekMondayKey } from "@/lib/kst";
 import {
   DANGEROUS_FISHING_EXCHANGE_ENTRIES,
   DANGEROUS_FISHING_EXCHANGE_ENTRY_BY_ID,
+  DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT,
   eligibleCatchMaterialIds,
   validateCatchSelection,
+  weeklyLimitedSunstone,
   type DangerousFishingExchangeEntry,
 } from "@/adventure/v2/dangerousFishingExchange";
 import {
@@ -97,6 +100,8 @@ type ExchangeOperation =
 export type DangerousFishingExchangeState = {
   version: 1;
   operations: ExchangeOperation[];
+  /** 주간 태양석 교환 사용량. key는 KST 월요일 날짜. */
+  weekly?: { key: string; sunstone: number };
 };
 
 type CharacterSave = Record<string, unknown> & {
@@ -305,7 +310,41 @@ export function parseDangerousFishingExchangeState(
     }
   }
   operations.sort((left, right) => right.completedAt - left.completedAt);
-  return { version: 1, operations: operations.slice(0, MAX_OPERATION_IDS) };
+  const weeklyRaw =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as { weekly?: unknown }).weekly
+      : null;
+  const weekly =
+    weeklyRaw &&
+    typeof weeklyRaw === "object" &&
+    typeof (weeklyRaw as { key?: unknown }).key === "string" &&
+    Number.isSafeInteger((weeklyRaw as { sunstone?: unknown }).sunstone) &&
+    Number((weeklyRaw as { sunstone?: unknown }).sunstone) >= 0
+      ? {
+          key: (weeklyRaw as { key: string }).key,
+          sunstone: Number((weeklyRaw as { sunstone: number }).sunstone),
+        }
+      : undefined;
+  return {
+    version: 1,
+    operations: operations.slice(0, MAX_OPERATION_IDS),
+    ...(weekly ? { weekly } : {}),
+  };
+}
+
+function weeklySunstoneUsed(
+  state: DangerousFishingExchangeState,
+  weekKey: string,
+): number {
+  return state.weekly?.key === weekKey ? state.weekly.sunstone : 0;
+}
+
+function weeklySunstoneView(used: number) {
+  return {
+    limit: DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT,
+    used,
+    remaining: Math.max(0, DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT - used),
+  };
 }
 
 function ownsEntryOutput(
@@ -360,8 +399,10 @@ function buildView(args: {
   walletRaw: unknown;
   dangerous: DangerousFishingState;
   adventureLogRaw: unknown;
+  weeklySunstoneUsed: number;
 }) {
   const materials = positiveMaterials(args.character.materials);
+  const weeklySunstone = weeklySunstoneView(args.weeklySunstoneUsed);
   const fishingCoins = walletCoins(args.walletRaw);
   const cosmetics = parseMuseunCosmetics(args.character.museunCosmetics);
   const ownedTitleIds = ownedTitleIdsOf(args.adventureLogRaw);
@@ -421,6 +462,7 @@ function buildView(args: {
     enhancementItems,
     ownedTitleIds,
     ownedCosmeticIds,
+    weeklySunstone,
     entries: DANGEROUS_FISHING_EXCHANGE_ENTRIES.map((entry) => {
       const alreadyOwned = ownsEntryOutput(
         entry,
@@ -428,7 +470,13 @@ function buildView(args: {
         ownedTitleIds,
         ownedCosmeticIds,
       );
-      const affordable = affordableBatches(entry, materials, fishingCoins);
+      const sunstonePerBatch = weeklyLimitedSunstone(entry);
+      const affordable = Math.min(
+        affordableBatches(entry, materials, fishingCoins),
+        sunstonePerBatch > 0
+          ? Math.floor(weeklySunstone.remaining / sunstonePerBatch)
+          : Number.MAX_SAFE_INTEGER,
+      );
       return {
         ...entry,
         alreadyOwned,
@@ -447,7 +495,14 @@ export async function readDangerousFishingExchangeView(
   executor: DbExecutor,
   userId: string,
 ) {
-  const [character, walletRaw, dangerousRaw, progressRaw, adventureLogRaw] =
+  const [
+    character,
+    walletRaw,
+    dangerousRaw,
+    progressRaw,
+    adventureLogRaw,
+    exchangeStateRaw,
+  ] =
     await Promise.all([
       readSave<CharacterSave>(executor, userId, "character.v2", {}),
       readSave(executor, userId, FISHING_WALLET_KEY, {}),
@@ -459,13 +514,19 @@ export async function readDangerousFishingExchangeView(
         emptyFishingProgression(),
       ),
       readSave(executor, userId, "adventure-log.v2", {}),
+      readSave(executor, userId, DANGEROUS_FISHING_EXCHANGE_STATE_KEY, {}),
     ]);
+  const now = Date.now();
   return buildView({
     fishingLevel: fishingLevelForXp(parseFishingProgression(progressRaw).xp),
     character,
     walletRaw,
     dangerous: parseDangerousFishingState(dangerousRaw),
     adventureLogRaw,
+    weeklySunstoneUsed: weeklySunstoneUsed(
+      parseDangerousFishingExchangeState(exchangeStateRaw, now),
+      kstWeekMondayKey(new Date(now)),
+    ),
   });
 }
 
@@ -655,6 +716,8 @@ export async function exchangeDangerousFishingInTx(
     request.now,
   );
   const adventureLogRaw = await readSave(tx, userId, "adventure-log.v2", {});
+  const weekKey = kstWeekMondayKey(new Date(request.now));
+  const usedSunstone = weeklySunstoneUsed(exchangeState, weekKey);
   const fishingLevel = fishingLevelForXp(progress.xp);
   if (fishingLevel < DANGEROUS_FISHING_EXCHANGE_MIN_LEVEL) {
     return fail("fishing_level_locked", 403, {
@@ -676,6 +739,7 @@ export async function exchangeDangerousFishingInTx(
           walletRaw,
           dangerous,
           adventureLogRaw,
+          weeklySunstoneUsed: usedSunstone,
         }),
         status: 200,
         alreadyProcessed: true as const,
@@ -699,6 +763,7 @@ export async function exchangeDangerousFishingInTx(
           walletRaw,
           dangerous,
           adventureLogRaw,
+          weeklySunstoneUsed: usedSunstone,
         }),
         status: 200,
         alreadyProcessed: true as const,
@@ -727,6 +792,7 @@ export async function exchangeDangerousFishingInTx(
         walletRaw,
         dangerous,
         adventureLogRaw,
+        weeklySunstoneUsed: usedSunstone,
       }),
       status: 200,
       alreadyProcessed: true as const,
@@ -752,6 +818,7 @@ export async function exchangeDangerousFishingInTx(
         walletRaw,
         dangerous,
         adventureLogRaw,
+        weeklySunstoneUsed: usedSunstone,
       });
       return {
         ...view,
@@ -797,7 +864,7 @@ export async function exchangeDangerousFishingInTx(
       nextLevel: enhanced.nextLevel,
     };
     const nextExchangeState: DangerousFishingExchangeState = {
-      version: 1,
+      ...exchangeState,
       operations: [
         completedOperation,
         ...exchangeState.operations.filter(
@@ -828,6 +895,7 @@ export async function exchangeDangerousFishingInTx(
         walletRaw: nextWallet,
         dangerous: enhanced.state,
         adventureLogRaw,
+        weeklySunstoneUsed: usedSunstone,
       }),
       status: 200,
       alreadyProcessed: false as const,
@@ -866,6 +934,12 @@ export async function exchangeDangerousFishingInTx(
   if (fishingCoins < coinCost) {
     return fail("insufficient_coins", 402, { fishingCoins });
   }
+  const sunstoneGranted = weeklyLimitedSunstone(entry) * batches;
+  if (usedSunstone + sunstoneGranted > DANGEROUS_FISHING_WEEKLY_SUNSTONE_LIMIT) {
+    return fail("weekly_limit", 409, {
+      weeklySunstone: weeklySunstoneView(usedSunstone),
+    });
+  }
 
   const cosmetics = parseMuseunCosmetics(character.museunCosmetics);
   const ownedTitleIds = ownedTitleIdsOf(adventureLogRaw);
@@ -895,6 +969,12 @@ export async function exchangeDangerousFishingInTx(
   }
 
   const nextMaterials = subtractMaterials(materials, costs);
+  if (entry.output.kind === "material") {
+    nextMaterials[entry.output.materialId] =
+      (nextMaterials[entry.output.materialId] ?? 0) +
+      entry.output.count * batches;
+  }
+  const nextUsedSunstone = usedSunstone + sunstoneGranted;
   const nextDangerous = grantDangerousOutput(dangerous, entry, batches);
   const nextCosmetics =
     entry.output.kind === "cosmetic"
@@ -921,7 +1001,10 @@ export async function exchangeDangerousFishingInTx(
       entry.cost.kind === "catch" ? canonicalMaterials(selection) : null,
   };
   const nextExchangeState: DangerousFishingExchangeState = {
-    version: 1,
+    ...exchangeState,
+    ...(sunstoneGranted > 0
+      ? { weekly: { key: weekKey, sunstone: nextUsedSunstone } }
+      : {}),
     operations: [
       completedOperation,
       ...exchangeState.operations.filter(
@@ -951,6 +1034,7 @@ export async function exchangeDangerousFishingInTx(
       walletRaw: nextWallet,
       dangerous: nextDangerous,
       adventureLogRaw: nextAdventureLogRaw,
+      weeklySunstoneUsed: nextUsedSunstone,
     }),
     status: 200,
     alreadyProcessed: false as const,

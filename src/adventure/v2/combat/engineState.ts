@@ -4,6 +4,7 @@ import type { Monster } from "@/adventure/data/monsters";
 import type { Potion,PotionId } from "@/adventure/data/potions";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import { type UnexploredSetEffect } from "@/adventure/data/v2/unexploredSpecialtyEquipment";
+import { type UnexploredBossEffectKind } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import { type DreadnoughtState } from "./dreadnought";
 import { type HolyPowerState } from "./holyPower";
@@ -365,6 +366,7 @@ export type BattleStacks = {
 
 export type BattleState = {
   unexploredSetRuntime?: import("./unexploredSetEffects").UnexploredSetPveRuntime;
+  unexploredBossRuntime?: import("./unexploredBossUniqueEffects").BossUniqueRuntime;
   enemy: Monster;
   enemyHp: number;
   /** 토벌전 피해 계측 모드에서 적 HP 클램프와 무관하게 누적한 실제 판정 피해. */
@@ -801,6 +803,8 @@ export type PlayerCombat = {
   extraBasicAttackDamagePct?: number;
   statusDotDamagePct?: number;
   unexploredSetEffects?: readonly UnexploredSetEffect[];
+  /** 미개척지 보스 고유 장비 단품 효과. 미장착 시 필드 자체를 생략한다. */
+  unexploredBossEffects?: readonly UnexploredBossEffectKind[];
   // 상시 물리 방어 감소 — 물리 평타·스킬이 마주하는 적 DEF -pct%. 0/undefined=미보유.
   enemyPhysicalDefReductionPct?: number;
   // 상시 마법 방어 감소 — 마법 스킬이 마주하는 적 magicDef -pct%. 0/undefined=미보유.

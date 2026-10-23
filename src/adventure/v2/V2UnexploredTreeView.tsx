@@ -64,6 +64,7 @@ const ERROR_TEXT: Record<string, string> = {
   not_active: "활성화되지 않은 노드입니다.",
   start_required: "탐사 시작 노드는 반환할 수 없습니다.",
   would_disconnect: "반환하면 활성 경로가 끊어집니다.",
+  not_difficulty_node: "난이도를 올리는 노드만 반영 순서를 바꿀 수 있습니다.",
   insufficient_gold: "노드 반환에 필요한 골드가 부족합니다.",
   boss_node_required: CRAFTING_LOCKED_TEXT,
   insufficient_trace: "소환석 제작에 필요한 흔적이 부족합니다.",
@@ -195,6 +196,7 @@ export function V2UnexploredTreeView({
   async function mutate(
     mutation:
       | { action: "activate_path" | "refund_path"; nodeId: string }
+      | { action: "difficulty_order"; nodeId: string; placement: "first" | "last" }
       | { action: "reset" }
       | { action: "switch_preset"; presetIndex: UnexploredPresetIndex },
     nodeCount = 1,
@@ -247,7 +249,9 @@ export function V2UnexploredTreeView({
             ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 활성화했습니다.`
             : mutation.action === "refund_path"
               ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 반환했습니다.`
-              : "✓ 탐사망을 초기화했습니다.",
+              : mutation.action === "difficulty_order"
+                ? "✓ 난이도 반영 순서를 바꿨습니다."
+                : "✓ 탐사망을 초기화했습니다.",
         "success",
       );
     } catch (error) {
@@ -780,6 +784,22 @@ export function V2UnexploredTreeView({
                     <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
                       난이도는 먼저 찍은 노드부터 120단까지 반영됩니다. 120단을 넘겨 찍은 노드는 경로만 연결하고 보상은 적용되지 않습니다.
                     </p>
+                  )}
+                  {model.selectedDifficultyOrder && (
+                    <Button
+                      className="mt-2"
+                      fullWidth
+                      size="sm"
+                      loading={busy}
+                      disabled={!snapshot.eligible}
+                      onClick={() => void mutate({
+                        action: "difficulty_order",
+                        nodeId: selected.id,
+                        placement: model.selectedDifficultyOrder!,
+                      })}
+                    >
+                      {model.selectedDifficultyOrder === "first" ? "먼저 반영" : "후순위로 미루기"}
+                    </Button>
                   )}
                 </div>
                 <div className="mt-3">

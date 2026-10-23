@@ -70,6 +70,20 @@ function parseMutation(raw: unknown): UnexploredMutation | null {
   }
   if (source.action === "reset") return { action: "reset", expectedPresetIndex };
   if (
+    source.action === "difficulty_order" &&
+    typeof source.nodeId === "string" &&
+    source.nodeId.length > 0 &&
+    (source.placement === "first" || source.placement === "last")
+  ) {
+    return {
+      action: "difficulty_order",
+      nodeId: source.nodeId,
+      placement: source.placement,
+      expectedPresetIndex,
+    };
+  }
+
+  if (
     (
       source.action === "activate" ||
       source.action === "activate_path" ||

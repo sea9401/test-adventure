@@ -8,6 +8,7 @@ import {
   shortestUnexploredPath,
   unexploredActivationPath,
   unexploredActivationError,
+  unexploredDifficultyReorder,
   unexploredRefundPath,
   unexploredRefundError,
 } from "./unexploredTree";
@@ -140,6 +141,59 @@ describe("unexplored tree catalogue", () => {
       total: totals[0],
     });
     expect(effects.difficultyApplication.start).toBeUndefined();
+  });
+
+  it("lets a chosen risk node fill the 120 cap first or last without changing the total", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selected = ["start", ...difficultyIds];
+    const before = deriveUnexploredEffects(selected);
+    const lastId = difficultyIds.at(-1)!;
+    const firstId = difficultyIds[0];
+    expect(before.difficultyApplication[lastId]?.applied).toBe(0);
+
+    const promoted = unexploredDifficultyReorder(selected, lastId, "first");
+    expect(promoted.ok).toBe(true);
+    if (!promoted.ok) return;
+    expect(promoted.nodeIds[0]).toBe("start");
+    expect(promoted.nodeIds[1]).toBe(lastId);
+    expect([...promoted.nodeIds].sort()).toEqual([...selected].sort());
+    const afterPromote = deriveUnexploredEffects(promoted.nodeIds);
+    expect(afterPromote.difficultyApplication[lastId]).toEqual({
+      applied: before.difficultyApplication[lastId]!.total,
+      total: before.difficultyApplication[lastId]!.total,
+    });
+    expect(afterPromote.difficultyIncrease).toBe(25);
+    expect(afterPromote.difficulty).toBe(120);
+
+    const deferred = unexploredDifficultyReorder(selected, firstId, "last");
+    expect(deferred.ok).toBe(true);
+    if (!deferred.ok) return;
+    expect(deferred.nodeIds.at(-1)).toBe(firstId);
+    const afterDefer = deriveUnexploredEffects(deferred.nodeIds);
+    expect(afterDefer.difficultyApplication[firstId]?.applied).toBe(0);
+    expect(afterDefer.difficultyIncrease).toBe(25);
+  });
+
+  it("only reorders active risk nodes", () => {
+    const difficultyId = UNEXPLORED_NODES.find((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    )!.id;
+    expect(unexploredDifficultyReorder(["start"], "nope", "first")).toEqual({
+      ok: false,
+      error: "unknown_node",
+    });
+    expect(unexploredDifficultyReorder(["start"], difficultyId, "first")).toEqual({
+      ok: false,
+      error: "not_active",
+    });
+    expect(
+      unexploredDifficultyReorder(["start", "inner-0-0"], "inner-0-0", "last"),
+    ).toEqual({ ok: false, error: "not_difficulty_node" });
+    expect(
+      unexploredDifficultyReorder(["start", "deep-contract"], "deep-contract", "last"),
+    ).toEqual({ ok: true, nodeIds: ["start", "deep-contract"] });
   });
 
   it("uses loot search for the front six pools and trace search for the boss six", () => {

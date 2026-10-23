@@ -1853,6 +1853,15 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
     );
   });
 
+  it("성역 축적·성역 소비와 삼상 접속의 연동 장비를 안내한다 (#801)", () => {
+    expect(signatureLabel(V2_EQUIPMENT.v2_sky_sig_dawn_chalice.signature!)).toBe(
+      "산출 회복량 30%를 성역으로 축적(최대 HP 60%까지). HP 35% 이하가 되면 축적량을 한 번에 회복하는 성역 소비 발동",
+    );
+    expect(signatureLabel(V2_EQUIPMENT.v2_storm_sig_triphase_gloves.signature!)).toBe(
+      "중력 반발·상처 파열·맹독 폭발 피해 시 추적 표식 1개, 추적 사격·그림자 잔상·과부하 낙뢰 피해 시 피해의 10%를 성역에 축적. 추적 표식은 지평선 추적궁, 성역 축적은 새벽 저장성배와 함께 장착해야 발동",
+    );
+  });
+
   it("6티어 시그니처 유니크 18종은 세트에 속하지 않고 기준 장비 능력치를 복사한다", () => {
     const pairs = [
       ["v2_sky_sig_collapse_armor", "v2_storm_wreckage_armor", "gravity_reprisal"],

@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   classifySkillForLibrary,
   matchesSkillDamageType,
+  matchesSkillJob,
   matchesSkillLibraryClassification,
   skillDamageTypes,
+  skillJobFilterGroups,
+  skillSourceJob,
+  skillSourceJobLabel,
 } from "./skillLibraryFilters";
 
 describe("스킬 보유 목록 차수·계열 분류", () => {
@@ -14,6 +18,8 @@ describe("스킬 보유 목록 차수·계열 분류", () => {
     ["v2c_swordsaint_flash", { tier: "6", lineage: "warrior" }],
     ["v2c_elementalist_magic", { tier: "4", lineage: "mage" }],
     ["v2c_farmer_seedselection", { tier: "2", lineage: "survivor" }],
+    ["v2c_dreadnought_armor", { tier: "7", lineage: "warrior" }],
+    ["v2c_tempest_crown", { tier: "7", lineage: "mage" }],
   ] as const)("%s의 출처 직업을 사용자 분류로 바꾼다", (skillId, expected) => {
     expect(classifySkillForLibrary(skillId)).toEqual(expected);
   });
@@ -109,5 +115,59 @@ describe("스킬 보유 목록 피해 유형 분류", () => {
     expect(matchesSkillDamageType("v2c_mage_fireball", "physical")).toBe(
       false,
     );
+  });
+});
+
+describe("스킬 보유 목록 출처 직업", () => {
+  it.each([
+    ["v2c_warrior_strike", "warrior", "견습 병사"],
+    ["v2c_fortressknight_citadel", "fortressknight", "성채기사"],
+    ["v2c_dreadnought_armor", "dreadnought", "드레드노트"],
+  ] as const)("%s의 출처 직업 이름을 알려 준다", (skillId, jobId, name) => {
+    expect(skillSourceJob(skillId)).toMatchObject({ id: jobId, name });
+    expect(skillSourceJobLabel(skillId)).toBe(name);
+  });
+
+  it("공용 스킬은 직업 대신 공용으로 표시한다", () => {
+    expect(skillSourceJob("v2_skill_strike")).toBeNull();
+    expect(skillSourceJobLabel("v2_skill_strike")).toBe("공용");
+    expect(skillSourceJobLabel("v2c_none_toughness")).toBe("공용");
+    expect(skillSourceJobLabel("legacy_unknown")).toBeNull();
+  });
+
+  it("직업을 고르면 그 직업 스킬만 남긴다", () => {
+    expect(matchesSkillJob("v2c_dreadnought_armor", "dreadnought", false)).toBe(true);
+    expect(matchesSkillJob("v2c_fortressknight_citadel", "dreadnought", false)).toBe(false);
+    expect(matchesSkillJob("v2_skill_strike", "dreadnought", false)).toBe(false);
+    expect(matchesSkillJob("v2_skill_strike", "all", false)).toBe(true);
+  });
+
+  it("이전 차수 계보를 포함하면 7차 직업의 두 선행 계보 스킬을 모두 남긴다", () => {
+    for (const skillId of [
+      "v2c_dreadnought_armor",
+      "v2c_fortressknight_citadel",
+      "v2c_vajraarhat_body",
+      "v2c_shieldman_bash",
+      "v2c_monk_palm",
+      "v2c_warrior_strike",
+    ]) {
+      expect(matchesSkillJob(skillId, "dreadnought", true)).toBe(true);
+    }
+    expect(matchesSkillJob("v2c_lawguardian_domain", "dreadnought", true)).toBe(false);
+    expect(matchesSkillJob("v2c_squire_might", "dreadnought", true)).toBe(false);
+    expect(matchesSkillJob("v2c_mage_fireball", "dreadnought", true)).toBe(false);
+    expect(matchesSkillJob("v2_skill_strike", "dreadnought", true)).toBe(false);
+  });
+
+  it("직업 선택지는 보유 스킬의 직업과 현재 직업을 차수별로 묶는다", () => {
+    const groups = skillJobFilterGroups(
+      ["v2c_fortressknight_citadel", "v2c_warrior_strike", "v2c_warrior_might", "v2_skill_strike"],
+      ["dreadnought"],
+    );
+    expect(groups).toEqual([
+      { label: "1차", jobs: [{ id: "warrior", name: "견습 병사" }] },
+      { label: "6차", jobs: [{ id: "fortressknight", name: "성채기사" }] },
+      { label: "7차", jobs: [{ id: "dreadnought", name: "드레드노트" }] },
+    ]);
   });
 });

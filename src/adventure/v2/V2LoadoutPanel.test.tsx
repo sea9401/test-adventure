@@ -313,6 +313,75 @@ describe("V2LoadoutPanel 모바일 스킬 동작 영역", () => {
     expect(html).toContain(">변이자 계열<");
   });
 
+  it("스킬마다 출처 직업을 보여 주고 직업 이름으로 검색된다", () => {
+    const library = realLoadoutLibrary([
+      "v2c_dreadnought_armor",
+      "v2c_fortressknight_citadel",
+      "v2_skill_strike",
+    ]).map((skill) => ({ ...skill, equipped: false }));
+    render(
+      <V2LoadoutPanel
+        previewMode
+        loadout={{ spBudget: 99, spUsed: 0, equipped: [], library }}
+      />,
+    );
+
+    expect(screen.getAllByText("드레드노트").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("성채기사").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("공용").length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByPlaceholderText("스킬 검색"), {
+      target: { value: "성채기사" },
+    });
+    expect(screen.getByText(/검색 결과 1 \/ 3/)).toBeTruthy();
+  });
+
+  it("직업을 고르고 이전 차수 계보까지 묶어 볼 수 있다", () => {
+    const library = realLoadoutLibrary([
+      "v2c_dreadnought_armor",
+      "v2c_fortressknight_citadel",
+      "v2c_vajraarhat_body",
+      "v2c_mage_fireball",
+      "v2_skill_strike",
+    ]).map((skill) => ({ ...skill, equipped: false }));
+    render(
+      <V2LoadoutPanel
+        previewMode
+        currentJobId="dreadnought"
+        loadout={{ spBudget: 99, spUsed: 0, equipped: [], library }}
+      />,
+    );
+    const jobSelect = screen.getByLabelText("직업");
+
+    fireEvent.change(jobSelect, { target: { value: "dreadnought" } });
+    expect(screen.getByText(/검색 결과 1 \/ 5/)).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("이전 차수 계보 포함"));
+    expect(screen.getByText(/검색 결과 3 \/ 5/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "검색 초기화" }));
+    expect(screen.getByText(/검색 결과 5 \/ 5/)).toBeTruthy();
+    expect((screen.getByLabelText("직업") as HTMLSelectElement).value).toBe("all");
+  });
+
+  it("7차 스킬도 7차 차수로 골라 볼 수 있다", () => {
+    const library = realLoadoutLibrary([
+      "v2c_dreadnought_armor",
+      "v2c_fortressknight_citadel",
+    ]).map((skill) => ({ ...skill, equipped: false }));
+    render(
+      <V2LoadoutPanel
+        previewMode
+        loadout={{ spBudget: 99, spUsed: 0, equipped: [], library }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("스킬 차수"), {
+      target: { value: "7" },
+    });
+    expect(screen.getByText(/검색 결과 1 \/ 2/)).toBeTruthy();
+  });
+
   it("피해 유형으로 독·마법 공격 스킬만 골라 볼 수 있다", () => {
     const library = realLoadoutLibrary([
       "v2c_rogue_poison",

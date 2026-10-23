@@ -421,6 +421,37 @@ describe("unexplored tree model", () => {
     expect(model.selectedDifficultyApplication).toEqual({ applied: 0, total: 4 });
   });
 
+  it("상한에 걸린 노드가 있을 때만 반영 순서 변경을 제안한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const overCap = [
+      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+    ];
+    const overCapSnapshot = snapshot({
+      earnedPoints: 160,
+      spentPoints: overCap.length,
+      selectedNodeIds: overCap,
+    });
+    expect(
+      buildUnexploredTreeModel(overCapSnapshot, difficultyIds.at(-1)!).selectedDifficultyOrder,
+    ).toBe("first");
+    expect(
+      buildUnexploredTreeModel(overCapSnapshot, difficultyIds[0]).selectedDifficultyOrder,
+    ).toBe("last");
+    expect(
+      buildUnexploredTreeModel(overCapSnapshot, "start").selectedDifficultyOrder,
+    ).toBeNull();
+
+    const underCap = shortestUnexploredPath(difficultyIds[0]);
+    expect(
+      buildUnexploredTreeModel(
+        snapshot({ earnedPoints: 160, spentPoints: underCap.length, selectedNodeIds: underCap }),
+        difficultyIds[0],
+      ).selectedDifficultyOrder,
+    ).toBeNull();
+  });
+
   it("상한 전에는 활성화할 위험 노드의 난이도가 전부 반영된다고 미리 보여 준다", () => {
     const targetId = UNEXPLORED_NODES.find((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),

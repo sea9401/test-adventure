@@ -117,7 +117,7 @@ export function unexploredDifficultyCapNotice(
   if (!application || application.applied >= application.total) return null;
   if (application.applied === 0) {
     return active
-      ? "120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고 경로만 연결합니다. 먼저 찍은 난이도 노드를 반환하면 이 노드의 보상이 반영됩니다."
+      ? "120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고 경로만 연결합니다. 먼저 반영을 누르면 이 노드부터 120단을 채웁니다."
       : "지금 찍으면 120단 상한에 걸려 난이도와 보상이 적용되지 않고 경로만 연결합니다.";
   }
   const ratio = `난이도 +${application.total} 중 +${application.applied}만 반영되어 보상도 ${application.applied}/${application.total}만 적용`;
@@ -275,6 +275,17 @@ export function buildUnexploredTreeModel(
     : selected && activationPlan.has(selected.id)
       ? previewEffects.difficultyApplication[selected.id] ?? null
       : null;
+  // 상한에 걸린 노드가 있을 때만 순서를 바꿔 어느 노드가 보상을 받을지 고를 수 있다.
+  const hasCappedNode = nodes.some((node) =>
+    node.difficultyApplication !== null &&
+    node.difficultyApplication.applied < node.difficultyApplication.total,
+  );
+  const selectedDifficultyOrder: "first" | "last" | null =
+    hasCappedNode && selected?.state === "active" && selected.difficultyApplication
+      ? selected.difficultyApplication.applied < selected.difficultyApplication.total
+        ? "first"
+        : "last"
+      : null;
   const edges = UNEXPLORED_EDGES.map(([left, right], index) => ({
     left,
     right,
@@ -327,6 +338,7 @@ export function buildUnexploredTreeModel(
     currentDifficulty: snapshot.difficulty,
     previewDifficulty,
     selectedDifficultyApplication,
+    selectedDifficultyOrder,
     poolSummary,
     selectedPoolRewards,
   };

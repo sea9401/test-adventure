@@ -1112,6 +1112,46 @@ export function unexploredRefundPath(
   };
 }
 
+export type UnexploredDifficultyReorderError =
+  | "unknown_node"
+  | "not_active"
+  | "not_difficulty_node";
+
+function raisesDifficulty(node: UnexploredNode): boolean {
+  return node.effects.some((effect) =>
+    effect.kind === "difficulty_reward" ||
+    (effect.kind === "deep" && effect.effect === "contract"),
+  );
+}
+
+/**
+ * 120단 상한은 선택 목록 순서대로 채워지므로, 난이도 노드 하나를 다른 난이도 노드보다
+ * 먼저(first) 또는 가장 나중(last)으로 옮겨 어느 노드가 보상을 받을지 고른다.
+ * 노드 구성과 총 난이도는 바뀌지 않는다.
+ */
+export function unexploredDifficultyReorder(
+  selectedNodeIds: readonly string[],
+  nodeId: string,
+  placement: "first" | "last",
+):
+  | { ok: true; nodeIds: string[] }
+  | { ok: false; error: UnexploredDifficultyReorderError } {
+  if (!isUnexploredNodeId(nodeId)) return { ok: false, error: "unknown_node" };
+  const selected = [...new Set(selectedNodeIds.filter(isUnexploredNodeId))];
+  if (!selected.includes(nodeId)) return { ok: false, error: "not_active" };
+  if (!raisesDifficulty(nodeById.get(nodeId)!)) {
+    return { ok: false, error: "not_difficulty_node" };
+  }
+  const rest = selected.filter((id) => id !== nodeId);
+  if (placement === "last") return { ok: true, nodeIds: [...rest, nodeId] };
+  const firstDifficultyIndex = rest.findIndex((id) => raisesDifficulty(nodeById.get(id)!));
+  const insertAt = firstDifficultyIndex === -1 ? rest.length : firstDifficultyIndex;
+  return {
+    ok: true,
+    nodeIds: [...rest.slice(0, insertAt), nodeId, ...rest.slice(insertAt)],
+  };
+}
+
 export function unexploredNodeName(id: string): string | null {
   return nodeById.get(id)?.name ?? null;
 }

@@ -92,7 +92,7 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_prismatic_firing_gauntlets: {
     kind: "prismatic_correction",
     label: "보정 사격",
-    description: "직접 공격이 완전 회피되면 다음 직접 공격 피해 +25%.",
+    description: "직접 공격 적중 3회마다 다음 직접 공격 피해 +25%.",
   },
   v2_unexplored_starpath_aiming_ring: {
     kind: "starpath_aim",
@@ -117,7 +117,7 @@ export const UNEXPLORED_BOSS_UNIQUE_EFFECTS: Record<string, UnexploredBossUnique
   v2_unexplored_eternal_life_core: {
     kind: "eternal_life",
     label: "영겁",
-    description: "쓰러질 피해를 받으면 HP 1로 버티고, 그 적 행동이 끝날 때 최대 HP 35%(두 번째는 20%) 회복. 이후 전투 끝까지 직접 공격 피해 +20%, 속도 +15%. 사냥·보스 2회, 투기장 1회.",
+    description: "쓰러질 피해를 받으면 쓰러지지 않고 최대 HP 35%(두 번째는 20%)로 버틴다. 이후 전투 끝까지 직접 공격 피해 +20%, 속도 +15%. 사냥·보스 2회, 투기장 1회.",
   },
 };
 

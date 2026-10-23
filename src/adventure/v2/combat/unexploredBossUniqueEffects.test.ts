@@ -4,6 +4,7 @@ import {
   beginBossUniqueAttack,
   bossUniqueCritBonusPct,
   bossUniqueDamageTaken,
+  bossUniqueLethalSave,
   bossUniqueResourceSnapshot,
   bossUniqueSelfSpeedMult,
   bossUniqueTargetSpeedMult,
@@ -26,7 +27,7 @@ const finish = (runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[],
 const hitTaken = (runtime: BossUniqueRuntime, overrides: Partial<Parameters<typeof recordBossUniqueHit>[1]> = {}) =>
   recordBossUniqueHit(runtime, { fullyEvaded: false, hpDamage: 100, shieldAbsorbed: 0, shieldAfter: 0, ...overrides });
 const endEnemy = (runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[], overrides: Partial<Parameters<typeof finishBossUniqueEnemyAction>[2]> = {}) =>
-  finishBossUniqueEnemyAction(runtime, effects, { hp: 5_000, maxHp: MAX_HP, hasDots: false, ...overrides });
+  finishBossUniqueEnemyAction(runtime, effects, { maxHp: MAX_HP, hasDots: false, ...overrides });
 function hits(runtime: BossUniqueRuntime, effects: UnexploredBossEffectKind[], count: number, crit = false) {
   let commands: ReturnType<typeof finish>["commands"] = [];
   for (let i = 0; i < count; i += 1) {
@@ -44,7 +45,7 @@ describe("no effects", () => {
     expect(begin(runtime, [])).toMatchObject({ damageMult: 1, defenseMult: 1 });
     expect(finish(runtime, []).commands).toEqual([]);
     expect(endEnemy(hitTaken(runtime), []).commands).toEqual([]);
-    expect(bossUniqueDamageTaken(runtime, [], { damage: 500, hpBefore: 100, shield: 0 })).toBe(500);
+    expect(bossUniqueDamageTaken(runtime, [], { damage: 500, shield: 0 })).toBe(500);
     expect(bossUniqueCritBonusPct(runtime, [])).toBe(0);
     expect(bossUniqueSelfSpeedMult(runtime)).toBe(1);
     expect(bossUniqueTargetSpeedMult(runtime)).toBe(1);
@@ -143,8 +144,8 @@ describe("불괴의 성채", () => {
   it("magisteel guard starts with a 5% shield and reduces damage 8% while any shield remains", () => {
     const start = initialBossUniqueRuntime(["magisteel_guard"], { maxHp: MAX_HP, pvp: false });
     expect(start.startShield).toBe(500);
-    expect(bossUniqueDamageTaken(start.runtime, ["magisteel_guard"], { damage: 1_000, hpBefore: 5_000, shield: 1 })).toBe(920);
-    expect(bossUniqueDamageTaken(start.runtime, ["magisteel_guard"], { damage: 1_000, hpBefore: 5_000, shield: 0 })).toBe(1_000);
+    expect(bossUniqueDamageTaken(start.runtime, ["magisteel_guard"], { damage: 1_000, shield: 1 })).toBe(920);
+    expect(bossUniqueDamageTaken(start.runtime, ["magisteel_guard"], { damage: 1_000, shield: 0 })).toBe(1_000);
   });
   it("sealing barrier grants a 4% shield while dotted, three times per battle", () => {
     const effects: UnexploredBossEffectKind[] = ["sealing_barrier"];
@@ -163,7 +164,7 @@ describe("불괴의 성채", () => {
     const start = initialBossUniqueRuntime(effects, { maxHp: MAX_HP, pvp: false });
     expect(start.startShield).toBe(1_500);
     let runtime = start.runtime;
-    expect(bossUniqueDamageTaken(runtime, effects, { damage: 1_000, hpBefore: 5_000, shield: 0 })).toBe(850);
+    expect(bossUniqueDamageTaken(runtime, effects, { damage: 1_000, shield: 0 })).toBe(850);
     runtime = endEnemy(hitTaken(runtime, { hpDamage: 0, shieldAbsorbed: 800, shieldAfter: 1_700 }), effects).runtime;
     expect(runtime.bulwarkShield).toBe(1_500);
     runtime = hitTaken(runtime, { hpDamage: 0, shieldAbsorbed: 1_000, shieldAfter: 700 });
@@ -171,7 +172,7 @@ describe("불괴의 성채", () => {
     const broke = endEnemy(hitTaken(runtime, { hpDamage: 300, shieldAbsorbed: 700, shieldAfter: 0 }), effects);
     expect(broke.commands).toEqual([{ kind: "damage_fixed", label: "불괴 방벽 붕괴", amount: 600 }]);
     runtime = broke.runtime;
-    expect(bossUniqueDamageTaken(runtime, effects, { damage: 1_000, hpBefore: 5_000, shield: 0 })).toBe(1_000);
+    expect(bossUniqueDamageTaken(runtime, effects, { damage: 1_000, shield: 0 })).toBe(1_000);
     const rebuilt: number[] = [];
     for (let action = 0; action < 6; action += 1) {
       const done = startBossUniquePlayerAction(runtime, effects, { hp: 5_000, maxHp: MAX_HP, healMult: 1 });
@@ -184,11 +185,16 @@ describe("불괴의 성채", () => {
 });
 
 describe("천공의 수정안", () => {
-  it("prismatic correction boosts the next direct attack by 25% after a full evade", () => {
+  it("prismatic correction boosts the direct attack after every third direct hit by 25%", () => {
     const effects: UnexploredBossEffectKind[] = ["prismatic_correction"];
-    const runtime = finish(init(...effects), effects, { hit: false }).runtime;
-    const boosted = begin(runtime, effects);
+    const two = hits(init(...effects), effects, 2).runtime;
+    expect(begin(two, effects).damageMult).toBe(1);
+    const three = finish(begin(two, effects).runtime, effects, { hit: false }).runtime;
+    expect(begin(three, effects).damageMult).toBe(1);
+    const ready = hits(two, effects, 1).runtime;
+    const boosted = begin(ready, effects);
     expect(boosted.damageMult).toBeCloseTo(1.25);
+    expect(boosted.logs).toContain("보정 사격");
     expect(begin(boosted.runtime, effects).damageMult).toBe(1);
   });
   it("starpath aim adds 4%p per non-crit hit up to 20 and resets on crit", () => {
@@ -223,24 +229,25 @@ describe("불멸의 광전왕", () => {
     const done = startBossUniquePlayerAction(init("pulsing_regen"), ["pulsing_regen"], { hp: 5_000, maxHp: MAX_HP, healMult: 0.5 });
     expect(done.commands).toEqual([{ kind: "heal", label: "재생 고동", amount: 50 }]);
   });
-  it("eternal caps lethal damage at hp-1 while charges remain", () => {
-    const runtime = init("eternal_life");
-    expect(bossUniqueDamageTaken(runtime, ["eternal_life"], { damage: 9_999, hpBefore: 300, shield: 0 })).toBe(299);
-    expect(bossUniqueDamageTaken(runtime, ["eternal_life"], { damage: 9_999, hpBefore: 300, shield: 200 })).toBe(499);
-    expect(bossUniqueDamageTaken({ ...runtime, eternalCharges: 0 }, ["eternal_life"], { damage: 9_999, hpBefore: 300, shield: 0 })).toBe(9_999);
-  });
-  it("eternal revives with 35% then 20% in PvE, grants frenzy, and has one charge in PvP", () => {
+  it("eternal saves lethal damage at 35% then 20% max HP in PvE and grants frenzy", () => {
     const effects: UnexploredBossEffectKind[] = ["eternal_life"];
-    const first = endEnemy(init(...effects), effects, { hp: 1 });
-    expect(first.commands).toEqual([{ kind: "heal", label: "영겁", amount: 3_500 }]);
+    const runtime = init(...effects);
+    expect(bossUniqueLethalSave(runtime, effects, { hpAfterDamage: 1, maxHp: MAX_HP })).toBeNull();
+    const first = bossUniqueLethalSave(runtime, effects, { hpAfterDamage: -500, maxHp: MAX_HP })!;
+    expect(first.hp).toBe(3_500);
     expect(bossUniqueSelfSpeedMult(first.runtime)).toBeCloseTo(1.15);
     expect(begin(first.runtime, effects).damageMult).toBeCloseTo(1.2);
-    const second = startBossUniquePlayerAction(first.runtime, effects, { hp: 1, maxHp: MAX_HP, healMult: 1 });
-    expect(second.commands).toEqual([{ kind: "heal", label: "영겁", amount: 2_000 }]);
-    expect(endEnemy(second.runtime, effects, { hp: 1 }).commands).toEqual([]);
+    const second = bossUniqueLethalSave(first.runtime, effects, { hpAfterDamage: 0, maxHp: MAX_HP })!;
+    expect(second.hp).toBe(2_000);
+    expect(bossUniqueLethalSave(second.runtime, effects, { hpAfterDamage: 0, maxHp: MAX_HP })).toBeNull();
+    expect(bossUniqueLethalSave(init(), [], { hpAfterDamage: 0, maxHp: MAX_HP })).toBeNull();
+  });
+  it("eternal has one charge in PvP", () => {
+    const effects: UnexploredBossEffectKind[] = ["eternal_life"];
     const pvp = initialBossUniqueRuntime(effects, { maxHp: MAX_HP, pvp: true }).runtime;
-    expect(pvp.eternalCharges).toBe(1);
-    expect(endEnemy(init(...effects), effects, { hp: 2 }).commands).toEqual([]);
+    const first = bossUniqueLethalSave(pvp, effects, { hpAfterDamage: 0, maxHp: MAX_HP })!;
+    expect(first.hp).toBe(3_500);
+    expect(bossUniqueLethalSave(first.runtime, effects, { hpAfterDamage: 0, maxHp: MAX_HP })).toBeNull();
   });
 });
 

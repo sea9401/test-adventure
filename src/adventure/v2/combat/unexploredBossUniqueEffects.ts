@@ -31,6 +31,7 @@ export const BULWARK_DAMAGE_MULT = 0.85;
 export const BULWARK_REFLECT_PCT = 40;
 export const BULWARK_REBUILD_ACTIONS = 6;
 export const CORRECTION_MULT = 1.25;
+export const CORRECTION_HITS = 3;
 export const STARPATH_STEP_PCT = 4;
 export const STARPATH_MAX_PCT = 20;
 export const FOCUS_MAX = 20;
@@ -54,6 +55,7 @@ export type BossUniqueRuntime = {
   /** 이 장비 보유자가 상대에게 쌓은 혹한. 상대 속도에 적용한다. */
   targetChill: number;
   freezeBonusPending: boolean;
+  correctionHits: number;
   correctionPending: boolean;
   starpathCritPct: number;
   focus: number;
@@ -106,6 +108,7 @@ export function initialBossUniqueRuntime(
       toxicBlood: 0,
       targetChill: 0,
       freezeBonusPending: false,
+      correctionHits: 0,
       correctionPending: false,
       starpathCritPct: 0,
       focus: 0,
@@ -186,7 +189,6 @@ export function finishBossUniqueAttack(
   const commands: BossUniqueCommand[] = [];
   if (!input.hit) {
     if (has(effects, "tracking_edge")) next = { ...next, orbitCalc: 0 };
-    if (has(effects, "prismatic_correction")) next = { ...next, correctionPending: true };
     return { runtime: next, commands };
   }
   if (has(effects, "tracking_edge")) {
@@ -194,6 +196,12 @@ export function finishBossUniqueAttack(
   }
   if (has(effects, "infinite_orbit")) {
     next = { ...next, pursuit: Math.min(ORBIT_PURSUIT_MAX, next.pursuit + 1) };
+  }
+  if (has(effects, "prismatic_correction")) {
+    const correctionHits = next.correctionHits + 1;
+    next = correctionHits >= CORRECTION_HITS
+      ? { ...next, correctionHits: 0, correctionPending: true }
+      : { ...next, correctionHits };
   }
   const chillGain = (has(effects, "glacial_crush") ? 1 : 0) + (has(effects, "absolute_zero") ? 2 : 0);
   if (chillGain > 0) {
@@ -246,14 +254,14 @@ export function recordBossUniqueHit(
   return next;
 }
 
-function eternalRevive(
-  runtime: BossUniqueRuntime,
+/** 적대 피해 공통 관문(사망 극복 다음, 불굴 앞)에서 HP가 0 이하가 될 때 한 번. */
+export function bossUniqueLethalSave(
+  runtime: BossUniqueRuntime | undefined,
   effects: Effects,
-  hp: number,
-  maxHp: number,
-): { runtime: BossUniqueRuntime; commands: BossUniqueCommand[] } {
-  if (!has(effects, "eternal_life") || runtime.eternalCharges <= 0 || hp <= 0 || hp > 1) {
-    return { runtime, commands: [] };
+  input: { hpAfterDamage: number; maxHp: number },
+): { runtime: BossUniqueRuntime; hp: number } | null {
+  if (!runtime || !has(effects, "eternal_life") || runtime.eternalCharges <= 0 || input.hpAfterDamage > 0) {
+    return null;
   }
   const pct = ETERNAL_HEAL_PCTS[Math.min(runtime.eternalUsed, ETERNAL_HEAL_PCTS.length - 1)];
   return {
@@ -263,7 +271,7 @@ function eternalRevive(
       eternalUsed: runtime.eternalUsed + 1,
       eternalFrenzy: true,
     },
-    commands: [{ kind: "heal", label: "영겁", amount: pctOf(maxHp, pct) }],
+    hp: Math.max(1, pctOf(input.maxHp, pct)),
   };
 }
 
@@ -271,7 +279,7 @@ function eternalRevive(
 export function finishBossUniqueEnemyAction(
   runtime: BossUniqueRuntime,
   effects: Effects,
-  input: { hp: number; maxHp: number; hasDots: boolean; scaleShield?: (amount: number) => number },
+  input: { maxHp: number; hasDots: boolean; scaleShield?: (amount: number) => number },
 ): { runtime: BossUniqueRuntime; commands: BossUniqueCommand[] } {
   if (!effects?.length) return { runtime, commands: [] };
   const scale = input.scaleShield ?? ((amount: number) => amount);
@@ -320,33 +328,20 @@ export function finishBossUniqueEnemyAction(
     commands.push({ kind: "shield", label: "봉인 결계", amount: scale(pctOf(input.maxHp, SEAL_SHIELD_PCT)) });
     next = { ...next, sealCharges: next.sealCharges - 1 };
   }
-  const eternal = eternalRevive(next, effects, input.hp, input.maxHp);
-  return {
-    runtime: { ...eternal.runtime, actionDamaged: false, actionDodged: false },
-    commands: [...commands, ...eternal.commands],
-  };
+  return { runtime: { ...next, actionDamaged: false, actionDodged: false }, commands };
 }
 
-/** 받는 피해 보정. shield는 이 피해를 HP보다 먼저 흡수할 보호막(이미 흡수했으면 0)이다. */
+/** 받는 피해 보정. shield는 이 피해를 받을 때 남아 있는 공용 보호막이다. */
 export function bossUniqueDamageTaken(
   runtime: BossUniqueRuntime | undefined,
   effects: Effects,
-  input: { damage: number; hpBefore: number; shield: number },
+  input: { damage: number; shield: number },
 ): number {
   if (!runtime || !effects?.length || input.damage <= 0) return input.damage;
   let mult = 1;
   if (has(effects, "magisteel_guard") && input.shield > 0) mult *= MAGISTEEL_DAMAGE_MULT;
   if (has(effects, "invincible_bulwark") && runtime.bulwarkShield > 0) mult *= BULWARK_DAMAGE_MULT;
-  let damage = mult === 1 ? input.damage : Math.max(1, Math.floor(input.damage * mult));
-  if (
-    has(effects, "eternal_life") &&
-    runtime.eternalCharges > 0 &&
-    input.hpBefore > 0 &&
-    damage >= input.hpBefore + Math.max(0, input.shield)
-  ) {
-    damage = input.hpBefore - 1 + Math.max(0, input.shield);
-  }
-  return damage;
+  return mult === 1 ? input.damage : Math.max(1, Math.floor(input.damage * mult));
 }
 
 /** 자기 행동(평타·스킬 선택) 시작마다 한 번. */
@@ -358,11 +353,8 @@ export function startBossUniquePlayerAction(
   if (!effects?.length) return { runtime, commands: [] };
   let next = runtime;
   const commands: BossUniqueCommand[] = [];
-  const eternal = eternalRevive(next, effects, input.hp, input.maxHp);
-  next = eternal.runtime;
-  commands.push(...eternal.commands);
   if (has(effects, "pulsing_regen") && input.hp > 0) {
-    const missing = Math.max(0, input.maxHp - input.hp - (eternal.commands[0]?.kind === "heal" ? eternal.commands[0].amount : 0));
+    const missing = Math.max(0, input.maxHp - input.hp);
     const amount = Math.floor(((missing * PULSING_REGEN_PCT) / 100) * Math.max(0, input.healMult));
     if (amount > 0) commands.push({ kind: "heal", label: "재생 고동", amount });
   }

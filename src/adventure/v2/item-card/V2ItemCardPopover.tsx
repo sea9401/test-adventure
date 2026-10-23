@@ -46,6 +46,7 @@ import {
   type ItemCardCompareAction,
   type ItemCardEquipAction,
   type ItemCardLockAction,
+  bossUniqueEffectText,
 } from "./shared";
 
 const STAT_PANEL = "rounded-md bg-zinc-50 dark:bg-zinc-800";
@@ -380,6 +381,12 @@ export function V2ItemCard({
               <Tier6CoreMechanicDisclosure />
             ) : null}
           </>
+        )}
+
+        {bossUniqueEffectText(item) && (
+          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium leading-relaxed text-amber-600 dark:border-zinc-700 dark:text-amber-400">
+            {bossUniqueEffectText(item)}
+          </div>
         )}
 
         {set && (

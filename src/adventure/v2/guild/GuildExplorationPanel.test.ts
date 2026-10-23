@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   GuildExplorationPanel,
+  guildExplorationActionRewardText,
   guildExplorationEventRewardText,
   guildExplorationExpeditionScheduleText,
 } from "./GuildExplorationPanel";
@@ -50,5 +51,32 @@ describe("탐사 지도 사건 보상 표시", () => {
         rewardFame: 50,
       }),
     ).toBe("길드 금고 +1,000,000G · 길드 명성 +50");
+  });
+});
+
+describe("원정대 보상 회수 알림", () => {
+  it("길드원 전원 보상을 받은 인원과 함께 표시한다", () => {
+    expect(
+      guildExplorationActionRewardText({
+        rewardGold: 9_000_000,
+        rewardFame: 200,
+        mapFragments: 110,
+        memberRewardName: "스태미나 회복약 1개",
+        memberRewardRecipients: 3,
+      }),
+    ).toBe(
+      "길드 금고 +9,000,000G · 명성 +200 · 지도 조각 +110 · 길드원 3명에게 스태미나 회복약 1개",
+    );
+  });
+
+  it("길드원 보상이 없는 원정은 기존 보상만 표시한다", () => {
+    expect(
+      guildExplorationActionRewardText({
+        rewardGold: 3_800_000,
+        rewardFame: 95,
+        mapFragments: 55,
+        memberRewardRecipients: 0,
+      }),
+    ).toBe("길드 금고 +3,800,000G · 명성 +95 · 지도 조각 +55");
   });
 });

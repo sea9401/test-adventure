@@ -255,17 +255,20 @@ export async function POST(req: Request) {
           },
         };
       }
+      const expedition = GUILD_EXPLORATION_EXPEDITIONS[claimed.reward.expeditionId];
       // 운영 실적 적립(활동 로그)이 길드 금고보다 먼저 잠그도록 순서를 고정한다(업그레이드·교역소와 같은 순서).
       await logGuildActivity(tx, {
         guildId,
         type: "exploration_expedition_claim",
         actorUserId: userId,
         meta: {
-          questTitle:
-            GUILD_EXPLORATION_EXPEDITIONS[claimed.reward.expeditionId].name,
+          questTitle: expedition.name,
           rewardGold: claimed.reward.rewardGold,
           rewardFame: claimed.reward.rewardFame,
           mapFragments: claimed.reward.mapFragments,
+          ...(expedition.memberRewardName
+            ? { memberRewardName: expedition.memberRewardName }
+            : {}),
         },
       });
       const resources = await lockGuildResources(tx, guildId);
@@ -274,8 +277,7 @@ export async function POST(req: Request) {
       });
       await addGuildFame(tx, guildId, claimed.reward.rewardFame);
       // 상위 원정의 길드원 보상은 회수 시점 길드원 전원이 받는다. 모두 잠근 뒤 적용한다.
-      const memberReward =
-        GUILD_EXPLORATION_EXPEDITIONS[claimed.reward.expeditionId].memberReward;
+      const memberReward = expedition.memberReward;
       let memberRewardRecipients = 0;
       if (memberReward) {
         const recipients = await guildMemberIds(tx, guildId);
@@ -302,6 +304,9 @@ export async function POST(req: Request) {
           rewardFame: claimed.reward.rewardFame,
           mapFragments: claimed.reward.mapFragments,
           memberRewardRecipients,
+          ...(memberReward && expedition.memberRewardName
+            ? { memberRewardName: expedition.memberRewardName }
+            : {}),
         },
       };
     }

@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   grants: [] as Array<{ userId: string; output: unknown }>,
   gold: 100_000_000,
   order: [] as string[],
+  logs: [] as Array<{ type: string; meta?: Record<string, unknown> }>,
 }));
 
 vi.mock("@/db", () => ({ db: { transaction: async (fn: (tx: unknown) => unknown) => fn({}) } }));
@@ -26,8 +27,12 @@ vi.mock("@/lib/server/v2GuildResources", () => ({
 }));
 vi.mock("@/lib/server/v2GuildFame", () => ({ addGuildFame: async () => undefined }));
 vi.mock("@/lib/server/guildActivityLog", () => ({
-  logGuildActivity: async (_tx: unknown, entry: { type: string }) => {
+  logGuildActivity: async (
+    _tx: unknown,
+    entry: { type: string; meta?: Record<string, unknown> },
+  ) => {
     m.order.push(`log:${entry.type}`);
+    m.logs.push(entry);
   },
 }));
 vi.mock("@/lib/server/guildMemberGrant", () => ({
@@ -77,6 +82,7 @@ describe("탐사 본부 원정", () => {
     m.saved = [];
     m.grants = [];
     m.order = [];
+    m.logs = [];
     m.state = withActive([], "2026-10-12T00:00:00.000Z");
   });
 
@@ -97,7 +103,13 @@ describe("탐사 본부 원정", () => {
       { userId: "u2", output: { kind: "stamina_potion", count: 1 } },
       { userId: "u3", output: { kind: "stamina_potion", count: 1 } },
     ]);
-    expect(await res.json()).toMatchObject({ memberRewardRecipients: 3 });
+    expect(await res.json()).toMatchObject({
+      memberRewardRecipients: 3,
+      memberRewardName: "스태미나 회복약 1개",
+    });
+    expect(
+      m.logs.find((log) => log.type === "exploration_expedition_claim")?.meta,
+    ).toMatchObject({ memberRewardName: "스태미나 회복약 1개" });
   });
 
   it("길드원 보상이 없는 원정은 지급하지 않는다", async () => {

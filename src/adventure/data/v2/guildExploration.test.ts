@@ -478,7 +478,7 @@ describe("탐사 본부 Lv.6~10", () => {
   });
 });
 
-describe("주차가 바뀌어도 진행 중인 원정은 유지", () => {
+describe("주차가 바뀌어도 탐사 지도와 진행 중인 원정은 유지", () => {
   it("다른 주차 저장값은 진척을 초기화하되 원정은 남긴다", () => {
     const prev = {
       weekKey: "2026-10-05",
@@ -496,5 +496,31 @@ describe("주차가 바뀌어도 진행 중인 원정은 유지", () => {
     expect(next.huntWinProgress).toBe(0);
     expect(next.claimed).toEqual([]);
     expect(next.content.activeExpeditions.map((a) => a.expeditionId)).toEqual(["abyss_corridor"]);
+  });
+
+  it("지도 조각·복원 횟수·열린 사건·처리한 사건은 다음 주로 이어진다", () => {
+    const prev = {
+      weekKey: "2026-10-19",
+      coopEpicProgress: 300,
+      claimed: ["weekly_coop_epic_30"],
+      content: {
+        mapFragments: 87,
+        restoredMaps: 2,
+        activeExpeditions: [],
+        pendingEvent: { eventId: "abandoned_cache" },
+        resolvedEvents: ["collapsed_bridge", "ancient_device"],
+      },
+    };
+    const next = parseGuildExplorationWeeklyState(prev, "2026-10-26");
+    expect(next.weekKey).toBe("2026-10-26");
+    expect(next.coopEpicProgress).toBe(0);
+    expect(next.claimed).toEqual([]);
+    expect(next.content).toEqual({
+      mapFragments: 87,
+      restoredMaps: 2,
+      activeExpeditions: [],
+      pendingEvent: { eventId: "abandoned_cache" },
+      resolvedEvents: ["collapsed_bridge", "ancient_device"],
+    });
   });
 });

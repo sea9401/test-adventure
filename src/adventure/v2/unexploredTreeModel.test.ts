@@ -6,6 +6,7 @@ import {
 import {
   buildUnexploredTreeModel,
   unexploredDifficultyCapNotice,
+  unexploredNodeMatchesSearch,
   type UnexploredClientSnapshot,
 } from "./unexploredTreeModel";
 
@@ -494,5 +495,34 @@ describe("unexploredDifficultyCapNotice", () => {
     expect(unexploredDifficultyCapNotice({ applied: 1, total: 3 }, false)).toBe(
       "지금 찍으면 난이도 +3 중 +1만 반영되어 보상도 1/3만 적용됩니다.",
     );
+  });
+});
+
+describe("unexploredNodeMatchesSearch", () => {
+  const model = buildUnexploredTreeModel(snapshot(), null);
+  const byName = (name: string) => model.nodes.find((node) => node.name === name)!;
+
+  it("빈 검색어는 아무 노드도 고르지 않는다", () => {
+    expect(unexploredNodeMatchesSearch(byName("골드 탐색"), "")).toBe(false);
+    expect(unexploredNodeMatchesSearch(byName("골드 탐색"), "   ")).toBe(false);
+  });
+
+  it("이름·설명에 검색어가 들어간 노드를 고른다", () => {
+    expect(unexploredNodeMatchesSearch(byName("골드 탐색"), "골드")).toBe(true);
+    // 이름에는 없고 설명에만 골드가 있는 노드
+    expect(unexploredNodeMatchesSearch(byName("탐사 수익"), "골드")).toBe(true);
+    expect(unexploredNodeMatchesSearch(byName("재료 탐색"), "골드")).toBe(false);
+  });
+
+  it("띄어쓰기로 나눈 검색어는 모두 들어간 노드만 고르고 대소문자를 가리지 않는다", () => {
+    expect(unexploredNodeMatchesSearch(byName("골드 보상 I"), "난이도 골드")).toBe(true);
+    expect(unexploredNodeMatchesSearch(byName("골드 탐색"), "난이도 골드")).toBe(false);
+    expect(unexploredNodeMatchesSearch(byName("골드 보상 II"), "골드 ii")).toBe(true);
+  });
+
+  it("분류 이름으로도 찾는다", () => {
+    const conversion = byName("황금 탐사대");
+    expect(conversion.categoryLabel).toBe("보상 전환");
+    expect(unexploredNodeMatchesSearch(conversion, "보상 전환")).toBe(true);
   });
 });

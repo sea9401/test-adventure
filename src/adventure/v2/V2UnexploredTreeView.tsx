@@ -42,12 +42,14 @@ import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import {
   buildUnexploredTreeModel,
   unexploredDifficultyCapNotice,
+  unexploredNodeMatchesSearch,
   type UnexploredClientSnapshot,
   type UnexploredTreeNodeModel,
 } from "./unexploredTreeModel";
 import { unexploredNodeRadius } from "./unexploredTreeGeometry";
 import { UnexploredTreeViewport } from "./UnexploredTreeViewport";
 import { useGameResourceState } from "./GameResourceContext";
+import { ItemSearchInput } from "./ItemSearchInput";
 
 const CRAFTING_LOCKED_TEXT =
   "우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.";
@@ -149,6 +151,7 @@ export function V2UnexploredTreeView({
   const [busy, setBusy] = useState(false);
   const mutationPending = useRef(false);
   const [activeTab, setActiveTab] = useState<UnexploredTab>("tree");
+  const [nodeSearch, setNodeSearch] = useState("");
   const [bossBusy, setBossBusy] = useState<UnexploredBossId | null>(null);
   const [equipmentCraftBusy, setEquipmentCraftBusy] =
     useState<V2EquipmentId | null>(null);
@@ -456,6 +459,12 @@ export function V2UnexploredTreeView({
     selected?.state === "active",
   );
   const cappedNodeCount = model.nodes.filter(isDifficultyCapped).length;
+  const searching = nodeSearch.trim().length > 0;
+  const searchMatchIds = new Set(
+    model.nodes
+      .filter((node) => unexploredNodeMatchesSearch(node, nodeSearch))
+      .map((node) => node.id),
+  );
   const completedAchievementIds = new Set(snapshot.achievementIds);
   const spendableGold = snapshot.gold + snapshot.bankedGold;
   const refundGoldCost = snapshot.refundGoldCost * (model.plan?.nodeIds.length ?? 0);
@@ -616,7 +625,25 @@ export function V2UnexploredTreeView({
         hidden={activeTab !== "tree"}
         className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]"
       >
-        <section className={`${SURFACE_CARD} min-w-0 p-2 sm:p-3`}>
+        <section className={`${SURFACE_CARD} min-w-0 space-y-2 p-2 sm:p-3`}>
+          <div className="space-y-1">
+            <ItemSearchInput
+              value={nodeSearch}
+              onChange={setNodeSearch}
+              label="탐사 노드 검색"
+              placeholder="노드 효과 검색 (예: 골드, 특화 재료)"
+            />
+            {searching && (
+              <p
+                role="status"
+                className="px-1 text-xs font-medium text-zinc-600 dark:text-zinc-300"
+              >
+                {searchMatchIds.size > 0
+                  ? `검색 결과 ${searchMatchIds.size}개`
+                  : "일치하는 노드가 없습니다."}
+              </p>
+            )}
+          </div>
           <UnexploredTreeViewport ariaLabel="미개척지 160노드 탐사망">
               {model.edges.map((edge) => {
                 const stroke = edge.state === "active"
@@ -644,12 +671,17 @@ export function V2UnexploredTreeView({
                 const colors = nodeColors(node, isSelected);
                 const radius = unexploredNodeRadius(node);
                 const capped = isDifficultyCapped(node);
+                const searchMatch = searchMatchIds.has(node.id);
                 return (
                   <g
                     key={node.id}
                     data-unexplored-node={node.id}
                     data-unexplored-plan={node.planState ?? undefined}
                     data-unexplored-capped={capped || undefined}
+                    data-unexplored-search={
+                      searching ? (searchMatch ? "match" : "dim") : undefined
+                    }
+                    opacity={searching && !searchMatch ? 0.3 : undefined}
                     role="button"
                     tabIndex={0}
                     aria-label={`노드 선택: ${node.name}${
@@ -658,7 +690,9 @@ export function V2UnexploredTreeView({
                         : node.planState === "refund"
                           ? " · 반환 대기"
                           : ""
-                    }${capped ? " · 120단 초과로 보상 덜 반영" : ""}`}
+                    }${capped ? " · 120단 초과로 보상 덜 반영" : ""}${
+                      searchMatch ? " · 검색 일치" : ""
+                    }`}
                     onClick={() => setSelectedNodeId(node.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -667,6 +701,16 @@ export function V2UnexploredTreeView({
                     }}
                     className="cursor-pointer outline-none"
                   >
+                    {searchMatch && (
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={radius + 11}
+                        fill="none"
+                        stroke="#06b6d4"
+                        strokeWidth={7}
+                      />
+                    )}
                     <circle
                       cx={node.x}
                       cy={node.y}
@@ -884,6 +928,9 @@ export function V2UnexploredTreeView({
                     ) : null}
                   </li>
                 ))}
+                <li className={`${SURFACE_INSET} flex justify-between gap-2 px-3 py-2`}>
+                  <span>기본 몬스터</span><strong>{model.baseShare}%</strong>
+                </li>
               </ul>
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">기본 몬스터 풀 100%</p>
@@ -903,6 +950,11 @@ export function V2UnexploredTreeView({
               <span>장비</span><strong className="text-right">{formatPct(snapshot.rewardSummary.equipment)}</strong>
               <span>특화 전용 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.specialMaterial)}</strong>
               <span>희귀 보상</span><strong className="text-right">{formatPct(snapshot.rewardSummary.rare)}</strong>
+              {snapshot.rewardSummary.basePoolRewardPct !== 0 && (
+                <>
+                  <span>기본 몬스터 보상</span><strong className="text-right">{formatPct(snapshot.rewardSummary.basePoolRewardPct)}</strong>
+                </>
+              )}
             </div>
             <details className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
               <summary className="cursor-pointer font-medium">재료 구분과 적용 대상</summary>

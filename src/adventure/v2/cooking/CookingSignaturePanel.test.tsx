@@ -55,9 +55,9 @@ describe("명장 요리 패널", () => {
   });
 
   it.each([
-    ["부전공", { role: "minor", stage: 5 }, /지금 요리는 부전공\(명장 5단계\)입니다\. 생활 기록에서 요리를 주전공으로 바꾸면 쌓은 명장 단계가 그대로 적용됩니다/],
+    ["부전공", { role: "minor", stage: 5 }, /지금 요리는 부전공\(명장 5단계\)입니다\. 캐릭터 > 내 정보 > 생활 기록에서 요리를 주전공으로 바꾸면 쌓은 명장 단계가 그대로 적용됩니다/],
     ["주전공 단계 부족", { role: "major", stage: 2 }, /지금 요리 주전공 명장 2단계입니다/],
-    ["전공 아님", { role: null, stage: 0 }, /생활 기록에서 Lv\.100을 달성한 생활 중 주전공을 고를 수 있습니다/],
+    ["전공 아님", { role: null, stage: 0 }, /캐릭터 > 내 정보 > 생활 기록에서 Lv\.100을 달성한 생활 중 주전공을 고를 수 있습니다/],
   ] as const)("%s이면 잠긴 이유와 여는 방법을 안내하고 만들기 버튼을 숨긴다", (_label, state, message) => {
     const base = fixture({ crop: 1, catch: 1 });
     const data = { ...base, signature: { ...base.signature, unlocked: false, ...state } } as CookingResponse;

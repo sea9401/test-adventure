@@ -315,6 +315,8 @@ export function buildUnexploredTreeModel(
           : ("inactive" as const),
   }));
   const focusedPoolIds = new Set(currentEffects.focusedPoolIds);
+  const baseShare =
+    snapshot.encounterShares.find((share) => share.kind === "base")?.share ?? 0;
   const poolSummary = snapshot.encounterShares.flatMap((share) =>
     share.kind === "pool"
       ? (() => {
@@ -351,6 +353,7 @@ export function buildUnexploredTreeModel(
     selectedDifficultyApplication,
     selectedDifficultyOrder,
     poolSummary,
+    baseShare,
     selectedPoolRewards,
   };
 }

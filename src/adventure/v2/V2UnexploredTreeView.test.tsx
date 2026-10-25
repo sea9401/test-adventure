@@ -516,6 +516,34 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("무기 0.1% (집중 시 0.2%)");
   });
 
+  it("활성 특화 풀 카드에 기본 몬스터 비중을, 보상 보정에 기본 몬스터 보상 감소를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          encounterShares: [
+            { kind: "base", share: 40 },
+            { kind: "pool", poolId: "iron_legion", share: 30 },
+            { kind: "pool", poolId: "mana_barrier", share: 30 },
+          ],
+          rewardSummary: { ...SNAPSHOT.rewardSummary, basePoolRewardPct: -25 },
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(html).toMatch(/기본 몬스터<\/span><strong>40%/);
+    expect(html).toMatch(/기본 몬스터 보상<\/span><strong[^>]*>-25%/);
+  });
+
+  it("기본 몬스터 보상 감소가 없으면 그 줄을 숨긴다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    expect(html).not.toContain("기본 몬스터 보상");
+  });
+
   it("shows all thirteen exploration achievements with their completion state and reward", () => {
     render(
       <V2UnexploredTreeView

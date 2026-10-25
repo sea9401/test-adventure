@@ -258,6 +258,36 @@ describe("V2UnexploredTreeView", () => {
     expect(screen.queryByText(/최단 경로 · 탐사 포인트/)).toBeNull();
   });
 
+  it("검색어가 들어간 노드를 강조하고 나머지는 흐리게 표시한다", () => {
+    const { container } = render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+    const nodeSearchState = (name: string) =>
+      container
+        .querySelector(`[data-unexplored-node="${UNEXPLORED_NODES.find((node) => node.name === name)!.id}"]`)!
+        .getAttribute("data-unexplored-search");
+    expect(nodeSearchState("골드 탐색")).toBeNull();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "탐사 노드 검색" }), {
+      target: { value: "골드" },
+    });
+    const goldCount = UNEXPLORED_NODES.filter(
+      (node) => node.name.includes("골드") || node.description.includes("골드"),
+    ).length;
+    expect(container.querySelectorAll('[data-unexplored-search="match"]')).toHaveLength(goldCount);
+    expect(nodeSearchState("골드 탐색")).toBe("match");
+    expect(nodeSearchState("탐사 수익")).toBe("match");
+    expect(nodeSearchState("재료 탐색")).toBe("dim");
+    expect(screen.getByText(`검색 결과 ${goldCount}개`)).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "탐사 노드 검색" }), {
+      target: { value: "없는효과" },
+    });
+    expect(screen.getByText("일치하는 노드가 없습니다.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "탐사 노드 검색 초기화" }));
+    expect(nodeSearchState("재료 탐색")).toBeNull();
+    expect(screen.queryByText(/검색 결과/)).toBeNull();
+  });
+
   it("120단을 넘겨 찍은 난이도 노드를 점선으로 표시하고 보상 미적용을 안내한다", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
@@ -484,6 +514,34 @@ describe("V2UnexploredTreeView", () => {
     expect(html).toContain("재료 1% (집중 시 1.5%)");
     expect(html).toContain("철성 파쇄검");
     expect(html).toContain("무기 0.1% (집중 시 0.2%)");
+  });
+
+  it("활성 특화 풀 카드에 기본 몬스터 비중을, 보상 보정에 기본 몬스터 보상 감소를 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          encounterShares: [
+            { kind: "base", share: 40 },
+            { kind: "pool", poolId: "iron_legion", share: 30 },
+            { kind: "pool", poolId: "mana_barrier", share: 30 },
+          ],
+          rewardSummary: { ...SNAPSHOT.rewardSummary, basePoolRewardPct: -25 },
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(html).toMatch(/기본 몬스터<\/span><strong>40%/);
+    expect(html).toMatch(/기본 몬스터 보상<\/span><strong[^>]*>-25%/);
+  });
+
+  it("기본 몬스터 보상 감소가 없으면 그 줄을 숨긴다", () => {
+    const html = renderToStaticMarkup(
+      <V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />,
+    );
+
+    expect(html).not.toContain("기본 몬스터 보상");
   });
 
   it("shows all thirteen exploration achievements with their completion state and reward", () => {

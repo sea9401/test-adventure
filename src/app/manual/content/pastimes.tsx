@@ -74,6 +74,7 @@ import {
   LIFE_MAJOR_PRODUCT_PER_STAGE_PCT,
   LIFE_MAJOR_PRODUCTS,
 } from "@/adventure/v2/lifeMajor";
+import { LIFE_RECORD_PATH } from "@/adventure/v2/lifeMajorRules";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
@@ -196,8 +197,10 @@ export function PastimesContent() {
 
       <H2>생활 전공과 명장 단계</H2>
       <P>
-        Lv.100을 달성한 생활 중 <Em>주전공 1개</Em>와 <Em>부전공 1개</Em>를 생활 기록
-        화면에서 고를 수 있습니다. 고르지 않은 생활은 지금과 똑같이 이용할 수 있습니다.
+        Lv.100을 달성한 생활 중 <Em>주전공 1개</Em>와 <Em>부전공 1개</Em>를{" "}
+        <Em>{LIFE_RECORD_PATH}</Em>에서 고를 수 있습니다. 생활 기록은 레벨과 상관없이 언제든
+        열 수 있고, Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다. 고르지 않은 생활은
+        지금과 똑같이 이용할 수 있습니다.
       </P>
       <UL>
         <li>

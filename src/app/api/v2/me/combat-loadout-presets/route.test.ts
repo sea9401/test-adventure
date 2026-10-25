@@ -281,6 +281,55 @@ describe("통합 전투 프리셋 API", () => {
     expect(deletedJson.presets[2]).toBeNull();
   });
 
+  it("이름 변경은 저장된 구성과 저장 시각을 그대로 두고 이름만 바꾼다", async () => {
+    const preset = {
+      name: "옛 이름",
+      savedAt: "2026-08-12T00:00:00.000Z",
+      skills: [STRIKE, MIGHT],
+      pattern: null,
+      equipment: { weapon: "old-weapon" },
+    };
+    mocks.saves.set(COMBAT_LOADOUT_PRESETS_KEY, [null, preset]);
+
+    const response = await POST(
+      request({ action: "rename", slot: 1, name: "  보스용  " }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.presets[1]).toEqual({ ...preset, name: "보스용" });
+    expect(json.presets[0]).toBeNull();
+    expect(mocks.lockOrder).toEqual([COMBAT_LOADOUT_PRESETS_KEY]);
+    expect(
+      (mocks.saves.get(COMBAT_LOADOUT_PRESETS_KEY) as unknown[])[1],
+    ).toEqual({ ...preset, name: "보스용" });
+  });
+
+  it("이름 변경은 길이를 자르고 빈 이름과 빈 칸을 거부한다", async () => {
+    mocks.saves.set(COMBAT_LOADOUT_PRESETS_KEY, [
+      {
+        name: "옛 이름",
+        savedAt: "2026-08-12T00:00:00.000Z",
+        skills: [STRIKE],
+        pattern: null,
+        equipment: {},
+      },
+    ]);
+
+    const blank = await POST(request({ action: "rename", slot: 0, name: "   " }));
+    expect(blank.status).toBe(400);
+    expect(await blank.json()).toMatchObject({ ok: false, error: "bad_name" });
+
+    const empty = await POST(request({ action: "rename", slot: 3, name: "새 이름" }));
+    expect(empty.status).toBe(404);
+    expect(await empty.json()).toMatchObject({ ok: false, error: "empty_slot" });
+
+    const long = await POST(
+      request({ action: "rename", slot: 0, name: "가".repeat(40) }),
+    );
+    expect((await long.json()).presets[0].name).toBe("가".repeat(24));
+  });
+
   it("프리셋을 현재 보유 상태에 맞춰 스킬·패턴·장비에 한 번에 적용한다", async () => {
     const originalSkills = mocks.saves.get("skills.v2") as Record<string, unknown>;
     mocks.saves.set(COMBAT_LOADOUT_PRESETS_KEY, [

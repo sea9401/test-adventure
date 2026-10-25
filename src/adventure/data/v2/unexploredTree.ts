@@ -674,7 +674,8 @@ const deepSeeds: ReadonlyArray<{
   {
     id: "tracking",
     name: "집중 추적",
-    description: "기본 몬스터 무리 비중을 25%로 낮추고 특화 전용 재료와 흔적을 강화합니다.",
+    description:
+      "기본 몬스터 최소 비중을 30%에서 25%로 낮춥니다(특화 출현 요청이 70%를 넘을 때만 비중이 바뀝니다). 특화 전용 재료 +30%, 흔적 추가 확률 +10%p. 기본 몬스터의 골드·장비·재료 보상 -25%.",
     icon: "tracking",
     effect: "tracking",
   },

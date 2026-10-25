@@ -157,6 +157,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("부전공");
     expect(html).toContain("30일");
     expect(html).toContain("명장 10단계");
+    expect(html).toContain("캐릭터 &gt; 내 정보 &gt; 생활 기록");
+    expect(html).toContain("Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다");
     for (const name of ["명장 작물", "명장 목재", "명장 합금", "명장 어획"]) {
       expect(html).toContain(name);
     }

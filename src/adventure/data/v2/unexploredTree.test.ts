@@ -36,6 +36,15 @@ describe("unexplored tree catalogue", () => {
     expect(new Set(UNEXPLORED_NODES.map((node) => node.id)).size).toBe(160);
   });
 
+  it("집중 추적 설명에 비중 하한이 걸리는 조건과 기본 몬스터 보상 감소를 적는다", () => {
+    const tracking = UNEXPLORED_NODES.find((node) => node.id === "deep-tracking");
+    const effects = deriveUnexploredEffects(["start", "deep-tracking"]);
+
+    expect(effects.basePoolRewardPct).toBe(-25);
+    expect(tracking?.description).toContain("70%");
+    expect(tracking?.description).toContain("-25%");
+  });
+
   it("keeps the doubled reward values for every small node", () => {
     const expectedPct = {
       gold: 1,

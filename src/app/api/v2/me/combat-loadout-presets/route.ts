@@ -168,10 +168,17 @@ export async function POST(req: Request) {
   if (!validSlot(body.slot)) {
     return Response.json({ ok: false, error: "bad_slot" }, { status: 400 });
   }
-  if (!new Set(["save", "apply", "delete"]).has(String(body.action))) {
+  if (!new Set(["save", "apply", "delete", "rename"]).has(String(body.action))) {
     return Response.json({ ok: false, error: "bad_action" }, { status: 400 });
   }
   const slot = body.slot;
+  const renameTo =
+    typeof body.name === "string"
+      ? body.name.trim().slice(0, COMBAT_LOADOUT_PRESET_NAME_MAX)
+      : "";
+  if (body.action === "rename" && !renameTo) {
+    return Response.json({ ok: false, error: "bad_name" }, { status: 400 });
+  }
 
   const result = await db.transaction(async (tx) => {
     const presets = parseCombatLoadoutPresets(
@@ -240,6 +247,23 @@ export async function POST(req: Request) {
       return {
         status: 404,
         body: { ok: false as const, error: "empty_slot" as const },
+      };
+    }
+
+    // 이름만 바꾸므로 저장된 구성·저장 시각은 그대로 두고 프리셋 키 하나만 잠근다.
+    if (body.action === "rename") {
+      const next = [...presets];
+      next[slot] = { ...preset, name: renameTo };
+      await upsertSave(tx, userId, COMBAT_LOADOUT_PRESETS_KEY, next);
+      const current = await readCurrent(tx, userId);
+      return {
+        status: 200,
+        body: stateResponse(
+          next,
+          current.skillsRaw,
+          current.equipmentRaw,
+          await readSpBudget(tx, userId),
+        ),
       };
     }
 

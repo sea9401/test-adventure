@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import type { CombatLoadoutPreset } from "@/adventure/data/v2/combatLoadoutPresets";
 import {
@@ -59,9 +60,12 @@ function renderList(
       onApply={noop}
       onDelete={noop}
       onOverwrite={noop}
+      onRename={noop}
     />,
   );
 }
+
+afterEach(cleanup);
 
 describe("첫 빈 프리셋 칸", () => {
   it("비어 있는 첫 칸 번호를 돌려준다", () => {
@@ -133,6 +137,71 @@ describe("통합 전투 프리셋 화면", () => {
 
     expect(html).toContain(SURFACE_CARD.split(" ")[0]);
     expect(html).not.toMatch(/bg-[^\s"]+\/40/);
+  });
+});
+
+describe("프리셋 이름 변경", () => {
+  function renderInteractive(onRename = vi.fn()) {
+    render(
+      <CombatLoadoutPresetList
+        presets={[null, saved]}
+        activeSlot={null}
+        sp={null}
+        busySlot={null}
+        draftName=""
+        onDraftNameChange={noop}
+        onSave={noop}
+        onApply={noop}
+        onDelete={noop}
+        onOverwrite={noop}
+        onRename={onRename}
+      />,
+    );
+    return onRename;
+  }
+
+  it("이름 변경을 누르면 현재 이름이 채워진 입력칸이 열리고 저장하면 새 이름을 넘긴다", () => {
+    const onRename = renderInteractive();
+
+    fireEvent.click(screen.getByRole("button", { name: "보스 사냥 프리셋 이름 변경" }));
+    const input = screen.getByRole("textbox", { name: "보스 사냥 프리셋 새 이름" });
+    expect((input as HTMLInputElement).value).toBe("보스 사냥");
+
+    fireEvent.change(input, { target: { value: "필드 사냥" } });
+    fireEvent.click(screen.getByRole("button", { name: "이름 저장" }));
+
+    expect(onRename).toHaveBeenCalledWith(1, "필드 사냥");
+    expect(screen.queryByRole("textbox", { name: "보스 사냥 프리셋 새 이름" })).toBeNull();
+  });
+
+  it("엔터로 저장하고 Esc로 취소한다", () => {
+    const onRename = renderInteractive();
+
+    fireEvent.click(screen.getByRole("button", { name: "보스 사냥 프리셋 이름 변경" }));
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "보스 사냥 프리셋 새 이름" }), {
+      key: "Escape",
+    });
+    expect(screen.queryByRole("textbox", { name: "보스 사냥 프리셋 새 이름" })).toBeNull();
+    expect(onRename).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "보스 사냥 프리셋 이름 변경" }));
+    const input = screen.getByRole("textbox", { name: "보스 사냥 프리셋 새 이름" });
+    fireEvent.change(input, { target: { value: "레이드" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onRename).toHaveBeenCalledWith(1, "레이드");
+  });
+
+  it("빈 이름이나 같은 이름이면 저장 버튼을 막는다", () => {
+    renderInteractive();
+
+    fireEvent.click(screen.getByRole("button", { name: "보스 사냥 프리셋 이름 변경" }));
+    const submit = screen.getByRole("button", { name: "이름 저장" }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "보스 사냥 프리셋 새 이름" }), {
+      target: { value: "   " },
+    });
+    expect(submit.disabled).toBe(true);
   });
 });
 

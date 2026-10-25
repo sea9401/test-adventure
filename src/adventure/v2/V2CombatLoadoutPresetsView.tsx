@@ -5,6 +5,7 @@ import {
   CheckCircle,
   FloppyDisk,
   Lightning,
+  PencilSimple,
   Trash,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -90,6 +91,7 @@ export function firstEmptyPresetSlot(
 }
 
 // 저장 카드 하나 + 저장된 프리셋 행. 빈 칸은 카드로 늘어놓지 않고 개수로만 알린다.
+// 이름 변경은 한 번에 한 행만 입력칸으로 연다.
 export function CombatLoadoutPresetList({
   presets,
   activeSlot,
@@ -101,6 +103,7 @@ export function CombatLoadoutPresetList({
   onApply,
   onDelete,
   onOverwrite,
+  onRename,
 }: {
   presets: CombatLoadoutPresetSlotData;
   activeSlot: number | null;
@@ -112,7 +115,10 @@ export function CombatLoadoutPresetList({
   onApply: (slot: number) => void;
   onDelete: (slot: number) => void;
   onOverwrite: (slot: number) => void;
+  onRename: (slot: number, name: string) => void;
 }) {
+  const [renamingSlot, setRenamingSlot] = useState<number | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const disabled = busySlot !== null;
   const emptySlot = firstEmptyPresetSlot(presets);
   const saved = Array.from({ length: PRESET_SLOT_COUNT }, (_, slot) => ({
@@ -179,13 +185,56 @@ export function CombatLoadoutPresetList({
             const equipmentCount = Object.values(preset.equipment).filter(Boolean).length;
             const spUsed = sp?.presetUsed[slot] ?? null;
             const spOver = sp && spUsed !== null ? spUsed - sp.budget : 0;
+            const renaming = renamingSlot === slot;
+            const nextName = renameDraft.trim();
+            const canRename = !disabled && nextName !== "" && nextName !== preset.name;
+            const submitRename = () => {
+              if (!canRename) return;
+              setRenamingSlot(null);
+              onRename(slot, nextName);
+            };
             return (
               <article key={slot} className="space-y-2 px-4 py-3" aria-label={`전투 프리셋 ${preset.name}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="truncate font-bold text-zinc-900 dark:text-zinc-100">
-                      {preset.name}
-                    </h2>
+                  <div className="min-w-0 flex-1">
+                    {renaming ? (
+                      <div className="flex gap-2">
+                        <TextInput
+                          value={renameDraft}
+                          maxLength={24}
+                          autoFocus
+                          disabled={disabled}
+                          onChange={(event) => setRenameDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") submitRename();
+                            if (event.key === "Escape") setRenamingSlot(null);
+                          }}
+                          aria-label={`${preset.name} 프리셋 새 이름`}
+                          className="flex-1"
+                        />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={!canRename}
+                          onClick={submitRename}
+                          className="shrink-0"
+                        >
+                          이름 저장
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRenamingSlot(null)}
+                          className="shrink-0"
+                        >
+                          취소
+                        </Button>
+                      </div>
+                    ) : (
+                      <h2 className="truncate font-bold text-zinc-900 dark:text-zinc-100">
+                        {preset.name}
+                      </h2>
+                    )}
                     <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                       스킬 {preset.skills.length}
                       {sp && spUsed !== null ? (
@@ -233,6 +282,18 @@ export function CombatLoadoutPresetList({
                     aria-label={`${preset.name} 프리셋을 현재 세팅으로 덮어쓰기`}
                   >
                     덮어쓰기
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => {
+                      setRenameDraft(preset.name);
+                      setRenamingSlot(slot);
+                    }}
+                    aria-label={`${preset.name} 프리셋 이름 변경`}
+                  >
+                    <PencilSimple size={14} aria-hidden /> 이름 변경
                   </Button>
                   <Button
                     variant="ghost"
@@ -303,7 +364,7 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
   const mutate = useCallback(
     async (
       slot: number,
-      action: "save" | "apply" | "delete",
+      action: "save" | "apply" | "delete" | "rename",
       name?: string,
     ): Promise<PresetResponse | null> => {
       if (busySlot !== null) return null;
@@ -354,6 +415,16 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
       });
     },
     [mutate, presets, setMessage],
+  );
+
+  const rename = useCallback(
+    async (slot: number, name: string) => {
+      const result = await mutate(slot, "rename", name);
+      if (!result) return;
+      const renamed = result.presets[slot]?.name ?? name;
+      setMessage(`✓ '${renamed}' 프리셋으로 이름을 바꿨어요.`);
+    },
+    [mutate, setMessage],
   );
 
   const apply = useCallback(
@@ -425,6 +496,7 @@ export function V2CombatLoadoutPresetsView({ onBack }: { onBack: () => void }) {
           onApply={(slot) => void apply(slot)}
           onDelete={(slot) => void remove(slot)}
           onOverwrite={(slot) => void overwrite(slot)}
+          onRename={(slot, name) => void rename(slot, name)}
         />
       )}
     </main>

@@ -884,6 +884,9 @@ export function V2UnexploredTreeView({
                     ) : null}
                   </li>
                 ))}
+                <li className={`${SURFACE_INSET} flex justify-between gap-2 px-3 py-2`}>
+                  <span>기본 몬스터</span><strong>{model.baseShare}%</strong>
+                </li>
               </ul>
             ) : (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">기본 몬스터 풀 100%</p>
@@ -903,6 +906,11 @@ export function V2UnexploredTreeView({
               <span>장비</span><strong className="text-right">{formatPct(snapshot.rewardSummary.equipment)}</strong>
               <span>특화 전용 재료</span><strong className="text-right">{formatPct(snapshot.rewardSummary.specialMaterial)}</strong>
               <span>희귀 보상</span><strong className="text-right">{formatPct(snapshot.rewardSummary.rare)}</strong>
+              {snapshot.rewardSummary.basePoolRewardPct !== 0 && (
+                <>
+                  <span>기본 몬스터 보상</span><strong className="text-right">{formatPct(snapshot.rewardSummary.basePoolRewardPct)}</strong>
+                </>
+              )}
             </div>
             <details className="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
               <summary className="cursor-pointer font-medium">재료 구분과 적용 대상</summary>

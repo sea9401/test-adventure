@@ -124,6 +124,17 @@ export function unexploredDifficultyCapNotice(
   return active ? `${ratio}됩니다.` : `지금 찍으면 ${ratio}됩니다.`;
 }
 
+/** 탐사망 검색. 띄어쓰기로 나눈 검색어가 이름·설명·분류에 모두 들어간 노드를 고른다. 빈 검색어는 아무 노드도 고르지 않는다. */
+export function unexploredNodeMatchesSearch(
+  node: Pick<UnexploredTreeNodeModel, "name" | "description" | "categoryLabel">,
+  query: string,
+): boolean {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return false;
+  const haystack = `${node.name} ${node.description} ${node.categoryLabel}`.toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
 function categoryLabel(node: UnexploredNode): string {
   if (
     node.effects.some(

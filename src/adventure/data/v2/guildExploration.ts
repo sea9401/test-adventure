@@ -558,15 +558,10 @@ export function parseGuildExplorationWeeklyState(
       ? obj.weekKey
       : currentWeekKey;
   if (weekKey !== obj.weekKey) {
-    // 주간 진척은 초기화하지만, 금고 골드를 내고 보낸 원정은 주가 바뀌어도 귀환을 기다린다.
-    const empty = emptyExplorationWeeklyState(weekKey);
+    // 주간 의뢰 진척만 초기화한다. 탐사 지도(조각·복원·사건)와 진행 중인 원정은 주가 바뀌어도 이어진다.
     return {
-      ...empty,
-      content: {
-        ...empty.content,
-        activeExpeditions:
-          parseGuildExplorationContentState(obj.content).activeExpeditions,
-      },
+      ...emptyExplorationWeeklyState(weekKey),
+      content: parseGuildExplorationContentState(obj.content),
     };
   }
   const claimed = Array.isArray(obj.claimed)

@@ -201,4 +201,40 @@ describe("POST /api/v2/me/equipment/liberate", () => {
     expect(equipment.owned[0].liberation?.revision).toBe(2);
     expect(mocks.receipts.size).toBe(2);
   });
+
+  it("pays with one enchant scroll without touching gold", async () => {
+    mocks.saves.set("character.v2", {
+      level: 100,
+      gold: 0,
+      bankedGold: 0,
+      cashItems: { enchant_scroll: 1 },
+    });
+    const response = await POST(
+      request({
+        iid: "weapon-1",
+        requestId: REQUEST_A,
+        expectedRevision: 0,
+        payment: "enchant_scroll",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      spentGold: 0,
+      spentEnchantScrolls: 1,
+      gold: 0,
+      cashItems: {},
+    });
+    expect(mocks.saves.get("character.v2")).toMatchObject({ gold: 0, cashItems: {} });
+  });
+
+  it("rejects an unknown payment before locking saves", async () => {
+    const response = await POST(
+      request({ iid: "weapon-1", requestId: REQUEST_A, expectedRevision: 0, payment: "coin" }),
+    );
+    expect(response.status).toBe(400);
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+  });
 });
+

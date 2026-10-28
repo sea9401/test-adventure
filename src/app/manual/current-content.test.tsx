@@ -316,7 +316,10 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("일반 알림");
     expect(html).toContain("월간 모험 지원권");
     expect(html).toContain("월별 출석판");
-    expect(html).toContain("지원권 보상이 표시된 날");
+    expect(html).not.toContain("지원권 보상이 표시된 날");
+    expect(html).toContain("마법부여서");
+    expect(html).toContain("1등급 89%, 2등급 10%, 3등급 1%");
+    expect(html).not.toContain("꾸미기 상자가 포함된 보상");
     expect(html).not.toContain("14·21일차");
     expect(html).toContain("빨간");
     expect(html).toContain("프로필 이미지");

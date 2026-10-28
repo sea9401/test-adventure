@@ -15,6 +15,7 @@ import {
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
 import {
+  ENCHANT_SCROLL_ITEM_ID,
   MUSEUN_CASH_ITEMS,
   MUSEUN_UTILITY_ITEM_IDS,
   museunCashItemTags,
@@ -68,6 +69,8 @@ function cashItemUseLabel(itemId: MuseunCashItemId): string {
   if (effect.kind === "level_target") {
     return `사용 즉시 ${effect.level}레벨 달성`;
   }
+  if (effect.kind === "enchant_scroll") return "대장간에서 골드 대신 마법부여 1회";
+  if (effect.kind === "emblem_box") return "문장 1개 무작위 획득";
   if (effect.kind === "profile_border_box") return "미보유 프로필 꾸미기 1종 확정";
   if (effect.kind === "chat_badge_box") return "미보유 채팅 배지 1종 확정";
   return "미보유 닉네임 꾸미기 1종 확정";
@@ -170,6 +173,10 @@ export function RareMapsTab({
           }
           if (itemId === "profile_image_permit") {
             router.push("/settings/profile-image");
+            return;
+          }
+          if (itemId === ENCHANT_SCROLL_ITEM_ID) {
+            router.push("/town/smithy?mode=liberation");
             return;
           }
           onUseCashItem(itemId);

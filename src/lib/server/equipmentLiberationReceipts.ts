@@ -8,6 +8,8 @@ export type EquipmentLiberationReceiptResponse = {
   gold: number;
   bankedGold: number;
   spentGold: number;
+  spentEnchantScrolls?: number;
+  cashItems?: Record<string, number>;
 };
 
 export type EquipmentLiberationReceipt<Response = EquipmentLiberationReceiptResponse> = {

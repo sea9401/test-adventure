@@ -21,6 +21,8 @@ export const MUSEUN_COIN_SHOP_MAX_PURCHASE_QUANTITY = 99;
 export const CULTIVATION_RESET_POTION_ITEM_ID =
   "cultivation_reset_potion" as const;
 export const LEVEL_100_ELIXIR_ITEM_ID = "level_100_elixir" as const;
+export const ENCHANT_SCROLL_ITEM_ID = "enchant_scroll" as const;
+export const EMBLEM_BOX_ITEM_ID = "emblem_box" as const;
 
 export const MUSEUN_CASH_ITEMS = {
   [PROFILE_BADGE_STAND_ITEM_ID]: {
@@ -73,6 +75,26 @@ export const MUSEUN_CASH_ITEMS = {
     tradeable: false,
     tags: ["이벤트"],
     effect: { kind: "level_target", level: 100 },
+  },
+  [ENCHANT_SCROLL_ITEM_ID]: {
+    id: ENCHANT_SCROLL_ITEM_ID,
+    name: "마법부여서",
+    description:
+      "대장간 마법부여 작업대에서 골드 대신 사용해 장비 마법부여 또는 재마법부여를 1회 진행합니다. 마법부여 이전에는 사용할 수 없습니다. 계정 귀속 아이템입니다.",
+    coinPrice: 0,
+    delivery: "inventory",
+    tradeable: false,
+    effect: { kind: "enchant_scroll" },
+  },
+  [EMBLEM_BOX_ITEM_ID]: {
+    id: EMBLEM_BOX_ITEM_ID,
+    name: "문장 상자",
+    description:
+      "열면 문장 하나를 얻습니다. 종류는 8종 중 무작위이고 등급은 1등급 89%, 2등급 10%, 3등급 1% 확률입니다. 계정 귀속 아이템입니다.",
+    coinPrice: 0,
+    delivery: "inventory",
+    tradeable: false,
+    effect: { kind: "emblem_box" },
   },
   adventure_support_premium_30d: {
     id: "adventure_support_premium_30d",
@@ -671,16 +693,21 @@ export const MUSEUN_UTILITY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
 
 // 상점에서는 사용 가능한 아이템만 직접 판매한다. 꾸미기는 각 전용 상자에서 해금되고
 // 통합 연장권으로 사용 기간을 늘린다.
+const MUSEUN_NON_SHOP_INVENTORY_ITEM_IDS = [
+  CULTIVATION_RESET_POTION_ITEM_ID,
+  LEVEL_100_ELIXIR_ITEM_ID,
+  ENCHANT_SCROLL_ITEM_ID,
+  EMBLEM_BOX_ITEM_ID,
+] as const;
+
 type MuseunShopInventoryItemId = Exclude<
   MuseunInventoryItemId,
-  | typeof CULTIVATION_RESET_POTION_ITEM_ID
-  | typeof LEVEL_100_ELIXIR_ITEM_ID
+  (typeof MUSEUN_NON_SHOP_INVENTORY_ITEM_IDS)[number]
 >;
 
 const MUSEUN_SHOP_INVENTORY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
   (id): id is MuseunShopInventoryItemId =>
-    id !== CULTIVATION_RESET_POTION_ITEM_ID &&
-    id !== LEVEL_100_ELIXIR_ITEM_ID,
+    !(MUSEUN_NON_SHOP_INVENTORY_ITEM_IDS as readonly string[]).includes(id),
 );
 
 export const MUSEUN_SHOP_ITEM_IDS = [
@@ -701,8 +728,7 @@ export function isMuseunShopItemId(value: unknown): value is MuseunShopItemId {
 export const MUSEUN_ADMIN_GIFT_ITEM_IDS = [
   PROFILE_BADGE_STAND_ITEM_ID,
   ...MUSEUN_SHOP_INVENTORY_ITEM_IDS,
-  CULTIVATION_RESET_POTION_ITEM_ID,
-  LEVEL_100_ELIXIR_ITEM_ID,
+  ...MUSEUN_NON_SHOP_INVENTORY_ITEM_IDS,
 ] as const;
 export type MuseunAdminGiftItemId =
   (typeof MUSEUN_ADMIN_GIFT_ITEM_IDS)[number];

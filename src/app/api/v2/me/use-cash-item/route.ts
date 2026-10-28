@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -48,6 +48,7 @@ import {
   unownedProfileBorders,
 } from "@/adventure/data/v2/museunCosmetics";
 import { applyLevelTargetGrant } from "@/lib/server/levelTargetGrant";
+import { parseEmblemState, rollEmblemBox } from "@/adventure/data/v2/emblems";
 import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 import { deriveEquippedLiberationEffects } from "@/adventure/data/v2/equipmentLiberationEffects";
 import { applyLiberationLevelGrowth } from "@/lib/server/equipmentLiberationLevelGrowth";
@@ -87,6 +88,43 @@ export async function POST(req: Request) {
   if (!isMuseunCashItemId(body.itemId)) return bad("invalid_item");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
+  if (item.effect.kind === "enchant_scroll") {
+    return bad("use_at_enchant_workbench");
+  }
+  if (item.effect.kind === "emblem_box") {
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" as const },
+        };
+      }
+      const emblem = rollEmblemBox(randomUUID());
+      const current = parseEmblemState(character.emblems);
+      const emblems = {
+        ...current,
+        owned: [...current.owned, emblem],
+        revision: current.revision + 1,
+      };
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        emblems,
+      });
+      return {
+        status: 200,
+        body: { ok: true as const, itemId, cashItems, emblem },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
   if (item.effect.kind === "cosmetic_extension") {
     const extensionDays = item.effect.days;
     if (!isMuseunCosmeticAccessId(body.targetId)) {

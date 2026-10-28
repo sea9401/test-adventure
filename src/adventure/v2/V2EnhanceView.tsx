@@ -107,6 +107,7 @@ import { EnhancePowerPreview } from "@/adventure/v2/EnhancePowerPreview";
 import { useSystemToast } from "./RewardToastProvider";
 import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
 import { EquipmentLiberationPanel } from "@/adventure/v2/liberation/EquipmentLiberationPanel";
+import { ENCHANT_SCROLL_ITEM_ID } from "@/adventure/data/v2/museunCashItems";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
   { key: "weapon", label: "무기" },
@@ -346,6 +347,7 @@ export function V2EnhanceView({
   >({});
   const [gold, setGold] = useState<number | null>(null);
   const [bankedGold, setBankedGold] = useState(0);
+  const [enchantScrolls, setEnchantScrolls] = useState(0);
   const [stones, setStones] = useState({ red: 0, blue: 0 });
   const [catalysts, setCatalysts] = useState(0);
   const [useCatalyst, setUseCatalyst] = useState(false);
@@ -471,8 +473,13 @@ export function V2EnhanceView({
         });
       }
       if (rareMapRes.ok) {
-        const j = (await rareMapRes.json()) as { rareMaps?: unknown[] };
+        // 같은 응답에 캐시 아이템 보유량이 있어 마법부여서 수도 여기서 읽는다.
+        const j = (await rareMapRes.json()) as {
+          rareMaps?: unknown[];
+          cashItems?: Record<string, number>;
+        };
         setRareMapCount(j.rareMaps?.length ?? 0);
+        setEnchantScrolls(j.cashItems?.[ENCHANT_SCROLL_ITEM_ID] ?? 0);
       }
     } catch {
       /* 폴링 아님 — 조용히 */
@@ -1069,6 +1076,8 @@ export function V2EnhanceView({
           gold={gold ?? 0}
           bankedGold={bankedGold}
           initialItemIid={initialItemIid}
+          enchantScrolls={enchantScrolls}
+          onEnchantScrollsUpdated={setEnchantScrolls}
           onItemUpdated={(updated) => {
             setOwned((current) =>
               current.map((instance) =>

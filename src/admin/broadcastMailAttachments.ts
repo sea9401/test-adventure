@@ -2,6 +2,8 @@ import type { CatalogOption } from "./adminCatalogOptions";
 import type { AttachmentEntry } from "./ui/AttachmentPicker";
 import {
   CULTIVATION_RESET_POTION_ITEM_ID,
+  EMBLEM_BOX_ITEM_ID,
+  ENCHANT_SCROLL_ITEM_ID,
   LEVEL_100_ELIXIR_ITEM_ID,
   MUSEUN_ADMIN_GIFT_ITEM_IDS,
   MUSEUN_CASH_ITEMS,
@@ -11,6 +13,8 @@ const STAMINA_POTION_ITEM_ID = "stamina_potion" as const;
 const ADMIN_MAIL_UTILITY_ITEM_IDS = [
   CULTIVATION_RESET_POTION_ITEM_ID,
   LEVEL_100_ELIXIR_ITEM_ID,
+  ENCHANT_SCROLL_ITEM_ID,
+  EMBLEM_BOX_ITEM_ID,
 ] as const;
 const ADMIN_MAIL_UTILITY_ITEM_ID_SET = new Set<string>(
   ADMIN_MAIL_UTILITY_ITEM_IDS,

@@ -200,6 +200,12 @@ function itemSummary(itemId: MuseunCashItemId): string {
   if (item.effect.kind === "growth_leap") {
     return `귀속 회복약 ${item.effect.potions}개와 ${item.effect.missionDays}일 성장 의뢰를 받습니다.`;
   }
+  if (item.effect.kind === "enchant_scroll") {
+    return "골드 대신 사용해 장비 마법부여 또는 재마법부여를 1회 진행합니다.";
+  }
+  if (item.effect.kind === "emblem_box") {
+    return "문장 하나를 무작위 종류와 등급으로 얻습니다.";
+  }
   return item.effect.slot === "profile_border"
     ? "프로필 바깥 테두리와 상단 배경 꾸미기를 해금하고 30일간 사용합니다."
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";

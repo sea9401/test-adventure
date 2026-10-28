@@ -172,6 +172,29 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isMuseunCashItemId("unknown")).toBe(false);
   });
 
+  it("출석 보상용 마법부여서와 문장 상자는 상점에서 팔지 않는 귀속 소모품이다", () => {
+    expect(MUSEUN_CASH_ITEMS.enchant_scroll).toMatchObject({
+      name: "마법부여서",
+      coinPrice: 0,
+      delivery: "inventory",
+      tradeable: false,
+      effect: { kind: "enchant_scroll" },
+    });
+    expect(MUSEUN_CASH_ITEMS.emblem_box).toMatchObject({
+      name: "문장 상자",
+      coinPrice: 0,
+      delivery: "inventory",
+      tradeable: false,
+      effect: { kind: "emblem_box" },
+    });
+    for (const id of ["enchant_scroll", "emblem_box"] as const) {
+      expect(isMuseunShopItemId(id)).toBe(false);
+      expect(isTradeableMuseunCashItemId(id)).toBe(false);
+      expect(isMuseunAdminGiftItemId(id)).toBe(true);
+      expect(MUSEUN_UTILITY_ITEM_IDS).toContain(id);
+    }
+  });
+
   it("꾸미기 상자와 일반 소모품의 화면 분류를 구분한다", () => {
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("level_100_elixir");
     expect(MUSEUN_COSMETIC_BOX_ITEM_IDS).toEqual([

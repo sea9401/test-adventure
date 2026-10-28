@@ -524,3 +524,11 @@ describe("아레나 결계 조건 요약", () => {
     })).toBe(`내 ${label} 1 이하`);
   });
 });
+
+describe("아레나 수정 집속 조건 요약", () => {
+  it("수정 집속 누적 횟수 조건을 표시한다", () => {
+    expect(arenaPatternConditionSummary({
+      kind: "self_resource", resource: "crystalFocus", op: "atLeast", value: 2,
+    })).toBe("내 수정 집속 2 이상");
+  });
+});

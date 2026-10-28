@@ -159,6 +159,7 @@ const SELF_RESOURCE_OPTIONS: PatternChoiceOption<V2PatternSelfResource>[] = [
   { value: "magicWard", label: "봉마결계" },
   { value: "purificationWard", label: "정화결계" },
   { value: "bloodlineBurstReady", label: "혈맥 폭발 상태" },
+  { value: "crystalFocus", label: "수정 집속" },
 ];
 const SELF_RESOURCE_OP_OPTIONS = [
   { value: "none", label: "없을 때" },
@@ -1778,10 +1779,15 @@ export function ConditionParams({
                 <PatternNumberInput
                   key="self-resource-value"
                   min={0}
-                  max={c.resource === "pain" ? 20 : c.resource === "darkSanctuary" ? 4 : ["painAbsolution", "painCondemnation", "darkSanctuaryUsed"].includes(c.resource) ? 1 : c.resource === "holyPower" ? 100 : c.resource === "sanctuary" ? 4 : c.resource === "inscription" ? 8 : 3}
+                  max={c.resource === "pain" ? 20 : c.resource === "darkSanctuary" ? 4 : ["painAbsolution", "painCondemnation", "darkSanctuaryUsed"].includes(c.resource) ? 1 : c.resource === "holyPower" ? 100 : c.resource === "sanctuary" ? 4 : c.resource === "inscription" ? 8 : c.resource === "crystalFocus" ? 2 : 3}
                   value={c.value}
                   onValueChange={(value) => onChange({ ...c, value })}
                 />
+              )}
+              {c.resource === "crystalFocus" && (
+                <span className="basis-full text-[11px] text-zinc-500 dark:text-zinc-400">
+                  2이면 다음 MP 소모 피해 스킬이 강화됩니다.
+                </span>
               )}
             </>
           )}

@@ -19,6 +19,7 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
+import { jobCultivationProfile } from "@/adventure/v2/jobExplorer";
 import {
   TIER7_FIRST_UNLOCK_LEVEL,
   TIER7_FIRST_UNLOCK_MATERIAL_COST,
@@ -213,6 +214,10 @@ function statValues(
   }).sort((a, b) => b.value - a.value);
 }
 
+function cultivationValues(jobId: string): JobManualStatValue[] {
+  return statValues(jobCultivationProfile(jobId) ?? {});
+}
+
 function resolveSkill(skillId: V2SkillId, owner: string): V2SkillDefinition {
   const skill = V2_SKILLS[skillId];
   if (!skill) {
@@ -352,7 +357,8 @@ function nextJobRelations(jobId: string): JobManualRelation[] {
 function indexEntry(job: V2JobDefinition): JobManualIndexEntry {
   const classification = classificationFor(job);
   const skills = skillsForJob(job.id).map((skillId) => resolveSkill(skillId, job.id));
-  const primaryStats = statValues(job.cultivateProfile).map((entry) => entry.label);
+  // 카탈로그 cultivateProfile이 아니라 수행 라우트가 실제로 적용하는 직군·직업 실효값을 보여준다.
+  const primaryStats = cultivationValues(job.id).map((entry) => entry.label);
   const skillNames = skills.map((skill) => skill.name);
   return {
     id: job.id,
@@ -400,7 +406,7 @@ export function buildJobManualEntry(jobId: string): JobManualEntry | null {
     ],
     nextJobs: nextJobRelations(job.id),
     jobBonuses: statValues(job.jobBonus),
-    cultivation: statValues(job.cultivateProfile),
+    cultivation: cultivationValues(job.id),
     skills,
     guide: jobManualGuideFor(job.id),
   };

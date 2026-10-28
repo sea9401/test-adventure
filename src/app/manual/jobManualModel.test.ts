@@ -4,6 +4,7 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
+import { jobCultivationProfile } from "@/adventure/v2/jobExplorer";
 import {
   buildJobManualEntry,
   buildJobManualIndex,
@@ -134,6 +135,31 @@ describe("job manual model", () => {
     expect(guide?.rules).toContain("같은 계열을 연속 사용하면 교차가 발동하지 않음");
     expect(guide?.examples).toContain("파공 → 낙성 = 포획");
     expect(guide?.examples).toContain("낙성 → 파공 = 추격");
+  });
+
+  it("shows the same cultivation profile the cultivate route applies", () => {
+    const duelist = buildJobManualEntry("duelist");
+    expect(duelist?.cultivation).toEqual([
+      { stat: "str", label: "힘", value: 2 },
+      { stat: "dex", label: "민첩", value: 1 },
+      { stat: "vit", label: "활력", value: 1 },
+    ]);
+    expect(duelist?.primaryStats).toEqual(["힘", "민첩", "활력"]);
+
+    for (const job of V2_JOB_LIST) {
+      const entry = buildJobManualEntry(job.id)!;
+      const actual = Object.fromEntries(
+        entry.cultivation.map(({ stat, value }) => [stat, value]),
+      );
+      const expected = Object.fromEntries(
+        Object.entries(jobCultivationProfile(job.id) ?? {}).filter(
+          ([, value]) => (value ?? 0) > 0,
+        ),
+      );
+      expect(actual, job.id).toEqual(expected);
+    }
+
+    expect(buildJobManualEntry("fisher")?.cultivation).toEqual([]);
   });
 
   it("returns null for an unknown job", () => {

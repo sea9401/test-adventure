@@ -13,7 +13,6 @@ import {
   exclusiveSkillConflicts,
   isLifestyleSkill,
   V2_SKILLS,
-  v2SkillSearchText,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { resolveElementalResonanceLoadout } from "@/adventure/data/v2/elementalResonance";
@@ -40,6 +39,7 @@ import {
   SKILL_JOB_TIER_OPTIONS,
   SKILL_LINEAGE_OPTIONS,
   skillJobFilterGroups,
+  skillLibrarySearchText,
   skillSourceJobLabel,
   type SkillDamageTypeFilter,
   type SkillJobFilter,
@@ -383,17 +383,13 @@ export function V2LoadoutPanel({
   const searchIndex = useMemo(
     () =>
       new Map(
-        loadout.library.map((skill) => {
-          const def = V2_SKILLS[skill.skillId as V2SkillId];
-          const text = def
-            ? v2SkillSearchText(def)
-            : `${skill.skillId} ${skill.name}`.toLowerCase();
-          const jobLabel = skillSourceJobLabel(skill.skillId);
-          return [
-            skill.skillId,
-            jobLabel ? `${text} ${jobLabel.toLowerCase()}` : text,
-          ] as const;
-        }),
+        loadout.library.map(
+          (skill) =>
+            [
+              skill.skillId,
+              skillLibrarySearchText(skill.skillId, skill.name),
+            ] as const,
+        ),
       ),
     [loadout.library],
   );

@@ -29,8 +29,9 @@ import {
 } from "./jobExplorer";
 import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 import {
-  TIER7_FIRST_UNLOCK_SP_TEXT,
+  Tier7AdvancementRequirements,
   Tier7FirstUnlockNotice,
+  tier7ExtraConditionText,
 } from "./Tier7AdvancementRequirements";
 
 // 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
@@ -660,6 +661,9 @@ function JobRow({
         <span className="text-xs text-zinc-600 dark:text-zinc-300">
           숙련도 {job.cumLevel ?? 0}
           {job.conditionRevealed !== false ? ` · 해금 조건 · ${job.condition}` : ""}
+          {job.conditionRevealed !== false && job.tier7Advancement && !job.tier7Advancement.permanentlyUnlocked
+            ? `, ${tier7ExtraConditionText(job.tier7Advancement)}`
+            : ""}
         </span>
       </button>
       <div className="flex shrink-0 items-center gap-2">
@@ -721,9 +725,7 @@ function JobRow({
             </p>
           )}
           {job.tier7Advancement && !job.tier7Advancement.permanentlyUnlocked && (
-            <p className="text-zinc-600 dark:text-zinc-300">
-              {TIER7_FIRST_UNLOCK_SP_TEXT}
-            </p>
+            <Tier7AdvancementRequirements status={job.tier7Advancement} compact />
           )}
         </div>
       )}

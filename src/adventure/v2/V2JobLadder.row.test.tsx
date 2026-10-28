@@ -81,4 +81,45 @@ describe("성장의 신전 직업 행", () => {
     fireEvent.click(screen.getByRole("button", { name: /무영검신 자세히/ }));
     expect(screen.getByText("SP +1은 최초 전직에 성공할 때 받습니다.")).toBeTruthy();
   });
+  it("7차 직업 행은 숙련도 외의 최초 전직 조건과 진행도도 보여 준다", () => {
+    const tier7Advancement = tier7AdvancementStatus({
+      targetJobId: "skyascendant",
+      currentJobId: "warlord",
+      currentLevel: 100,
+      jobCumLevel: { heavenlybow: 100_024, celestialdragon: 100_000 },
+      jobHistory: [],
+      materials: { v2_storm_origin_fragment: 16 },
+    })!;
+    render(
+      <V2JobLadder
+        level={100}
+        currentJobName="무장"
+        currentJobId="warlord"
+        atLevelCap
+        revisitExpedited={false}
+        rejobRequiredLevel={100}
+        jobs={[
+          {
+            id: "skyascendant",
+            name: "비천무신",
+            tier: 7,
+            unlocked: false,
+            condition: "천궁 숙련도 100000, 천룡권성 숙련도 100000",
+            tier7Advancement,
+          },
+        ]}
+        onChanged={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /조건 부족/ }));
+    expect(
+      screen.getByText(
+        /해금 조건 · 천궁 숙련도 100000, 천룡권성 숙련도 100000, 현재 직업 천궁 또는 천룡권성 Lv 100, 폭풍 기원의 파편 30개/,
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /비천무신 자세히/ }));
+    expect(screen.getByText("16 / 30")).toBeTruthy();
+    expect(screen.getByText("SP +1은 최초 전직에 성공할 때 받습니다.")).toBeTruthy();
+  });
 });

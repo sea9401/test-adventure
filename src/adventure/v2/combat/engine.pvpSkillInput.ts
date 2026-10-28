@@ -150,8 +150,7 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
         side.turn.completedPlayerTurns + 1,
       ),
       crystalFocus: side.stacks.unexplored?.paidDirectSkillCount ?? 0,
-      bleedPhysicalSkillDamagePctPerStack:
-        side.player.bleedPhysicalSkillDamagePctPerStack,
+      bleedPhysicalSkillDamagePctPerStack: side.player.bleedPhysicalSkillDamagePctPerStack,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
       characterElement: side.player.characterElement,

@@ -45,6 +45,7 @@ import {
 } from "@/adventure/v2/GameStateProvider";
 import {
   groupEquipInstancesBySlot,
+  parseStoredSortMode,
   V2_ITEM_TABS,
   type V2ItemTabKey,
   type SortMode,
@@ -92,6 +93,8 @@ const INVENTORY_PAGE_SIZE = 20;
 
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
+// 마지막으로 고른 장비 정렬 — 다른 화면에 다녀와도 유지(건의 #812).
+const SORT_MODE_STORAGE_KEY = "v2-inventory-sort-mode";
 
 export function equipmentLiberationSmithyHref(
   instance: V2EquipInstance,
@@ -159,7 +162,24 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- URL tab 파라미터 변경 시 로컬 탭 재시드
     setTab(itemTabFromParam(tabParam));
   }, [tabParam]);
+  // 기본 정렬로 시작하고, 마운트 후 localStorage 값으로 복원(SSR hydration mismatch 회피).
   const [sortMode, setSortMode] = useState<SortMode>("default");
+  const [sortModeHydrated, setSortModeHydrated] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSortMode(
+        parseStoredSortMode(localStorage.getItem(SORT_MODE_STORAGE_KEY)),
+      );
+    } catch {}
+    setSortModeHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!sortModeHydrated) return; // 복원 전 초기값으로 덮어쓰는 것 방지.
+    try {
+      localStorage.setItem(SORT_MODE_STORAGE_KEY, sortMode);
+    } catch {}
+  }, [sortModeHydrated, sortMode]);
   const [lockFilter, setLockFilter] = useState<EquipmentLockFilter>("all");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);

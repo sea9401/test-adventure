@@ -65,6 +65,11 @@ export const SORT_CYCLE: ReadonlyArray<{ key: SortMode; label: string }> = [
   { key: "power", label: "위력순" },
 ];
 
+// localStorage 에 저장해 둔 정렬 기준 복원(건의 #812). 없거나 버튼 순환에 없는 값이면 기본.
+export function parseStoredSortMode(raw: string | null): SortMode {
+  return SORT_CYCLE.find((s) => s.key === raw)?.key ?? "default";
+}
+
 export function nextSortMode(mode: SortMode): SortMode {
   const idx = SORT_CYCLE.findIndex((s) => s.key === mode);
   return SORT_CYCLE[(idx + 1) % SORT_CYCLE.length].key;

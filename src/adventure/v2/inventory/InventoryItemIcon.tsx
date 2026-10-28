@@ -106,6 +106,8 @@ export function inventoryIconKind(itemId: string): InventoryIconKind {
   if (itemId === "adventure_support_premium_30d") return "sparkle";
   if (itemId === CULTIVATION_RESET_POTION_ITEM_ID) return "flask";
   if (itemId === LEVEL_100_ELIXIR_ITEM_ID) return "flask";
+  if (itemId === "enchant_scroll") return "sparkle";
+  if (itemId === "emblem_box") return "treasure";
   if (itemId === "exp_tome") return "flask";
   if (itemId === STAMINA_SHARD_MATERIAL_ID) return "flask";
   if (itemId === ENHANCE_EMBER_MATERIAL_ID) return "ember";

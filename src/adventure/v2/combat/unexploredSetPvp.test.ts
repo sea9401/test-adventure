@@ -117,6 +117,20 @@ describe.each(["p1", "p2"] as const)("%s unexplored set symmetry", side => {
     const scaled = cast({ ...withRuntime(prepare(state, side), side, { paidDirectSkillCount: 2 }), damageMultiplier: 0.65 }, side).state;
     expect(state[target].hp - scaled[target].hp).toBe(100); // floor(floor(26 * 1.25) * .65) * 5.
   });
+  it("pattern self_resource crystalFocus reads this side's paid-cast count", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const base = battle(side, fighter({ unexploredSetEffects: effects("crystal_focus") }), fighter(), ["v2c_martial_combo"]);
+    const gated = (count: number): PvPBattleState => withRuntime(prepare({
+      ...base,
+      [side]: { ...base[side], v2Skills: { ...base[side].v2Skills, pattern: { blocks: [{ condition: { kind: "self_resource", resource: "crystalFocus", op: "atLeast", value: 2 }, action: { kind: "skill", skillId: "v2c_martial_combo" } }] } } },
+    }, side), side, { paidDirectSkillCount: count });
+    const waiting = cast(gated(1), side).state;
+    expect(waiting[side].stacks.unexplored?.paidDirectSkillCount).toBe(1);
+    expect(waiting[target].hp).toBe(base[target].hp);
+    const boosted = cast(gated(2), side).state;
+    expect(boosted[side].stacks.unexplored?.paidDirectSkillCount).toBe(0);
+    expect(base[target].hp - boosted[target].hp).toBe(160);
+  });
   it("does not spend revenge on full evade but consumes the third paid attempt", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const state = withRuntime(battle(side, fighter({ unexploredSetEffects: effects("battle_revenge", "crystal_focus") }), fighter({ guaranteedEvades: 1 }), ["v2c_martial_combo"]), side, { revengePending: true, paidDirectSkillCount: 2 });

@@ -13,10 +13,12 @@ import { TabBar } from "@/components/ui/TabBar";
 import { confirmGameAction } from "@/components/ui/gameDialog";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import {
+  EMBLEM_BOX_ITEM_ID,
   LEVEL_100_ELIXIR_ITEM_ID,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import { EMBLEM_LABELS, type EmblemKind } from "@/adventure/data/v2/emblems";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, parseSpFruitUsed, type SpFruitTier } from "@/adventure/data/v2/spFruit";
@@ -45,6 +47,7 @@ import {
 } from "@/adventure/v2/GameStateProvider";
 import {
   groupEquipInstancesBySlot,
+  parseStoredSortMode,
   V2_ITEM_TABS,
   type V2ItemTabKey,
   type SortMode,
@@ -92,6 +95,8 @@ const INVENTORY_PAGE_SIZE = 20;
 
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
+// 마지막으로 고른 장비 정렬 — 다른 화면에 다녀와도 유지(건의 #812).
+const SORT_MODE_STORAGE_KEY = "v2-inventory-sort-mode";
 
 export function equipmentLiberationSmithyHref(
   instance: V2EquipInstance,
@@ -159,8 +164,26 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- URL tab 파라미터 변경 시 로컬 탭 재시드
     setTab(itemTabFromParam(tabParam));
   }, [tabParam]);
+  // 기본 정렬로 시작하고, 마운트 후 localStorage 값으로 복원(SSR hydration mismatch 회피).
   const [sortMode, setSortMode] = useState<SortMode>("default");
+  const [sortModeHydrated, setSortModeHydrated] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSortMode(
+        parseStoredSortMode(localStorage.getItem(SORT_MODE_STORAGE_KEY)),
+      );
+    } catch {}
+    setSortModeHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!sortModeHydrated) return; // 복원 전 초기값으로 덮어쓰는 것 방지.
+    try {
+      localStorage.setItem(SORT_MODE_STORAGE_KEY, sortMode);
+    } catch {}
+  }, [sortModeHydrated, sortMode]);
   const [lockFilter, setLockFilter] = useState<EquipmentLockFilter>("all");
+  const [uniqueOnly, setUniqueOnly] = useState(false);
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
@@ -521,6 +544,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           refundedPoints?: number;
           level?: number;
           levelsGained?: number;
+          emblem?: { kind: EmblemKind; grade: number };
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
@@ -543,6 +567,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             ? `✓ 100레벨 달성 · ${data.levelsGained ?? 0}레벨 상승`
             : itemId === "cultivation_reset_potion"
             ? `✓ 수행 초기화 완료 · Lv.1로 초기화 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
+            : itemId === EMBLEM_BOX_ITEM_ID && data.emblem
+            ? `✓ ${EMBLEM_LABELS[data.emblem.kind]} 문장 ${data.emblem.grade}등급 획득`
             : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
         );
       } catch (err) {
@@ -1202,6 +1228,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               setSortMode={setSortMode}
               lockFilter={lockFilter}
               setLockFilter={setLockFilter}
+              uniqueOnly={uniqueOnly}
+              setUniqueOnly={setUniqueOnly}
               sellQualityPct={sellQualityPct}
               setSellQualityPct={setSellQualityPct}
               pageSize={INVENTORY_PAGE_SIZE}

@@ -49,7 +49,8 @@ export type V2PatternSelfResource =
   | "physicalWard"
   | "magicWard"
   | "purificationWard"
-  | "bloodlineBurstReady";
+  | "bloodlineBurstReady"
+  | "crystalFocus";
 
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
@@ -630,7 +631,8 @@ function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
         c.resource === "physicalWard" ||
         c.resource === "magicWard" ||
         c.resource === "purificationWard" ||
-        c.resource === "bloodlineBurstReady"
+        c.resource === "bloodlineBurstReady" ||
+        c.resource === "crystalFocus"
           ? c.resource
           : null;
       const op =

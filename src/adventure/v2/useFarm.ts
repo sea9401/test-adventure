@@ -112,7 +112,7 @@ export type FarmClientState = {
   harvestAll: (plotIds: readonly string[]) => Promise<void>;
   fertilizeAll: (plotIds: readonly string[]) => Promise<void>;
   deliver: (requestId: string) => Promise<void>;
-  deliverSpecial: (requestId: string) => Promise<void>;
+  deliverSpecial: (requestId: string, count?: number) => Promise<void>;
   deliverWeekly: (requestId: string) => Promise<void>;
   buyShopItem: (itemId: string) => Promise<void>;
   buyEndgameShopItem: (itemId: string) => Promise<void>;
@@ -208,7 +208,7 @@ export function useFarm(): FarmClientState {
     useState<FarmPlotUpgradeResult | null>(null);
 
   const reportError = useCallback((e: unknown) => {
-    const message = errorMessage(e);
+    const message = farmErrorMessage(e);
     setError(message);
     setNotice({ id: Date.now(), kind: "error", text: message });
   }, []);
@@ -447,7 +447,7 @@ export function useFarm(): FarmClientState {
           const message =
             result.completed > 0
               ? outcomeText
-              : errorMessage(new Error(outcomeText));
+              : farmErrorMessage(new Error(outcomeText));
           setError(message);
           setNotice({ id: Date.now(), kind: "error", text: message });
         } else if (action === "plant") {
@@ -517,14 +517,14 @@ export function useFarm(): FarmClientState {
   );
 
   const deliverSpecial = useCallback(
-    async (requestId: string) => {
+    async (requestId: string, count = 1) => {
       setBusySpecialDeliveryId(requestId);
       setError(null);
       try {
         const res = await fetch("/api/v2/farm/special-deliver", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ requestId }),
+          body: JSON.stringify({ requestId, count }),
         });
         const data = (await res.json()) as FarmResponse;
         apply(data);
@@ -794,7 +794,7 @@ export function useFarm(): FarmClientState {
   };
 }
 
-function errorMessage(error: unknown): string {
+export function farmErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "request_failed";
   return (
     {
@@ -831,6 +831,7 @@ function errorMessage(error: unknown): string {
       endgame_shop_locked: "밭과 유료 축사를 모두 열면 농장주의 교환소를 이용할 수 있습니다.",
       already_owned: "이미 보유한 칭호입니다.",
       shop_item_not_found: "교환 상품 정보를 찾을 수 없습니다.",
+      rate_limited: "요청이 너무 많아 잠시 멈췄습니다. 잠시 후 다시 시도해 주세요.",
     }[message] ?? "요청에 실패했습니다."
   );
 }

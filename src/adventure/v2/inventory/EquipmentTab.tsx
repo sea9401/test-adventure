@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
+  V2_EQUIPMENT,
+  isUnique,
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
@@ -60,6 +62,11 @@ export function EquipmentLockFilterButton({
   );
 }
 
+function isUniqueInstance(instance: V2EquipInstance): boolean {
+  const item = V2_EQUIPMENT[instance.id];
+  return item !== undefined && isUnique(item);
+}
+
 export type EquipmentSaleSelection = {
   active: boolean;
   selectedIids: ReadonlySet<string>;
@@ -107,6 +114,8 @@ export function EquipmentTab({
   setSortMode,
   lockFilter,
   setLockFilter,
+  uniqueOnly = false,
+  setUniqueOnly,
   sellQualityPct,
   setSellQualityPct,
   pageSize,
@@ -127,6 +136,9 @@ export function EquipmentTab({
   setSortMode: Dispatch<SetStateAction<SortMode>>;
   lockFilter: EquipmentLockFilter;
   setLockFilter: (next: EquipmentLockFilter) => void;
+  /** 유니크만 보기(건의 #821) — 잠금 필터·검색과 함께 적용된다. */
+  uniqueOnly?: boolean;
+  setUniqueOnly?: (next: boolean) => void;
   sellQualityPct: number;
   setSellQualityPct: Dispatch<SetStateAction<number>>;
   pageSize: number;
@@ -153,9 +165,10 @@ export function EquipmentTab({
     () =>
       sortedInstances.filter((instance) =>
         (lockFilter === "all" || (instance.locked === true) === (lockFilter === "locked")) &&
+        (!uniqueOnly || isUniqueInstance(instance)) &&
         matchesEquipmentSearch(instance.id, search),
       ),
-    [lockFilter, sortedInstances, search],
+    [lockFilter, uniqueOnly, sortedInstances, search],
   );
   const comparing = compare?.active === true;
   const compareCount = compare?.selectedIids.size ?? 0;
@@ -165,13 +178,17 @@ export function EquipmentTab({
     () => instances.filter((instance) => instance.locked === true).length,
     [instances],
   );
+  const uniqueCount = useMemo(
+    () => instances.filter(isUniqueInstance).length,
+    [instances],
+  );
 
   // 목록이 길어지면 페이지로 나눈다(한 페이지 20개). 탭(슬롯)·정렬을 바꾸면 1페이지로 리셋
   //   (resetKey).
   const equipPager = usePagination(
     tabInstances,
     pageSize,
-    `${slot}:${sortMode}:${lockFilter}:${search}`,
+    `${slot}:${sortMode}:${lockFilter}:${uniqueOnly}:${search}`,
   );
   const qualitySellCount = useMemo(
     () =>
@@ -187,7 +204,7 @@ export function EquipmentTab({
     <>
       {instances.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               aria-label="장비 정렬 기준"
               value={sortMode}
@@ -212,6 +229,18 @@ export function EquipmentTab({
               totalCount={instances.length}
               lockedCount={lockedCount}
             />
+            {setUniqueOnly ? (
+              <Button
+                type="button"
+                onClick={() => setUniqueOnly(!uniqueOnly)}
+                aria-pressed={uniqueOnly}
+                variant={uniqueOnly ? "primary" : "secondary"}
+                size="sm"
+                className="shrink-0"
+              >
+                유니크만 보기 ({uniqueCount})
+              </Button>
+            ) : null}
           </div>
           {selection.active ? (
             <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
@@ -362,6 +391,11 @@ export function EquipmentTab({
         emptyState={
           search.trim()
             ? { title: "검색 결과가 없습니다", message: "다른 이름으로 검색하거나 검색어를 지워 주세요." }
+            : uniqueOnly
+            ? {
+                title: "유니크 장비가 없습니다",
+                message: "조건에 맞는 유니크 장비가 이 부위에 없습니다.",
+              }
             : lockFilter === "locked"
             ? {
                 title: "잠근 장비가 없습니다",

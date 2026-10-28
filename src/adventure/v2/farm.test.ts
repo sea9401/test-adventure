@@ -762,12 +762,45 @@ describe("adventurer farm", () => {
 
     expect(result).toMatchObject({
       requestId: "rare-golden-wheat",
+      count: 1,
       rewardSeeds: {},
       rewardReputation: 3,
     });
     expect(next.inventory.golden_wheat).toBeUndefined();
     expect(next.seeds).toEqual({});
     expect(next.stats.reputation).toBe(3);
+  });
+
+  it("delivers several rare harvests in one claim and clamps to the owned amount", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      inventory: { golden_wheat: 3, silverleaf: 1 },
+      seeds: {},
+    };
+    const { state: next, result } = claimFarmSpecialDelivery(
+      state,
+      "rare-golden-wheat",
+      10,
+    );
+
+    expect(result).toMatchObject({
+      requestId: "rare-golden-wheat",
+      count: 3,
+      rewardReputation: 9,
+    });
+    expect(next.inventory).toEqual({ silverleaf: 1 });
+    expect(next.stats.reputation).toBe(9);
+    expect(next.stats.deliveries).toBe(3);
+  });
+
+  it("rejects a rare harvest delivery count below one", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      inventory: { golden_wheat: 3 },
+    };
+    expect(() =>
+      claimFarmSpecialDelivery(state, "rare-golden-wheat", 0),
+    ).toThrow("bad_quantity");
   });
 
   it("spends available farm reputation in the farm shop without changing plot unlocks", () => {

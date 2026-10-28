@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import {
   classifySkillForLibrary,
   matchesSkillDamageType,
@@ -7,6 +8,7 @@ import {
   skillDamageTypes,
   skillJobFilterGroups,
   skillSourceJob,
+  orderSkillEnhanceRows,
   skillSourceJobLabel,
 } from "./skillLibraryFilters";
 
@@ -169,5 +171,61 @@ describe("스킬 보유 목록 출처 직업", () => {
       { label: "6차", jobs: [{ id: "fortressknight", name: "성채기사" }] },
       { label: "7차", jobs: [{ id: "dreadnought", name: "드레드노트" }] },
     ]);
+  });
+});
+
+describe("스킬 강화 목록 장착 우선·검색", () => {
+  const rows = (
+    [
+      "v2c_warrior_strike",
+      "v2c_swordsaint_flash",
+      "v2c_elementalist_magic",
+      "v2_skill_strike",
+    ] as const
+  ).map((skillId) => ({ skillId, name: V2_SKILLS[skillId].name }));
+  const flashName = V2_SKILLS.v2c_swordsaint_flash.name;
+
+  it("장착 스킬을 장착 순서대로 먼저 두고 나머지는 원래 순서를 지킨다", () => {
+    const ordered = orderSkillEnhanceRows(
+      rows,
+      ["v2c_elementalist_magic", "v2c_warrior_strike"],
+      "",
+    );
+    expect(ordered.map((r) => r.skillId)).toEqual([
+      "v2c_elementalist_magic",
+      "v2c_warrior_strike",
+      "v2c_swordsaint_flash",
+      "v2_skill_strike",
+    ]);
+  });
+
+  it("목록에 없는 장착 id는 무시한다", () => {
+    const ordered = orderSkillEnhanceRows(rows, ["unknown_skill"], "");
+    expect(ordered.map((r) => r.skillId)).toEqual(rows.map((r) => r.skillId));
+  });
+
+  it("띄어쓴 검색어를 모두 포함하는 스킬만 남긴다", () => {
+    expect(
+      orderSkillEnhanceRows(rows, [], `  ${flashName} `).map((r) => r.skillId),
+    ).toEqual(["v2c_swordsaint_flash"]);
+    expect(
+      orderSkillEnhanceRows(rows, [], `${flashName} 없는검색어`),
+    ).toEqual([]);
+  });
+
+  it("출처 직업 이름으로도 찾는다", () => {
+    const job = skillSourceJobLabel("v2c_swordsaint_flash")!;
+    expect(
+      orderSkillEnhanceRows(rows, [], job).map((r) => r.skillId),
+    ).toContain("v2c_swordsaint_flash");
+  });
+
+  it("검색 결과 안에서도 장착 스킬이 먼저 온다", () => {
+    const ordered = orderSkillEnhanceRows(
+      rows,
+      ["v2_skill_strike"],
+      "공용",
+    );
+    expect(ordered[0]?.skillId).toBe("v2_skill_strike");
   });
 });

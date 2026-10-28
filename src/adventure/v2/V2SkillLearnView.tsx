@@ -47,6 +47,8 @@ import {
 import { useGameResourceState } from "./GameResourceContext";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useSystemMessageState } from "./RewardToastProvider";
+import { ItemSearchInput } from "./ItemSearchInput";
+import { orderSkillEnhanceRows } from "./skillLibraryFilters";
 
 // v2 학습 — 숙달 포인트로 직업 스킬을 습득하고 SP 로드아웃을 구성한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
@@ -435,6 +437,7 @@ export function V2SkillLearnView({
   const [detailSkillId, setDetailSkillId] = useState<V2SkillId | null>(null);
   const [ritualTarget, setRitualTarget] = useState<V2LoadoutSkill | null>(null);
   const [ritualMode, setRitualMode] = useState<SkillRitualMode>("power");
+  const [enhanceQuery, setEnhanceQuery] = useState("");
   const [statFeedback, setStatFeedback] = useState<{
     current: LoadoutStatSnapshot | null;
     delta: LoadoutStatDelta | null;
@@ -543,6 +546,15 @@ export function V2SkillLearnView({
         ritualRefund: s.ritualRefund,
       }));
   }, [elementalSkills, loadout]);
+  // 장착 스킬을 먼저 보여 주고, 검색어로 거른다(건의 #818).
+  const visibleEnhanceRows = useMemo(
+    () => orderSkillEnhanceRows(enhanceRows, loadout?.equipped ?? [], enhanceQuery),
+    [enhanceQuery, enhanceRows, loadout?.equipped],
+  );
+  const equippedSkillIds = useMemo(
+    () => new Set(loadout?.equipped ?? []),
+    [loadout?.equipped],
+  );
 
   const openRitual = useCallback((skill: V2LoadoutSkill) => {
     const currentMode = skill.ritualMode ?? null;
@@ -792,13 +804,25 @@ export function V2SkillLearnView({
               </strong>
             </div>
           </div>
+          {enhanceRows.length > 0 && (
+            <div className="mt-3">
+              <ItemSearchInput
+                value={enhanceQuery}
+                onChange={setEnhanceQuery}
+                label="강화할 스킬 검색"
+                placeholder="스킬 이름·효과·직업 검색"
+              />
+            </div>
+          )}
           <ul className="mt-3 space-y-1.5">
-            {enhanceRows.length === 0 ? (
+            {enhanceRows.length === 0 || visibleEnhanceRows.length === 0 ? (
               <li className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-                강화 가능한 학습 스킬이 없습니다.
+                {enhanceRows.length === 0
+                  ? "강화 가능한 학습 스킬이 없습니다."
+                  : "검색어와 일치하는 스킬이 없습니다."}
               </li>
             ) : (
-              enhanceRows.map((s) => {
+              visibleEnhanceRows.map((s) => {
                 const level = Math.max(0, Math.floor(s.ritualLevel ?? 0));
                 const next = nextSkillRitualStep(level);
                 const maxed = level >= SKILL_RITUAL_MAX_LEVEL || !next;
@@ -819,6 +843,11 @@ export function V2SkillLearnView({
                         <span className="truncate text-sm font-semibold">
                           {s.name}
                         </span>
+                        {equippedSkillIds.has(s.skillId) && (
+                          <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
+                            장착 중
+                          </span>
+                        )}
                         <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
                           {mode
                             ? `${modeLabel(mode)} +${level} · ${modeBonusLabel(mode, displayedBonus)}`

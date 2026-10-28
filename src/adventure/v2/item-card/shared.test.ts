@@ -5,6 +5,7 @@ import {
   V2_EQUIPMENT,
   v2EquipStatRows,
 } from "@/adventure/data/v2/v2Equipment";
+import { UNEXPLORED_BOSS_UNIQUE_EFFECTS } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import {
   itemNameClass,
   QualityPctText,
@@ -40,6 +41,18 @@ describe("itemNameClass", () => {
     expect(eclipseStaff.setId).toBeUndefined();
     expect(eclipseStaff.signature).toBeDefined();
     expect(itemNameClass(eclipseStaff)).toBe("ui-item-name-signature");
+  });
+
+  // 건의 #813: 미개척지 보스 고유 효과는 signature 필드 밖에 있어도 고유 효과 장비로 본다.
+  it("uses the signature treatment for every unexplored boss unique effect item", () => {
+    const ids = Object.keys(UNEXPLORED_BOSS_UNIQUE_EFFECTS);
+
+    expect(ids).toHaveLength(18);
+    for (const id of ids) {
+      const item = V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT];
+      expect(item.setId).toBeUndefined();
+      expect([id, itemNameClass(item)]).toEqual([id, "ui-item-name-signature"]);
+    }
   });
 
   it("uses purple for a unique item without a set or signature", () => {

@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AdventurerFarmPanel,
+  RareDeliveryBoard,
   WeeklyDeliveryBoard,
   FarmBatchActionPanel,
   FarmExchangeShopPanel,
@@ -12,7 +13,11 @@ import {
   farmSectionFromHash,
   prioritizeDeliverable,
 } from "./AdventurerFarmPanel";
-import { FARM_CROPS, getFarmWeeklyDeliveryRequests } from "./farm";
+import {
+  FARM_CROPS,
+  getFarmSpecialDeliveryRequests,
+  getFarmWeeklyDeliveryRequests,
+} from "./farm";
 
 describe("주간 납품 선택 보드", () => {
   it.each([0, 2])("황금 밀 %i개 보유 시 적용 여부와 예상 보상을 표시한다", (rareCount) => {
@@ -71,6 +76,42 @@ describe("주간 납품 선택 보드", () => {
     expect((screen.getByRole("button", { name: "이번 주 완료" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "주간 납품" }));
     expect(onDeliver).toHaveBeenCalledWith("weekly-clinic-bundle");
+  });
+});
+
+describe("희귀 수확 납품 보드", () => {
+  const goldenWheat = getFarmSpecialDeliveryRequests().filter(
+    (delivery) => delivery.id === "rare-golden-wheat",
+  );
+
+  it("여러 개를 보유하면 한 번에 모두 납품할 수 있다", () => {
+    const onDeliver = vi.fn();
+    render(<RareDeliveryBoard
+      deliveries={goldenWheat} inventory={{ golden_wheat: 7 }}
+      busyDeliveryId={null} onDeliver={onDeliver}
+    />);
+    fireEvent.click(screen.getByRole("button", { name: "모두 납품 (7개)" }));
+    expect(onDeliver).toHaveBeenCalledWith("rare-golden-wheat", 7);
+    fireEvent.click(screen.getByRole("button", { name: "희귀 납품" }));
+    expect(onDeliver).toHaveBeenLastCalledWith("rare-golden-wheat", 1);
+  });
+
+  it("1개만 있으면 모두 납품 버튼을 따로 보이지 않는다", () => {
+    render(<RareDeliveryBoard
+      deliveries={goldenWheat} inventory={{ golden_wheat: 1 }}
+      busyDeliveryId={null} onDeliver={vi.fn()}
+    />);
+    expect(screen.queryByRole("button", { name: /모두 납품/ })).toBeNull();
+  });
+
+  it("납품 중에는 같은 보드의 다른 주문도 누를 수 없다", () => {
+    render(<RareDeliveryBoard
+      deliveries={getFarmSpecialDeliveryRequests().slice(0, 2)}
+      inventory={{ golden_wheat: 3, silverleaf: 3 }}
+      busyDeliveryId="rare-golden-wheat" onDeliver={vi.fn()}
+    />);
+    const buttons = screen.getAllByRole("button") as HTMLButtonElement[];
+    expect(buttons.every((button) => button.disabled)).toBe(true);
   });
 });
 

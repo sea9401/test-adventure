@@ -103,6 +103,7 @@ const SELF_RESOURCE_LABEL = {
   magicWard: "봉마결계",
   purificationWard: "정화결계",
   bloodlineBurstReady: "혈맥 폭발 상태",
+  crystalFocus: "수정 집속",
 } as const;
 
 const ENEMY_DEBUFF_LABEL: Record<V2PatternEnemyDebuff, string> = {

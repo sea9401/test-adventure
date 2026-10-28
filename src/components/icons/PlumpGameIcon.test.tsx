@@ -6,8 +6,8 @@ import {
 } from "./PlumpGameIcon";
 
 describe("Plump Solid 게임 아이콘", () => {
-  it("승인된 30종을 동일한 SVG 계약으로 렌더링한다", () => {
-    expect(PLUMP_GAME_ICON_NAMES).toHaveLength(30);
+  it("등록된 32종을 동일한 SVG 계약으로 렌더링한다", () => {
+    expect(PLUMP_GAME_ICON_NAMES).toHaveLength(32);
 
     for (const name of PLUMP_GAME_ICON_NAMES) {
       const html = renderToStaticMarkup(

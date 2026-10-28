@@ -17,6 +17,7 @@ import { enforceFarmingRateLimit } from "@/lib/server/farmingRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
 // POST /api/v2/farm/special-deliver — 희귀 수확 작물을 별도 납품한다.
+//   count(선택, 1 이상 정수): 한 요청으로 납품할 횟수. 보유 수량을 넘으면 보유분까지만 처리.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -27,9 +28,16 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as {
     requestId?: unknown;
+    count?: unknown;
   } | null;
   const requestId = typeof body?.requestId === "string" ? body.requestId : "";
-  if (!requestId) {
+  const count = body?.count ?? 1;
+  if (
+    !requestId ||
+    typeof count !== "number" ||
+    !Number.isInteger(count) ||
+    count < 1
+  ) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
@@ -42,7 +50,7 @@ export async function POST(req: Request) {
         ),
         now,
       );
-      const delivered = claimFarmSpecialDelivery(farm, requestId);
+      const delivered = claimFarmSpecialDelivery(farm, requestId, count);
       await upsertSave(tx, userId, FARM_SAVE_KEY, delivered.state);
       return { farm: delivered.state, result: delivered.result };
     });

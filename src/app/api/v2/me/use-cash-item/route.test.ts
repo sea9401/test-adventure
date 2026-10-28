@@ -383,3 +383,72 @@ describe("POST /api/v2/me/use-cash-item — 프리미엄 모험 지원권", () =
     expect(mocks.store.get("character.v2")).toBe(character);
   });
 });
+
+describe("POST /api/v2/me/use-cash-item — 문장 상자", () => {
+  it("상자 한 개를 소모하고 문장 하나를 기존 문장 뒤에 추가한다", async () => {
+    mocks.store.set("character.v2", {
+      class: "warrior",
+      cashItems: { emblem_box: 2 },
+      emblems: {
+        owned: [{ iid: "old", kind: "hp", grade: 1 }],
+        slots: ["old", null, null, null],
+        revision: 4,
+      },
+    });
+    const random = vi
+      .spyOn(Math, "random")
+      .mockReturnValueOnce(0.95)
+      .mockReturnValueOnce(2 / 8);
+
+    const response = await POST(request("emblem_box"));
+    random.mockRestore();
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      ok: boolean;
+      cashItems: Record<string, number>;
+      emblem: { iid: string; kind: string; grade: number };
+    };
+    expect(body).toMatchObject({
+      ok: true,
+      cashItems: { emblem_box: 1 },
+      emblem: { kind: "str", grade: 2 },
+    });
+    const saved = mocks.store.get("character.v2") as {
+      cashItems: Record<string, number>;
+      emblems: { owned: { iid: string }[]; slots: unknown[]; revision: number };
+    };
+    expect(saved.cashItems).toEqual({ emblem_box: 1 });
+    expect(saved.emblems.owned.map((entry) => entry.iid)).toEqual([
+      "old",
+      body.emblem.iid,
+    ]);
+    expect(saved.emblems.slots).toEqual(["old", null, null, null]);
+    expect(saved.emblems.revision).toBe(5);
+  });
+
+  it("상자가 없으면 문장을 추가하지 않는다", async () => {
+    const character = { class: "warrior", cashItems: {} };
+    mocks.store.set("character.v2", character);
+
+    const response = await POST(request("emblem_box"));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ ok: false, error: "not_owned" });
+    expect(mocks.store.get("character.v2")).toBe(character);
+  });
+
+  it("마법부여서는 가방에서 바로 쓰지 않고 마법부여 작업대에서 쓴다", async () => {
+    const character = { class: "warrior", cashItems: { enchant_scroll: 1 } };
+    mocks.store.set("character.v2", character);
+
+    const response = await POST(request("enchant_scroll"));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "use_at_enchant_workbench",
+    });
+    expect(mocks.store.get("character.v2")).toBe(character);
+  });
+});

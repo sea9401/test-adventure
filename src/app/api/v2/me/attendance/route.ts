@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import {
   MONTHLY_ATTENDANCE_SAVE_KEY,
+  monthlyAttendanceCashItemGrants,
   monthlyAttendanceRewardLabel,
   monthlyAttendanceRewardsForMonth,
   monthlyAttendanceStatus,
@@ -8,6 +9,7 @@ import {
 } from "@/adventure/data/v2/monthlyAttendance";
 import {
   addMuseunCashItem,
+  type MuseunCashItemId,
   type MuseunCosmeticBoxItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
@@ -127,6 +129,7 @@ export async function POST() {
       let masteryCertificates: number | null = null;
       let grantedMaterials: Record<string, number> | null = null;
       let grantedCosmeticBox: MuseunCosmeticBoxItemId | null = null;
+      let grantedCashItems: Record<string, number> | null = null;
 
       const adventureSupportDays =
         reward.kind === "adventure_support"
@@ -195,7 +198,10 @@ export async function POST() {
           ...inventory,
           [MASTERY_CERTIFICATE_KEY]: masteryCertificates,
         });
-      } else if (reward.kind !== "adventure_support") {
+      } else if (
+        reward.kind !== "adventure_support" &&
+        reward.kind !== "enchant_scroll"
+      ) {
         const materials = materialCounts(character.materials);
         grantedMaterials = {};
         const grantMaterial = (materialId: string, count: number) => {
@@ -227,6 +233,19 @@ export async function POST() {
         characterChanged = true;
       }
 
+      const cashItemGrants = Object.entries(
+        monthlyAttendanceCashItemGrants(reward),
+      ) as [MuseunCashItemId, number][];
+      if (cashItemGrants.length > 0) {
+        let cashItems = nextCharacter.cashItems;
+        for (const [itemId, count] of cashItemGrants) {
+          cashItems = addMuseunCashItem(cashItems, itemId, count);
+        }
+        nextCharacter = { ...nextCharacter, cashItems };
+        grantedCashItems = Object.fromEntries(cashItemGrants);
+        characterChanged = true;
+      }
+
       if (characterChanged) {
         await upsertSave(tx, userId, "character.v2", nextCharacter);
       }
@@ -252,6 +271,7 @@ export async function POST() {
           masteryCertificates,
           grantedMaterials,
           grantedCosmeticBox,
+          grantedCashItems,
           ...publicStatus(nextAttendance, now),
         },
       };
@@ -288,6 +308,17 @@ function recordAttendanceReward(
       quantity: 1,
     });
   }
+  for (const [itemId, quantity] of Object.entries(
+    monthlyAttendanceCashItemGrants(reward),
+  )) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.monthly_attendance",
+      itemKind: "consumable",
+      itemId,
+      quantity,
+    });
+  }
   const adventureSupportDays =
     reward.kind === "adventure_support"
       ? reward.days
@@ -301,7 +332,7 @@ function recordAttendanceReward(
       quantity: adventureSupportDays,
     });
   }
-  if (reward.kind === "adventure_support") {
+  if (reward.kind === "adventure_support" || reward.kind === "enchant_scroll") {
     return;
   }
   if (reward.kind === "stamina_potion") {

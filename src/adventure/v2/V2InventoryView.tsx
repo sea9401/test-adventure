@@ -181,6 +181,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     } catch {}
   }, [sortModeHydrated, sortMode]);
   const [lockFilter, setLockFilter] = useState<EquipmentLockFilter>("all");
+  const [uniqueOnly, setUniqueOnly] = useState(false);
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
@@ -1222,6 +1223,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               setSortMode={setSortMode}
               lockFilter={lockFilter}
               setLockFilter={setLockFilter}
+              uniqueOnly={uniqueOnly}
+              setUniqueOnly={setUniqueOnly}
               sellQualityPct={sellQualityPct}
               setSellQualityPct={setSellQualityPct}
               pageSize={INVENTORY_PAGE_SIZE}

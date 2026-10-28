@@ -113,6 +113,33 @@ describe("위험 해역 실시간 조우 HUD", () => {
     );
   });
 
+  it("징후가 없는 동안에도 행동 예고 자리를 유지해 조작 버튼이 밀리지 않는다", () => {
+    const idle = encounterFixture({
+      phase: "idle",
+      behavior: "turn",
+      behaviorCursor: 0,
+    });
+    render(<DangerousFishingRealtimePanel {...baseProps} encounter={idle} />);
+
+    expect(screen.getByLabelText("행동 예고").textContent).toBe(
+      "현재 징후 · 없음",
+    );
+
+    cleanup();
+    const telegraph = encounterFixture({
+      phase: "telegraph",
+      behavior: "turn",
+      behaviorCursor: 0,
+    });
+    render(
+      <DangerousFishingRealtimePanel {...baseProps} encounter={telegraph} />,
+    );
+
+    expect(screen.getByLabelText("행동 예고").textContent).toMatch(
+      /^현재 징후 · (돌진|몸부림|급선회|잠수)$/,
+    );
+  });
+
   it("조우가 종료되면 발광 미끼의 행동 예고를 숨긴다", () => {
     const encounter = encounterFixture({
       status: "line_broken",

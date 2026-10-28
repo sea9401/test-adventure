@@ -426,4 +426,72 @@ describe("월간 출석 보상 수령", () => {
     });
     expect(mocks.saves.get("character.v2")).toEqual({ class: "warrior" });
   });
+
+  it("2026년 11월 1일차에는 지원권 대신 마법부여서 1장을 가방에 지급한다", async () => {
+    vi.setSystemTime(new Date("2026-11-01T03:00:00Z"));
+    mocks.saves.set("character.v2", {
+      class: "warrior",
+      cashItems: { enchant_scroll: 1 },
+    });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      reward: unknown;
+      adventureSupportActiveUntil: number | null;
+      grantedCashItems: Record<string, number> | null;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.reward).toEqual({ kind: "enchant_scroll", count: 1 });
+    expect(json.adventureSupportActiveUntil).toBeNull();
+    expect(json.grantedCashItems).toEqual({ enchant_scroll: 1 });
+    expect(mocks.saves.get("character.v2")).toEqual({
+      class: "warrior",
+      cashItems: { enchant_scroll: 2 },
+    });
+    expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "reward.monthly_attendance",
+        itemId: "enchant_scroll",
+        quantity: 1,
+      }),
+    );
+  });
+
+  it("2026년 11월 28일차에는 숙련의 증표와 마법부여서·문장 상자를 함께 지급한다", async () => {
+    vi.setSystemTime(new Date("2026-11-28T03:00:00Z"));
+    mocks.saves.set("monthly-attendance.v1", {
+      monthKey: "2026-11",
+      claimedDayKeys: Array.from(
+        { length: 27 },
+        (_, index) => `2026-11-${String(index + 1).padStart(2, "0")}`,
+      ),
+    });
+    mocks.saves.set("character.v2", { class: "warrior" });
+    mocks.saves.set("inventory.v2", { masteryCertificates: 50 });
+
+    const response = await POST();
+    const json = (await response.json()) as {
+      masteryCertificates: number;
+      grantedCashItems: Record<string, number> | null;
+      grantedCosmeticBox: string | null;
+      complete: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(json.masteryCertificates).toBe(550);
+    expect(json.grantedCashItems).toEqual({ enchant_scroll: 1, emblem_box: 1 });
+    expect(json.grantedCosmeticBox).toBeNull();
+    expect(json.complete).toBe(true);
+    expect(mocks.saves.get("character.v2")).toEqual({
+      class: "warrior",
+      cashItems: { enchant_scroll: 1, emblem_box: 1 },
+    });
+    for (const itemId of ["enchant_scroll", "emblem_box"]) {
+      expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
+        expect.objectContaining({ itemKind: "consumable", itemId, quantity: 1 }),
+      );
+    }
+  });
 });
+

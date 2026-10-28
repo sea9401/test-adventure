@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  mutateEmblems, parseEmblemState, rollEmblemDrop, rollEmblemDrops, rollEmblemGrowth,
+  mutateEmblems, parseEmblemState, rollEmblemBox, rollEmblemDrop, rollEmblemDrops, rollEmblemGrowth,
   type Emblem, type EmblemState,
 } from "./emblems";
 
@@ -106,5 +106,19 @@ describe("hard emblem rewards", () => {
     expect(rollEmblemDrops("final_boss", "hard", nextIid, () => 0.5).map((emblem) => emblem.iid)).toEqual(["e1", "e2"]);
     expect(rollEmblemDrops("elite", "hard", nextIid, () => 0)).toHaveLength(1);
     expect(rollEmblemDrops("elite", "hard", nextIid, () => 0.5)).toEqual([]);
+  });
+});
+
+describe("emblem box", () => {
+  it.each([[0, 1], [0.88999, 1], [0.89, 2], [0.98999, 2], [0.99, 3], [0.99999, 3]] as const)("uses the normal sanctuary grade boundary %s", (roll, grade) => {
+    const rng = vi.fn().mockReturnValueOnce(roll).mockReturnValueOnce(0.999);
+    expect(rollEmblemBox("box", rng)).toEqual(item("box", "luk", grade));
+  });
+  it("draws every kind with equal chance and never skips the draw", () => {
+    const kinds = Array.from({ length: 8 }, (_, index) => {
+      const rng = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(index / 8);
+      return rollEmblemBox(`box-${index}`, rng).kind;
+    });
+    expect(kinds).toEqual(["hp", "mp", "str", "dex", "vit", "int", "spi", "luk"]);
   });
 });

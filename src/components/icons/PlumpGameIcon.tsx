@@ -10,6 +10,8 @@ export const PLUMP_GAME_ICON_NAMES = [
   "chroma_box",
   "chat_badge_box",
   "profile_frame_box",
+  "enchant_scroll",
+  "emblem_box",
   "cooking",
   "salt",
   "pepper",
@@ -45,6 +47,8 @@ export const PLUMP_GAME_ICON_META = {
   chroma_box: { label: "닉네임 꾸미기", color: "#8b5cf6" },
   chat_badge_box: { label: "채팅 배지", color: "#ec5ca8" },
   profile_frame_box: { label: "프로필 테두리", color: "#526de8" },
+  enchant_scroll: { label: "마법부여서", color: "#8b5cf6" },
+  emblem_box: { label: "문장 상자", color: "#7c3aed" },
   cooking: { label: "요리", color: "#ff6b35" },
   salt: { label: "소금", color: "#139be8" },
   pepper: { label: "후추", color: "#788a9a" },
@@ -204,6 +208,24 @@ function PlumpGameIconArtwork({ name }: { name: PlumpGameIconName }) {
           <rect fill="#fff" x="13" y="15" width="38" height="34" rx="5" />
           <circle cx="32" cy="27" r="7" />
           <path d="M19 47c2-9 7-14 13-14s11 5 13 14Z" />
+        </>
+      );
+    case "enchant_scroll":
+      return (
+        <>
+          <path d="M14 8h34c6 0 10 4 10 10 0 5-4 9-9 10v25H16C9 53 5 49 5 43s4-10 9-11Z" />
+          <path fill="#fff" d="M48 13c3 0 5 2 5 5s-2 5-5 5h-5V13Z" />
+          <path fill="#fff" d="m29 17 2.8 7.2 7.2 2.8-7.2 2.8L29 37l-2.8-7.2-7.2-2.8 7.2-2.8Z" />
+          <circle fill="#fff" cx="40" cy="41" r="3" />
+        </>
+      );
+    case "emblem_box":
+      return (
+        <>
+          <rect x="6" y="14" width="52" height="14" rx="5" />
+          <path d="M10 30h44v22c0 3-2 5-5 5H15c-3 0-5-2-5-5Z" />
+          <rect fill="#fff" x="29" y="14" width="6" height="14" />
+          <path fill="#fff" d="M32 33l10 3.5v6.5c0 5.5-4.5 9-10 11-5.5-2-10-5.5-10-11v-6.5Z" />
         </>
       );
     case "cooking":

@@ -1,23 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
+  LEGACY_MONTHLY_ATTENDANCE_REWARDS,
   MONTHLY_ATTENDANCE_REWARDS,
+  monthlyAttendanceRewardsForMonth,
   monthlyAttendanceRewardLabel,
   monthlyAttendanceState,
   monthlyAttendanceStatus,
 } from "./monthlyAttendance";
 
-describe("월간 출석", () => {
+describe("월간 출석 (2026년 10월까지)", () => {
   it("1일차 보상은 월간 모험 지원권 15일이다", () => {
-    expect(MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
-    expect(MONTHLY_ATTENDANCE_REWARDS[0]).toEqual({
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[0]).toEqual({
       kind: "adventure_support",
       days: 15,
     });
   });
 
   it("강화석 없이 탐험 재화와 이정표 보상으로 28일 보상판을 구성한다", () => {
-    expect(MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
-    const rewardKinds = MONTHLY_ATTENDANCE_REWARDS.map(
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
+    const rewardKinds = LEGACY_MONTHLY_ATTENDANCE_REWARDS.map(
       (reward) => reward.kind,
     );
     for (const forbiddenKind of [
@@ -30,7 +32,7 @@ describe("월간 출석", () => {
     }
     expect(
       [2, 6, 8, 11, 15, 17, 19, 22, 24, 26].map(
-        (day) => MONTHLY_ATTENDANCE_REWARDS[day - 1],
+        (day) => LEGACY_MONTHLY_ATTENDANCE_REWARDS[day - 1],
       ),
     ).toEqual([
       { kind: "torn_map_fragment", count: 2 },
@@ -44,20 +46,20 @@ describe("월간 출석", () => {
       { kind: "boss_summon_scroll", count: 3 },
       { kind: "coop_coin", count: 40 },
     ]);
-    expect(MONTHLY_ATTENDANCE_REWARDS[13]).toEqual({
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[13]).toEqual({
       kind: "adventure_support",
       days: 7,
       cosmeticBox: "chat_badge_box",
     });
-    expect(MONTHLY_ATTENDANCE_REWARDS[20]).toEqual({
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[20]).toEqual({
       kind: "mastery_certificate",
       count: 300,
       adventureSupportDays: 7,
     });
-    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[20])).toBe(
+    expect(monthlyAttendanceRewardLabel(LEGACY_MONTHLY_ATTENDANCE_REWARDS[20])).toBe(
       "숙련의 증표 300개 · 월간 모험 지원권 7일",
     );
-    expect(MONTHLY_ATTENDANCE_REWARDS[27]).toEqual({
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[27]).toEqual({
       kind: "mastery_certificate",
       count: 500,
       cosmeticBox: "profile_border_box",
@@ -74,7 +76,7 @@ describe("월간 출석", () => {
       coopCoins: 0,
     };
 
-    for (const reward of MONTHLY_ATTENDANCE_REWARDS) {
+    for (const reward of LEGACY_MONTHLY_ATTENDANCE_REWARDS) {
       if (reward.kind === "adventure_support") {
         totals.adventureSupportDays += reward.days;
       }
@@ -105,22 +107,22 @@ describe("월간 출석", () => {
   });
 
   it("7·14·28일차에 닉네임·배지·프로필 꾸미기 상자를 추가한다", () => {
-    expect(MONTHLY_ATTENDANCE_REWARDS[6].cosmeticBox).toBe(
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[6].cosmeticBox).toBe(
       "chroma_name_box",
     );
-    expect(MONTHLY_ATTENDANCE_REWARDS[13].cosmeticBox).toBe(
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[13].cosmeticBox).toBe(
       "chat_badge_box",
     );
-    expect(MONTHLY_ATTENDANCE_REWARDS[27].cosmeticBox).toBe(
+    expect(LEGACY_MONTHLY_ATTENDANCE_REWARDS[27].cosmeticBox).toBe(
       "profile_border_box",
     );
-    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[27])).toBe(
+    expect(monthlyAttendanceRewardLabel(LEGACY_MONTHLY_ATTENDANCE_REWARDS[27])).toBe(
       "숙련의 증표 500개 · 프로필 꾸미기 상자",
     );
   });
 
   it("스태미나 회복약은 한 번에 2개 이상, 한 달에 총 29개 지급한다", () => {
-    const potionRewards = MONTHLY_ATTENDANCE_REWARDS.filter(
+    const potionRewards = LEGACY_MONTHLY_ATTENDANCE_REWARDS.filter(
       (reward) => reward.kind === "stamina_potion",
     );
 
@@ -172,5 +174,77 @@ describe("월간 출석", () => {
 
     expect(status.claimedToday).toBe(true);
     expect(status.canClaim).toBe(false);
+  });
+});
+
+describe("월간 출석 (2026년 11월부터)", () => {
+  it("10월까지는 기존 출석판, 11월부터는 새 출석판을 쓴다", () => {
+    expect(monthlyAttendanceRewardsForMonth("2026-10")).toBe(
+      LEGACY_MONTHLY_ATTENDANCE_REWARDS,
+    );
+    expect(monthlyAttendanceRewardsForMonth("2026-11")).toBe(
+      MONTHLY_ATTENDANCE_REWARDS,
+    );
+    expect(monthlyAttendanceRewardsForMonth("2027-03")).toBe(
+      MONTHLY_ATTENDANCE_REWARDS,
+    );
+  });
+
+  it("월간 모험 지원권과 꾸미기 상자를 지급하지 않는다", () => {
+    expect(MONTHLY_ATTENDANCE_REWARDS).toHaveLength(28);
+    for (const reward of MONTHLY_ATTENDANCE_REWARDS) {
+      expect(reward.kind).not.toBe("adventure_support");
+      expect(reward).not.toHaveProperty("adventureSupportDays");
+      expect(reward).not.toHaveProperty("cosmeticBox");
+    }
+  });
+
+  it("특수 보상 칸에 마법부여서와 문장 상자를 배치한다", () => {
+    const day = (n: number) => MONTHLY_ATTENDANCE_REWARDS[n - 1];
+    expect(day(1)).toEqual({ kind: "enchant_scroll", count: 1 });
+    expect(day(7)).toEqual({ kind: "stamina_potion", count: 2, emblemBoxes: 1 });
+    expect(day(14)).toEqual({ kind: "enchant_scroll", count: 1 });
+    expect(day(21)).toEqual({ kind: "mastery_certificate", count: 300 });
+    expect(day(28)).toEqual({
+      kind: "mastery_certificate",
+      count: 500,
+      enchantScrolls: 1,
+      emblemBoxes: 1,
+    });
+  });
+
+  it("나머지 칸은 기존 출석판과 같다", () => {
+    for (let index = 0; index < 28; index += 1) {
+      if ([0, 6, 13, 20, 27].includes(index)) continue;
+      expect(MONTHLY_ATTENDANCE_REWARDS[index]).toEqual(
+        LEGACY_MONTHLY_ATTENDANCE_REWARDS[index],
+      );
+    }
+  });
+
+  it("한 달에 마법부여서 3장과 문장 상자 2개를 지급한다", () => {
+    let enchantScrolls = 0;
+    let emblemBoxes = 0;
+    for (const reward of MONTHLY_ATTENDANCE_REWARDS) {
+      if (reward.kind === "enchant_scroll") enchantScrolls += reward.count;
+      enchantScrolls += reward.enchantScrolls ?? 0;
+      emblemBoxes += reward.emblemBoxes ?? 0;
+    }
+    expect({ enchantScrolls, emblemBoxes }).toEqual({
+      enchantScrolls: 3,
+      emblemBoxes: 2,
+    });
+  });
+
+  it("보상 이름에 마법부여서와 문장 상자를 함께 표시한다", () => {
+    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[0])).toBe(
+      "마법부여서 1장",
+    );
+    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[6])).toBe(
+      "스태미나 회복약 2개 · 문장 상자 1개",
+    );
+    expect(monthlyAttendanceRewardLabel(MONTHLY_ATTENDANCE_REWARDS[27])).toBe(
+      "숙련의 증표 500개 · 마법부여서 1장 · 문장 상자 1개",
+    );
   });
 });

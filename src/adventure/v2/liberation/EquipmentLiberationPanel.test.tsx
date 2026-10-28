@@ -287,4 +287,50 @@ describe("장비 마법부여 작업대", () => {
     ]);
     expect(randomUUID).toHaveBeenCalledTimes(1);
   });
+
+  it("마법부여서가 있으면 골드 대신 마법부여서 1장으로 재마법부여한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        item: { ...rerollItem, liberation: { ...rerollItem.liberation!, revision: 4 } },
+        gold: 0,
+        bankedGold: 0,
+        cashItems: { enchant_scroll: 1 },
+      }),
+    });
+    const onEnchantScrollsUpdated = vi.fn();
+    vi.stubGlobal("crypto", { randomUUID: () => "11111111-1111-4111-8111-111111111111" });
+    vi.stubGlobal("fetch", fetchMock);
+    renderPanel(rerollItem, {
+      gold: 0,
+      bankedGold: 0,
+      enchantScrolls: 2,
+      onEnchantScrollsUpdated,
+    });
+
+    expect(screen.getByText("마법부여서 2장 보유")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "골드로 재마법부여" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "마법부여서로 재마법부여" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      iid: "gloves-1",
+      payment: "enchant_scroll",
+    });
+    expect(await screen.findByText("재마법부여가 완료되었습니다.")).toBeTruthy();
+    expect(onEnchantScrollsUpdated).toHaveBeenCalledWith(1);
+  });
+
+  it("최초 마법부여도 마법부여서로 확인받고 진행할 수 있다", () => {
+    renderPanel(initialItem, { enchantScrolls: 1 });
+
+    fireEvent.click(screen.getByRole("button", { name: "마법부여서로 마법부여" }));
+    const dialog = screen.getByRole("dialog", { name: "최초 마법부여 확인" });
+    expect(within(dialog).getByRole("button", { name: "마법부여서 1장 쓰고 마법부여" })).toBeTruthy();
+  });
 });
+

@@ -3,6 +3,7 @@ import {
   PREMIUM_ADVENTURE_SUPPORT_PASS,
 } from "@/adventure/data/v2/adventureSupport";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
+import { EMBLEM_GRADE_PCT, EMBLEM_KINDS } from "@/adventure/data/v2/emblems";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
 
 export function ControlsContent() {
@@ -138,8 +139,23 @@ export function ControlsContent() {
           있습니다.
         </li>
         <li>
-          <Em>월간 모험 지원권 보상이 표시된 날</Em> 수령하면 이용 기간이
-          즉시 적용됩니다. 이미 이용 중이라면 남은 기간 뒤에 이어집니다.
+          <Em>마법부여서</Em>는 대장간 마법부여 작업대에서 골드 대신 1장을 써서
+          마법부여 또는 재마법부여를 1회 진행합니다. 전체 이전에는 쓸 수 없습니다.
+        </li>
+        <li>
+          <Em>문장 상자</Em>는 가방의 소모품에서 열면 문장 1개를 얻습니다. 종류는{" "}
+          {EMBLEM_KINDS.length}종 중 무작위이고 등급은 1등급{" "}
+          {EMBLEM_GRADE_PCT.normal[1]}%, 2등급 {EMBLEM_GRADE_PCT.normal[2]}%, 3등급{" "}
+          {EMBLEM_GRADE_PCT.normal[3]}%입니다.
+        </li>
+        <li>마법부여서와 문장 상자는 계정 귀속이라 거래할 수 없습니다.</li>
+      </UL>
+
+      <H3>월간 모험 지원권</H3>
+      <UL>
+        <li>
+          사용하면 이용 기간이 즉시 적용됩니다. 이미 이용 중이라면 남은 기간 뒤에
+          이어집니다.
         </li>
         <li>
           지원권 적용 중에는 최대 스태미나 +
@@ -162,10 +178,6 @@ export function ControlsContent() {
           제공합니다. 사용할 때마다 꾸미기 30일 연장권{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
           일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤 이어집니다.
-        </li>
-        <li>
-          꾸미기 상자가 포함된 보상은 출석판에 함께 표시되며, 받은 상자는 꾸미기
-          화면에서 열 수 있습니다.
         </li>
       </UL>
 

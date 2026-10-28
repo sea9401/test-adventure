@@ -13,10 +13,12 @@ import { TabBar } from "@/components/ui/TabBar";
 import { confirmGameAction } from "@/components/ui/gameDialog";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import {
+  EMBLEM_BOX_ITEM_ID,
   LEVEL_100_ELIXIR_ITEM_ID,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import { EMBLEM_LABELS, type EmblemKind } from "@/adventure/data/v2/emblems";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, parseSpFruitUsed, type SpFruitTier } from "@/adventure/data/v2/spFruit";
@@ -542,6 +544,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           refundedPoints?: number;
           level?: number;
           levelsGained?: number;
+          emblem?: { kind: EmblemKind; grade: number };
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
@@ -564,6 +567,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             ? `✓ 100레벨 달성 · ${data.levelsGained ?? 0}레벨 상승`
             : itemId === "cultivation_reset_potion"
             ? `✓ 수행 초기화 완료 · Lv.1로 초기화 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
+            : itemId === EMBLEM_BOX_ITEM_ID && data.emblem
+            ? `✓ ${EMBLEM_LABELS[data.emblem.kind]} 문장 ${data.emblem.grade}등급 획득`
             : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
         );
       } catch (err) {

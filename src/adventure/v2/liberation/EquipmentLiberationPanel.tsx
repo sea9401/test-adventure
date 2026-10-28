@@ -16,6 +16,7 @@ import {
   EQUIPMENT_LIBERATION_GOLD_COST,
   type LiberationRank,
 } from "@/adventure/data/v2/equipmentLiberation";
+import { ENCHANT_SCROLL_ITEM_ID } from "@/adventure/data/v2/museunCashItems";
 import {
   V2_EQUIPMENT,
   equipmentPowerDisplayValue,
@@ -47,11 +48,15 @@ type LiberationApiResponse = {
   item?: V2EquipInstance;
   gold?: number;
   bankedGold?: number;
+  cashItems?: Record<string, number>;
 };
+
+type LiberationPayment = "gold" | "enchant_scroll";
 
 type PendingRequest = {
   iid: string;
   revision: number;
+  payment: LiberationPayment;
   requestId: string;
 };
 
@@ -61,14 +66,19 @@ export type EquipmentLiberationPanelProps = {
   gold: number;
   bankedGold: number;
   initialItemIid?: string;
+  /** 보유한 마법부여서 수. 있으면 골드 대신 1장으로 마법부여할 수 있다. */
+  enchantScrolls?: number;
   onItemUpdated: (item: V2EquipInstance) => void;
   onWalletUpdated: (gold: number, bankedGold: number) => void;
+  onEnchantScrollsUpdated?: (count: number) => void;
 };
 
 function errorMessage(error: string | undefined): string {
   switch (error) {
     case "insufficient_gold":
       return "골드가 부족합니다.";
+    case "insufficient_enchant_scroll":
+      return "마법부여서가 부족합니다.";
     case "ineligible":
       return "이 장비에는 마법부여할 수 없습니다.";
     case "not_owned":
@@ -86,8 +96,10 @@ export function EquipmentLiberationPanel({
   gold,
   bankedGold,
   initialItemIid,
+  enchantScrolls = 0,
   onItemUpdated,
   onWalletUpdated,
+  onEnchantScrollsUpdated,
 }: EquipmentLiberationPanelProps) {
   const candidates = useMemo(
     () => liberationCandidateRows(owned, equipped),
@@ -97,7 +109,8 @@ export function EquipmentLiberationPanel({
   const [transferOpen, setTransferOpen] = useState(false);
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmPayment, setConfirmPayment] =
+    useState<LiberationPayment | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{
     tone: "success" | "warning";
@@ -116,6 +129,7 @@ export function EquipmentLiberationPanel({
   const item = instance ? V2_EQUIPMENT[instance.id] : undefined;
   const current = instance?.liberation;
   const isReroll = current != null;
+  const actionLabel = isReroll ? "재마법부여" : "마법부여";
   const spendable = gold + bankedGold;
   const probabilityRows = item ? liberationOptionProbabilityRows(item.slot) : [];
 
@@ -127,14 +141,29 @@ export function EquipmentLiberationPanel({
     setResult(null);
   }
 
-  async function submit(): Promise<void> {
+  function startLiberation(payment: LiberationPayment): void {
+    if (isReroll) {
+      void submit(payment);
+    } else {
+      setConfirmPayment(payment);
+    }
+  }
+
+  async function submit(payment: LiberationPayment): Promise<void> {
     if (!instance || busy) return;
     const revision = equipmentLiberationRevision(instance);
     const reusable = pendingRequest.current;
     const request =
-      reusable?.iid === instance.iid && reusable.revision === revision
+      reusable?.iid === instance.iid &&
+      reusable.revision === revision &&
+      reusable.payment === payment
         ? reusable
-        : { iid: instance.iid, revision, requestId: crypto.randomUUID() };
+        : {
+            iid: instance.iid,
+            revision,
+            payment,
+            requestId: crypto.randomUUID(),
+          };
     pendingRequest.current = request;
     setBusy(true);
     try {
@@ -145,6 +174,7 @@ export function EquipmentLiberationPanel({
           iid: request.iid,
           requestId: request.requestId,
           expectedRevision: request.revision,
+          ...(payment === "enchant_scroll" ? { payment } : {}),
         }),
       });
       const body = (await response.json()) as LiberationApiResponse;
@@ -164,6 +194,9 @@ export function EquipmentLiberationPanel({
       const nextLiberation = body.item.liberation;
       onItemUpdated(body.item);
       onWalletUpdated(body.gold ?? gold, body.bankedGold ?? bankedGold);
+      if (payment === "enchant_scroll") {
+        onEnchantScrollsUpdated?.(body.cashItems?.[ENCHANT_SCROLL_ITEM_ID] ?? 0);
+      }
       setResult({
         rank: nextLiberation?.rank ?? previousRank,
         promoted:
@@ -183,7 +216,7 @@ export function EquipmentLiberationPanel({
       });
     } finally {
       setBusy(false);
-      setConfirmOpen(false);
+      setConfirmPayment(null);
     }
   }
 
@@ -338,6 +371,11 @@ export function EquipmentLiberationPanel({
             <span className="ml-2 text-zinc-500 dark:text-zinc-400">
               결제 가능 {spendable.toLocaleString()} G
             </span>
+            {enchantScrolls > 0 ? (
+              <span className="ml-2 font-semibold text-violet-700 dark:text-violet-300">
+                마법부여서 {enchantScrolls.toLocaleString()}장 보유
+              </span>
+            ) : null}
           </span>
         </div>
 
@@ -406,21 +444,37 @@ export function EquipmentLiberationPanel({
           </div>
         ) : null}
 
-        <Button
-          className="mt-4 w-full shadow-lg shadow-violet-500/20"
-          size="md"
-          variant="primary"
-          disabled={busy || spendable < EQUIPMENT_LIBERATION_GOLD_COST}
-          onClick={() => {
-            if (isReroll) {
-              void submit();
-            } else {
-              setConfirmOpen(true);
-            }
-          }}
-        >
-          {busy ? "마법부여 중…" : isReroll ? "재마법부여" : "마법부여"}
-        </Button>
+        {enchantScrolls > 0 ? (
+          <>
+            <Button
+              className="mt-4 w-full shadow-lg shadow-violet-500/20"
+              size="md"
+              variant="primary"
+              disabled={busy}
+              onClick={() => startLiberation("enchant_scroll")}
+            >
+              {busy ? "마법부여 중…" : `마법부여서로 ${actionLabel}`}
+            </Button>
+            <Button
+              className="mt-2"
+              fullWidth
+              disabled={busy || spendable < EQUIPMENT_LIBERATION_GOLD_COST}
+              onClick={() => startLiberation("gold")}
+            >
+              골드로 {actionLabel}
+            </Button>
+          </>
+        ) : (
+          <Button
+            className="mt-4 w-full shadow-lg shadow-violet-500/20"
+            size="md"
+            variant="primary"
+            disabled={busy || spendable < EQUIPMENT_LIBERATION_GOLD_COST}
+            onClick={() => startLiberation("gold")}
+          >
+            {busy ? "마법부여 중…" : actionLabel}
+          </Button>
+        )}
         {current ? <Button className="mt-2" fullWidth disabled={busy} onClick={() => {
           setMessage(null);
           setResult(null);
@@ -443,13 +497,17 @@ export function EquipmentLiberationPanel({
           onClose={() => setGuideOpen(false)}
         />
       ) : null}
-      {confirmOpen && instance ? (
+      {confirmPayment && instance ? (
         <InitialEnchantmentConfirmDialog
           itemName={selected.name}
-          goldCost={EQUIPMENT_LIBERATION_GOLD_COST}
+          payLabel={
+            confirmPayment === "enchant_scroll"
+              ? "마법부여서 1장 쓰고 마법부여"
+              : `${EQUIPMENT_LIBERATION_GOLD_COST.toLocaleString()} G 지불하고 마법부여`
+          }
           busy={busy}
-          onConfirm={() => void submit()}
-          onClose={() => setConfirmOpen(false)}
+          onConfirm={() => void submit(confirmPayment)}
+          onClose={() => setConfirmPayment(null)}
         />
       ) : null}
     </>

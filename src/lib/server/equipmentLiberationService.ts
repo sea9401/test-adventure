@@ -7,6 +7,10 @@ import {
   rollInitialLiberation,
 } from "@/adventure/data/v2/equipmentLiberation";
 import {
+  ENCHANT_SCROLL_ITEM_ID,
+  removeMuseunCashItem,
+} from "@/adventure/data/v2/museunCashItems";
+import {
   parseEquipmentSave,
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -17,13 +21,18 @@ export { EQUIPMENT_LIBERATION_GOLD_COST };
 export type EquipmentLiberationCharacter = Record<string, unknown> & {
   gold?: unknown;
   bankedGold?: unknown;
+  cashItems?: unknown;
 };
+
+/** 마법부여 비용은 골드(지갑 먼저, 부족분 은행) 또는 마법부여서 1장으로 낸다. */
+export type EquipmentLiberationPayment = "gold" | "enchant_scroll";
 
 export type EquipmentLiberationError =
   | "not_owned"
   | "ineligible"
   | "stale_state"
-  | "insufficient_gold";
+  | "insufficient_gold"
+  | "insufficient_enchant_scroll";
 
 export type EquipmentLiberationSuccess = {
   ok: true;
@@ -33,7 +42,8 @@ export type EquipmentLiberationSuccess = {
   };
   equipment: ReturnType<typeof parseEquipmentSave>;
   item: V2EquipInstance;
-  spentGold: typeof EQUIPMENT_LIBERATION_GOLD_COST;
+  spentGold: number;
+  spentEnchantScrolls: number;
 };
 
 export type EquipmentLiberationFailure =
@@ -43,13 +53,15 @@ export type EquipmentLiberationFailure =
       ok: false;
       error: "insufficient_gold";
       goldCost: typeof EQUIPMENT_LIBERATION_GOLD_COST;
-    };
+    }
+  | { ok: false; error: "insufficient_enchant_scroll" };
 
 export function applyEquipmentLiberation(args: {
   character: EquipmentLiberationCharacter;
   equipment: unknown;
   iid: string;
   expectedRevision: number;
+  payment?: EquipmentLiberationPayment;
   rng: () => number;
 }): EquipmentLiberationSuccess | EquipmentLiberationFailure {
   const equipment = parseEquipmentSave(args.equipment);
@@ -67,22 +79,42 @@ export function applyEquipmentLiberation(args: {
     return { ok: false, error: "stale_state", item: instance };
   }
 
-  const gold = Math.max(0, Math.floor(Number(args.character.gold) || 0));
-  const bankedGold = Math.max(
-    0,
-    Math.floor(Number(args.character.bankedGold) || 0),
-  );
-  const payment = spendGoldWalletFirstWithBank(
-    gold,
-    bankedGold,
-    EQUIPMENT_LIBERATION_GOLD_COST,
-  );
-  if (!payment.ok) {
-    return {
-      ok: false,
-      error: "insufficient_gold",
-      goldCost: EQUIPMENT_LIBERATION_GOLD_COST,
+  let paidCharacter: EquipmentLiberationCharacter;
+  let spentGold = 0;
+  let spentEnchantScrolls = 0;
+  if (args.payment === "enchant_scroll") {
+    const cashItems = removeMuseunCashItem(
+      args.character.cashItems,
+      ENCHANT_SCROLL_ITEM_ID,
+      1,
+    );
+    if (!cashItems) return { ok: false, error: "insufficient_enchant_scroll" };
+    paidCharacter = { ...args.character, cashItems };
+    spentEnchantScrolls = 1;
+  } else {
+    const gold = Math.max(0, Math.floor(Number(args.character.gold) || 0));
+    const bankedGold = Math.max(
+      0,
+      Math.floor(Number(args.character.bankedGold) || 0),
+    );
+    const payment = spendGoldWalletFirstWithBank(
+      gold,
+      bankedGold,
+      EQUIPMENT_LIBERATION_GOLD_COST,
+    );
+    if (!payment.ok) {
+      return {
+        ok: false,
+        error: "insufficient_gold",
+        goldCost: EQUIPMENT_LIBERATION_GOLD_COST,
+      };
+    }
+    paidCharacter = {
+      ...args.character,
+      gold: payment.gold,
+      bankedGold: payment.bankedGold,
     };
+    spentGold = EQUIPMENT_LIBERATION_GOLD_COST;
   }
 
   const liberation = instance.liberation
@@ -100,12 +132,13 @@ export function applyEquipmentLiberation(args: {
   return {
     ok: true,
     character: {
-      ...args.character,
-      gold: payment.gold,
-      bankedGold: payment.bankedGold,
+      ...paidCharacter,
+      gold: Math.max(0, Math.floor(Number(paidCharacter.gold) || 0)),
+      bankedGold: Math.max(0, Math.floor(Number(paidCharacter.bankedGold) || 0)),
     },
     equipment: { owned, equipped: equipment.equipped },
     item,
-    spentGold: EQUIPMENT_LIBERATION_GOLD_COST,
+    spentGold,
+    spentEnchantScrolls,
   };
 }

@@ -12,7 +12,8 @@ export function SegmentedControl<K extends string>({
   className,
 }: {
   options: ReadonlyArray<{ key: K; label: ReactNode }>;
-  value: K;
+  /** null이면 아무것도 고르지 않은 상태로 보여 준다(선택을 강제할 때). */
+  value: K | null;
   onChange: (key: K) => void;
   ariaLabel: string;
   className?: string;

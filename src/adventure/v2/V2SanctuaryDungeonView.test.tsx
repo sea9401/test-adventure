@@ -15,7 +15,8 @@ describe("sanctuary play screen", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(response(parseSanctuaryState({}))).mockResolvedValueOnce(response({ ...parseSanctuaryState({}), revision: 1, active: createSanctuaryActive(1000, 300) }));
     vi.stubGlobal("fetch", fetchMock);
     render(<V2SanctuaryDungeonView />);
-    fireEvent.click(await screen.findByRole("button", { name: /성소 외곽, 이동 가능/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "노말" }));
+    fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 이동 가능/ }));
     fireEvent.click(screen.getByRole("button", { name: "성소 입장" }));
     await screen.findByRole("button", { name: /성소 외곽, 현재/ });
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -87,6 +88,7 @@ describe("sanctuary play screen", () => {
     fireEvent.change(screen.getByLabelText("탐험대 보급품"), { target: { value: "storm_oil" } });
     fireEvent.change(screen.getByLabelText("태초의 제단 2순위"), { target: { value: "tempest_might" } });
     expect((screen.getByLabelText("태초의 제단 1순위") as HTMLSelectElement).value).toBe("storm_guard");
+    fireEvent.click(screen.getByRole("button", { name: "노말" }));
     fireEvent.click(screen.getByRole("button", { name: "남은 입장 2회 일괄 진행" }));
     await screen.findByText("일괄 진행 결과");
     expect(confirmGameAction).toHaveBeenCalled();
@@ -99,6 +101,30 @@ describe("sanctuary play screen", () => {
     expect(screen.getByText("2회차 하드 · 문장의 파수꾼에서 패배 · 임시 문장 4개 잃음")).toBeTruthy();
     expect((screen.getByRole("button", { name: /일괄 진행/ }) as HTMLButtonElement).disabled).toBe(true);
   });
+  it("blocks entry and auto-run until a difficulty is chosen", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(parseSanctuaryState({})));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2SanctuaryDungeonView />);
+    const rates = await screen.findByTestId("sanctuary-rates");
+    expect(rates.textContent).toContain("난이도를 선택");
+    expect(screen.getByRole("button", { name: "노말" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "하드" }).getAttribute("aria-pressed")).toBe("false");
+    expect((screen.getByRole("button", { name: /일괄 진행$/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 이동 가능/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("난이도를 먼저 선택");
+    expect((within(dialog).getByRole("button", { name: "성소 입장" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: "확인" }));
+    fireEvent.click(screen.getByRole("button", { name: "하드" }));
+    expect((screen.getByRole("button", { name: "남은 입장 2회 일괄 진행" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("lets an active run continue in batch without choosing a difficulty when no attempts are left", async () => {
+    const active = createSanctuaryActive(1000, 300);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 0, state: { ...parseSanctuaryState({}), active } }) }));
+    render(<V2SanctuaryDungeonView />);
+    expect((await screen.findByRole("button", { name: "진행 중인 탐험과 남은 입장 0회 일괄 진행" }) as HTMLButtonElement).disabled).toBe(false);
+  });
   it("enters and auto-runs on the selected difficulty and shows its reward rates", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response(parseSanctuaryState({})))
@@ -106,6 +132,7 @@ describe("sanctuary play screen", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<V2SanctuaryDungeonView />);
     const rates = await screen.findByTestId("sanctuary-rates");
+    fireEvent.click(screen.getByRole("button", { name: "노말" }));
     expect(rates.textContent).toContain("최종 보스 1개 확정");
     fireEvent.click(screen.getByRole("button", { name: "하드" }));
     expect(rates.textContent).toContain("정예·수호자 30%");

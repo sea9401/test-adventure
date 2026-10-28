@@ -7,6 +7,7 @@ import {
   itemTabForMarketplaceListing,
   itemTabForMaterial,
   nextSortMode,
+  parseStoredSortMode,
   sortEquipInstances,
 } from "./v2ItemListShared";
 
@@ -50,6 +51,27 @@ describe("itemTabForMaterial", () => {
         "danger_catch_ironjaw_tuna",
       ),
     ).toBe("material");
+  });
+});
+
+describe("parseStoredSortMode", () => {
+  it("저장해 둔 정렬 기준을 그대로 복원한다", () => {
+    for (const mode of [
+      "default",
+      "acquired",
+      "tier",
+      "roll",
+      "power",
+    ] as const) {
+      expect(parseStoredSortMode(mode)).toBe(mode);
+    }
+  });
+
+  it("저장값이 없거나 알 수 없는 값이면 기본 정렬을 쓴다", () => {
+    expect(parseStoredSortMode(null)).toBe("default");
+    expect(parseStoredSortMode("")).toBe("default");
+    expect(parseStoredSortMode("price")).toBe("default");
+    expect(parseStoredSortMode("locked")).toBe("default");
   });
 });
 

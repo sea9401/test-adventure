@@ -269,6 +269,9 @@ export function DangerousFishingRealtimePanel({
     feedback?.terminal === true ||
     realtime.connection === "verification_required";
   const { onKeyDown, onKeyUp } = realtime;
+  const upcomingTelegraphs = view.telegraphs.slice(
+    view.phase === "telegraph" ? 1 : 0,
+  );
 
   useEffect(() => {
     if (inputDisabled) return;
@@ -371,21 +374,21 @@ export function DangerousFishingRealtimePanel({
         />
       </div>
 
-      {active && view.telegraphs.length > 0 ? (
+      {active ? (
+        // 징후가 뜰 때마다 칸이 생기거나 줄이 접히면 아래 조작 버튼이 누르는 손가락 밑에서 밀린다.
         <div
           aria-label="행동 예고"
           aria-live="polite"
-          className={`${SURFACE_INSET} flex flex-wrap items-center gap-x-4 gap-y-1 p-3 text-xs`}
+          className={`${SURFACE_INSET} flex flex-col gap-1 p-3 text-xs`}
         >
-          {view.phase === "telegraph" ? (
+          <span>
+            <strong>현재 징후</strong> · {view.phase === "telegraph"
+              ? BEHAVIOR_COPY[view.telegraphs[0]]
+              : "없음"}
+          </span>
+          {upcomingTelegraphs.length > 0 ? (
             <span>
-              <strong>현재 징후</strong> · {BEHAVIOR_COPY[view.telegraphs[0]]}
-            </span>
-          ) : null}
-          {view.telegraphs.length > (view.phase === "telegraph" ? 1 : 0) ? (
-            <span>
-              <strong>다음 행동</strong> · {view.telegraphs
-                .slice(view.phase === "telegraph" ? 1 : 0)
+              <strong>다음 행동</strong> · {upcomingTelegraphs
                 .map((behavior) => BEHAVIOR_COPY[behavior])
                 .join(" → ")}
             </span>

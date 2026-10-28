@@ -1468,6 +1468,36 @@ describe("v2EquipStatRows (표시 행)", () => {
       detail: "기본 +255 · 강화 +31",
     });
   });
+
+  it("제작 품질 보너스도 증가분에 표시해 기본·강화·품질 합이 최종 위력과 맞는다", () => {
+    const rows = v2EquipStatRows(
+      V2_EQUIPMENT.v2_iron_sword,
+      { power: 973, weight: 0, options: {} },
+      { level: 9, bonusPct: 18 },
+      { level: 1, bonusPct: 5 },
+    );
+
+    expect(rows[0]).toEqual({
+      label: "공격력",
+      value: "+1197",
+      detail: "기본 +973 · 강화 +175 · 품질 +49",
+    });
+  });
+
+  it("강화하지 않은 제작 품질 장비도 기본 수치와 품질 증가분을 제공한다", () => {
+    const rows = v2EquipStatRows(
+      V2_EQUIPMENT.v2_iron_sword,
+      { power: 100, weight: 0, options: {} },
+      undefined,
+      { level: 2, bonusPct: 10 },
+    );
+
+    expect(rows[0]).toEqual({
+      label: "공격력",
+      value: "+110",
+      detail: "기본 +100 · 품질 +10",
+    });
+  });
 });
 
 describe("parseEquipmentSave (개체 instance 모델)", () => {

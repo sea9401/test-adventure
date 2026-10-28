@@ -34,7 +34,9 @@ const ERRORS: Record<string, string> = {
 };
 const DIFFICULTY_OPTIONS = SANCTUARY_DIFFICULTIES.map((key) => ({ key, label: SANCTUARY_DIFFICULTY_LABELS[key] }));
 const pct = (value: number) => `${Math.round(value * 100)}%`;
-function RewardRates({ difficulty }: { difficulty: SanctuaryDifficulty }) {
+const DIFFICULTY_REQUIRED = "난이도를 먼저 선택해 주세요.";
+function RewardRates({ difficulty }: { difficulty: SanctuaryDifficulty | null }) {
+  if (!difficulty) return <div data-testid="sanctuary-rates"><p className="font-semibold">입장할 난이도를 선택하면 보상 확률이 표시됩니다.</p></div>;
   const drop = EMBLEM_DROP_CHANCE[difficulty];
   const grade = EMBLEM_GRADE_PCT[difficulty];
   return <div data-testid="sanctuary-rates" className="space-y-1">
@@ -58,14 +60,16 @@ function placeAtRank(order: readonly string[], rank: number, id: string): string
   [next[rank], next[from]] = [next[from], next[rank]];
   return next;
 }
-function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy: boolean; difficulty: SanctuaryDifficulty; onRun: (preferences: SanctuaryAutoPreferences) => void }) {
+function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy: boolean; difficulty: SanctuaryDifficulty | null; onRun: (preferences: SanctuaryAutoPreferences) => void }) {
   const [preferences, setPreferences] = useState<SanctuaryAutoPreferences>(status.state.autoPreferences);
   const active = status.state.active;
   const runnable = status.unlocked && (active !== null || status.attemptsLeft > 0);
+  // 새로 시작하는 탐험이 있으면 난이도를 골라야 한다. 진행 중인 탐험만 남았으면 그 탐험의 난이도를 따른다.
+  const needsDifficulty = status.attemptsLeft > 0 && difficulty === null;
   const label = !runnable ? "일괄 진행" : active ? `진행 중인 탐험과 남은 입장 ${status.attemptsLeft}회 일괄 진행` : `남은 입장 ${status.attemptsLeft}회 일괄 진행`;
   return <Card padding="md" className="space-y-3">
     <h2 className="font-bold">일괄 진행</h2>
-    <p className="text-sm">{active ? "진행 중인 탐험부터 이어서, " : ""}남은 입장을 {SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도로 끝까지 자동으로 진행합니다. 선택 지점에서는 아래 효과를 고르고, 중간에 귀환하지 않습니다.</p>
+    <p className="text-sm">{active ? "진행 중인 탐험부터 이어서, " : ""}남은 입장을 {difficulty ? `${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도로` : "선택한 난이도로"} 끝까지 자동으로 진행합니다. 선택 지점에서는 아래 효과를 고르고, 중간에 귀환하지 않습니다.</p>
     <div className="grid gap-2 sm:grid-cols-2">
       {AUTO_PREFERENCE_ROWS.map((row) => {
         const choices = sanctuaryChoiceCatalog(row.kind);
@@ -82,7 +86,8 @@ function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy
         });
       })}
     </div>
-    <Button variant="primary" disabled={!runnable || busy} onClick={() => onRun(preferences)}>{label}</Button>
+    {runnable && needsDifficulty && <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{DIFFICULTY_REQUIRED}</p>}
+    <Button variant="primary" disabled={!runnable || needsDifficulty || busy} onClick={() => onRun(preferences)}>{label}</Button>
   </Card>;
 }
 function AutoRunResult({ runs, onOpenEmblems }: { runs: SanctuaryAutoRun[]; onOpenEmblems: () => void }) {
@@ -113,7 +118,7 @@ export function V2SanctuaryDungeonView() {
   const [reload, setReload] = useState(0);
   const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
   const [skipReplay, setSkipReplay] = useState(false);
-  const [difficulty, setDifficulty] = useState<SanctuaryDifficulty>("normal");
+  const [difficulty, setDifficulty] = useState<SanctuaryDifficulty | null>(null);
   const inFlight = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -140,14 +145,14 @@ export function V2SanctuaryDungeonView() {
     } finally { inFlight.current = false; setBusy(false); }
   }
   async function runAuto(preferences: SanctuaryAutoPreferences) {
-    if (!status) return;
+    if (!status || (status.attemptsLeft > 0 && !difficulty)) return;
     const runs = (status.state.active ? 1 : 0) + status.attemptsLeft;
     const confirmed = await confirmGameAction({
       title: "일괄 진행",
-      message: `탐험 ${runs}회를 끝까지 자동으로 진행합니다. 새로 시작하는 탐험은 ${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도입니다. 패배한 탐험은 그 탐험의 임시 문장을 잃습니다.`,
+      message: `탐험 ${runs}회를 끝까지 자동으로 진행합니다. ${difficulty && status.attemptsLeft > 0 ? `새로 시작하는 탐험은 ${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도입니다. ` : ""}패배한 탐험은 그 탐험의 임시 문장을 잃습니다.`,
       confirmLabel: "진행",
     });
-    if (confirmed) await act("auto", { difficulty, preferences });
+    if (confirmed) await act("auto", { ...(difficulty ? { difficulty } : {}), preferences });
   }
   const active = status?.state.active;
   const selectedNode = SANCTUARY_NODES.find((entry) => entry.id === openNodeId);
@@ -162,8 +167,8 @@ export function V2SanctuaryDungeonView() {
             enemyName: sanctuaryEnemy(active).name, rewardLines: [node.encounterKind === "final_boss" ? `문장 ${EMBLEM_BOSS_DROP_COUNT[status.state.difficulty]}개 확정` : "획득 문장은 귀환할 때 정산됩니다."], skipReplay }
         : { kind: "choice", node, choiceKind: node.kind, hp: active.hp, maxHp: active.maxHp, mp: active.mp, maxMp: active.maxMp, choices: sanctuaryChoices(active) };
     } else if (!active && selectedNode.id === SANCTUARY_NODES[0].id) {
-      dialog = { kind: "move", node: selectedNode, actionLabel: "성소 입장", routeName: `${SANCTUARY_DIFFICULTY_LABELS[difficulty]} · 하루 3회 · 입장 후 지점을 차례로 선택하세요.`,
-        disabledReason: !status.unlocked ? ERRORS.locked : status.attemptsLeft <= 0 ? ERRORS.no_attempts : null };
+      dialog = { kind: "move", node: selectedNode, actionLabel: "성소 입장", routeName: `${difficulty ? SANCTUARY_DIFFICULTY_LABELS[difficulty] : "난이도 미선택"} · 하루 3회 · 입장 후 지점을 차례로 선택하세요.`,
+        disabledReason: !status.unlocked ? ERRORS.locked : status.attemptsLeft <= 0 ? ERRORS.no_attempts : !difficulty ? DIFFICULTY_REQUIRED : null };
     } else {
       dialog = { kind: "locked", node: selectedNode, reason: "앞선 지점을 완료한 뒤 진행할 수 있습니다." };
     }
@@ -208,7 +213,7 @@ export function V2SanctuaryDungeonView() {
     {dialog && <StormExpeditionNodeDialog open model={dialog} busy={busy}
       onClose={() => setOpenNodeId(null)}
       onAction={(action) => {
-        if (action.kind === "move") void act("start", { difficulty });
+        if (action.kind === "move" && difficulty) void act("start", { difficulty });
         if (action.kind === "fight") void act("fight");
         if (action.kind === "choose") void act("choose", { choiceId: action.choiceId });
         if (action.kind === "skip_replay") setSkipReplay(action.value);

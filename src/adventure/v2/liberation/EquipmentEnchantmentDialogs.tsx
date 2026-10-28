@@ -162,13 +162,14 @@ export function EquipmentEnchantmentGuideDialog({
 
 export function InitialEnchantmentConfirmDialog({
   itemName,
-  goldCost,
+  payLabel,
   busy,
   onConfirm,
   onClose,
 }: {
   itemName: string;
-  goldCost: number;
+  /** 확인 버튼 문구. 결제 수단(골드·마법부여서)에 따라 달라진다. */
+  payLabel: string;
   busy: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -225,7 +226,7 @@ export function InitialEnchantmentConfirmDialog({
             취소
           </Button>
           <Button size="md" variant="primary" disabled={busy} onClick={onConfirm}>
-            {busy ? "마법부여 중…" : `${goldCost.toLocaleString()} G 지불하고 마법부여`}
+            {busy ? "마법부여 중…" : payLabel}
           </Button>
         </div>
       </div>

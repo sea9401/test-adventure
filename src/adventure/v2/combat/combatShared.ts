@@ -706,6 +706,8 @@ export type V2SkillCastInput = {
     /** 패턴 평가 시점의 시전자 결계 잔여 횟수. 미전개·미지정은 0회. */
     tripleWard?: Readonly<TripleWardState>;
     bloodlineBurstReady?: boolean;
+    /** 수정 집속 누적(0~2). 2면 다음 MP 소모 직접 피해 스킬이 강화된다. */
+    crystalFocus?: number;
     bleedPhysicalSkillDamagePctPerStack?: number;
     str?: number;
     int?: number;
@@ -856,6 +858,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       magicWard: a.tripleWard?.magic ?? 0,
       purificationWard: a.tripleWard?.purification ?? 0,
       bloodlineBurstReady: a.bloodlineBurstReady ? 1 : 0,
+      crystalFocus: a.crystalFocus ?? 0,
     },
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyMaxMp: t.maxMp,

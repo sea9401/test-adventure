@@ -68,3 +68,40 @@ it("잠금 필터는 전체 → 잠금만 → 미잠금만 순서로 바뀌고 �
   fireEvent.click(unlockedButton);
   expect(setLockFilter).toHaveBeenLastCalledWith("all");
 });
+
+it("유니크만 보기는 유니크 장비만 남기고 잠금 필터와 함께 적용된다", () => {
+  const setUniqueOnly = vi.fn();
+  const instances = [
+    { iid: "u1", id: "v2_boss_mountain_axe" as const, locked: true },
+    { iid: "u2", id: "v2_boss_mountain_axe" as const },
+    { iid: "n1", id: "v2_iron_sword" as const },
+  ];
+  const { rerender } = render(
+    <EquipmentTab {...props} instances={instances} pageSize={20} uniqueOnly={false} setUniqueOnly={setUniqueOnly} />,
+  );
+  const button = screen.getByRole("button", { name: "유니크만 보기 (2)" });
+  expect(button.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(button);
+  expect(setUniqueOnly).toHaveBeenLastCalledWith(true);
+
+  rerender(<EquipmentTab {...props} instances={instances} pageSize={20} uniqueOnly setUniqueOnly={setUniqueOnly} />);
+  expect(screen.getByRole("button", { name: "유니크만 보기 (2)" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getAllByText("산군의 분쇄도끼")).toHaveLength(2);
+  expect(screen.queryByText("철검")).toBeNull();
+
+  rerender(
+    <EquipmentTab {...props} instances={instances} pageSize={20} uniqueOnly lockFilter="unlocked" setUniqueOnly={setUniqueOnly} />,
+  );
+  expect(screen.getAllByText("산군의 분쇄도끼")).toHaveLength(1);
+
+  rerender(
+    <EquipmentTab
+      {...props}
+      instances={[{ iid: "n1", id: "v2_iron_sword" }]}
+      pageSize={20}
+      uniqueOnly
+      setUniqueOnly={setUniqueOnly}
+    />,
+  );
+  expect(screen.getByText("유니크 장비가 없습니다")).toBeTruthy();
+});

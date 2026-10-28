@@ -141,6 +141,11 @@ export function rollEmblemDrop(
   return { iid, grade, kind: EMBLEM_KINDS[Math.floor(unit(rng) * EMBLEM_KINDS.length)] };
 }
 
+/** 문장 상자는 성소 노말 최종 보스와 같은 등급표로 문장 하나를 확정 지급한다. */
+export function rollEmblemBox(iid: string, rng: () => number = Math.random): Emblem {
+  return rollEmblemDrop("final_boss", iid, rng, "normal")!;
+}
+
 /** 전투 1회의 문장 보상. 최종 보스는 난이도별 개수를 확정 지급하고, 그 외는 0~1개다. */
 export function rollEmblemDrops(
   kind: StormExpeditionEncounterKind,

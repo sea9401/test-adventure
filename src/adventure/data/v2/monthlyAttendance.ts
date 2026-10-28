@@ -1,5 +1,7 @@
 import { kstDayKey } from "@/lib/kst";
 import {
+  EMBLEM_BOX_ITEM_ID,
+  ENCHANT_SCROLL_ITEM_ID,
   MUSEUN_CASH_ITEMS,
   type MuseunCosmeticBoxItemId,
 } from "./museunCashItems";
@@ -14,14 +16,18 @@ type MonthlyAttendanceBaseReward =
   | { kind: "boss_summon_scroll"; count: number }
   | { kind: "mastery_certificate"; count: number }
   | { kind: "torn_map_fragment"; count: number }
-  | { kind: "coop_coin"; count: number };
+  | { kind: "coop_coin"; count: number }
+  | { kind: "enchant_scroll"; count: number };
 
 export type MonthlyAttendanceReward = MonthlyAttendanceBaseReward & {
   cosmeticBox?: MuseunCosmeticBoxItemId;
   adventureSupportDays?: number;
+  enchantScrolls?: number;
+  emblemBoxes?: number;
 };
 
-export const MONTHLY_ATTENDANCE_REWARDS = [
+/** 2026년 10월까지 쓰던 출석판. 월간 모험 지원권과 꾸미기 상자가 들어 있다. */
+export const LEGACY_MONTHLY_ATTENDANCE_REWARDS = [
   {
     kind: "adventure_support",
     days: MONTHLY_ATTENDANCE_FIRST_DAY_SUPPORT_DAYS,
@@ -71,8 +77,33 @@ export const MONTHLY_ATTENDANCE_REWARDS = [
   },
 ] as const satisfies readonly MonthlyAttendanceReward[];
 
+/** 2026년 11월부터의 출석판. 지원권·꾸미기 상자 대신 마법부여서와 문장 상자를 준다. */
+export const MONTHLY_ATTENDANCE_REWARDS: readonly MonthlyAttendanceReward[] =
+  LEGACY_MONTHLY_ATTENDANCE_REWARDS.map((reward, index) => {
+    switch (index + 1) {
+      case 1:
+      case 14:
+        return { kind: "enchant_scroll", count: 1 };
+      case 7:
+        return { kind: "stamina_potion", count: 2, emblemBoxes: 1 };
+      case 21:
+        return { kind: "mastery_certificate", count: 300 };
+      case 28:
+        return {
+          kind: "mastery_certificate",
+          count: 500,
+          enchantScrolls: 1,
+          emblemBoxes: 1,
+        };
+      default:
+        return reward;
+    }
+  });
+
+const MONTHLY_ATTENDANCE_REWARDS_START_MONTH = "2026-11";
+
 export const SEPTEMBER_2026_ATTENDANCE_REWARDS: readonly MonthlyAttendanceReward[] =
-  MONTHLY_ATTENDANCE_REWARDS.map((reward, index) => {
+  LEGACY_MONTHLY_ATTENDANCE_REWARDS.map((reward, index) => {
     switch (index + 1) {
       case 1:
         return { kind: "adventure_support", days: 7 };
@@ -102,8 +133,9 @@ export const SEPTEMBER_2026_ATTENDANCE_REWARDS: readonly MonthlyAttendanceReward
 export function monthlyAttendanceRewardsForMonth(
   monthKey: string,
 ): readonly MonthlyAttendanceReward[] {
-  return monthKey === "2026-09"
-    ? SEPTEMBER_2026_ATTENDANCE_REWARDS
+  if (monthKey === "2026-09") return SEPTEMBER_2026_ATTENDANCE_REWARDS;
+  return monthKey < MONTHLY_ATTENDANCE_REWARDS_START_MONTH
+    ? LEGACY_MONTHLY_ATTENDANCE_REWARDS
     : MONTHLY_ATTENDANCE_REWARDS;
 }
 
@@ -184,7 +216,31 @@ export function monthlyAttendanceRewardLabel(
   if (reward.cosmeticBox) {
     extras.push(MUSEUN_CASH_ITEMS[reward.cosmeticBox].name);
   }
+  if (reward.enchantScrolls) {
+    extras.push(enchantScrollLabel(reward.enchantScrolls));
+  }
+  if (reward.emblemBoxes) {
+    extras.push(`${MUSEUN_CASH_ITEMS[EMBLEM_BOX_ITEM_ID].name} ${reward.emblemBoxes}개`);
+  }
   return [baseLabel, ...extras].join(" · ");
+}
+
+function enchantScrollLabel(count: number): string {
+  return `${MUSEUN_CASH_ITEMS[ENCHANT_SCROLL_ITEM_ID].name} ${count}장`;
+}
+
+/** 출석 보상 중 가방(cashItems)으로 들어가는 마법부여서·문장 상자 수량. */
+export function monthlyAttendanceCashItemGrants(
+  reward: MonthlyAttendanceReward,
+): Partial<Record<typeof ENCHANT_SCROLL_ITEM_ID | typeof EMBLEM_BOX_ITEM_ID, number>> {
+  const enchantScrolls =
+    (reward.kind === "enchant_scroll" ? reward.count : 0) +
+    (reward.enchantScrolls ?? 0);
+  const emblemBoxes = reward.emblemBoxes ?? 0;
+  return {
+    ...(enchantScrolls > 0 ? { [ENCHANT_SCROLL_ITEM_ID]: enchantScrolls } : {}),
+    ...(emblemBoxes > 0 ? { [EMBLEM_BOX_ITEM_ID]: emblemBoxes } : {}),
+  };
 }
 
 function monthlyAttendanceBaseRewardLabel(
@@ -203,5 +259,7 @@ function monthlyAttendanceBaseRewardLabel(
       return `찢어진 지도 조각 ${reward.count}개`;
     case "coop_coin":
       return `협동 주화 ${reward.count}개`;
+    case "enchant_scroll":
+      return enchantScrollLabel(reward.count);
   }
 }

@@ -1093,3 +1093,13 @@ describe("기류 패턴", () => {
     expect(conditionPasses(parsed!.blocks[0].condition, ctx({selfResources:{windCurrent:3}}))).toBe(true);
   });
 });
+
+describe("수정 집속 패턴", () => {
+  it("저장·재파싱한 수정 집속 조건은 2회 누적일 때만 다음 강화 스킬을 선택한다", () => {
+    const pattern = {blocks:[{condition:{kind:"self_resource",resource:"crystalFocus",op:"atLeast",value:2},action:{kind:"skill",skillId:"v2c_mage_boltcast"}}]};
+    const parsed = parseCombatPattern(JSON.parse(JSON.stringify(pattern)));
+    expect(parsed).toEqual(pattern);
+    expect(conditionPasses(parsed!.blocks[0].condition, ctx({selfResources:{crystalFocus:1}}))).toBe(false);
+    expect(conditionPasses(parsed!.blocks[0].condition, ctx({selfResources:{crystalFocus:2}}))).toBe(true);
+  });
+});

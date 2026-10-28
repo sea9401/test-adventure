@@ -157,4 +157,46 @@ describe("applyEquipmentLiberation", () => {
     expect(originalEquipment.owned[0]).not.toHaveProperty("bound");
     expect(originalEquipment.owned[0]).not.toHaveProperty("liberation");
   });
+
+  it("uses one enchant scroll instead of gold and keeps the wallet untouched", () => {
+    const result = applyEquipmentLiberation({
+      character: { ...character(0, 0), cashItems: { enchant_scroll: 2, rename_permit: 1 } },
+      equipment: equipment(),
+      iid: "weapon-1",
+      expectedRevision: 0,
+      payment: "enchant_scroll",
+      rng: () => 0,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.character).toMatchObject({
+      gold: 0,
+      bankedGold: 0,
+      cashItems: { enchant_scroll: 1, rename_permit: 1 },
+    });
+    expect(result.spentGold).toBe(0);
+    expect(result.spentEnchantScrolls).toBe(1);
+    expect(result.item).toMatchObject({ bound: true, liberation: { revision: 1 } });
+  });
+
+  it("rejects scroll payment without a scroll and changes nothing", () => {
+    const originalCharacter = { ...character(), cashItems: {} };
+    const originalEquipment = equipment();
+    const result = applyEquipmentLiberation({
+      character: originalCharacter,
+      equipment: originalEquipment,
+      iid: "weapon-1",
+      expectedRevision: 0,
+      payment: "enchant_scroll",
+      rng: () => {
+        throw new Error("rng must not run");
+      },
+    });
+
+    expect(result).toEqual({ ok: false, error: "insufficient_enchant_scroll" });
+    expect(originalCharacter.gold).toBe(EQUIPMENT_LIBERATION_GOLD_COST);
+    expect(originalEquipment.owned[0]).not.toHaveProperty("liberation");
+  });
 });
+

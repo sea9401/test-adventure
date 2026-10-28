@@ -379,6 +379,8 @@ export type FarmSpecialDeliveryRequest = {
 export type FarmSpecialDeliveryResult = {
   requestId: string;
   title: string;
+  // 이번 요청으로 납품한 횟수. 보상은 이 횟수만큼 합산된 값이다.
+  count: number;
   rewardSeeds: FarmSeedInventory;
   rewardReputation: number;
 };
@@ -1268,22 +1270,29 @@ export function buyFarmPlotUpgrade(
 export function claimFarmSpecialDelivery(
   state: FarmState,
   requestId: string,
+  count = 1,
 ): { state: FarmState; result: FarmSpecialDeliveryResult } {
   const request = getFarmSpecialDeliveryRequests().find(
     (item) => item.id === requestId,
   );
   if (!request) throw new FarmError("special_delivery_not_found");
-  if (!hasFarmItems(state.inventory, request.requiredItems)) {
-    throw new FarmError("not_enough_items");
+  if (!Number.isInteger(count) || count < 1) {
+    throw new FarmError("bad_quantity");
   }
-  const seedState = grantFarmSeeds(state, request.rewardSeeds);
+  // 희귀 납품은 횟수 제한이 없으므로 요청 수량을 보유 수량 안으로 줄여 한 번에 처리한다(건의 #814).
+  const times = Math.min(count, maxFarmItemSets(state.inventory, request.requiredItems));
+  if (times < 1) throw new FarmError("not_enough_items");
+  const requiredItems = scaleFarmCounts(request.requiredItems, times);
+  const rewardSeeds = scaleFarmCounts(request.rewardSeeds, times);
+  const rewardReputation = request.rewardReputation * times;
+  const seedState = grantFarmSeeds(state, rewardSeeds);
   const nextState = normalizeFarmPlotCount({
     ...seedState,
-    inventory: spendFarmItems(seedState.inventory, request.requiredItems),
+    inventory: spendFarmItems(seedState.inventory, requiredItems),
     stats: {
       ...seedState.stats,
-      deliveries: seedState.stats.deliveries + 1,
-      reputation: seedState.stats.reputation + request.rewardReputation,
+      deliveries: seedState.stats.deliveries + times,
+      reputation: seedState.stats.reputation + rewardReputation,
     },
   });
 
@@ -1292,10 +1301,34 @@ export function claimFarmSpecialDelivery(
     result: {
       requestId: request.id,
       title: request.title,
-      rewardSeeds: request.rewardSeeds,
-      rewardReputation: request.rewardReputation,
+      count: times,
+      rewardSeeds,
+      rewardReputation,
     },
   };
+}
+
+// 보유 재료로 요구량을 몇 번 채울 수 있는지.
+export function maxFarmItemSets(
+  inventory: FarmItemInventory,
+  requirements: FarmItemInventory,
+): number {
+  let sets = Number.POSITIVE_INFINITY;
+  for (const [itemId, count] of Object.entries(requirements)) {
+    const need = nonNegativeInt(count);
+    if (!isFarmItemId(itemId) || need === 0) continue;
+    sets = Math.min(sets, Math.floor((inventory[itemId] ?? 0) / need));
+  }
+  return Number.isFinite(sets) ? sets : 0;
+}
+
+function scaleFarmCounts<T extends Partial<Record<string, number>>>(
+  counts: T,
+  times: number,
+): T {
+  return Object.fromEntries(
+    Object.entries(counts).map(([id, count]) => [id, nonNegativeInt(count) * times]),
+  ) as T;
 }
 
 export function claimFarmWeeklyDelivery(

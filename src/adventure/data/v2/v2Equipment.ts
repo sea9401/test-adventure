@@ -1795,18 +1795,22 @@ export function v2EquipStatRows(
     powerWithBonuses(eff.power, enhance, craftQuality),
   );
   if (power) {
-    const enhanceBonus = enhance
-      ? equipmentPowerDisplayValue(powerWithBonuses(eff.power, enhance)) -
-        basePower
-      : 0;
+    // 증가분은 표시 정수끼리의 차로 구해 기본 + 강화 + 품질 = 최종 위력이 맞게 한다.
+    const hasEnhance = !!enhance && enhance.level > 0;
+    const enhancedDisplay = hasEnhance
+      ? equipmentPowerDisplayValue(powerWithBonuses(eff.power, enhance))
+      : basePower;
+    const parts = [`기본 +${basePower}`];
+    if (hasEnhance) {
+      parts.push(`강화 +${Math.max(0, enhancedDisplay - basePower)}`);
+    }
+    if (craftQuality) {
+      parts.push(`품질 +${Math.max(0, power - enhancedDisplay)}`);
+    }
     out.push({
       label: v2EquipPowerLabel(item),
       value: `+${power}`,
-      ...(enhance && enhance.level > 0
-        ? {
-            detail: `기본 +${basePower} · 강화 +${Math.max(0, enhanceBonus)}`,
-          }
-        : {}),
+      ...(parts.length > 1 ? { detail: parts.join(" · ") } : {}),
     });
   }
   const opts = eff.options ?? {};

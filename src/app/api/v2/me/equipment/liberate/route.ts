@@ -11,6 +11,7 @@ import {
   type EquipmentLiberationReceiptResponse,
 } from "@/lib/server/equipmentLiberationReceipts";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 
 const UUID_PATTERN =
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
     iid?: unknown;
     requestId?: unknown;
     expectedRevision?: unknown;
+    payment?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -53,7 +55,9 @@ export async function POST(req: Request) {
   const requestId =
     typeof body.requestId === "string" ? body.requestId.trim() : "";
   const expectedRevision = Number(body.expectedRevision);
+  const payment = body.payment ?? "gold";
   if (
+    (payment !== "gold" && payment !== "enchant_scroll") ||
     !iid ||
     !UUID_PATTERN.test(requestId) ||
     !Number.isSafeInteger(expectedRevision) ||
@@ -101,6 +105,7 @@ export async function POST(req: Request) {
       equipment,
       iid,
       expectedRevision,
+      payment,
       rng: Math.random,
     });
     if (!applied.ok) {
@@ -116,6 +121,8 @@ export async function POST(req: Request) {
       gold: Number(applied.character.gold),
       bankedGold: Number(applied.character.bankedGold),
       spentGold: applied.spentGold,
+      spentEnchantScrolls: applied.spentEnchantScrolls,
+      cashItems: parseMuseunCashItems(applied.character.cashItems),
     };
     await upsertSave(
       tx,

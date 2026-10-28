@@ -44,12 +44,26 @@ export function rewardIconName(
   if (reward.cosmeticBox === "chroma_name_box") return "chroma_box";
   if (reward.cosmeticBox === "chat_badge_box") return "chat_badge_box";
   if (reward.cosmeticBox === "profile_border_box") return "profile_frame_box";
+  if (reward.kind === "enchant_scroll" || reward.enchantScrolls) {
+    return "enchant_scroll";
+  }
+  if (reward.emblemBoxes) return "emblem_box";
   if (reward.kind === "adventure_support") return "adventure_support_ticket";
   if (reward.kind === "stamina_potion") return "stamina_potion";
   if (reward.kind === "boss_summon_scroll") return "boss_summon_scroll";
   if (reward.kind === "mastery_certificate") return "mastery_token";
   if (reward.kind === "torn_map_fragment") return "map_fragment";
   return "currency_stack";
+}
+
+/** 지원권·마법부여서·문장 상자가 있는 칸은 강조 표면으로 구분한다. */
+function isSpecialAttendanceReward(reward: MonthlyAttendanceReward): boolean {
+  return (
+    reward.kind === "adventure_support" ||
+    reward.kind === "enchant_scroll" ||
+    Boolean(reward.enchantScrolls) ||
+    Boolean(reward.emblemBoxes)
+  );
 }
 
 function monthLabel(monthKey: string): string {
@@ -162,10 +176,17 @@ export function V2AttendanceView() {
           <span className="block">
             각 일차의 보상과 수량은 아래 출석판에서 확인할 수 있습니다.
           </span>
-          <span className="mt-1 block">
-            월간 모험 지원권은 수령 즉시 적용되며, 이미 이용 중이면 남은 기간
-            뒤에 이어집니다.
-          </span>
+          {rewards.some((reward) => reward.kind === "adventure_support") ? (
+            <span className="mt-1 block">
+              월간 모험 지원권은 수령 즉시 적용되며, 이미 이용 중이면 남은 기간
+              뒤에 이어집니다.
+            </span>
+          ) : (
+            <span className="mt-1 block">
+              마법부여서는 대장간 마법부여 작업대에서 골드 대신 쓰고, 문장 상자는
+              가방의 소모품에서 엽니다.
+            </span>
+          )}
         </StatusBanner>
 
         <div
@@ -231,10 +252,9 @@ export function V2AttendanceView() {
             const day = index + 1;
             const claimed = day <= (status?.claimedCount ?? 0);
             const current = day === status?.nextDay;
-            const surface =
-              reward.kind === "adventure_support"
-                ? SURFACE_ACCENT
-                : SURFACE_INSET;
+            const surface = isSpecialAttendanceReward(reward)
+              ? SURFACE_ACCENT
+              : SURFACE_INSET;
             return (
               <div
                 key={day}

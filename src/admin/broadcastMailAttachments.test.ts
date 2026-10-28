@@ -6,16 +6,20 @@ import {
 } from "./broadcastMailAttachments";
 
 describe("관리자 대량 우편 소비 아이템 첨부", () => {
-  it("세 소비 아이템만 소비 아이템 목록에 두고 코인샵 목록과 중복하지 않는다", () => {
+  it("상점 비판매 소비 아이템만 소비 아이템 목록에 두고 코인샵 목록과 중복하지 않는다", () => {
     expect(adminMailConsumableOptions().map((option) => option.id)).toEqual([
       "stamina_potion",
       "cultivation_reset_potion",
       "level_100_elixir",
+      "enchant_scroll",
+      "emblem_box",
     ]);
 
     const cashItemIds = adminMailCashItemOptions().map((option) => option.id);
     expect(cashItemIds).not.toContain("cultivation_reset_potion");
     expect(cashItemIds).not.toContain("level_100_elixir");
+    expect(cashItemIds).not.toContain("enchant_scroll");
+    expect(cashItemIds).not.toContain("emblem_box");
   });
 
   it("스태미나 회복약과 캐시 인벤토리 소비 아이템을 기존 우편 필드로 나눈다", () => {

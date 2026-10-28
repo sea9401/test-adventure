@@ -23,12 +23,9 @@ import {
   type FloorEquipDropPool,
 } from "@/adventure/data/v2/dungeonEquipDrops";
 import {
-  uniqueIdsForDepthRange,
   bandUniquePoolForDepth,
   bandCommonChanceForDepth,
-  commonIdsForDepthRange,
   SKY_RIFT_WEAPON_DROP_CHANCE,
-  SKY_RIFT_WEAPON_IDS,
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
@@ -61,11 +58,9 @@ import {
 import {
   classifyCodexEquipmentIds,
   codexEquipmentProgress,
-  codexThemeDeepDepth,
   spCollectionSpRange,
   spEligibleJobProgress,
   spFruitCodexSource,
-  starterGridIds,
 } from "./codexProgress";
 import { codexNextSpLabel } from "./CodexSpMilestones";
 import { EQUIPMENT_CODEX_SP_MILESTONES } from "@/adventure/data/v2/equipmentCodex";
@@ -83,7 +78,6 @@ import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import {
   commonHuntMaterialDrops,
   formatHuntMaterialDropChance,
-  regionalHuntMaterialDrops,
   type HuntMaterialDropCatalogEntry,
 } from "@/adventure/data/v2/huntMaterialCatalog";
 import {
@@ -93,6 +87,12 @@ import {
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useEquipmentCodexContext } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
+import { ItemSearchInput } from "./ItemSearchInput";
+import { matchesItemSearch } from "./itemSearch";
+import {
+  codexHuntgroundDrops,
+  codexHuntgroundSearch,
+} from "./codexHuntgroundSearch";
 import type { CodexMasteryPanelState } from "./CodexMasteryPanel";
 import { useCodexResearchRanking } from "@/adventure/rankings/useCodexResearchRanking";
 import type {
@@ -270,26 +270,32 @@ function EquipmentRegistrationMark({
   );
 }
 
+const SEARCH_MATCH_RING = "ring-2 ring-sky-500 dark:ring-sky-400";
+
 // 드랍 목록의 아이템 칩 — 클릭하면 옵션 팝오버(V2ItemCard, 인벤과 동일)를 띄운다.
 //   카탈로그 id 가 V2_EQUIPMENT 에 없으면(방어) 클릭 불가 라벨로만.
 export function DropChip({
   id,
   kind,
   registered,
+  highlighted = false,
   onOpen,
 }: {
   id: V2EquipmentId;
   kind: "common" | "set" | "unique";
   registered?: boolean;
+  /** 획득처 검색과 일치하는 칩. */
+  highlighted?: boolean;
   onOpen: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  const tone =
+  const tone = `${
     kind === "unique"
       ? "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
       : kind === "set"
         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-        : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+        : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+  }${highlighted ? ` ${SEARCH_MATCH_RING}` : ""}`;
   if (!item) {
     return (
       <span
@@ -337,15 +343,19 @@ const COMMON_HUNT_MATERIAL_DROPS = commonHuntMaterialDrops();
 
 function MaterialDropGrid({
   entries,
+  highlightIds,
 }: {
   entries: readonly HuntMaterialDropCatalogEntry[];
+  highlightIds?: ReadonlySet<string>;
 }) {
   return (
     <div className="grid gap-1.5 sm:grid-cols-2">
       {entries.map((entry) => (
         <div
           key={`${entry.id}:${entry.source}`}
-          className={`${SURFACE_INSET} flex min-h-[72px] items-start gap-2.5 p-2.5`}
+          className={`${SURFACE_INSET} flex min-h-[72px] items-start gap-2.5 p-2.5${
+            highlightIds?.has(entry.id) ? ` ${SEARCH_MATCH_RING}` : ""
+          }`}
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
             <Package size={18} weight="duotone" aria-hidden />
@@ -377,7 +387,11 @@ function MaterialDropGrid({
   );
 }
 
-function CommonMaterialDropsCard() {
+function CommonMaterialDropsCard({
+  highlightIds,
+}: {
+  highlightIds?: ReadonlySet<string>;
+}) {
   if (COMMON_HUNT_MATERIAL_DROPS.length === 0) return null;
   return (
     <Card padding="md">
@@ -400,7 +414,10 @@ function CommonMaterialDropsCard() {
           기본 확률 기준
         </span>
       </div>
-      <MaterialDropGrid entries={COMMON_HUNT_MATERIAL_DROPS} />
+      <MaterialDropGrid
+        entries={COMMON_HUNT_MATERIAL_DROPS}
+        highlightIds={highlightIds}
+      />
     </Card>
   );
 }
@@ -532,6 +549,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     });
   };
   // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
+  const [dropSearch, setDropSearch] = useState("");
   const [card, setCard] = useState<{
     item: V2Equipment;
     anchor: ItemCardAnchor;
@@ -932,6 +950,23 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   });
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
+  const huntgrounds = themes.map((theme) => {
+    const drops = codexHuntgroundDrops(theme);
+    return { theme, drops, search: codexHuntgroundSearch(drops, dropSearch) };
+  });
+  const dropSearching = dropSearch.trim().length > 0;
+  const commonMaterialMatchIds = new Set(
+    dropSearching
+      ? COMMON_HUNT_MATERIAL_DROPS.filter((entry) =>
+          matchesItemSearch(entry.name, dropSearch),
+        ).map((entry) => entry.id)
+      : [],
+  );
+  const visibleHuntgrounds = dropSearching
+    ? huntgrounds.filter(({ search }) => (search?.matchCount ?? 0) > 0)
+    : huntgrounds;
+  const dropSearchPlaceCount =
+    visibleHuntgrounds.length + (commonMaterialMatchIds.size > 0 ? 1 : 0);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
@@ -976,34 +1011,37 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           />
         ) : (
           <div className="space-y-3">
-            <CommonMaterialDropsCard />
-            {themes.map((theme) => {
-              const deepDepth = codexThemeDeepDepth(theme.depthStart);
+            <div className="space-y-1">
+              <ItemSearchInput
+                value={dropSearch}
+                onChange={setDropSearch}
+                label="획득처 검색"
+                placeholder="아이템 이름으로 획득처 찾기"
+              />
+              {dropSearching && (
+                <p
+                  role="status"
+                  className="px-1 text-xs font-medium text-zinc-600 dark:text-zinc-300"
+                >
+                  {dropSearchPlaceCount > 0
+                    ? `도달한 사냥터 중 ${dropSearchPlaceCount}곳에서 얻을 수 있습니다.`
+                    : "도달한 사냥터에서 얻을 수 있는 아이템이 아닙니다."}
+                </p>
+              )}
+            </div>
+            {(!dropSearching || commonMaterialMatchIds.size > 0) && (
+              <CommonMaterialDropsCard highlightIds={commonMaterialMatchIds} />
+            )}
+            {visibleHuntgrounds.map(({ theme, drops, search }) => {
+              const {
+                deepDepth,
+                bandIds,
+                skyRiftWeaponIds,
+                regularIds,
+                uniqueIds,
+                materialDrops,
+              } = drops;
               const pool = dropPoolForDepth(theme.depthStart);
-              const bandIds = commonIdsForDepthRange(
-                theme.depthStart,
-                deepDepth,
-              );
-              const skyRiftWeaponIds =
-                theme.depthStart <= 78 && deepDepth >= 78
-                  ? [...SKY_RIFT_WEAPON_IDS]
-                  : [];
-              const uniqueIds = uniqueIdsForDepthRange(
-                theme.depthStart,
-                deepDepth,
-              );
-              const materialDrops = regionalHuntMaterialDrops({
-                areaName: theme.name,
-                depthStart: theme.depthStart,
-                depthEnd: deepDepth,
-                monsterKeys: theme.enemies.map((enemy) => enemy.key),
-              });
-              // 일반 장비 드랍 목록 — 프론티어 밴드 풀(7~84) 또는 들판 스타터 그리드(1~6).
-              const regularIds: V2EquipmentId[] = bandIds.length > 0
-                ? [...bandIds, ...skyRiftWeaponIds]
-                : pool
-                  ? starterGridIds(pool)
-                  : [];
               const classified = classifyCodexEquipmentIds(regularIds);
               const huntgroundCodexProgress = registeredEquipmentIds
                 ? codexEquipmentProgress(
@@ -1088,7 +1126,10 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                           지역 공통 · 몬스터 전용
                         </span>
                       </div>
-                      <MaterialDropGrid entries={materialDrops} />
+                      <MaterialDropGrid
+                        entries={materialDrops}
+                        highlightIds={search?.materialIds}
+                      />
                     </section>
                   )}
 
@@ -1149,6 +1190,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                                   ? registeredEquipmentIds.has(id)
                                   : undefined
                               }
+                              highlighted={search?.equipmentIds.has(id) ?? false}
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -1177,6 +1219,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                                   ? registeredEquipmentIds.has(id)
                                   : undefined
                               }
+                              highlighted={search?.equipmentIds.has(id) ?? false}
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }
@@ -1212,6 +1255,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                                   ? registeredEquipmentIds.has(id)
                                   : undefined
                               }
+                              highlighted={search?.equipmentIds.has(id) ?? false}
                               onOpen={(item, anchor) =>
                                 setCard({ item, anchor })
                               }

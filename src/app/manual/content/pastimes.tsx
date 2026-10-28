@@ -262,6 +262,8 @@ export function PastimesContent() {
           수확할 때 농사 경험치를 얻습니다. 낮은 확률로 희귀 작물이 함께 나오며,
           장착한 농장 패시브가 수확량과 희귀 수확 확률을 높입니다. 희귀 작물을 연속으로
           얻지 못하면 <Em>{FARM_RARE_PITY_HARVESTS}번째 수확</Em>에서 반드시 희귀 작물이 나옵니다.
+          희귀 수확 납품은 횟수 제한이 없으며, 2개 이상 있으면 <Em>모두 납품</Em>으로
+          보유한 만큼 한 번에 넘길 수 있습니다.
         </li>
         <li>
           주간 납품은 전체 작물 중 서로 다른 <Em>{FARM_WEEKLY_DELIVERY_LIMIT}종</Em>을

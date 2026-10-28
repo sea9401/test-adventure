@@ -1785,7 +1785,7 @@ export function ConditionParams({
                 />
               )}
               {c.resource === "crystalFocus" && (
-                <span className="basis-full text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span className="basis-full text-xs text-zinc-500 dark:text-zinc-400">
                   2이면 다음 MP 소모 피해 스킬이 강화됩니다.
                 </span>
               )}

@@ -14,6 +14,12 @@ function progress(current: number, required: number): string {
   return `${current.toLocaleString("ko-KR")} / ${required.toLocaleString("ko-KR")}`;
 }
 
+// 전직 목록 한 줄 문구는 숙련도만 담으므로, 7차 최초 전직에 필요한 나머지 조건을 덧붙인다.
+export function tier7ExtraConditionText(status: Tier7AdvancementStatus): string {
+  const [first, second] = status.currentJob.allowed;
+  return `현재 직업 ${jobName(first)} 또는 ${jobName(second)} Lv ${status.level.required}, 폭풍 기원의 파편 ${status.material.required}개`;
+}
+
 function RequirementRow({
   label,
   value,

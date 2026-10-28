@@ -4,7 +4,11 @@ import {
   V2_JOB_CATALOG,
   type V2JobDefinition,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  V2_SKILLS,
+  v2SkillSearchText,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
 
 export type SkillJobTierFilter =
   | "all"
@@ -85,6 +89,37 @@ export function skillSourceJob(skillId: string): V2JobDefinition | null {
 export function skillSourceJobLabel(skillId: string): string | null {
   if (isCommonSkillId(skillId)) return "공용";
   return skillSourceJob(skillId)?.name ?? null;
+}
+
+/** 스킬 목록 검색 대상 텍스트(이름·설명·효과·출처 직업). 소문자. */
+export function skillLibrarySearchText(skillId: string, name: string): string {
+  const def = V2_SKILLS[skillId as V2SkillId];
+  const text = def ? v2SkillSearchText(def) : `${skillId} ${name}`.toLowerCase();
+  const jobLabel = skillSourceJobLabel(skillId);
+  return jobLabel ? `${text} ${jobLabel.toLowerCase()}` : text;
+}
+
+/** 띄어쓴 검색어가 모두 들어 있으면 일치. 빈 검색어는 전부 일치. */
+export function matchesSkillSearchQuery(searchText: string, query: string): boolean {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return terms.every((term) => searchText.includes(term));
+}
+
+/** 강화 탭 목록: 검색어로 거르고, 장착 스킬을 장착 순서대로 앞에 둔다. */
+export function orderSkillEnhanceRows<T extends { skillId: string; name: string }>(
+  rows: readonly T[],
+  equippedIds: readonly string[],
+  query: string,
+): T[] {
+  const matched = rows.filter((row) =>
+    matchesSkillSearchQuery(skillLibrarySearchText(row.skillId, row.name), query),
+  );
+  const equippedRank = new Map(equippedIds.map((id, index) => [id, index]));
+  const equipped = matched
+    .filter((row) => equippedRank.has(row.skillId))
+    .sort((a, b) => equippedRank.get(a.skillId)! - equippedRank.get(b.skillId)!);
+  const rest = matched.filter((row) => !equippedRank.has(row.skillId));
+  return [...equipped, ...rest];
 }
 
 export function classifySkillForLibrary(

@@ -87,6 +87,20 @@ describe("PvE unexplored offensive integration", () => {
       state = next;
     }
   });
+  it("pattern self_resource crystalFocus reads the live paid-cast count", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player = attacker("crystal_focus");
+    const base = skillState(player);
+    const gated = (count: number): BattleState => ({
+      ...base,
+      v2Skills: { ...base.v2Skills, pattern: { blocks: [{ condition: { kind: "self_resource", resource: "crystalFocus", op: "atLeast", value: 2 }, action: { kind: "skill", skillId: "v2c_martial_combo" } }] } },
+      unexploredSetRuntime: { ...base.unexploredSetRuntime!, paidDirectSkillCount: count },
+    });
+    expect(cast(gated(1), player).castFired).toBe(false);
+    const boosted = cast(gated(2), player);
+    expect(boosted.castFired).toBe(true);
+    expect(boosted.state.unexploredSetRuntime?.paidDirectSkillCount).toBe(0);
+  });
   it("excludes fully cost-reduced casts and failed casts from crystal", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const player = { ...attacker("crystal_focus"), mpCostReductionPct: 100 };

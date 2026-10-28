@@ -192,6 +192,7 @@ export function applyPlayerV2SkillCast(
       mutationWeight: state.stacks.mutationWeight,
       tripleWard: state.stacks.tripleWard,
       bloodlineBurstReady: tier6Cast.bloodlineBurstReady,
+      crystalFocus: state.unexploredSetRuntime?.paidDirectSkillCount ?? 0,
       bleedPhysicalSkillDamagePctPerStack:
         player.bleedPhysicalSkillDamagePctPerStack,
       // 활성 상태 효과 — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포·운기 등).

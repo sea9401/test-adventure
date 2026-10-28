@@ -512,3 +512,15 @@ describe("결계 패턴 편집", () => {
     expect(html).toContain("금강결계 없음 OR 봉마결계 없음 OR 정화결계 없음 → 만법불침");
   });
 });
+
+describe("수정 집속 패턴 편집", () => {
+  it("수정 집속을 전투 자원으로 고르고 강화 시점을 안내한다", () => {
+    const html = renderToStaticMarkup(<ConditionParams
+      condition={{ kind: "self_resource", resource: "crystalFocus", op: "atLeast", value: 2 }}
+      onChange={vi.fn()}
+    />);
+    expect(html).toContain("수정 집속");
+    expect(html).toContain('max="2"');
+    expect(html).toContain("2이면 다음 MP 소모 피해 스킬이 강화됩니다.");
+  });
+});

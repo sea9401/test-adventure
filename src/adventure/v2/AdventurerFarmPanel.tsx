@@ -28,6 +28,7 @@ import {
   FARM_ITEMS,
   FARM_MAX_PLOT_COUNT,
   FARM_RARE_PITY_HARVESTS,
+  maxFarmItemSets,
   canPlantFarmCrop,
   farmAvailableReputation,
   farmCropMasteryGain,
@@ -406,10 +407,14 @@ export function AdventurerFarmPanel({
       };
     }
     const { result } = notice;
+    const countText =
+      notice.kind === "specialDelivery" && notice.result.count > 1
+        ? ` ${notice.result.count.toLocaleString("ko-KR")}회`
+        : "";
     return {
       id: notice.id,
       tone: "ok",
-      text: `${result.title} 납품 완료. 농장 증표 ${result.rewardReputation}개를 받았습니다.${
+      text: `${result.title}${countText} 납품 완료. 농장 증표 ${result.rewardReputation}개를 받았습니다.${
         hasSeedRewards(result.rewardSeeds)
           ? ` 씨앗 보상: ${formatSeedRewards(result.rewardSeeds)}.`
           : ""
@@ -1020,7 +1025,7 @@ function FarmItemImage({
   return <FarmItemIcon itemId={itemId} label={alt} className={className} />;
 }
 
-function RareDeliveryBoard({
+export function RareDeliveryBoard({
   deliveries,
   inventory,
   busyDeliveryId,
@@ -1029,7 +1034,7 @@ function RareDeliveryBoard({
   deliveries: FarmSpecialDeliveryRequest[];
   inventory: FarmItemInventory;
   busyDeliveryId: string | null;
-  onDeliver: (requestId: string) => void;
+  onDeliver: (requestId: string, count: number) => void;
 }) {
   const orderedDeliveries = prioritizeDeliverable(deliveries, (delivery) =>
     hasRequiredItems(inventory, delivery.requiredItems),
@@ -1043,8 +1048,14 @@ function RareDeliveryBoard({
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
         {orderedDeliveries.map((delivery) => {
-          const enough = hasRequiredItems(inventory, delivery.requiredItems);
+          const deliverableCount = maxFarmItemSets(
+            inventory,
+            delivery.requiredItems,
+          );
+          const enough = deliverableCount > 0;
           const busy = busyDeliveryId === delivery.id;
+          // 한 번에 하나씩만 요청해 연타로 요청 제한에 걸리지 않게 한다(건의 #814).
+          const anyBusy = busyDeliveryId !== null;
           const previewItemId = firstItemId(delivery.requiredItems);
           return (
             <DeliveryRequestCard
@@ -1063,8 +1074,17 @@ function RareDeliveryBoard({
               buttonText={
                 busy ? "납품 중..." : enough ? "희귀 납품" : "재료 부족"
               }
-              disabled={!enough || busy}
-              onClick={() => onDeliver(delivery.id)}
+              disabled={!enough || anyBusy}
+              onClick={() => onDeliver(delivery.id, 1)}
+              secondaryAction={
+                deliverableCount > 1
+                  ? {
+                      text: `모두 납품 (${deliverableCount.toLocaleString("ko-KR")}개)`,
+                      disabled: anyBusy,
+                      onClick: () => onDeliver(delivery.id, deliverableCount),
+                    }
+                  : undefined
+              }
             />
           );
         })}
@@ -1171,6 +1191,7 @@ function DeliveryRequestCard({
   buttonText,
   disabled,
   onClick,
+  secondaryAction,
 }: {
   imageItemId: FarmItemId | null;
   title: string;
@@ -1182,6 +1203,7 @@ function DeliveryRequestCard({
   buttonText: string;
   disabled: boolean;
   onClick: () => void;
+  secondaryAction?: { text: string; disabled: boolean; onClick: () => void };
 }) {
   return (
     <div className={`${SURFACE_CARD} flex min-h-[12rem] flex-col p-3 text-sm`}>
@@ -1219,14 +1241,26 @@ function DeliveryRequestCard({
           </p>
         ) : null}
       </div>
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
-      >
-        {buttonText}
-      </button>
+      <div className="mt-auto flex gap-2">
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className="flex-1 rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+        >
+          {buttonText}
+        </button>
+        {secondaryAction ? (
+          <button
+            type="button"
+            onClick={secondaryAction.onClick}
+            disabled={secondaryAction.disabled}
+            className="flex-1 rounded-md border border-emerald-600 px-3 py-2 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-stone-200 disabled:text-stone-500 dark:border-emerald-500 dark:text-emerald-300 dark:hover:bg-emerald-950 dark:disabled:border-zinc-800"
+          >
+            {secondaryAction.text}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

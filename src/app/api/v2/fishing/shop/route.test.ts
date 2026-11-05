@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+  FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_STATE_KEY,
+  FISHING_STAMINA_POTION_ITEM_ID,
 } from "@/adventure/v2/fishingShop";
+import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 
 const coopMocks = vi.hoisted(() => ({
@@ -176,5 +179,79 @@ describe("낚시 코인 심연어룡 소환 미끼", () => {
       abyssalBait: { boughtToday: 1, remainingToday: 0 },
       coopBoss: { sessionId: "abyss-2" },
     });
+  });
+});
+
+describe("낚시 상점 회복약 수량 구매", () => {
+  function potionRequest(quantity: unknown, itemId = FISHING_STAMINA_POTION_ITEM_ID) {
+    return new Request("http://localhost/api/v2/fishing/shop", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ itemId, quantity }),
+    });
+  }
+
+  beforeEach(() => {
+    saves.set(STAMINA_POTIONS_KEY, { count: 0, boundCount: 0 });
+  });
+
+  it("요청 한 번으로 30개를 사고 코인과 주간 횟수를 함께 반영한다", async () => {
+    const response = await POST(potionRequest(30));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      quantity: 30,
+      coins: 20_000 - 200 * 30,
+      staminaPotions: 30,
+      staminaPotionLimit: { boughtThisWeek: 30, remainingThisWeek: 0 },
+    });
+    expect(saves.get(STAMINA_POTIONS_KEY)).toEqual({
+      count: 30,
+      boundCount: 30,
+    });
+  });
+
+  it("남은 주간 횟수를 넘으면 일부만 사지 않고 전부 거절한다", async () => {
+    await POST(potionRequest(25));
+    vi.mocked(upsertSave).mockClear();
+
+    const response = await POST(potionRequest(6));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "limit_reached",
+      coins: 15_000,
+      staminaPotionLimit: { boughtThisWeek: 25, remainingThisWeek: 5 },
+    });
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("코인이 수량만큼 없으면 전부 거절한다", async () => {
+    saves.set(FISHING_WALLET_KEY, { coins: 399 });
+
+    const response = await POST(potionRequest(2));
+
+    expect(response.status).toBe(402);
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("가격이 오르거나 소환이 걸린 상품은 2개 이상 살 수 없다", async () => {
+    for (const itemId of [
+      FISHING_SEED_POUCH_ITEM_ID,
+      FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID,
+    ]) {
+      const response = await POST(potionRequest(2, itemId));
+      expect(response.status).toBe(400);
+    }
+    expect(upsertSave).not.toHaveBeenCalled();
+    expect(coopMocks.summon).not.toHaveBeenCalled();
+  });
+
+  it("잘못된 수량은 거절한다", async () => {
+    const response = await POST(potionRequest(1.5));
+
+    expect(response.status).toBe(400);
+    expect(upsertSave).not.toHaveBeenCalled();
   });
 });

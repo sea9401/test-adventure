@@ -35,6 +35,10 @@ const mocks = vi.hoisted(() => ({
   ),
 }));
 
+vi.mock("@/lib/server/v2Notifications", () => ({
+  insertNotificationWith: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/server/cronAuth", () => ({
   requireCronAuth: vi.fn(() => null),
 }));
@@ -220,6 +224,7 @@ vi.mock("@/db", () => ({
   },
 }));
 
+import { insertNotificationWith } from "@/lib/server/v2Notifications";
 import { POST } from "./route";
 
 beforeEach(() => {
@@ -298,6 +303,12 @@ describe("무입찰 경매 종료", () => {
       highestBidderId: null,
     });
     expect(mocks.inboxWrites.filter((row) => row.kind === "bid_refund")).toHaveLength(0);
+    expect(insertNotificationWith).toHaveBeenCalledWith(
+      expect.anything(),
+      "seller-z",
+      "auction_unsold",
+      expect.objectContaining({ listingId: mocks.listing!.id }),
+    );
   });
 });
 

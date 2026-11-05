@@ -369,7 +369,7 @@ function JobRow({
             숙련도 {job.mastery.toLocaleString("ko-KR")}
           </span>
           <span className="text-xs text-zinc-400 sm:text-[11px] dark:text-zinc-500">
-            해금 · {job.condition}
+            해금 · {job.conditionProgress ?? job.condition}
           </span>
         </div>
       </div>

@@ -73,6 +73,26 @@ describe("RoadmapScroller", () => {
 });
 
 describe("JobRoadmapDetails", () => {
+  it("해금 조건에 선행 직업 숙련도 진행도를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <JobRoadmapDetails
+        job={{
+          id: "squire",
+          name: "견습 기사",
+          tier: 2,
+          condition: "견습 병사 숙련도 1000",
+          conditionProgress: "견습 병사 숙련도 640/1,000",
+          cumLevel: 0,
+        }}
+        currentJobId="warrior"
+        goalJobId={null}
+        onSetGoal={() => {}}
+      />,
+    );
+
+    expect(html).toContain("견습 병사 숙련도 640/1,000");
+  });
+
   const squireJob = {
     id: "squire",
     name: "견습 기사",

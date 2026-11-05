@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
@@ -111,5 +111,36 @@ describe("JobCodexList 카드 밀도", () => {
     const mastery = screen.getByText("숙련도 1,000");
     const condition = screen.getByText("해금 · 변이자 숙련도 1000");
     expect(mastery.parentElement).toBe(condition.parentElement);
+  });
+
+  it("해금 조건에 선행 직업 숙련도의 현재값/필요값을 보여 준다", () => {
+    render(
+      <JobCodexList
+        codex={{
+          currentJobId: "warrior",
+          totalJobs: 1,
+          jobs: [
+            {
+              id: "squire",
+              name: "견습 기사",
+              tier: 2,
+              unlocked: false,
+              isCurrent: false,
+              mastery: 0,
+              condition: "견습 병사 숙련도 1000",
+              conditionProgress: "견습 병사 숙련도 640/1,000",
+              conditionRevealed: true,
+              skillsLearned: 0,
+              skillsTotal: 2,
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /조건 부족/ }));
+    expect(
+      screen.getByText("해금 · 견습 병사 숙련도 640/1,000"),
+    ).toBeTruthy();
   });
 });

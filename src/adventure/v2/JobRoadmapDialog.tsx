@@ -51,6 +51,7 @@ export type JobRoadmapPlayerJob = {
   unlocked?: boolean;
   visited?: boolean;
   condition: string;
+  conditionProgress?: string;
   conditionRevealed?: boolean;
   cumLevel?: number;
   bonus?: string;
@@ -329,7 +330,7 @@ export function JobRoadmapDetails({
           <dd className="mt-0.5 text-zinc-800 dark:text-zinc-200">
             {job.conditionRevealed === false
               ? "선행 직업을 해금하면 조건이 공개됩니다."
-              : job.condition}
+              : (job.conditionProgress ?? job.condition)}
           </dd>
         </div>
         <div>
@@ -783,7 +784,11 @@ function RoadmapBranch({
           onClick={() => onSelectJob(node.id)}
           aria-pressed={selected}
           aria-label={label}
-          title={job.conditionRevealed === false ? undefined : job.condition}
+          title={
+            job.conditionRevealed === false
+              ? undefined
+              : (job.conditionProgress ?? job.condition)
+          }
         >
           <RoadmapNodeContent
             node={node}

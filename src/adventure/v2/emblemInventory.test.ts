@@ -48,7 +48,7 @@ describe("groupEmblems", () => {
 describe("emblemGrowthSummary", () => {
   it("장착한 문장의 레벨업당 최대치를 종류별로 합산한다", () => {
     expect(emblemGrowthSummary(state)).toEqual([
-      { kind: "hp", max: 20 },
+      { kind: "hp", max: 30 },
       { kind: "str", max: 1 },
     ]);
   });

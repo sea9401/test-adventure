@@ -3,6 +3,11 @@
 import { Card } from "@/components/ui/Card";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { CoinAmount } from "@/adventure/v2/CoinAmount";
+import {
+  ShopQuantityControl,
+  useShopQuantity,
+} from "@/adventure/v2/ShopQuantityControl";
+import { maxShopQuantity } from "@/adventure/v2/shopQuantity";
 
 // 코인 상점 공용 리스트 — 칭호/소비품 목록의 li 마크업이 낚시/투기장 뷰에
 // 복붙되던 것의 단일화(2026-07). accent = 상점 테마 색.
@@ -23,6 +28,8 @@ export type CoinConsumableEntry = {
   badge?: string;
   disabled?: boolean;
   buttonLabel?: string;
+  /** 있으면 수량 입력칸을 보여 준다. 남은 구매 횟수(한도 없으면 상점 상한). */
+  maxQuantity?: number;
 };
 
 const BUY_BTN: Record<CoinShopAccent, string> = {
@@ -111,61 +118,100 @@ export function CoinConsumableShopList({
   /** 보유 스태미나 회복약 — stamina_potion 항목의 "보유 N" 배지 표시용. */
   staminaPotions: number;
   buying: string | null;
-  onBuyConsumable: (itemId: string) => void;
+  onBuyConsumable: (itemId: string, quantity: number) => unknown;
   accent: CoinShopAccent;
 }) {
-  const anyInFlight = buying !== null;
   return (
     <Card padding="none" className="overflow-hidden">
       <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-        {consumables.map((c) => {
-          const affordable = coins >= c.price;
-          const inFlight = buying === c.itemId;
-          const disabled = Boolean(c.disabled) || !affordable || anyInFlight;
-          return (
-            <li
-              key={c.itemId}
-              className="flex items-center justify-between gap-3 px-3 py-3"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  <GameIcon name="Flask" size={17} />
-                  {c.name}
-                  {c.itemId === "stamina_potion" && staminaPotions > 0 && (
-                    <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
-                      보유 {staminaPotions}
-                    </span>
-                  )}
-                  {c.badge && (
-                    <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      {c.badge}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  {c.description}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onBuyConsumable(c.itemId)}
-                className={BUY_BTN[accent]}
-              >
-                {inFlight ? (
-                  "구매 중…"
-                ) : c.buttonLabel ? (
-                  c.buttonLabel
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <CoinAmount amount={c.price} />
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
+        {consumables.map((c) => (
+          <CoinConsumableRow
+            key={c.itemId}
+            entry={c}
+            coins={coins}
+            staminaPotions={staminaPotions}
+            buying={buying}
+            onBuyConsumable={onBuyConsumable}
+            accent={accent}
+          />
+        ))}
       </ul>
     </Card>
+  );
+}
+
+function CoinConsumableRow({
+  entry: c,
+  coins,
+  staminaPotions,
+  buying,
+  onBuyConsumable,
+  accent,
+}: {
+  entry: CoinConsumableEntry;
+  coins: number;
+  staminaPotions: number;
+  buying: string | null;
+  onBuyConsumable: (itemId: string, quantity: number) => unknown;
+  accent: CoinShopAccent;
+}) {
+  const maxQuantity =
+    c.maxQuantity === undefined || c.disabled
+      ? 1
+      : maxShopQuantity(coins / c.price, c.maxQuantity);
+  const quantityControl = useShopQuantity(maxQuantity);
+  const { quantity } = quantityControl;
+  const anyInFlight = buying !== null;
+  const affordable = coins >= c.price * quantity;
+  const inFlight = buying === c.itemId;
+  const disabled = Boolean(c.disabled) || !affordable || anyInFlight;
+  const buy = async () => {
+    await onBuyConsumable(c.itemId, quantity);
+    quantityControl.reset();
+  };
+  return (
+    <li className="flex items-center justify-between gap-3 px-3 py-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 text-sm font-semibold">
+          <GameIcon name="Flask" size={17} />
+          {c.name}
+          {c.itemId === "stamina_potion" && staminaPotions > 0 && (
+            <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
+              보유 {staminaPotions}
+            </span>
+          )}
+          {c.badge && (
+            <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+              {c.badge}
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+          {c.description}
+        </p>
+        <ShopQuantityControl
+          name={c.name}
+          max={maxQuantity}
+          disabled={anyInFlight}
+          control={quantityControl}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => void buy()}
+        className={BUY_BTN[accent]}
+      >
+        {inFlight ? (
+          "구매 중…"
+        ) : c.buttonLabel ? (
+          c.buttonLabel
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <CoinAmount amount={c.price * quantity} />
+          </span>
+        )}
+      </button>
+    </li>
   );
 }

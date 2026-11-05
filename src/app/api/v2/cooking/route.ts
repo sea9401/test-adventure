@@ -276,7 +276,7 @@ async function firstDiscoveryRows(executor: DbExecutor): Promise<FirstDiscoveryR
       discoveredAt: cookingFirstDiscoveries.discoveredAt,
     })
     .from(cookingFirstDiscoveries)
-    .innerJoin(users, eq(users.id, cookingFirstDiscoveries.userId))
+    .leftJoin(users, eq(users.id, cookingFirstDiscoveries.userId))
     .leftJoin(savesKv, and(
       eq(savesKv.userId, cookingFirstDiscoveries.userId),
       eq(savesKv.key, "character-profile.v2"),

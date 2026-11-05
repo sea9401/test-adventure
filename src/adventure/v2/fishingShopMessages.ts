@@ -4,6 +4,7 @@ import {
   FISHING_SEED_POUCH_ITEM_ID,
   FISHING_STAMINA_POTION_ITEM_ID,
 } from "./fishingShop";
+import { staminaPotionPurchaseMessage } from "./shopQuantity";
 
 export const fishingShopConsumableMessage: CoinShopConsumableMessage = (
   itemId, response, succeeded,
@@ -19,7 +20,7 @@ export const fishingShopConsumableMessage: CoinShopConsumableMessage = (
       return `${name}를 구매했다.`;
     }
     if (itemId === FISHING_STAMINA_POTION_ITEM_ID) {
-      return "스태미나 회복약을 구매했다.";
+      return staminaPotionPurchaseMessage(response);
     }
     return undefined;
   }

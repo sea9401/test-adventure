@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  auctionUnsoldNotificationText,
   guildDisbandedNotificationText,
   guildKickedNotificationText,
   masterProductNotificationText,
@@ -46,6 +47,18 @@ describe("명장 산물 알림 문구", () => {
         count: 3,
       }),
     ).toBe("명장 산물 명장 합금 3개를 얻었습니다.");
+  });
+});
+
+describe("거래소 유찰 알림 문구", () => {
+  it("품목과 수량, 유찰로 돌아왔다는 사실을 알린다", () => {
+    expect(
+      auctionUnsoldNotificationText({
+        listingId: 7,
+        itemName: "철광석",
+        quantity: 1200,
+      }),
+    ).toBe("거래소에 올린 철광석 ×1,200이(가) 유찰되어 돌아왔습니다.");
   });
 });
 

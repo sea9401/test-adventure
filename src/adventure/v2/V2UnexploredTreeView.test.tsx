@@ -870,7 +870,6 @@ describe("V2UnexploredTreeView", () => {
 
   it("잠긴 제작 버튼을 누르면 노드 활성화 안내를 표시하고 제작 요청은 보내지 않는다", async () => {
     const tracking = UNEXPLORED_BOSSES.tracking_weapon;
-    const onOpenSession = vi.fn();
     const fetchMock = vi.fn(async () =>
       new Response(
         JSON.stringify({
@@ -892,7 +891,6 @@ describe("V2UnexploredTreeView", () => {
           materials: { [tracking.summonMaterialId]: 1 },
         }}
         onBack={vi.fn()}
-        onOpenSession={onOpenSession}
       />,
     );
 
@@ -915,7 +913,69 @@ describe("V2UnexploredTreeView", () => {
       "error",
     );
     fireEvent.click(summonButton);
-    await waitFor(() => expect(onOpenSession).toHaveBeenCalledWith("personal-session"));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v2/unexplored/summon",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  it("소환 후 흔적 보관함에 머물러 남은 소환석을 이어서 소환한다", async () => {
+    const tracking = UNEXPLORED_BOSSES.tracking_weapon;
+    const onOpenCoopBosses = vi.fn();
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () =>
+        new Response(
+          JSON.stringify({ ok: true, sessionId: "first", summonStonesLeft: 1 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockImplementationOnce(async () =>
+        new Response(
+          JSON.stringify({ ok: true, sessionId: "second", summonStonesLeft: 0 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          materials: { [tracking.summonMaterialId]: 2 },
+        }}
+        onBack={vi.fn()}
+        onOpenCoopBosses={onOpenCoopBosses}
+      />,
+    );
+
+    openUnexploredTab("흔적 보관함");
+    const panel = screen.getByRole("tabpanel", { name: "흔적 보관함" });
+    const summonButton = within(panel).getByRole("button", {
+      name: "추적 병기 소환",
+    });
+    const bossCard = summonButton.closest("article") as HTMLElement;
+
+    fireEvent.click(summonButton);
+    await within(bossCard).findByText("보유 1개 · 나만 전투");
+    await waitFor(() => expect(summonButton.hasAttribute("disabled")).toBe(false));
+    expect(onOpenCoopBosses).not.toHaveBeenCalled();
+    expect(mocks.notifySystem).toHaveBeenCalledWith(
+      "✓ 추적 병기을 소환했습니다.",
+      "success",
+    );
+
+    fireEvent.click(summonButton);
+    await within(bossCard).findByText("보유 0개 · 나만 전투");
+    await waitFor(() => expect(summonButton.hasAttribute("disabled")).toBe(true));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onOpenCoopBosses).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "협동 보스 목록" }),
+    );
+    expect(onOpenCoopBosses).toHaveBeenCalledTimes(1);
   });
 
   it("우두머리 핵 제작소는 일반 고유 8종과 드롭 전용 초희귀 4종을 구분한다", () => {

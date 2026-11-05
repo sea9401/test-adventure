@@ -33,6 +33,7 @@ export const V2_NOTIFICATION_TYPES = [
   "farm_ready",
   "codex_research_trophy",
   "auction_won",
+  "auction_unsold",
   "master_product",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
@@ -48,6 +49,19 @@ export function auctionWonNotificationText(
   payload: AuctionWonNotificationPayload,
 ): string {
   return `${payload.itemName} ×${payload.quantity.toLocaleString("ko-KR")}을(를) ${payload.totalPrice.toLocaleString("ko-KR")}골드에 낙찰받았습니다. 물품 지급이 완료되었습니다.`;
+}
+
+// auction_unsold — 입찰 없이 끝나 판매자에게 돌아온 경매 매물.
+export type AuctionUnsoldNotificationPayload = {
+  listingId: number;
+  itemName: string;
+  quantity: number;
+};
+
+export function auctionUnsoldNotificationText(
+  payload: AuctionUnsoldNotificationPayload,
+): string {
+  return `거래소에 올린 ${payload.itemName} ×${payload.quantity.toLocaleString("ko-KR")}이(가) 유찰되어 돌아왔습니다.`;
 }
 
 // guild_kicked — 길드에서 추방됨. cooldownUntil = 다른 길드 가입 제한 해제 시각(epoch ms).
@@ -92,6 +106,7 @@ export function masterProductNotificationText(
 
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
+  | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload
   | GuildKickedNotificationPayload
   | GuildDisbandedNotificationPayload

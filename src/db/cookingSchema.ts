@@ -11,13 +11,12 @@ import {
 import { users } from "./schema";
 
 // 숨은 요리 레시피의 서버 최초 발견. recipe_id 고유 제약이 동시 발견 경쟁의 권위 판정이다.
+// 발견자가 탈퇴해도 행을 남겨, 이미 알려진 요리가 다시 최초 발견으로 판정되지 않게 한다.
 export const cookingFirstDiscoveries = pgTable(
   "cooking_first_discoveries",
   {
     recipeId: text("recipe_id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
     actorName: text("actor_name").notNull(),
     discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
   },

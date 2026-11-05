@@ -31,6 +31,36 @@ function renderLadder() {
 }
 
 describe("성장의 신전 직업 행", () => {
+  it("해금 조건에 선행 직업 숙련도의 현재값/필요값을 보여 준다", () => {
+    render(
+      <V2JobLadder
+        level={100}
+        currentJobName="견습 병사"
+        currentJobId="warrior"
+        atLevelCap
+        revisitExpedited={false}
+        rejobRequiredLevel={100}
+        jobs={[
+          {
+            id: "squire",
+            name: "견습 기사",
+            tier: 2,
+            unlocked: false,
+            condition: "견습 병사 숙련도 1000",
+            conditionProgress: "견습 병사 숙련도 640/1,000",
+            cumLevel: 0,
+          },
+        ]}
+        onChanged={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /조건 부족/ }));
+    expect(
+      screen.getByText(/숙련도 0 · 해금 조건 · 견습 병사 숙련도 640\/1,000/),
+    ).toBeTruthy();
+  });
+
   it("기본으로 이름·숙련도·해금 조건만 보이고 나머지는 펼쳐서 본다", () => {
     const { container } = renderLadder();
 

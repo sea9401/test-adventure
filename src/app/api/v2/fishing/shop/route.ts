@@ -75,6 +75,7 @@ import {
   type FishingProgressionState,
   type FishingRodId,
 } from "@/adventure/v2/fishingProgression";
+import { parseShopQuantity } from "@/adventure/v2/shopQuantity";
 import { summonFishingCoopBoss } from "@/lib/server/v2Coop";
 
 type GearKind = "rod" | "lure";
@@ -195,6 +196,7 @@ export async function POST(req: Request) {
   let body: {
     titleId?: unknown;
     itemId?: unknown;
+    quantity?: unknown;
     gearKind?: unknown;
     gearId?: unknown;
     action?: unknown;
@@ -203,6 +205,7 @@ export async function POST(req: Request) {
     body = (await req.json()) as {
       titleId?: unknown;
       itemId?: unknown;
+      quantity?: unknown;
       gearKind?: unknown;
       gearId?: unknown;
       action?: unknown;
@@ -228,7 +231,14 @@ export async function POST(req: Request) {
   // 소비템 구매(itemId) — 칭호와 별개 분기. 반복 구매(보유 상태 없음).
   const itemId = typeof body.itemId === "string" ? body.itemId : null;
   if (itemId) {
-    return buyConsumable(userId, itemId);
+    const quantity = parseShopQuantity(body.quantity);
+    if (
+      quantity === null ||
+      (quantity > 1 && itemId !== FISHING_STAMINA_POTION_ITEM_ID)
+    ) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    return buyConsumable(userId, itemId, quantity);
   }
 
   const titleId = typeof body.titleId === "string" ? body.titleId : null;
@@ -382,7 +392,11 @@ async function buyFishingGear(
 // 소비템 구매 — 보관형 소비템이라 반복 구매.
 //   락 순서: fishing-wallet.v1 → 상점/지급 대상 저장소.
 //   씨앗 주머니는 fishing-wallet.v1 → fishing-shop.v1 → farm.v2 로 잡는다.
-async function buyConsumable(userId: string, itemId: string): Promise<Response> {
+async function buyConsumable(
+  userId: string,
+  itemId: string,
+  quantity: number,
+): Promise<Response> {
   if (itemId === FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID) {
     return buyAbyssalSummonBait(userId);
   }
@@ -426,14 +440,14 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       shop,
       FISHING_STAMINA_POTION_ITEM_ID,
     );
-    if (boughtThisWeek >= FISHING_STAMINA_POTION_WEEKLY_LIMIT) {
+    if (boughtThisWeek + quantity > FISHING_STAMINA_POTION_WEEKLY_LIMIT) {
       return {
         kind: "limit" as const,
         coins,
         staminaPotionLimit: fishingStaminaPotionView(shop),
       };
     }
-    if (coins < price) {
+    if (coins < price * quantity) {
       return {
         kind: "insufficient" as const,
         coins,
@@ -447,15 +461,16 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       STAMINA_POTIONS_KEY,
       { count: 0 },
     );
-    const nextPotions = grantStaminaPotions(potSave, 1, { bound: true });
+    const nextPotions = grantStaminaPotions(potSave, quantity, { bound: true });
     const staminaPotions = nextPotions.count;
     await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
 
     const nextShop = recordFishingShopPurchase(
       shop,
       FISHING_STAMINA_POTION_ITEM_ID,
+      quantity,
     );
-    const coinBalance = coins - price;
+    const coinBalance = coins - price * quantity;
     await upsertSave(tx, userId, FISHING_SHOP_STATE_KEY, nextShop);
     await upsertSave(
       tx,
@@ -496,6 +511,7 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
   return Response.json({
     ok: true,
     itemId,
+    quantity,
     coins: outcome.coinBalance,
     staminaPotions: outcome.staminaPotions,
     staminaPotionLimit: outcome.staminaPotionLimit,

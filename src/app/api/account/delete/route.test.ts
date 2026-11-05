@@ -189,6 +189,20 @@ describe("POST /api/account/delete", () => {
     ).toBeLessThan(mocks.deleteUser.mock.invocationCallOrder[0]);
   });
 
+  it("요리 최초 발견자 이름을 유저 삭제 전에 익명화한다", async () => {
+    mocks.transactionRows.push([]);
+    let updatesAtDelete: Row[] = [];
+    mocks.deleteUser.mockImplementationOnce(async () => {
+      updatesAtDelete = [...mocks.updates];
+      return undefined;
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(updatesAtDelete).toContainEqual({ actorName: "탈퇴한 사용자" });
+  });
+
   it("길드 마스터 삭제 전 남는 멤버의 소속 표기를 정리한다", async () => {
     mocks.transactionRows.push(
       [{ guildId: 7, role: "master" }],

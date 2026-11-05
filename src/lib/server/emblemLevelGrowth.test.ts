@@ -16,7 +16,7 @@ describe("emblem growth persistence", () => {
   it("adds actual level gains to the character and retains them after unequipping", () => {
     const start = emptyProficiency();
     const result = applyEmblemLevelGrowth({ proficiency: start, emblems, levelsGained: 2, rng: () => 0.999 });
-    expect(result.proficiency.emblemCycleGrowth).toEqual({ hp: 60, mp: 36 });
+    expect(result.proficiency.emblemCycleGrowth).toEqual({ hp: 80, mp: 36 });
     expect(result.proficiency.grown.str).toBe(36);
     const saved = parseProficiency(result.proficiency);
     const after = applyEmblemLevelGrowth({ proficiency: saved, emblems: { ...emblems, slots: [null, null, null, null] }, levelsGained: 1, rng: () => 0.999 });
@@ -27,7 +27,7 @@ describe("emblem growth persistence", () => {
     expect(base).not.toBeNull();
     expect(buffed).not.toBeNull();
     if (!base || !buffed) throw new Error("character derivation failed");
-    expect(buffed.player.maxHp - base.player.maxHp).toBe(60);
+    expect(buffed.player.maxHp - base.player.maxHp).toBe(80);
     expect(buffed.player.maxMp! - base.player.maxMp!).toBe(36);
     expect(start.grown).toEqual({});
   });
@@ -48,11 +48,11 @@ describe("emblem growth persistence", () => {
     const charSave = { class: "none", level: 1, emblems };
     const proficiency = emptyProficiency();
     const hunt = applyHuntProficiency({ won: true, depth: 2, charSave, proficiencyRaw: proficiency, equippedSkills: [], proficiencyChancePct: 0, levelsGained: 2, rng: () => 0.999 });
-    expect(hunt.nextProficiency?.emblemCycleGrowth).toEqual({ hp: 60, mp: 36 });
+    expect(hunt.nextProficiency?.emblemCycleGrowth).toEqual({ hp: 80, mp: 36 });
     const grant = applyLevelTargetGrant(charSave, proficiency, 3, () => 0.999);
-    expect(grant.proficiency.emblemCycleGrowth).toEqual({ hp: 60, mp: 36 });
+    expect(grant.proficiency.emblemCycleGrowth).toEqual({ hp: 80, mp: 36 });
     const exp = applyExpTomeGrant(charSave, proficiency, 100, () => 0.999);
     expect(exp.levelsGained).toBeGreaterThan(0);
-    expect(exp.proficiency.emblemCycleGrowth).toEqual({ hp: exp.levelsGained * 30, mp: exp.levelsGained * 18 });
+    expect(exp.proficiency.emblemCycleGrowth).toEqual({ hp: exp.levelsGained * 40, mp: exp.levelsGained * 18 });
   });
 });

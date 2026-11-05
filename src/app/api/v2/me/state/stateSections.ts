@@ -75,6 +75,7 @@ import {
   jobUnlockSpBonus,
   jobIdFromLegacy,
   jobUnlockConditionText,
+  jobUnlockProgressText,
   cumLevelForJob,
   rejobRequiredLevel,
   type JobUnlockContext,
@@ -269,6 +270,9 @@ export function jobsV2Section(params: {
         tier: job.tier,
         unlocked,
         condition,
+        conditionProgress: conditionRevealed
+          ? jobUnlockProgressText(job, prof)
+          : undefined,
         conditionRevealed,
         cumLevel,
         visited: isRecordedJobVisit({

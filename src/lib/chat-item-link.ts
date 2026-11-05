@@ -16,6 +16,8 @@ import {
   parseLiberationState,
   type V2LiberationState,
 } from "@/adventure/data/v2/equipmentLiberation";
+import { V2_EQUIPMENT_LIBERATION } from "@/adventure/data/v2/coreLoopConfig";
+import { enchantmentStage } from "@/adventure/v2/liberation/equipmentLiberationViewModel";
 
 // 메시지에 저장하는 전송 시점 장비 스냅샷. iid·잠금·장착 여부는 공개하지 않는다.
 export type ChatEquipmentLink = {
@@ -97,4 +99,12 @@ export function chatEquipmentLinkLabel(link: ChatEquipmentLink): string {
   const item = V2_EQUIPMENT[link.itemId];
   const enhance = link.enhance?.level ?? 0;
   return `${item.name}${enhance > 0 ? ` +${enhance}` : ""}`;
+}
+
+// 배지를 그릴 수 없는 곳(스크린 리더 이름, 채팅방 목록 미리보기)에 쓰는 한 줄 요약.
+export function chatEquipmentLinkSummary(link: ChatEquipmentLink): string {
+  const label = chatEquipmentLinkLabel(link);
+  if (!V2_EQUIPMENT_LIBERATION || !link.liberation) return label;
+  const { rank, lineCount } = link.liberation;
+  return `${label} · 마법부여 ${enchantmentStage(rank)}단계 · ${lineCount}줄`;
 }

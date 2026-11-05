@@ -96,4 +96,35 @@ describe("HonorShopPanel", () => {
     );
     expect(mocks.applyResourcePatch).not.toHaveBeenCalled();
   });
+
+  it("수량을 입력하면 합계 명성을 보여 주고 요청 한 번으로 구매한다", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>
+      init?.method === "POST"
+        ? Response.json({
+            ok: true,
+            honor: 200,
+            honorEarned: 900,
+            granted: { itemId: "stamina_potion", name: "스태미나 회복약", kind: "stamina_potion", targetId: "stamina_potion", quantity: 3 },
+            staminaPotions: 3,
+          })
+        : Response.json({ ok: true, honor: 500, honorEarned: 900, items }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HonorShopPanel />);
+
+    const input = await screen.findByLabelText("스태미나 회복약 수량");
+    fireEvent.change(input, { target: { value: "3" } });
+    const row = input.closest<HTMLElement>("div.flex.items-center.justify-between")!;
+    expect(within(row).getByText("명성 300")).toBeTruthy();
+
+    fireEvent.click(within(row).getByRole("button", { name: "구매" }));
+
+    await waitFor(() =>
+      expect(mocks.notifySystem).toHaveBeenCalledWith("✓ 구매 완료: 스태미나 회복약 +3"),
+    );
+    const posts = fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
+    expect(posts).toHaveLength(1);
+    expect(JSON.parse(String(posts[0][1]?.body))).toEqual({ itemId: "stamina_potion", quantity: 3 });
+  });
 });

@@ -39,7 +39,7 @@ describe("문장 화면", () => {
     render(<V2EmblemView />);
 
     const summary = await screen.findByRole("region", { name: "레벨업 성장 요약" });
-    expect(summary.textContent).toContain("HP +0~10");
+    expect(summary.textContent).toContain("HP +0~15");
     expect(summary.textContent).toContain("힘 +0~2");
     const rules = summary.querySelector("details");
     expect(rules?.hasAttribute("open")).toBe(false);

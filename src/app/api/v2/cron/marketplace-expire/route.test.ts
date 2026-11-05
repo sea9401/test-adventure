@@ -312,11 +312,11 @@ describe("낙찰 구매자 알림", () => {
     expect(mocks.sendPush).toHaveBeenCalledTimes(1);
   });
 
-  it("유찰에는 구매자 알림을 만들지 않는다", async () => {
+  it("유찰에는 낙찰 알림과 푸시를 만들지 않는다", async () => {
     mocks.currentIds.push(1);
     mocks.transactionRows.push(currentListing(null));
     await POST(cronRequest());
-    expect(mocks.notifications).toEqual([]);
+    expect(mocks.notifications.map((row) => row.type)).not.toContain("auction_won");
     expect(mocks.sendPush).not.toHaveBeenCalled();
   });
 
@@ -357,5 +357,61 @@ describe("낙찰 구매자 알림", () => {
     } finally {
       warning.mockRestore();
     }
+  });
+});
+
+describe("유찰 판매자 알림", () => {
+  it("돌려준 품목과 수량을 판매자에게 알린다", async () => {
+    mocks.currentIds.push(1);
+    mocks.transactionRows.push(currentListing(null));
+    await POST(cronRequest());
+    expect(mocks.notifications).toEqual([{
+      userId: "seller-a",
+      type: "auction_unsold",
+      payload: { listingId: 1, itemName: "철광석", quantity: 4 },
+    }]);
+  });
+
+  it("이미 종료된 매물을 다시 처리해도 알림이 늘지 않는다", async () => {
+    const listing = currentListing(null);
+    mocks.currentIds.push(1);
+    mocks.transactionRows.push(listing);
+    await POST(cronRequest());
+    listing.status = "expired";
+    mocks.topSelectIndex = 0;
+    mocks.transactionRows.push(listing);
+    await POST(cronRequest());
+    expect(mocks.notifications).toHaveLength(1);
+  });
+
+  it("에스크로가 반환되지 않았으면 알리지 않는다", async () => {
+    const { cancelMarketplaceListingEscrow } = await import("@/lib/server/marketplaceEscrow");
+    vi.mocked(cancelMarketplaceListingEscrow).mockResolvedValueOnce({
+      cancelled: false,
+      refundedBidGold: 0,
+    });
+    mocks.currentIds.push(1);
+    mocks.transactionRows.push(currentListing(null));
+    await POST(cronRequest());
+    expect(mocks.notifications).toEqual([]);
+  });
+
+  it("거래 제한으로 정리된 매물과 전환 반환 매물에는 유찰 알림을 보내지 않는다", async () => {
+    const { lockTradeParticipantStatuses } = await import("@/lib/server/tradeSuspension");
+    vi.mocked(lockTradeParticipantStatuses).mockResolvedValueOnce(
+      new Map([["seller-a", { suspended: true }]]) as never,
+    );
+    mocks.currentIds.push(1);
+    mocks.legacyIds.push(2);
+    mocks.transactionRows.push(
+      currentListing(null),
+      { ...currentListing(null), id: 2, auctionModeVersion: 0 },
+    );
+    await POST(cronRequest());
+    expect(mocks.listingCancellations.map((row) => row.reason)).toEqual([
+      "trade_suspension",
+      "feature_retired",
+    ]);
+    expect(mocks.notifications).toEqual([]);
   });
 });

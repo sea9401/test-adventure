@@ -15,6 +15,42 @@ afterEach(() => {
 });
 
 describe("MessageBody item links", () => {
+  it("링크를 열지 않아도 마법부여 단계와 줄수를 표시한다", () => {
+    const itemLink = parseChatEquipmentLink({
+      kind: "equipment",
+      itemId: "v2_boss_catastrophe_gloves",
+      liberation: {
+        rank: 2,
+        lineCount: 2,
+        revision: 7,
+        options: [
+          { id: "base_str_pct", level: 10 },
+          { id: "skill_crit_damage_pp", level: 8 },
+        ],
+      },
+    });
+
+    render(<MessageBody content="" itemLink={itemLink} />);
+
+    expect(screen.getByText("마법부여 2단계 · 2줄")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /마법부여 2단계 · 2줄 아이템 옵션 보기$/,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("마법부여가 없는 장비 링크에는 단계와 줄수를 표시하지 않는다", () => {
+    const itemLink = parseChatEquipmentLink({
+      kind: "equipment",
+      itemId: "v2_iron_sword",
+    });
+
+    render(<MessageBody content="" itemLink={itemLink} />);
+
+    expect(screen.queryByText(/마법부여/)).toBeNull();
+  });
+
   it("마법 부여된 장비 링크를 열면 전송 당시 옵션을 표시한다", () => {
     const itemLink = parseChatEquipmentLink({
       kind: "equipment",

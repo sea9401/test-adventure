@@ -146,3 +146,20 @@ describe("buildJobCodex", () => {
 function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
   return { ...emptyProficiency(), jobCumLevel: { ...jobCumLevels } };
 }
+
+describe("buildJobCodex 해금 조건 진행도", () => {
+  it("공개된 조건은 선행 직업 숙련도의 현재값/필요값을 함께 준다", () => {
+    const codex = buildJobCodex(profWith({ warrior: 640 }), [], "warrior", null);
+    const squire = codex.jobs.find((job) => job.id === "squire");
+
+    expect(squire?.conditionProgress).toBe("견습 병사 숙련도 640/1,000");
+  });
+
+  it("미공개 직업에는 진행도를 싣지 않는다", () => {
+    const codex = buildJobCodex(emptyProficiency(), [], "none", null);
+    const hidden = codex.jobs.find((job) => !job.conditionRevealed);
+
+    expect(hidden).toBeTruthy();
+    expect(hidden?.conditionProgress).toBeUndefined();
+  });
+});

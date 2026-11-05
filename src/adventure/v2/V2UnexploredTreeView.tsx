@@ -135,11 +135,11 @@ function formatPct(value: number): string {
 export function V2UnexploredTreeView({
   initialSnapshot = null,
   onBack,
-  onOpenSession,
+  onOpenCoopBosses,
 }: {
   initialSnapshot?: UnexploredClientSnapshot | null;
   onBack: () => void;
-  onOpenSession?: (sessionId: string) => void;
+  onOpenCoopBosses?: () => void;
 }) {
   const { notifySystem } = useSystemToast();
   const { applyResourcePatch } = useGameResourceState();
@@ -367,8 +367,8 @@ export function V2UnexploredTreeView({
         }
         return { ...current, materials };
       });
+      // 소환 후에도 흔적 보관함에 머문다. 여러 마리 연속 소환 흐름(협동 보스 목록과 같은 동작).
       notifySystem(`✓ ${UNEXPLORED_BOSSES[bossId].name}을 소환했습니다.`, "success");
-      onOpenSession?.(body.sessionId);
     } catch (error) {
       notifySystem(`✗ ${(error as Error).message}`, "error");
     } finally {
@@ -1016,6 +1016,16 @@ export function V2UnexploredTreeView({
             </p>
           </div>
         </div>
+        {onOpenCoopBosses && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              소환한 보스는 협동 보스 목록에서 토벌합니다.
+            </p>
+            <Button size="sm" onClick={onOpenCoopBosses}>
+              협동 보스 목록
+            </Button>
+          </div>
+        )}
         <div className="grid gap-3 xl:grid-cols-3">
           {UNEXPLORED_BOSS_IDS.map((bossId) => {
             const boss = UNEXPLORED_BOSSES[bossId];

@@ -39,6 +39,7 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
+import { guildFacilityOperationCarriedAmount } from "@/adventure/data/v2/guildFacilityOperations";
 import {
   lockGuildTradeWeekly,
   saveGuildTradeWeekly,
@@ -567,7 +568,10 @@ export async function POST(req: Request) {
           quantity,
           contributionPoints,
         },
-        operationAmount: points,
+        operationAmount: guildFacilityOperationCarriedAmount(
+          Object.values(weekly.progress).reduce((sum, value) => sum + value, 0),
+          points,
+        ),
       });
 
       let guildReward: { gold: number; fame: number } | null = null;

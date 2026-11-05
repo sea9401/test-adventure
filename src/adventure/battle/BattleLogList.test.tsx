@@ -1465,3 +1465,49 @@ it("고통 유예는 이전 행동이 아닌 해당 피격 카드에 표시한�
   expect(items).toHaveLength(2);
   expect(items[1]).toMatchObject({ kind: "action", effects: [{ painEvent: { kind: "defer", amount: 20 } }] });
 });
+
+describe("다음 공격을 강화하는 고유 효과 표시", () => {
+  const boostedCast = (text: string): BattleLogEntry[] => [
+    { kind: "player_attack", text: "원시 포식! 180033 피해를 입혔다.", turn: "player", t: 100 },
+    { kind: "hp_bar", text: "", playerHp: 1, playerMaxHp: 1, enemyHp: 1, enemyMaxHp: 1, turn: "player", t: 100 },
+    { kind: "info", text, turn: "player", t: 150 },
+    { kind: "player_attack", text: "원시 포식! 225041 피해를 입혔다.", turn: "player", t: 150 },
+  ];
+
+  it.each([
+    "[보정 사격] 피해 +25%",
+    "[별궤 조준] 피해 +15%",
+    "[빙결 일격] 빙결된 적에게 피해 +30%",
+    "[궤도 절단] 방어·마법방어 50% 무시, 피해 +80%",
+  ])("%s 는 앞 행동 아래가 아니라 강화된 행동 카드에 표시한다", (text) => {
+    const items = groupBattleLogActions(boostedCast(text)).filter(
+      (item) => item.kind !== "entry" || item.entry.kind !== "hp_bar",
+    );
+
+    expect(items).toMatchObject([
+      { kind: "action", main: { text: "원시 포식! 180033 피해를 입혔다." }, effects: [] },
+      { kind: "action", main: { text: "원시 포식! 225041 피해를 입혔다." }, effects: [{ text }] },
+    ]);
+  });
+
+  it("앞 행동이 아직 열려 있어도 강화 효과를 그 행동에 붙이지 않는다", () => {
+    const items = groupBattleLogActions(
+      boostedCast("[보정 사격] 피해 +25%").filter((entry) => entry.kind !== "hp_bar"),
+    );
+
+    expect(items).toMatchObject([
+      { kind: "action", main: { text: "원시 포식! 180033 피해를 입혔다." }, effects: [] },
+      { kind: "action", main: { text: "원시 포식! 225041 피해를 입혔다." }, effects: [{ text: "[보정 사격] 피해 +25%" }] },
+    ]);
+  });
+
+  it("같은 이름의 라벨이어도 피해 강화 문구가 아니면 앞 행동의 효과로 둔다", () => {
+    const text = "[궤도 절단] 대상의 방어가 흔들렸다";
+    const items = groupBattleLogActions([
+      { kind: "enemy_attack", text: "궤도 절단! 100 피해를 입혔다.", turn: "enemy", t: 100 },
+      { kind: "info", text, turn: "enemy", t: 100 },
+    ]);
+
+    expect(items).toMatchObject([{ kind: "action", effects: [{ text }] }]);
+  });
+});

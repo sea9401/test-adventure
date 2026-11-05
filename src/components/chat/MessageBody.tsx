@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sword } from "@phosphor-icons/react";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
+  LiberationBadge,
   V2ItemCard,
   anchorOf,
   powerNameClass,
@@ -11,6 +12,7 @@ import {
 } from "@/adventure/v2/V2ItemCard";
 import {
   chatEquipmentLinkLabel,
+  chatEquipmentLinkSummary,
   type ChatEquipmentLink,
 } from "@/lib/chat-item-link";
 
@@ -40,10 +42,11 @@ export function MessageBody({
               itemLink.enhance,
               itemLink.craftQuality,
             )}`}
-            aria-label={`${chatEquipmentLinkLabel(itemLink)} 아이템 옵션 보기`}
+            aria-label={`${chatEquipmentLinkSummary(itemLink)} 아이템 옵션 보기`}
           >
             <Sword size={13} weight="duotone" className="shrink-0 text-sky-600 dark:text-sky-300" />
             <span className="truncate">[{chatEquipmentLinkLabel(itemLink)}]</span>
+            <LiberationBadge liberation={itemLink.liberation} />
           </button>
           {cardAnchor ? (
             <V2ItemCard

@@ -4,7 +4,7 @@ import { CHAT_RETENTION_DAYS } from "@/lib/chat-config";
 import { FEED_RETENTION_DAYS } from "@/lib/feed-config";
 import { RETENTION_POLICY } from "@/lib/server/retentionPolicy";
 
-const EFFECTIVE_DATE = "2026년 10월 4일";
+const EFFECTIVE_DATE = "2026년 11월 5일";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 — 무슨무슨게임",
@@ -409,7 +409,7 @@ export default function PrivacyPage() {
       <section>
         <h2>5. 파기 절차와 방법</h2>
         <p>
-          회원은 게임 메뉴의 ‘환경 설정 → 회원 탈퇴’에서 탈퇴할 수 있습니다. 앱에 로그인할 수 없는 경우 <a href="/account-deletion">계정 및 데이터 삭제 안내</a>에 따라 웹에서 요청할 수 있습니다. 탈퇴가 완료되면 운영 데이터베이스의 계정과 연결 정보는 삭제되고, 별도 저장된 첨부 이미지 등은 연결 관계를 확인해 파기합니다. 완료된 안전 신고는 계정 식별값과 표시 이름을 익명화한 뒤 제2조의 기간 동안 보관할 수 있습니다. 백업에 남은 정보는 보관 주기가 끝나면 복구하기 어려운 방법으로 삭제됩니다.
+          회원은 게임 메뉴의 ‘환경 설정 → 회원 탈퇴’에서 탈퇴할 수 있습니다. 앱에 로그인할 수 없는 경우 <a href="/account-deletion">계정 및 데이터 삭제 안내</a>에 따라 웹에서 요청할 수 있습니다. 탈퇴가 완료되면 운영 데이터베이스의 계정과 연결 정보는 삭제되고, 별도 저장된 첨부 이미지 등은 연결 관계를 확인해 파기합니다. 완료된 안전 신고는 계정 식별값과 표시 이름을 익명화한 뒤 제2조의 기간 동안 보관할 수 있습니다. 서버 최초 발견 요리 기록은 게임 기록으로 유지하되 계정 연결을 끊고 발견자 이름을 익명화합니다. 백업에 남은 정보는 보관 주기가 끝나면 복구하기 어려운 방법으로 삭제됩니다.
         </p>
       </section>
 

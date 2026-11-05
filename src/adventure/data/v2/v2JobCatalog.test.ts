@@ -37,6 +37,7 @@ import {
   unlockedJobs,
   jobUnlockSpBonus,
   jobUnlockConditionText,
+  jobUnlockProgressText,
   cumLevelForJob,
   highestVisitedFishingJobId,
   isFarmingJobId,
@@ -1716,6 +1717,38 @@ describe("jobUnlockConditionText (해금 조건 표기 — 전직 화면·도감
   it("농부 상위 직업은 농사 레벨 조건을 함께 표기", () => {
     const txt = jobUnlockConditionText(V2_JOB_CATALOG.horticulturist);
     expect(txt).toContain(`농사 Lv ${FARMING_LEVEL_REQUIREMENTS.horticulturist}`);
+  });
+});
+
+describe("jobUnlockProgressText (해금 조건 진행도 표기)", () => {
+  it("선행 직업 숙련도를 현재값/필요값으로 표기", () => {
+    const prof = profWith({ warrior: 640 });
+    expect(jobUnlockProgressText(V2_JOB_CATALOG.squire, prof)).toBe(
+      `${V2_JOB_CATALOG.warrior.name} 숙련도 640/1,000`,
+    );
+  });
+
+  it("하이브리드는 선행 직업마다 자기 숙련도를 표기", () => {
+    const prof = {
+      ...profWith({}),
+      jobCumLevel: {
+        [Object.keys(V2_JOB_CATALOG.templar.unlock.prereqs)[0]]: 1200,
+      },
+    };
+    const [first, second] = Object.keys(V2_JOB_CATALOG.templar.unlock.prereqs);
+    expect(jobUnlockProgressText(V2_JOB_CATALOG.templar, prof)).toBe(
+      `${V2_JOB_CATALOG[first].name} 숙련도 1,200/2,500, ` +
+        `${V2_JOB_CATALOG[second].name} 숙련도 0/2,500`,
+    );
+  });
+
+  it("숙련도 외 조건은 해금 조건 문구 그대로 유지", () => {
+    expect(jobUnlockProgressText(V2_JOB_CATALOG.warrior, profWith({}))).toBe(
+      `Lv ${V2_LEVEL_CAP} 달성`,
+    );
+    expect(
+      jobUnlockProgressText(V2_JOB_CATALOG.horticulturist, profWith({})),
+    ).toContain(`농사 Lv ${FARMING_LEVEL_REQUIREMENTS.horticulturist}`);
   });
 });
 

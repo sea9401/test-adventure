@@ -12,6 +12,7 @@ import {
   isJobUnlockConditionRevealed,
   jobIdFromLegacy,
   jobUnlockConditionText,
+  jobUnlockProgressText,
   type JobUnlockContext,
 } from "./v2JobCatalog";
 import { type V2ProficiencyState } from "./proficiency";
@@ -27,6 +28,8 @@ export type JobCodexJob = {
   mastery: number;
   // 해금 조건 텍스트(전직 화면과 동일 헬퍼). 잠긴 직업도 어떤 조건이 필요한지 보여준다.
   condition: string;
+  // 공개된 조건의 현재 진행도 표기. 예: "사제 숙련도 640/1,000". 미공개면 없다.
+  conditionProgress?: string;
   // 잠긴 먼 미래 직업은 조건을 숨기되, 현재 또는 과거에 경험한 직업의 직접 후속은 공개한다.
   conditionRevealed: boolean;
   // 스킬 수집 현황 — 그 직업의 시그니처 스킬(액티브+패시브) 중 학습한 개수 / 전체. 둘 다 배우면
@@ -74,6 +77,9 @@ export function buildJobCodex(
       condition: conditionRevealed
         ? jobUnlockConditionText(job)
         : "선행 직업 해금 후 공개",
+      conditionProgress: conditionRevealed
+        ? jobUnlockProgressText(job, prof)
+        : undefined,
       conditionRevealed,
       skillsTotal: signature.length,
       skillsLearned: signature.filter((id) => learned.has(id)).length,

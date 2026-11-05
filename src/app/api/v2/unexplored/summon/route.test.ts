@@ -122,7 +122,7 @@ describe("POST /api/v2/unexplored/summon", () => {
     mocks.createCoopBossSession.mockResolvedValue({
       ok: false,
       error: "too_many_active",
-      cap: 20,
+      cap: 50,
     });
     const response = await POST(request({ bossId: "tracking_weapon" }));
     expect(response.status).toBe(409);

@@ -87,3 +87,39 @@ it("알림 센터에서도 낙찰과 물품 지급 완료를 표시한다", asyn
   />);
   expect(await screen.findByText(/철광석 ×4.*1,500골드.*물품 지급이 완료/)).not.toBeNull();
 });
+
+const UNSOLD_NOTIFICATION = {
+  id: 92, type: "auction_unsold", readAt: null, createdAt: Date.now(),
+  payload: { listingId: 43, itemName: "철광석", quantity: 4 },
+};
+
+it("알림 종에서 유찰 품목과 수량을 표시한다", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("chrome-status")) {
+      return Response.json({ ok: true, notificationUnread: 1, mailUnread: 0 });
+    }
+    if (url === "/api/v2/notifications") {
+      return Response.json({ ok: true, unreadCount: 1, notifications: [UNSOLD_NOTIFICATION] });
+    }
+    return Response.json({ ok: true, items: [], unreadCount: 0 });
+  }));
+  render(<ChromeStatusProvider><NotificationBell /></ChromeStatusProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "알림 및 우편 1개" }));
+  expect(await screen.findByText(/철광석 ×4.*유찰되어 돌아왔습니다/)).not.toBeNull();
+});
+
+it("알림 센터에서도 유찰 품목과 수량을 표시한다", async () => {
+  const { V2NotificationsView } = await import("./V2NotificationsView");
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === "/api/v2/notifications") {
+      return Response.json({ ok: true, notifications: [UNSOLD_NOTIFICATION] });
+    }
+    return Response.json({ ok: true, items: [] });
+  }));
+  render(<V2NotificationsView
+    onBack={() => {}} onOpenOutpost={() => {}} onOpenFeedback={() => {}}
+    onOpenFarm={() => {}} onOpenCoopSession={() => {}} initialTab="notifications"
+  />);
+  expect(await screen.findByText(/철광석 ×4.*유찰되어 돌아왔습니다/)).not.toBeNull();
+});

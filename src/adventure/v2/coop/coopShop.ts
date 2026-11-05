@@ -16,6 +16,10 @@ import {
   REFORGE_STONE_MATERIAL_ID,
   V2_REFORGE_ENABLED,
 } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  SHOP_MAX_QUANTITY,
+  maxShopQuantity,
+} from "@/adventure/v2/shopQuantity";
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
 
 export const COOP_SHOP_STATE_KEY = "coop-shop.v1";
@@ -282,15 +286,33 @@ export function coopShopPurchaseCount(
 export function isCoopShopLimitReached(
   state: CoopShopState,
   entry: CoopShopEntry,
+  quantity = 1,
 ): boolean {
   return Boolean(
-    entry.limit && coopShopPurchaseCount(state, entry) >= entry.limit.count,
+    entry.limit &&
+      coopShopPurchaseCount(state, entry) + quantity > entry.limit.count,
+  );
+}
+
+/** 지금 재료와 남은 횟수로 한 번에 교환할 수 있는 수. 칭호는 항상 1개씩. */
+export function coopShopMaxQuantity(
+  entry: CoopShopEntry,
+  materials: Record<string, number>,
+  limit: { used: number; limit: number } | undefined,
+): number {
+  if (entry.output.kind === "title") return 1;
+  return maxShopQuantity(
+    ...Object.entries(entry.cost.materials).map(
+      ([id, need]) => (materials[id] ?? 0) / need,
+    ),
+    limit ? limit.limit - limit.used : SHOP_MAX_QUANTITY,
   );
 }
 
 export function recordCoopShopPurchase(
   state: CoopShopState,
   entry: CoopShopEntry,
+  quantity = 1,
 ): CoopShopState {
   if (!entry.limit) return state;
   if (entry.limit.scope === "daily") {
@@ -300,7 +322,8 @@ export function recordCoopShopPurchase(
         ...state.daily,
         purchases: {
           ...state.daily.purchases,
-          [entry.itemId]: (state.daily.purchases[entry.itemId] ?? 0) + 1,
+          [entry.itemId]:
+            (state.daily.purchases[entry.itemId] ?? 0) + quantity,
         },
       },
     };
@@ -311,7 +334,8 @@ export function recordCoopShopPurchase(
       ...state.weekly,
       purchases: {
         ...state.weekly.purchases,
-        [entry.itemId]: (state.weekly.purchases[entry.itemId] ?? 0) + 1,
+        [entry.itemId]:
+            (state.weekly.purchases[entry.itemId] ?? 0) + quantity,
       },
     },
   };

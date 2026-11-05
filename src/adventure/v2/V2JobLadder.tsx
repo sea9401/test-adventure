@@ -49,6 +49,8 @@ export type JobLadderEntry = {
   conditionRevealed?: boolean;
   // 해금 조건(공유용 표기). 예: "Lv 100 달성" / "견습 병사 숙련도 100".
   condition: string;
+  // 공개된 조건의 현재 진행도 표기. 예: "견습 병사 숙련도 640/1,000". 없으면 condition 을 쓴다.
+  conditionProgress?: string;
   // 이 직업에 쌓은 숙련도(직업별/직군). 직업별 진행도 확인용.
   cumLevel?: number;
   // 실제 전직 이력. 단순 해금과 구분하며, 레거시 계정은 숙련도 기록으로 보완한다.
@@ -660,7 +662,7 @@ function JobRow({
         </span>
         <span className="text-xs text-zinc-600 dark:text-zinc-300">
           숙련도 {job.cumLevel ?? 0}
-          {job.conditionRevealed !== false ? ` · 해금 조건 · ${job.condition}` : ""}
+          {job.conditionRevealed !== false ? ` · 해금 조건 · ${job.conditionProgress ?? job.condition}` : ""}
           {job.conditionRevealed !== false && job.tier7Advancement && !job.tier7Advancement.permanentlyUnlocked
             ? `, ${tier7ExtraConditionText(job.tier7Advancement)}`
             : ""}

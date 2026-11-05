@@ -15,7 +15,7 @@ export const EMBLEM_SLOT_COUNT = 4;
 export const EMBLEM_LABELS: Record<EmblemKind, string> = { hp: "HP", mp: "MP", ...V2_STAT_LABELS };
 export const EMBLEM_FUSION_CHANCE: Record<EmblemGrade, number> = { 1: 0.35, 2: 0.20, 3: 0.08, 4: 0.02, 5: 0 };
 export const EMBLEM_GROWTH_MAX = {
-  hp: [0, 3, 6, 10, 18, 30],
+  hp: [0, 4, 8, 15, 24, 40],
   mp: [0, 2, 4, 7, 11, 18],
   stat: [0, 1, 2, 4, 6, 9],
 } as const;

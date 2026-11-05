@@ -1352,6 +1352,13 @@
       "when": 1791643089892,
       "tag": "0192_life_festival",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1793816469426,
+      "tag": "0193_cooking_first_discovery_keep_on_user_delete",
+      "breakpoints": true
     }
   ]
 }

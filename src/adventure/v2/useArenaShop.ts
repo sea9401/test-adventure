@@ -1,5 +1,6 @@
 "use client";
 
+import { staminaPotionPurchaseMessage } from "./shopQuantity";
 import { useCoinShop } from "./useCoinShop";
 
 export type { BuyResult } from "./useCoinShop";
@@ -17,7 +18,7 @@ export function useArenaShop() {
       endpoint: "/api/v2/arena/shop",
       coinLabel: "투기장 코인",
       consumableMessage: (_itemId, response, succeeded) => succeeded
-        ? "스태미나 회복약을 구매했다."
+        ? staminaPotionPurchaseMessage(response)
         : response.error === "limit_reached"
           ? "오늘 구매 한도에 도달했다."
           : undefined,

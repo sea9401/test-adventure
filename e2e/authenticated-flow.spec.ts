@@ -187,7 +187,7 @@ test("신규 모험가의 초기 지급·첫 전직 경계와 저장 진행을 �
   expect(restoredState.jobsV2).toMatchObject({ currentJobId: "warrior" });
 });
 
-test("직업 없는 신규 모험가가 첫 출석 지원권을 받고 중복 수령은 차단된다", async ({
+test("직업 없는 신규 모험가가 첫 출석 마법부여서를 받고 중복 수령은 차단된다", async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -201,13 +201,11 @@ test("직업 없는 신규 모험가가 첫 출석 지원권을 받고 중복 �
     return { status: response.status, body: await response.json() };
   });
   expect(attendance.status).toBe(200);
-  expect(attendance.body.rewards[0]).toMatchObject({
-    kind: "adventure_support",
+  expect(attendance.body.rewards[0]).toEqual({
+    kind: "enchant_scroll",
+    count: 1,
   });
-  const supportDays = Number(attendance.body.rewards[0].days);
-  expect(supportDays).toBeGreaterThan(0);
 
-  const claimedAt = Date.now();
   const first = await page.evaluate(async () => {
     const response = await fetch("/api/v2/me/attendance", { method: "POST" });
     return { status: response.status, body: await response.json() };
@@ -217,21 +215,17 @@ test("직업 없는 신규 모험가가 첫 출석 지원권을 받고 중복 �
     body: {
       ok: true,
       claimedCount: 1,
-      reward: { kind: "adventure_support", days: supportDays },
+      reward: { kind: "enchant_scroll", count: 1 },
+      grantedCashItems: { enchant_scroll: 1 },
     },
   });
-  expect(first.body.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
-    claimedAt + supportDays * 86_400_000,
-  );
 
   const saved = await page.evaluate(async () =>
     fetch("/api/save").then((response) => response.json()),
   );
   expect(saved["character.v2"]).not.toHaveProperty("class");
   expect(saved["character.v2"]).toMatchObject({
-    adventureSupport: {
-      activeUntil: first.body.adventureSupportActiveUntil,
-    },
+    cashItems: { enchant_scroll: 1 },
   });
 
   const duplicate = await page.evaluate(async () => {

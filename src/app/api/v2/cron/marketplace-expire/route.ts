@@ -193,6 +193,13 @@ export async function POST(req: Request) {
         refundHighestBid: true,
         reason: "expired",
       });
+      if (cancellation.cancelled) {
+        await insertNotificationWith(tx, listing.sellerId, "auction_unsold", {
+          listingId: id,
+          itemName: listing.itemName,
+          quantity: listing.quantity,
+        });
+      }
       return {
         action: "auction_returned" as const,
         refundedGold: cancellation.refundedBidGold,

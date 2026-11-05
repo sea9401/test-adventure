@@ -217,9 +217,9 @@ describe("낚시 협동 보스 출현", () => {
     expect(inserted).toHaveLength(0);
   });
 
-  it("심연어룡 활성 세션이 20개면 서버 상한으로 소환하지 않는다", async () => {
+  it("심연어룡 활성 세션이 50개면 서버 상한으로 소환하지 않는다", async () => {
     const inserted: Record<string, unknown>[] = [];
-    const active = Array.from({ length: 20 }, (_, index) => ({
+    const active = Array.from({ length: 50 }, (_, index) => ({
       summonerId: `other-${index}`,
     }));
     const tx = fakeTx(active, inserted);

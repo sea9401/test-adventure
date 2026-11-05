@@ -26,6 +26,7 @@ import {
   arenaShopConsumablePriceFor,
   arenaShopPriceFor,
 } from "@/adventure/v2/arenaShop";
+import { parseShopQuantity } from "@/adventure/v2/shopQuantity";
 import {
   grantStaminaPotions,
   STAMINA_POTIONS_KEY,
@@ -75,16 +76,20 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { titleId?: unknown; itemId?: unknown };
+  let body: { titleId?: unknown; itemId?: unknown; quantity?: unknown };
   try {
-    body = (await req.json()) as { titleId?: unknown; itemId?: unknown };
+    body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
   const itemId = typeof body.itemId === "string" ? body.itemId : null;
   if (itemId) {
-    return buyConsumable(userId, itemId);
+    const quantity = parseShopQuantity(body.quantity);
+    if (quantity === null) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    return buyConsumable(userId, itemId, quantity);
   }
 
   const titleId = typeof body.titleId === "string" ? body.titleId : null;
@@ -129,7 +134,11 @@ export async function POST(req: Request) {
 }
 
 // 보관형 소비템은 반복 구매 가능. 락 순서: pvp-wallet.v1 → stamina-potions.v1.
-async function buyConsumable(userId: string, itemId: string): Promise<Response> {
+async function buyConsumable(
+  userId: string,
+  itemId: string,
+  quantity: number,
+): Promise<Response> {
   const price = arenaShopConsumablePriceFor(itemId);
   if (price === undefined || itemId !== "stamina_potion") {
     return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
@@ -143,7 +152,7 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       { coins: 0 },
     );
     const coins = pvpWalletCoins(wallet);
-    if (coins < price) return { kind: "insufficient" as const, coins };
+    if (coins < price * quantity) return { kind: "insufficient" as const, coins };
 
     const potionSave = await lockSaveForUpdate<{ count: number }>(
       tx,
@@ -151,11 +160,13 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       STAMINA_POTIONS_KEY,
       { count: 0 },
     );
-    const nextPotions = grantStaminaPotions(potionSave, 1, { bound: true });
+    const nextPotions = grantStaminaPotions(potionSave, quantity, {
+      bound: true,
+    });
     const staminaPotions = nextPotions.count;
     await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
 
-    const coinBalance = coins - price;
+    const coinBalance = coins - price * quantity;
     await upsertSave(tx, userId, PVP_WALLET_KEY, { coins: coinBalance });
     return { kind: "ok" as const, coinBalance, staminaPotions };
   });
@@ -169,6 +180,7 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
   return Response.json({
     ok: true,
     itemId,
+    quantity,
     coins: outcome.coinBalance,
     staminaPotions: outcome.staminaPotions,
   });

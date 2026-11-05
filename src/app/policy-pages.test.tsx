@@ -63,13 +63,13 @@ describe("공개 정책 페이지", () => {
     expect(privacy).toContain("만 14세 이상 확인 여부와 확인 시각");
     expect(privacy).toContain("생년월일은 수집하지 않음");
     expect(privacy).toContain("확인 후 최대 1년");
-    expect(privacy).toContain("시행일: 2026년 10월 4일");
+    expect(privacy).toContain("시행일: 2026년 11월 5일");
   });
 
   it("확인된 처리 위치와 외부 보안 서비스의 국외 처리 내용을 안내한다", () => {
     const html = renderToStaticMarkup(<PrivacyPage />);
 
-    expect(html).toContain("2026년 10월 4일");
+    expect(html).toContain("2026년 11월 5일");
     expect(html).toContain("대한민국 서울 리전");
     expect(html).toContain("ap-northeast-2");
     expect(html).toContain("CloudFront·AWS WAF");

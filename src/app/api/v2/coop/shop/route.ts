@@ -20,6 +20,7 @@ import {
   type CoopShopEntry,
   type CoopShopState,
 } from "@/adventure/v2/coop/coopShop";
+import { parseShopQuantity } from "@/adventure/v2/shopQuantity";
 import {
   grantStaminaPotions,
   STAMINA_POTIONS_KEY,
@@ -64,19 +65,24 @@ function limitView(state: CoopShopState): Record<
   return out;
 }
 
-function hasCost(materials: Record<string, number>, entry: CoopShopEntry): boolean {
+function hasCost(
+  materials: Record<string, number>,
+  entry: CoopShopEntry,
+  quantity: number,
+): boolean {
   return Object.entries(entry.cost.materials).every(
-    ([id, need]) => (materials[id] ?? 0) >= need,
+    ([id, need]) => (materials[id] ?? 0) >= need * quantity,
   );
 }
 
 function spendCost(
   materials: Record<string, number>,
   entry: CoopShopEntry,
+  quantity: number,
 ): Record<string, number> {
   const next = { ...materials };
   for (const [id, need] of Object.entries(entry.cost.materials)) {
-    const left = (next[id] ?? 0) - need;
+    const left = (next[id] ?? 0) - need * quantity;
     if (left > 0) next[id] = left;
     else delete next[id];
   }
@@ -144,9 +150,9 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { itemId?: unknown };
+  let body: { itemId?: unknown; quantity?: unknown };
   try {
-    body = (await req.json()) as { itemId?: unknown };
+    body = (await req.json()) as { itemId?: unknown; quantity?: unknown };
   } catch {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
@@ -154,6 +160,10 @@ export async function POST(req: Request) {
   const entry = itemId ? COOP_SHOP_ENTRY_BY_ID.get(itemId) : undefined;
   if (!entry) {
     return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
+  }
+  const quantity = parseShopQuantity(body.quantity);
+  if (quantity === null || (quantity > 1 && entry.output.kind === "title")) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
   const now = new Date();
@@ -174,7 +184,7 @@ export async function POST(req: Request) {
       {},
     );
     const shop = parseCoopShopState(shopRaw, dailyKey, weeklyKey);
-    if (isCoopShopLimitReached(shop, entry)) {
+    if (isCoopShopLimitReached(shop, entry, quantity)) {
       return {
         status: 409,
         body: {
@@ -186,7 +196,7 @@ export async function POST(req: Request) {
     }
 
     const materials = parseMaterials(charSave.materials);
-    if (!hasCost(materials, entry)) {
+    if (!hasCost(materials, entry, quantity)) {
       return {
         status: 402,
         body: {
@@ -216,13 +226,14 @@ export async function POST(req: Request) {
       }
     }
 
-    let nextMaterials = spendCost(materials, entry);
+    let nextMaterials = spendCost(materials, entry, quantity);
     let staminaPotions: number | undefined;
     if (entry.output.kind === "material") {
       nextMaterials = {
         ...nextMaterials,
         [entry.output.materialId]:
-          (nextMaterials[entry.output.materialId] ?? 0) + entry.output.count,
+          (nextMaterials[entry.output.materialId] ?? 0) +
+          entry.output.count * quantity,
       };
     } else if (entry.output.kind === "stamina_potion") {
       const potSave = await lockSaveForUpdate<{ count: number }>(
@@ -231,14 +242,16 @@ export async function POST(req: Request) {
         STAMINA_POTIONS_KEY,
         { count: 0 },
       );
-      const nextPotions = grantStaminaPotions(potSave, entry.output.count, {
-        bound: true,
-      });
+      const nextPotions = grantStaminaPotions(
+        potSave,
+        entry.output.count * quantity,
+        { bound: true },
+      );
       staminaPotions = nextPotions.count;
       await upsertSave(tx, userId, STAMINA_POTIONS_KEY, nextPotions);
     }
 
-    const nextShop = recordCoopShopPurchase(shop, entry);
+    const nextShop = recordCoopShopPurchase(shop, entry, quantity);
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       materials: nextMaterials,
@@ -250,6 +263,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         itemId: entry.itemId,
+        quantity,
         materials: materialSubset(nextMaterials),
         limits: limitView(nextShop),
         ...(staminaPotions !== undefined ? { staminaPotions } : {}),

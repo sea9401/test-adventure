@@ -35,6 +35,7 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { guildExistingActivityContributionPoints } from "@/adventure/data/v2/guildContribution";
+import { guildFacilityOperationCarriedAmount } from "@/adventure/data/v2/guildFacilityOperations";
 
 type InventorySave = Record<string, unknown> & {
   hpCharges?: unknown;
@@ -283,7 +284,10 @@ export async function POST(req: Request) {
           quantity,
           contributionPoints,
         },
-        operationAmount: points,
+        operationAmount: guildFacilityOperationCarriedAmount(
+          weekly.pantryPoints,
+          points,
+        ),
       });
       return {
         status: 200,

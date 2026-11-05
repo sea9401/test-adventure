@@ -97,13 +97,15 @@ export function useCoopShop() {
   }, [refresh]);
 
   const buy = useCallback(
-    async (itemId: string): Promise<CoopShopBuyResult> => {
+    async (itemId: string, quantity = 1): Promise<CoopShopBuyResult> => {
       setBuying(itemId);
       try {
         const res = await fetch("/api/v2/coop/shop", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ itemId }),
+          body: JSON.stringify(
+            quantity > 1 ? { itemId, quantity } : { itemId },
+          ),
         });
         const j = (await res.json().catch(() => null)) as Record<
           string,
@@ -132,7 +134,10 @@ export function useCoopShop() {
                 }
               : prev,
           );
-          return { ok: true, message: "교환했다." };
+          return {
+            ok: true,
+            message: quantity > 1 ? `${quantity}개 교환했다.` : "교환했다.",
+          };
         }
         if (j?.materials) {
           setState((prev) =>

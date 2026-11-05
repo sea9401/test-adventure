@@ -225,6 +225,7 @@ export function fishingAbyssalSummonBaitView(
 export function recordFishingShopPurchase(
   state: FishingShopState,
   itemId: string,
+  quantity = 1,
 ): FishingShopState {
   if (itemId === FISHING_STAMINA_POTION_ITEM_ID) {
     return {
@@ -233,7 +234,7 @@ export function recordFishingShopPurchase(
         ...state.weekly,
         purchases: {
           ...state.weekly.purchases,
-          [itemId]: (state.weekly.purchases[itemId] ?? 0) + 1,
+          [itemId]: (state.weekly.purchases[itemId] ?? 0) + quantity,
         },
       },
     };
@@ -244,7 +245,7 @@ export function recordFishingShopPurchase(
       ...state.daily,
       purchases: {
         ...state.daily.purchases,
-        [itemId]: (state.daily.purchases[itemId] ?? 0) + 1,
+        [itemId]: (state.daily.purchases[itemId] ?? 0) + quantity,
       },
     },
   };

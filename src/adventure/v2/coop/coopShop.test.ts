@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   COOP_SHOP_ENTRIES,
+  coopShopMaxQuantity,
   coopShopPurchaseCount,
   coopShopRelevantMaterialIds,
   isCoopShopLimitReached,
@@ -193,5 +194,71 @@ describe("coopShop", () => {
       materialId: COOP_MASTERY_TOME_MATERIAL_ID,
       count: 1,
     });
+  });
+});
+
+describe("coopShop 수량 교환", () => {
+  const potion = COOP_SHOP_ENTRIES.find((e) => e.itemId === "stamina_potion")!;
+  const title = COOP_SHOP_ENTRIES.find((e) => e.output.kind === "title")!;
+  const box = COOP_SHOP_ENTRIES.find((e) => e.category === "equipment_box")!;
+
+  it("한 번에 교환한 수량만큼 주간 횟수를 누적한다", () => {
+    const state = parseCoopShopState({}, "d", "w");
+    const next = recordCoopShopPurchase(state, potion, 30);
+    expect(coopShopPurchaseCount(next, potion)).toBe(30);
+  });
+
+  it("남은 횟수를 넘는 수량이면 한도 초과로 본다", () => {
+    const state = recordCoopShopPurchase(
+      parseCoopShopState({}, "d", "w"),
+      potion,
+      25,
+    );
+    expect(isCoopShopLimitReached(state, potion, 5)).toBe(false);
+    expect(isCoopShopLimitReached(state, potion, 6)).toBe(true);
+    expect(isCoopShopLimitReached(state, potion)).toBe(false);
+  });
+
+  it("최대 수량은 재료와 남은 횟수 중 작은 값이다", () => {
+    expect(
+      coopShopMaxQuantity(
+        potion,
+        { [COOP_COIN_MATERIAL_ID]: 25 * 100 },
+        { used: 12, limit: 30 },
+      ),
+    ).toBe(18);
+    expect(
+      coopShopMaxQuantity(
+        potion,
+        { [COOP_COIN_MATERIAL_ID]: 25 * 3 },
+        { used: 0, limit: 30 },
+      ),
+    ).toBe(3);
+  });
+
+  it("장비 상자는 모든 재료가 허용하는 만큼만 고를 수 있다", () => {
+    const [coinId, bossId] = [
+      COOP_COIN_MATERIAL_ID,
+      Object.keys(box.cost.materials).find(
+        (id) => id !== COOP_COIN_MATERIAL_ID,
+      )!,
+    ];
+    expect(
+      coopShopMaxQuantity(
+        box,
+        {
+          [coinId]: box.cost.materials[coinId] * 9,
+          [bossId]: box.cost.materials[bossId] * 2,
+        },
+        undefined,
+      ),
+    ).toBe(2);
+  });
+
+  it("칭호는 재료가 넉넉해도 수량을 고를 수 없다", () => {
+    const rich = Object.fromEntries(
+      Object.keys(title.cost.materials).map((id) => [id, 1_000_000]),
+    );
+    expect(coopShopMaxQuantity(title, rich, undefined)).toBe(1);
   });
 });

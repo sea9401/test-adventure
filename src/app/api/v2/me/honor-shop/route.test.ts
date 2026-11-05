@@ -42,11 +42,11 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { GET, POST } from "./route";
 
-function request(itemId: string) {
+function request(itemId: string, quantity?: unknown) {
   return new Request("http://localhost/api/v2/me/honor-shop", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ itemId }),
+    body: JSON.stringify({ itemId, quantity }),
   });
 }
 
@@ -156,6 +156,53 @@ describe("개인 명성상점", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ ok: false, error: "no_such_item" });
     expect(lockSaveForUpdate).not.toHaveBeenCalled();
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+});
+
+describe("개인 명성상점 수량 구매", () => {
+  it("회복약을 수량만큼 지급하고 명성을 합계로 차감한다", async () => {
+    const response = await POST(request("stamina_potion", 5));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      honor: 0,
+      honorEarned: 900,
+      granted: { itemId: "stamina_potion", quantity: 5 },
+      staminaPotions: 8,
+    });
+    expect(mocks.saves.get("stamina-potions.v1")).toEqual({
+      count: 8,
+      boundCount: 6,
+    });
+  });
+
+  it("재료를 수량만큼 누적한다", async () => {
+    const response = await POST(request("v2_craft_sunstone", 3));
+
+    expect(response.status).toBe(200);
+    expect(mocks.saves.get("character.v2")).toEqual({
+      honor: 380,
+      honorEarned: 900,
+      materials: { v2_craft_sunstone: 5 },
+    });
+  });
+
+  it("명성이 수량만큼 없으면 일부만 사지 않고 거절한다", async () => {
+    const response = await POST(request("stamina_potion", 6));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "insufficient_honor",
+      honor: 500,
+    });
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("잘못된 수량은 거절한다", async () => {
+    const response = await POST(request("stamina_potion", -1));
+
+    expect(response.status).toBe(400);
     expect(upsertSave).not.toHaveBeenCalled();
   });
 });

@@ -12,13 +12,14 @@ import {
   HONOR_SHOP_ITEMS,
   honorShopItem,
 } from "@/adventure/data/v2/honorShop";
+import { parseShopQuantity } from "@/adventure/v2/shopQuantity";
 import {
   grantStaminaPotions,
   STAMINA_POTIONS_KEY,
 } from "@/adventure/v2/staminaPotions";
 
 // 명성상점 — 정착지 전쟁 개인 화폐(명성/honor) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
-//   GET — 보유 명성 + 누적 명성 + 품목. POST { itemId } — 구매(보유 명성 차감 + 아이템 지급).
+//   GET — 보유 명성 + 누적 명성 + 품목. POST { itemId, quantity? } — 구매(보유 명성 차감 + 아이템 지급).
 //   🔑 구매는 보유(honor)만 차감 — 누적(honorEarned)·길드 명성은 불변(누적과 소비는 별개 카운트).
 //   초기 품목 = 스태미나 회복약 1종(후속 확장). 플래그 off → 404.
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  let body: { itemId?: unknown };
+  let body: { itemId?: unknown; quantity?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -69,6 +70,12 @@ export async function POST(req: Request) {
   if (!item) {
     return Response.json({ ok: false, error: "no_such_item" }, { status: 400 });
   }
+  const quantity = parseShopQuantity(body.quantity);
+  if (quantity === null) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+  const totalCost = item.cost * quantity;
+  const grantedQuantity = item.quantity * quantity;
 
   const result = await db.transaction(async (tx) => {
     // 락 순서: character.v2 → stamina-potions.v1 (둘 다 같은 유저 세이브·키 알파벳순 일관).
@@ -80,7 +87,7 @@ export async function POST(req: Request) {
     );
     const honor = parseHonor(charSave.honor);
     const honorEarned = parseHonorEarned(charSave.honorEarned, honor);
-    if (honor < item.cost) {
+    if (honor < totalCost) {
       return {
         status: 400,
         body: { ok: false as const, error: "insufficient_honor", honor },
@@ -89,11 +96,11 @@ export async function POST(req: Request) {
     // 보유(honor)만 차감 — 누적(honorEarned)은 보존(spread + 미수정). "소비 ≠ 누적" 분리.
     const nextCharSave: HonorSave = {
       ...charSave,
-      honor: honor - item.cost,
+      honor: honor - totalCost,
       ...(item.grantKind === "material"
         ? {
             materials: mergeDrops(charSave.materials, {
-              [item.targetId]: item.quantity,
+              [item.targetId]: grantedQuantity,
             }),
           }
         : {}),
@@ -108,7 +115,7 @@ export async function POST(req: Request) {
         STAMINA_POTIONS_KEY,
         {},
       );
-      const nextPotions = grantStaminaPotions(potSave, item.quantity, {
+      const nextPotions = grantStaminaPotions(potSave, grantedQuantity, {
         bound: true,
       });
       staminaPotions = nextPotions.count;
@@ -118,14 +125,14 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
-        honor: honor - item.cost,
+        honor: honor - totalCost,
         honorEarned,
         granted: {
           itemId: item.id,
           name: item.name,
           kind: item.grantKind,
           targetId: item.targetId,
-          quantity: item.quantity,
+          quantity: grantedQuantity,
         },
         ...(item.grantKind === "material"
           ? { materials: nextCharSave.materials }

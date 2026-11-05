@@ -14,6 +14,7 @@ import {
   fishingShopPriceFor,
 } from "@/adventure/v2/fishingShop";
 import { FARM_FISHING_SHOP_SEED_REWARD } from "@/adventure/v2/farm";
+import { staminaPotionPurchaseMessage } from "@/adventure/v2/shopQuantity";
 import {
   buyFishingLure,
   buyFishingRod,
@@ -74,7 +75,10 @@ export function FishingShopHarness() {
     return { ok: true, message: "칭호를 손에 넣었다." };
   };
 
-  const buyConsumable = async (itemId: string): Promise<BuyResult> => {
+  const buyConsumable = async (
+    itemId: string,
+    quantity = 1,
+  ): Promise<BuyResult> => {
     if (itemId === FISHING_ABYSSAL_SUMMON_BAIT_ITEM_ID) {
       if ((state.abyssalBait?.remainingToday ?? 0) <= 0) {
         return { ok: false, message: "오늘 구매 한도에 도달했다." };
@@ -128,21 +132,21 @@ export function FishingShopHarness() {
       return { ok: true, message: "물가 씨앗 주머니를 구매했다." };
     }
     if (itemId === FISHING_STAMINA_POTION_ITEM_ID) {
-      if ((state.staminaPotionLimit?.remainingThisWeek ?? 0) <= 0) {
+      if ((state.staminaPotionLimit?.remainingThisWeek ?? 0) < quantity) {
         return { ok: false, message: "주간 구매 한도에 도달했다." };
       }
       const price = fishingShopConsumablePriceFor(itemId);
       if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
-      if (state.coins < price) {
+      if (state.coins < price * quantity) {
         return { ok: false, message: "낚시 코인이 부족하다." };
       }
       setState((s) => {
         const boughtThisWeek =
-          (s.staminaPotionLimit?.boughtThisWeek ?? 0) + 1;
+          (s.staminaPotionLimit?.boughtThisWeek ?? 0) + quantity;
         return {
           ...s,
-          coins: s.coins - price,
-          staminaPotions: s.staminaPotions + 1,
+          coins: s.coins - price * quantity,
+          staminaPotions: s.staminaPotions + quantity,
           staminaPotionLimit: {
             boughtThisWeek,
             weeklyLimit: FISHING_STAMINA_POTION_WEEKLY_LIMIT,
@@ -153,7 +157,7 @@ export function FishingShopHarness() {
           },
         };
       });
-      return { ok: true, message: "스태미나 회복약을 구매했다." };
+      return { ok: true, message: staminaPotionPurchaseMessage({ quantity }) };
     }
     return { ok: false, message: "알 수 없는 품목." };
   };

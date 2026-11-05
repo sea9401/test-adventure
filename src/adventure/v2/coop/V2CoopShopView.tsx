@@ -10,9 +10,17 @@ import {
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import {
   COOP_SHOP_ENTRIES,
+  coopShopMaxQuantity,
   type CoopShopEntry,
 } from "@/adventure/v2/coop/coopShop";
-import { useCoopShop } from "@/adventure/v2/coop/useCoopShop";
+import {
+  useCoopShop,
+  type CoopShopLimit,
+} from "@/adventure/v2/coop/useCoopShop";
+import {
+  ShopQuantityControl,
+  useShopQuantity,
+} from "@/adventure/v2/ShopQuantityControl";
 import { V2CoopTabs } from "@/adventure/v2/coop/V2CoopTabs";
 
 const COOP_SHOP_GROUPS: {
@@ -28,9 +36,12 @@ function materialName(id: string): string {
   return V2_MATERIALS[id]?.name ?? id;
 }
 
-function costLabel(entry: CoopShopEntry): string {
+function costLabel(entry: CoopShopEntry, quantity: number): string {
   return Object.entries(entry.cost.materials)
-    .map(([id, count]) => `${materialName(id)} ${count.toLocaleString()}`)
+    .map(
+      ([id, count]) =>
+        `${materialName(id)} ${(count * quantity).toLocaleString()}`,
+    )
     .join(" + ");
 }
 
@@ -40,6 +51,85 @@ function hasShopCost(
 ): boolean {
   return Object.entries(entry.cost.materials).every(
     ([id, count]) => (materials[id] ?? 0) >= count,
+  );
+}
+
+function CoopShopRow({
+  entry,
+  limit,
+  materials,
+  owned,
+  ready,
+  buying,
+  onBuy,
+}: {
+  entry: CoopShopEntry;
+  limit: CoopShopLimit | undefined;
+  materials: Record<string, number>;
+  owned: boolean;
+  ready: boolean;
+  buying: string | null;
+  onBuy: (entry: CoopShopEntry, quantity: number) => Promise<void>;
+}) {
+  const maxQuantity = coopShopMaxQuantity(entry, materials, limit);
+  const quantityControl = useShopQuantity(maxQuantity);
+  const { quantity } = quantityControl;
+  const limitReached = Boolean(limit && limit.used >= limit.limit);
+  const affordable = hasShopCost(entry, materials);
+  const disabled =
+    !ready || buying != null || !affordable || limitReached || owned;
+  const buttonLabel = owned
+    ? "보유"
+    : limitReached
+      ? "제한"
+      : !affordable
+        ? "부족"
+        : buying === entry.itemId
+          ? "교환 중"
+          : "교환";
+  const buy = async () => {
+    await onBuy(entry, quantity);
+    quantityControl.reset();
+  };
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-sm font-semibold">{entry.name}</span>
+          {limit && (
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              {limit.scope === "daily" ? "일일" : "주간"} {limit.used}/
+              {limit.limit}
+            </span>
+          )}
+          {owned && (
+            <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              보유 중
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          {entry.description}
+        </p>
+        <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+          비용: {costLabel(entry, quantity)}
+        </p>
+        <ShopQuantityControl
+          name={entry.name}
+          max={maxQuantity}
+          disabled={buying != null}
+          control={quantityControl}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => void buy()}
+        className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+      >
+        {buttonLabel}
+      </button>
+    </div>
   );
 }
 
@@ -58,8 +148,8 @@ export function V2CoopShopView({
     message: string;
   } | null>(null);
 
-  const handleShopBuy = async (entry: CoopShopEntry) => {
-    const result = await coopShop.buy(entry.itemId);
+  const handleShopBuy = async (entry: CoopShopEntry, quantity: number) => {
+    const result = await coopShop.buy(entry.itemId, quantity);
     setShopMessage(result);
   };
 
@@ -150,78 +240,25 @@ export function V2CoopShopView({
                   {group.label}
                 </div>
                 <div className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-                  {entries.map((entry) => {
-                    const limit = coopShop.state?.limits[entry.itemId];
-                    const limitReached = Boolean(
-                      limit && limit.used >= limit.limit,
-                    );
-                    const owned =
-                      entry.output.kind === "title" &&
-                      Boolean(
-                        coopShop.state?.ownedTitleIds.includes(
-                          entry.output.titleId,
-                        ),
-                      );
-                    const affordable = hasShopCost(
-                      entry,
-                      coopShop.state?.materials ?? {},
-                    );
-                    const disabled =
-                      coopShop.loading ||
-                      coopShop.buying != null ||
-                      !coopShop.state ||
-                      !affordable ||
-                      limitReached ||
-                      owned;
-                    const buttonLabel = owned
-                      ? "보유"
-                      : limitReached
-                        ? "제한"
-                        : !affordable
-                          ? "부족"
-                          : coopShop.buying === entry.itemId
-                            ? "교환 중"
-                            : "교환";
-                    return (
-                      <div
-                        key={entry.itemId}
-                        className="flex items-center gap-3 px-3 py-2.5"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-sm font-semibold">
-                              {entry.name}
-                            </span>
-                            {limit && (
-                              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {limit.scope === "daily" ? "일일" : "주간"}{" "}
-                                {limit.used}/{limit.limit}
-                              </span>
-                            )}
-                            {owned && (
-                              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                보유 중
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                            {entry.description}
-                          </p>
-                          <p className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-                            비용: {costLabel(entry)}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => void handleShopBuy(entry)}
-                          className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-                        >
-                          {buttonLabel}
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {entries.map((entry) => (
+                    <CoopShopRow
+                      key={entry.itemId}
+                      entry={entry}
+                      limit={coopShop.state?.limits[entry.itemId]}
+                      materials={coopShop.state?.materials ?? {}}
+                      owned={
+                        entry.output.kind === "title" &&
+                        Boolean(
+                          coopShop.state?.ownedTitleIds.includes(
+                            entry.output.titleId,
+                          ),
+                        )
+                      }
+                      ready={!coopShop.loading && Boolean(coopShop.state)}
+                      buying={coopShop.buying}
+                      onBuy={handleShopBuy}
+                    />
+                  ))}
                 </div>
               </div>
             );

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+import { HP_PER_VIT } from "@/lib/server/v2CombatCoefficients";
 import {
-  mutateEmblems, parseEmblemState, rollEmblemBox, rollEmblemDrop, rollEmblemDrops, rollEmblemGrowth,
+  EMBLEM_GROWTH_MAX, mutateEmblems, parseEmblemState, rollEmblemBox, rollEmblemDrop, rollEmblemDrops, rollEmblemGrowth,
   type Emblem, type EmblemState,
 } from "./emblems";
 
@@ -61,10 +62,17 @@ describe("emblem equipment and fusion", () => {
 });
 
 describe("emblem level growth", () => {
+  it("HP 문장은 모든 등급에서 같은 등급 활력 문장의 환산 HP보다 많이 성장한다", () => {
+    expect(EMBLEM_GROWTH_MAX.hp).toEqual([0, 4, 8, 15, 24, 40]);
+    for (const grade of [1, 2, 3, 4, 5] as const) {
+      expect(EMBLEM_GROWTH_MAX.hp[grade]).toBeGreaterThan(EMBLEM_GROWTH_MAX.stat[grade] * HP_PER_VIT);
+    }
+  });
+
   it("rolls independently per equipped instance and actual level, including zero", () => {
     const s = state([item("a", "hp", 5), item("b", "hp", 5), item("c", "mp", 5), item("d", "str", 5)], ["a", "b", "c", "d"]);
     const rng = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(0.999).mockReturnValueOnce(0.999).mockReturnValueOnce(0.999).mockReturnValue(0);
-    expect(rollEmblemGrowth(s, 2, rng)).toEqual({ hp: 30, mp: 18, str: 9, dex: 0, vit: 0, int: 0, spi: 0, luk: 0 });
+    expect(rollEmblemGrowth(s, 2, rng)).toEqual({ hp: 40, mp: 18, str: 9, dex: 0, vit: 0, int: 0, spi: 0, luk: 0 });
     expect(rng).toHaveBeenCalledTimes(8);
   });
   it("never rolls for past levels, unequipped inventory, or no actual level-up", () => {

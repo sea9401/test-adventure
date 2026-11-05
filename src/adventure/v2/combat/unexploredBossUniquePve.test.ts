@@ -5,6 +5,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async importOriginal => ({
 }));
 import type { Monster } from "@/adventure/data/monsters";
 import type { UnexploredBossEffectKind } from "@/adventure/data/v2/unexploredBossUniqueEffects";
+import { groupBattleLogActions, groupBattleLogEntries } from "@/adventure/battle/BattleLogList";
 import { initialBattleState, resolveBattle, type BattleState, type PlayerCombat } from "./engine";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
@@ -49,6 +50,25 @@ describe("PvE boss unique wiring", () => {
     const base = dealt[0]!;
     expect(dealt).toEqual([base, Math.floor(base * 1.03 + 1e-9), Math.floor(base * 1.06 + 1e-9)]);
     expect(state.unexploredBossRuntime?.orbitCalc).toBe(3);
+  });
+
+  it("prismatic correction shows its log on the card of the boosted attack", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const player = withBoss("prismatic_correction");
+    const { finalState } = resolveBattleAtb(player, { ...ENEMY, atk: 1, spd: 40 }, "용사", {
+      pickAction: () => ({ kind: "attack" }), potions: {}, maxTurns: 8,
+    });
+    const items = groupBattleLogEntries(finalState.log).flatMap(groupBattleLogActions);
+    const isCorrection = (text: string) => text.startsWith("[보정 사격]");
+
+    expect(items.filter(item => item.kind === "entry" && item.entry.kind !== "hp_bar" && isCorrection(item.entry.text))).toEqual([]);
+    const playerCards = items.flatMap(item =>
+      item.kind === "action" && item.main.kind === "player_attack" ? [item] : []);
+    const flagged = playerCards.filter(card =>
+      card.effects.some(effect => effect.kind !== "hp_bar" && isCorrection(effect.text)));
+    expect(flagged.length).toBeGreaterThan(0);
+    expect(flagged.every(card => card.main.kind !== "hp_bar" && card.main.text.includes("125 피해"))).toBe(true);
+    expect(playerCards.filter(card => card.main.kind !== "hp_bar" && card.main.text.includes("125 피해"))).toHaveLength(flagged.length);
   });
 
   it("infinite orbit ignores half of defense on the strike and logs it", () => {

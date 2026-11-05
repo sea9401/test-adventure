@@ -116,15 +116,35 @@ const FIXED_POINTS: Record<
   trade_contract_complete: { buildingId: "trade_post", points: 10 },
 };
 
+const GUILD_FACILITY_OPERATION_POINTS_PER_UNIT = 10;
+
 // amount: 식재료 기부 = 공동 준비 점수, 연성 = 사용한 연성력, 납품 = 납품 점수.
 const SCALED_POINTS: Record<
   string,
   { buildingId: GuildFacilityExpandedId; divisor: number }
 > = {
-  dining_ingredient_donation: { buildingId: "dining_hall", divisor: 10 },
+  dining_ingredient_donation: {
+    buildingId: "dining_hall",
+    divisor: GUILD_FACILITY_OPERATION_POINTS_PER_UNIT,
+  },
   alchemy_craft: { buildingId: "alchemy_workshop", divisor: 1 },
-  trade_delivery: { buildingId: "trade_post", divisor: 10 },
+  trade_delivery: {
+    buildingId: "trade_post",
+    divisor: GUILD_FACILITY_OPERATION_POINTS_PER_UNIT,
+  },
 };
+
+// 점수제 적립은 요청마다 내림하므로 나눠 올리면 나머지가 사라진다. 이번 주 누적
+// 점수의 나머지를 더해 넘겨 "10점당 1점"이 나눈 횟수와 상관없이 지켜지게 한다.
+export function guildFacilityOperationCarriedAmount(
+  pointsBefore: number,
+  points: number,
+): number {
+  return (
+    nonNegativeInt(pointsBefore) % GUILD_FACILITY_OPERATION_POINTS_PER_UNIT +
+    nonNegativeInt(points)
+  );
+}
 
 export function guildFacilityOperationAccrual(
   type: string,

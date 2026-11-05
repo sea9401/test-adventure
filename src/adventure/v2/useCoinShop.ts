@@ -131,14 +131,16 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
   );
 
   const buyConsumable = useCallback(
-    async (itemId: string): Promise<BuyResult> => {
+    async (itemId: string, quantity = 1): Promise<BuyResult> => {
       const { endpoint, coinLabel } = optsRef.current;
       setBuying(itemId);
       try {
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ itemId }),
+          body: JSON.stringify(
+            quantity > 1 ? { itemId, quantity } : { itemId },
+          ),
         });
         const j = (await res.json().catch(() => null)) as Json | null;
         if (res.ok && j?.ok) {

@@ -634,6 +634,23 @@ describe("길드 교역소", () => {
     });
   });
 
+  it("운영 실적 납품 점수는 이번 주 계약 전체의 10점 미만 나머지를 이어 받는다", async () => {
+    vi.mocked(lockGuildTradeWeekly).mockResolvedValue({
+      ...weekly(4),
+      progress: { [CONTRACT_ID]: 4, "farm:wheat": 35 },
+    });
+
+    const response = await POST(
+      request({ action: "deliver", contractId: CONTRACT_ID, batches: 1 }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(logGuildActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: "trade_delivery", operationAmount: 10 }),
+    );
+  });
+
   it("마지막 납품으로 계약을 완료하면 시설 보너스가 적용된 길드 보상을 지급한다", async () => {
     vi.mocked(lockGuildTradeWeekly).mockResolvedValue(weekly(39));
     const response = await POST(

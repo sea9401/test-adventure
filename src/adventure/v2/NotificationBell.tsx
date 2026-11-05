@@ -15,11 +15,13 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { feedbackReplyHref } from "@/lib/feedbackNavigation";
 import { formatRelative } from "@/lib/notifications";
 import {
+  auctionUnsoldNotificationText,
   auctionWonNotificationText,
   guildDisbandedNotificationText,
   guildKickedNotificationText,
   masterProductNotificationText,
   type MasterProductNotificationPayload,
+  type AuctionUnsoldNotificationPayload,
   type AuctionWonNotificationPayload,
   type GuildDisbandedNotificationPayload,
   type GuildKickedNotificationPayload,
@@ -54,6 +56,8 @@ function previewText(notification: V2NotificationEntry): string {
   switch (notification.type) {
     case "auction_won":
       return auctionWonNotificationText(payload as AuctionWonNotificationPayload);
+    case "auction_unsold":
+      return auctionUnsoldNotificationText(payload as AuctionUnsoldNotificationPayload);
     case "master_product":
       return masterProductNotificationText(payload as MasterProductNotificationPayload);
     case "outpost_attacked":

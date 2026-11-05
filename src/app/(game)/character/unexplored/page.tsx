@@ -8,7 +8,7 @@ export default function UnexploredCharacterPage() {
   return (
     <V2UnexploredTreeView
       onBack={() => router.push("/character")}
-      onOpenSession={(sessionId) => router.push(`/battle/coop/${sessionId}`)}
+      onOpenCoopBosses={() => router.push("/battle/coop")}
     />
   );
 }

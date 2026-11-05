@@ -3,6 +3,7 @@ import {
   GUILD_FACILITY_OPERATIONS_WEEKLY_CAP,
   accrueGuildFacilityOperationsState,
   guildFacilityOperationAccrual,
+  guildFacilityOperationCarriedAmount,
   guildFacilityOperationsComplete,
   guildFacilityOperationsRequired,
   normalizeGuildFacilityOperationsState,
@@ -103,5 +104,43 @@ describe("길드 시설 운영 실적", () => {
     expect(guildFacilityOperationAccrual("trade_delivery", 9)).toBeNull();
     expect(guildFacilityOperationAccrual("alchemy_craft")).toBeNull();
     expect(guildFacilityOperationAccrual("gold_deposit")).toBeNull();
+  });
+});
+
+describe("점수제 운영 실적의 나머지 이월", () => {
+  it("나눠서 올린 점수를 한 번에 올린 것과 같게 적립한다", () => {
+    const first = guildFacilityOperationCarriedAmount(0, 49);
+    const second = guildFacilityOperationCarriedAmount(49, 51);
+    expect(guildFacilityOperationAccrual("trade_delivery", first)?.points).toBe(4);
+    expect(guildFacilityOperationAccrual("trade_delivery", second)?.points).toBe(6);
+  });
+
+  it("1점씩 올려도 10점마다 1점을 적립한다", () => {
+    let total = 0;
+    for (let before = 0; before < 25; before += 1) {
+      total +=
+        guildFacilityOperationAccrual(
+          "dining_ingredient_donation",
+          guildFacilityOperationCarriedAmount(before, 1),
+        )?.points ?? 0;
+    }
+    expect(total).toBe(2);
+  });
+
+  it("건의 #832: 인원 7명 길드가 계약 5건을 49+51로 나눠 채워도 주간 100점에 닿는다", () => {
+    const deliveries = [100, 104, 100, 49, 51, 100];
+    const completions = 5;
+    let before = 0;
+    let total = completions * 10;
+    for (const points of deliveries) {
+      total +=
+        guildFacilityOperationAccrual(
+          "trade_delivery",
+          guildFacilityOperationCarriedAmount(before, points),
+        )?.points ?? 0;
+      // 계약 진척도는 목표(100점)에서 멈추므로 초과 납품 4점은 다음 이월에 넘어가지 않는다.
+      before = points === 104 ? before + 100 : before + points;
+    }
+    expect(total).toBe(100);
   });
 });

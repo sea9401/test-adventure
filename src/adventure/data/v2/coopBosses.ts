@@ -336,7 +336,7 @@ export function coopBossFreeSupportLocked(
 
 // 같은 종류 동시 소환 상한 — 소환서 비용이 1차 게이트라 느슨한 안전캡(목록/쿼리 비대화 방지).
 // ⚠️ 캘리브 다이얼.
-export const MAX_ACTIVE_PER_KIND = 20;
+export const MAX_ACTIVE_PER_KIND = 50;
 
 // === 보스 정의 =========================================================
 

@@ -117,6 +117,8 @@ const DAMAGE_CALCULATION_LABELS = [
 
 const ACTION_RECOVERY_LABELS = ["봉인", "그림자", "해연"] as const;
 const ACTION_OPENING_DEFENSE_LABELS = ["철벽", "마나 실드"] as const;
+// 미개척지 보스 고유 효과가 소비되는 순간의 로그. 강화되는 공격의 시전 로그보다 먼저 기록된다.
+const ATTACK_BOOST_LABELS = ["궤도 절단", "빙결 일격", "별궤 조준", "보정 사격"] as const;
 
 // skillCast 도입 전 저장된 로그는 효과 라벨에만 스킬명이 남아 있다. 패시브·장비
 // 라벨을 행동으로 오인하지 않도록 실제 액티브 스킬 이름만 레거시 경계 복원에 쓴다.
@@ -275,6 +277,16 @@ function isActionOpeningEffect(entry: BattleLogEntry): boolean {
       /HP\s*\+\d/.test(body)) ||
     (entry.kind === "info" &&
       /^[^!]+!\s+(?:.+?\s+)?생명력\s+\d+\s+소모$/.test(body))
+  );
+}
+
+function isAttackBoostEffect(entry: BattleLogEntry): boolean {
+  if (entry.kind !== "info") return false;
+  const { labels, body } = parseBattleLogText(entry.text);
+  return (
+    labels.some((label) =>
+      ATTACK_BOOST_LABELS.some((boost) => label === boost),
+    ) && /피해 \+\d+%/.test(body)
   );
 }
 
@@ -477,7 +489,7 @@ export function groupBattleLogActions(
       pendingEffects.push(entry);
       continue;
     }
-    if (isActionStartStatusDamage(entry)) {
+    if (isActionStartStatusDamage(entry) || isAttackBoostEffect(entry)) {
       flushCurrent();
       pendingEffects.push(entry);
       continue;

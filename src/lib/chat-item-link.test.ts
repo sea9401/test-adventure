@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   chatEquipmentLinkForOwnedIid,
   chatEquipmentLinkLabel,
+  chatEquipmentLinkSummary,
   parseChatEquipmentLink,
 } from "./chat-item-link";
+
+vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adventure/data/v2/coreLoopConfig")>()),
+  V2_EQUIPMENT_LIBERATION: true,
+}));
 
 describe("chat equipment links", () => {
   it("현재 보유한 iid만 공개 스냅샷으로 만든다", () => {
@@ -85,6 +91,37 @@ describe("chat equipment links", () => {
 
     expect(link).toMatchObject({ liberation });
     expect(parseChatEquipmentLink(link)).toMatchObject({ liberation });
+  });
+
+  it("링크 요약에 강화와 마법부여 단계·줄수를 함께 표기한다", () => {
+    const link = parseChatEquipmentLink({
+      kind: "equipment",
+      itemId: "v2_boss_catastrophe_gloves",
+      enhance: { level: 3 },
+      liberation: {
+        rank: 1,
+        lineCount: 2,
+        revision: 7,
+        options: [
+          { id: "base_str_pct", level: 12 },
+          { id: "skill_crit_damage_pp", level: 18 },
+        ],
+      },
+    });
+
+    expect(link && chatEquipmentLinkSummary(link)).toMatch(
+      / \+3 · 마법부여 3단계 · 2줄$/,
+    );
+  });
+
+  it("마법부여가 없는 장비의 링크 요약은 이름과 강화만 표기한다", () => {
+    const link = parseChatEquipmentLink({
+      kind: "equipment",
+      itemId: "v2_iron_sword",
+      enhance: { level: 3 },
+    });
+
+    expect(link && chatEquipmentLinkSummary(link)).toBe("철검 +3");
   });
 
   it("장비 부위에 맞지 않는 마법 부여 옵션은 링크에서 제외한다", () => {

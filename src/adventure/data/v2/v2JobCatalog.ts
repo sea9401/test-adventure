@@ -1837,10 +1837,32 @@ export function jobUnlockSpBonus(
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.
 //   예: "Lv 100 달성" / "사제 숙련도 1800" / "기사 숙련도 1800, 사제 숙련도 1800"(하이브리드).
 export function jobUnlockConditionText(job: V2JobDefinition): string {
-  const prereqs = Object.entries(job.unlock.prereqs);
-  const conditions = prereqs.map(
-    ([pid, lv]) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 숙련도 ${lv ?? 0}`,
+  return unlockConditionText(
+    job,
+    (pid, required) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 숙련도 ${required}`,
   );
+}
+
+// 전직 화면·직업 도감의 진행도 표기. 예: "사제 숙련도 640/1,000". 판정은 isJobUnlocked 와 같은 값을 읽는다.
+export function jobUnlockProgressText(
+  job: V2JobDefinition,
+  proficiency: V2ProficiencyState,
+): string {
+  return unlockConditionText(job, (pid, required) => {
+    const prerequisite = V2_JOB_CATALOG[pid];
+    const actual = prerequisite
+      ? cumLevelForJob(proficiency, prerequisite)
+      : (proficiency.groups[pid]?.cumLevel ?? 0);
+    return `${prerequisite?.name ?? pid} 숙련도 ${actual.toLocaleString("ko-KR")}/${required.toLocaleString("ko-KR")}`;
+  });
+}
+
+function unlockConditionText(
+  job: V2JobDefinition,
+  formatPrereq: (prereqJobId: string, required: number) => string,
+): string {
+  const prereqs = Object.entries(job.unlock.prereqs);
+  const conditions = prereqs.map(([pid, lv]) => formatPrereq(pid, lv ?? 0));
   for (const cond of job.unlock.extraConditions ?? []) {
     if (cond.type === "farmingLevel") conditions.push(`농사 Lv ${cond.min}`);
     if (cond.type === "cookingLevel") conditions.push(`요리 Lv ${cond.min}`);

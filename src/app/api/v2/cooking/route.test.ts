@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => {
   const store = new Map<string, unknown>();
   const selectResults: unknown[][] = [];
   const insertResults: unknown[][] = [];
+  const innerJoinedTables: unknown[] = [];
   const insertValues = vi.fn();
   const insertFeedEntry = vi.fn(async () => undefined);
   const resolveUserDisplayName = vi.fn(async () => "나리");
@@ -29,7 +30,10 @@ const mocks = vi.hoisted(() => {
     };
     const builder: Record<string, unknown> = {};
     builder.from = vi.fn(() => builder);
-    builder.innerJoin = vi.fn(() => builder);
+    builder.innerJoin = vi.fn((table: unknown) => {
+      innerJoinedTables.push(table);
+      return builder;
+    });
     builder.leftJoin = vi.fn(() => builder);
     builder.where = vi.fn(() => builder);
     builder.orderBy = vi.fn(() => builder);
@@ -63,6 +67,7 @@ const mocks = vi.hoisted(() => {
     store,
     selectResults,
     insertResults,
+    innerJoinedTables,
     insertValues,
     insertFeedEntry,
     resolveUserDisplayName,
@@ -107,6 +112,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { GET, POST } from "./route";
+import { users } from "@/db/schema";
 import { lifeMajorStageXp } from "@/adventure/v2/lifeMajor";
 import { emptyCookingState, cookingLevelXpThreshold } from "@/adventure/v2/cooking/state";
 import { emptyFarmState } from "@/adventure/v2/farm";
@@ -534,6 +540,28 @@ describe("/api/v2/cooking", () => {
       silverleaf: 100 - silverleaf.count * quantity,
       milk: 100 - Math.floor(milk.count * quantity * 0.9),
     });
+  });
+
+  it("GET은 탈퇴한 최초 발견자의 기록도 공개 목록에 남긴다", async () => {
+    mocks.innerJoinedTables.length = 0;
+    mocks.selectResults.push([{
+      recipeId: "tomato_salad",
+      actorName: "탈퇴한 사용자",
+      authoritativeActorName: null,
+      discoveredAt: new Date(NOW),
+    }]);
+
+    const response = await GET(new Request("http://localhost/api/v2/cooking"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.innerJoinedTables).not.toContain(users);
+    expect(json.publicDiscoveries).toEqual([
+      expect.objectContaining({
+        recipeName: "불향 토마토 샐러드",
+        actorName: "탈퇴한 사용자",
+      }),
+    ]);
   });
 
   it("GET은 최초 발견자의 현재 권위 닉네임을 표시한다", async () => {

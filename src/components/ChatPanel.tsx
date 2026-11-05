@@ -66,7 +66,7 @@ import { useMobileChatHistory } from "./chat/useMobileChatHistory";
 import type { V2EquipInstance } from "@/adventure/data/v2/v2Equipment";
 import {
   chatEquipmentLinkFromInstance,
-  chatEquipmentLinkLabel,
+  chatEquipmentLinkSummary,
   type ChatEquipmentLink,
 } from "@/lib/chat-item-link";
 import {
@@ -194,7 +194,7 @@ function formatRoomTime(createdAt: number) {
 function chatMessagePreview(message: ChatMessage): string {
   const text = message.content.replace(/\s+/g, " ").trim();
   const item = message.itemLink
-    ? `[아이템] ${chatEquipmentLinkLabel(message.itemLink)}`
+    ? `[아이템] ${chatEquipmentLinkSummary(message.itemLink)}`
     : "";
   return [text, item].filter(Boolean).join(" · ");
 }

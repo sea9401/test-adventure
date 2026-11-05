@@ -107,7 +107,7 @@ export function FishingShopView({
   buying: string | null;
   onBuy: (titleId: string) => Promise<BuyResult>;
   // 소비템(스태미나 회복약) 구매 — 미전달(dev 하니스)이면 소비품 섹션 숨김.
-  onBuyConsumable?: (itemId: string) => Promise<BuyResult>;
+  onBuyConsumable?: (itemId: string, quantity?: number) => Promise<BuyResult>;
   onBuyGear?: (
     kind: FishingGearKind,
     gearId: string,
@@ -149,9 +149,9 @@ export function FishingShopView({
     showMessage(r);
   };
 
-  const handleBuyConsumable = async (itemId: string) => {
+  const handleBuyConsumable = async (itemId: string, quantity: number) => {
     if (!onBuyConsumable) return;
-    const r = await onBuyConsumable(itemId);
+    const r = await onBuyConsumable(itemId, quantity);
     showMessage(r);
   };
 
@@ -212,6 +212,7 @@ export function FishingShopView({
       return {
         ...item,
         badge: `이번 주 ${staminaPotionLimit.boughtThisWeek}/${staminaPotionLimit.weeklyLimit}`,
+        maxQuantity: staminaPotionLimit.remainingThisWeek,
         disabled: staminaPotionLimit.remainingThisWeek <= 0,
         buttonLabel:
           staminaPotionLimit.remainingThisWeek <= 0 ? "주간 한도" : undefined,

@@ -89,3 +89,35 @@ it("preserves arena potion success and global resource synchronization", async (
   expect(result.current.state?.coins).toBe(80);
   expect(applyResourcePatch).toHaveBeenLastCalledWith({ staminaPotions: 3 });
 });
+
+it("수량을 고르면 요청 한 번에 담아 보내고 구매 수량을 안내한다", async () => {
+  servePurchase({ ok: true, coins: 0, quantity: 30, staminaPotions: 32 });
+  const { result } = renderHook(() => useFishingShop());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  await act(async () => {
+    expect(await result.current.buyConsumable("stamina_potion", 30)).toEqual({
+      ok: true,
+      message: "스태미나 회복약 30개를 구매했다.",
+    });
+  });
+  const posts = vi.mocked(fetch).mock.calls.filter(
+    ([, init]) => init?.method === "POST",
+  );
+  expect(posts).toHaveLength(1);
+  expect(JSON.parse(String(posts[0][1]?.body))).toEqual({
+    itemId: "stamina_potion",
+    quantity: 30,
+  });
+});
+
+it("투기장 상점도 구매 수량을 안내한다", async () => {
+  servePurchase({ ok: true, coins: 0, quantity: 4, staminaPotions: 6 });
+  const { result } = renderHook(() => useArenaShop());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  await act(async () => {
+    expect(await result.current.buyConsumable("stamina_potion", 4)).toEqual({
+      ok: true,
+      message: "스태미나 회복약 4개를 구매했다.",
+    });
+  });
+});

@@ -884,6 +884,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("모험가 협회");
     expect(html).toContain("길드에 가입하지 않은 모험가");
     expect(html).toContain("통합 교환소");
+    expect(html).toContain("수량을 입력");
     expect(html).toContain("마을과 생활");
   });
 

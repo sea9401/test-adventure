@@ -1,5 +1,6 @@
 "use client";
 
+import { SHOP_MAX_QUANTITY } from "./shopQuantity";
 import { useState } from "react";
 import {
   CoinConsumableShopList,
@@ -32,7 +33,7 @@ export function ArenaShopView({
   error?: string | null;
   buying: string | null;
   onBuy: (titleId: string) => Promise<BuyResult>;
-  onBuyConsumable: (itemId: string) => Promise<BuyResult>;
+  onBuyConsumable: (itemId: string, quantity?: number) => Promise<BuyResult>;
 }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -45,8 +46,8 @@ export function ArenaShopView({
     notifySystem(r.message, r.ok ? "success" : "error");
   };
 
-  const handleBuyConsumable = async (itemId: string) => {
-    const r = await onBuyConsumable(itemId);
+  const handleBuyConsumable = async (itemId: string, quantity: number) => {
+    const r = await onBuyConsumable(itemId, quantity);
     setMessage({ ok: r.ok, text: r.message });
     notifySystem(r.message, r.ok ? "success" : "error");
   };
@@ -106,7 +107,10 @@ export function ArenaShopView({
               소비품
             </p>
             <CoinConsumableShopList
-              consumables={ARENA_SHOP_CONSUMABLES}
+              consumables={ARENA_SHOP_CONSUMABLES.map((item) => ({
+                ...item,
+                maxQuantity: SHOP_MAX_QUANTITY,
+              }))}
               coins={coins}
               staminaPotions={staminaPotions}
               buying={buying}

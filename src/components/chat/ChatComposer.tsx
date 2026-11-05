@@ -3,6 +3,7 @@
 import { PaperPlaneTilt, Sword, X } from "@phosphor-icons/react";
 import { CHAT_MAX_LENGTH } from "@/lib/chat-config";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { LiberationBadge } from "@/adventure/v2/V2ItemCard";
 import {
   chatEquipmentLinkLabel,
   type ChatEquipmentLink,
@@ -35,9 +36,12 @@ export function ChatComposer({
           <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">
             {chatEquipmentLinkLabel(itemLink)}
           </span>
-          <span className="shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400">
-            옵션 첨부
-          </span>
+          <LiberationBadge liberation={itemLink.liberation} />
+          {itemLink.liberation ? null : (
+            <span className="shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400">
+              옵션 첨부
+            </span>
+          )}
           <button
             type="button"
             onClick={onRemoveItemLink}

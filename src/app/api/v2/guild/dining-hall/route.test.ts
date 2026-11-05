@@ -152,6 +152,23 @@ describe("길드 식당", () => {
     );
   });
 
+  it("운영 실적 공동 준비 점수는 이번 주 준비 점수의 10점 미만 나머지를 이어 받는다", async () => {
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(7));
+
+    const response = await POST(
+      request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(logGuildActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        type: "dining_ingredient_donation",
+        operationAmount: 17,
+      }),
+    );
+  });
+
   it("공동 준비 목표를 채운 뒤에도 개인 기여 한도까지 기부해 기여 식권을 얻는다", async () => {
     vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
     const response = await POST(

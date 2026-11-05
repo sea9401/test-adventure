@@ -18,6 +18,7 @@ import {
   CraftQualityBadge,
   EnhanceLevelBadge,
   EquipmentTierBadge,
+  LiberationBadge,
   MasterworkBadge,
   QualityPctText,
   powerNameClass,
@@ -228,6 +229,7 @@ export function ChatEquipmentPicker({
                     <EnhanceLevelBadge enhance={instance.enhance} />
                     <CraftQualityBadge craftQuality={instance.craftQuality} />
                     {instance.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+                    <LiberationBadge liberation={instance.liberation} />
                   </div>
                   <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
                     {V2_SLOT_LABEL[item.slot]} · {stats || "옵션 없음"}

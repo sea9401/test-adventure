@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { signOut } from "@/auth";
 import { normalizeProfileImageUserId } from "@/adventure/profile/avatars";
 import { db } from "@/db";
+import { cookingFirstDiscoveries } from "@/db/cookingSchema";
 import {
   feedbackReports,
   guildMembers,
@@ -209,6 +210,11 @@ export async function POST(req: Request) {
       .update(ugcReports)
       .set({ targetName: "탈퇴한 사용자", updatedAt: new Date() })
       .where(eq(ugcReports.targetUserId, userId));
+    // 최초 발견 기록은 남겨 재판정을 막고, 공개 목록의 발견자 이름만 익명화한다.
+    await tx
+      .update(cookingFirstDiscoveries)
+      .set({ actorName: "탈퇴한 사용자" })
+      .where(eq(cookingFirstDiscoveries.userId, userId));
     await preserveReferralBeforeUserDeletion(tx, userId);
     await tx.delete(users).where(eq(users.id, userId));
     return queued.map((row) => row.id);

@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/Card";
 import { useGameResourceState } from "@/adventure/v2/GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import type { HonorShopItem } from "@/adventure/data/v2/honorShop";
+import { ShopQuantityControl, useShopQuantity } from "./ShopQuantityControl";
+import { maxShopQuantity } from "./shopQuantity";
 
 // 명예상점 — 정착지 전쟁 개인 화폐(명예) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
 //   수비 전투 승리·길드 골드 입금으로 모은 명예로 구매. V2GuildHome "명예상점" 탭에서 렌더(flag on).
@@ -37,13 +39,15 @@ export default function HonorShopPanel() {
   }, [load]);
 
   const buy = useCallback(
-    async (itemId: string) => {
+    async (itemId: string, quantity: number) => {
       setBusy(true);
       try {
         const r = await fetch("/api/v2/me/honor-shop", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ itemId }),
+          body: JSON.stringify(
+            quantity > 1 ? { itemId, quantity } : { itemId },
+          ),
         });
         const j = (await r.json().catch(() => null)) as
           | {
@@ -99,32 +103,64 @@ export default function HonorShopPanel() {
         수비 전투 승리·길드 골드 입금으로 모은 명성으로 구매합니다.
       </p>
       <div className="mt-3 space-y-2">
-        {items.map((it) => {
-          const afford = honor != null && honor >= it.cost;
-          return (
-            <div
-              key={it.id}
-              className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800"
-            >
-              <div>
-                <div className="text-sm font-medium">{it.name}</div>
-                <div className="text-xs text-zinc-500">명성 {it.cost}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => buy(it.id)}
-                disabled={busy || !afford}
-                className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                구매
-              </button>
-            </div>
-          );
-        })}
+        {items.map((it) => (
+          <HonorShopRow
+            key={it.id}
+            item={it}
+            honor={honor}
+            busy={busy}
+            onBuy={buy}
+          />
+        ))}
         {items.length === 0 && honor !== null && (
           <p className="text-sm text-zinc-400">품목이 없습니다.</p>
         )}
       </div>
     </Card>
+  );
+}
+
+function HonorShopRow({
+  item,
+  honor,
+  busy,
+  onBuy,
+}: {
+  item: HonorShopItem;
+  honor: number | null;
+  busy: boolean;
+  onBuy: (itemId: string, quantity: number) => Promise<void>;
+}) {
+  const maxQuantity = maxShopQuantity((honor ?? 0) / item.cost);
+  const quantityControl = useShopQuantity(maxQuantity);
+  const { quantity } = quantityControl;
+  const afford = honor != null && honor >= item.cost;
+  const buy = async () => {
+    await onBuy(item.id, quantity);
+    quantityControl.reset();
+  };
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{item.name}</div>
+        <div className="text-xs text-zinc-500">
+          명성 {(item.cost * quantity).toLocaleString()}
+        </div>
+        <ShopQuantityControl
+          name={item.name}
+          max={maxQuantity}
+          disabled={busy}
+          control={quantityControl}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => void buy()}
+        disabled={busy || !afford}
+        className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        구매
+      </button>
+    </div>
   );
 }

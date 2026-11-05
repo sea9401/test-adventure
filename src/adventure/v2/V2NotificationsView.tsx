@@ -30,11 +30,13 @@ import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
 import {
+  auctionUnsoldNotificationText,
   auctionWonNotificationText,
   guildDisbandedNotificationText,
   guildKickedNotificationText,
   masterProductNotificationText,
   type MasterProductNotificationPayload,
+  type AuctionUnsoldNotificationPayload,
   type AuctionWonNotificationPayload,
   type GuildDisbandedNotificationPayload,
   type GuildKickedNotificationPayload,
@@ -58,6 +60,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-emerald-600 dark:text-emerald-400"
+    />
+  ),
+  auction_unsold: (
+    <ShoppingBag
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-zinc-500 dark:text-zinc-400"
     />
   ),
   outpost_attacked: (
@@ -191,6 +200,9 @@ function mailBody(item: InboxItem): string {
 function entryText(n: V2NotificationEntry): React.ReactNode {
   if (n.type === "auction_won") {
     return auctionWonNotificationText(n.payload as AuctionWonNotificationPayload);
+  }
+  if (n.type === "auction_unsold") {
+    return auctionUnsoldNotificationText(n.payload as AuctionUnsoldNotificationPayload);
   }
   if (n.type === "master_product") {
     return masterProductNotificationText(n.payload as MasterProductNotificationPayload);

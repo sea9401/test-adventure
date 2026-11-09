@@ -20,10 +20,7 @@ import { RunOneHuntCtx, runOneHunt } from "./huntExecution";
 import { parseHuntRequestIntent } from "./huntRequestIntent";
 import { broadcastHuntUniqueDrops } from "./huntResultEffects";
 import { db } from "@/db";
-import {
-  BATCH_HUNT_REPLAY_KEEP_BATCHES,
-  deferLongBattleReplays,
-} from "@/lib/server/battleReplayStore";
+import { BATCH_HUNT_REPLAY_KEEP_BATCHES, deferLongBattleReplays } from "@/lib/server/battleReplayStore";
 import {
   recordCodexMasteryGameplayBatch,
   type CodexMasteryGameplayEvent,

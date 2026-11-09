@@ -46,6 +46,7 @@ import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -1078,7 +1079,7 @@ export function WoodcuttingView({
         setPhase("idle");
         return;
       }
-      setError("벌목을 시작하지 못했습니다.");
+      setError(sharedNetworkLimitMessage(caught) ?? "벌목을 시작하지 못했습니다.");
       setPhase("idle");
     }
   }, [activeAutoActivity, cooldownRemainingSec, handleCooldownError, spotId, start]);
@@ -1124,9 +1125,9 @@ export function WoodcuttingView({
           }
           setPhase("result");
         })
-        .catch(() => {
+        .catch((caught: unknown) => {
           if (!alive) return;
-          setError("벌목 처리 중 문제가 생겼습니다.");
+          setError(sharedNetworkLimitMessage(caught) ?? "벌목 처리 중 문제가 생겼습니다.");
           setPhase("result");
         });
     }, run.durationMs + WOODCUTTING_TREE_FALL_MS);

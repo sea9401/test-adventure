@@ -12,6 +12,7 @@ import {
   type AutoGatheringPlanId,
   type AutoGatheringSessionView,
 } from "./autoGathering";
+import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 export type { AutoGatheringSessionView } from "./autoGathering";
 
@@ -194,8 +195,8 @@ export function AutoGatheringCard({
             disabled={loading || !ready}
             onClick={() => {
               setError(null);
-              void onClaim().catch(() => {
-                setError(`자동 ${activityName} 보상을 받지 못했습니다.`);
+              void onClaim().catch((caught: unknown) => {
+                setError(sharedNetworkLimitMessage(caught) ?? `자동 ${activityName} 보상을 받지 못했습니다.`);
               });
             }}
             variant={buttonVariant}
@@ -220,8 +221,8 @@ export function AutoGatheringCard({
                 ) {
                   return;
                 }
-                void onCancel().catch(() => {
-                  setError(`자동 ${activityName}을 중간 정산하지 못했습니다.`);
+                void onCancel().catch((caught: unknown) => {
+                  setError(sharedNetworkLimitMessage(caught) ?? `자동 ${activityName}을 중간 정산하지 못했습니다.`);
                 });
               }}
               variant="danger"
@@ -237,8 +238,8 @@ export function AutoGatheringCard({
           disabled={loading || Boolean(blockedActivityName)}
           onClick={() => {
             setError(null);
-            void onStart(spotId, planId).catch(() => {
-              setError(`자동 ${activityName}을 시작하지 못했습니다.`);
+            void onStart(spotId, planId).catch((caught: unknown) => {
+              setError(sharedNetworkLimitMessage(caught) ?? `자동 ${activityName}을 시작하지 못했습니다.`);
             });
           }}
           variant={buttonVariant}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { lifeRequestError, sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 import type {
   FarmCrop,
   FarmCropId,
@@ -220,7 +221,7 @@ export function useFarm(): FarmClientState {
     options: { suppressActionNotice?: boolean } = {},
   ) => {
     if (!data.ok || !data.farm || !data.crops || !data.deliveries) {
-      throw new Error(data.error ?? "farm_failed");
+      throw lifeRequestError(data, data.error ?? "farm_failed");
     }
     setFarm(data.farm);
     if ("farmJobId" in data) setFarmJobId(data.farmJobId ?? null);
@@ -390,7 +391,7 @@ export function useFarm(): FarmClientState {
     try {
       const res = await fetch("/api/v2/farm/fertilize", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plotId }) });
       const data = await res.json() as FarmResponse;
-      if (!res.ok) throw new Error(data.error ?? "fertilize_failed");
+      if (!res.ok) throw lifeRequestError(data, data.error ?? "fertilize_failed");
       apply(data);
     } catch (e) {
       reportError(e);
@@ -444,9 +445,10 @@ export function useFarm(): FarmClientState {
           result.seedsReturned,
         );
         if (result.error) {
+          const sharedNetwork = sharedNetworkLimitMessage(new Error(result.error));
           const message =
             result.completed > 0
-              ? outcomeText
+              ? [outcomeText, sharedNetwork].filter(Boolean).join(" ")
               : farmErrorMessage(new Error(outcomeText));
           setError(message);
           setNotice({ id: Date.now(), kind: "error", text: message });
@@ -795,6 +797,8 @@ export function useFarm(): FarmClientState {
 }
 
 export function farmErrorMessage(error: unknown): string {
+  const sharedNetwork = sharedNetworkLimitMessage(error);
+  if (sharedNetwork) return sharedNetwork;
   const message = error instanceof Error ? error.message : "request_failed";
   return (
     {

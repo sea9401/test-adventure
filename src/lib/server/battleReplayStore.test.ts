@@ -1,6 +1,10 @@
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
+  BATCH_HUNT_REPLAY_KEEP_BATCHES,
+  BATCH_HUNT_REPLAY_PRUNE_LIMIT,
   BATTLE_REPLAY_RETENTION_MS,
   deferLongBattleReplays,
   storeBattleReplays,
@@ -138,6 +142,70 @@ describe("storeBattleReplays", () => {
     expect(renderedWarning).not.toContain("SECRET_BATTLE_PAYLOAD");
     expect(renderedWarning).not.toContain("insert into battle_replays");
 
+    warn.mockRestore();
+  });
+
+  it("새 묶음을 저장한 뒤 같은 유저의 묶음 기록을 최근 묶음 수만큼만 남긴다", async () => {
+    const values = vi.fn(async () => undefined);
+    const execute = vi.fn(async (_query: SQL) => ({ rows: [] }));
+    const executor = {
+      insert: vi.fn(() => ({ values })),
+      execute,
+    } as unknown as Parameters<typeof deferLongBattleReplays>[0];
+
+    const result = await deferLongBattleReplays(
+      executor,
+      "user-1",
+      [replay(81)],
+      { keepLatestBatches: BATCH_HUNT_REPLAY_KEEP_BATCHES },
+    );
+
+    expect(BATCH_HUNT_REPLAY_KEEP_BATCHES).toBe(2);
+    expect(values).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledOnce();
+    const query = new PgDialect().sqlToQuery(execute.mock.calls[0]![0]);
+    expect(query.sql.toLowerCase()).toContain("delete from");
+    expect(query.sql).toContain("battle_replays");
+    // 아레나 기록(14일)은 건드리지 않도록 보관 기간이 하루 미만인 묶음 기록만 대상으로 한다.
+    expect(query.sql).toContain("interval '1 day'");
+    // 배포 직후 쌓여 있던 수만 행을 한 사냥 요청에서 지우지 않도록 한 번에 지우는 행 수를 묶는다.
+    expect(query.sql).toContain("ctid");
+    expect(query.params).toEqual([
+      "user-1",
+      "user-1",
+      1,
+      BATCH_HUNT_REPLAY_PRUNE_LIMIT,
+    ]);
+    expect(BATCH_HUNT_REPLAY_PRUNE_LIMIT).toBe(500);
+    expect(result[0]?.replayId).toBeTruthy();
+  });
+
+  it("이전 묶음 정리가 실패해도 저장한 참조를 그대로 돌려준다", async () => {
+    const values = vi.fn(async () => undefined);
+    const execute = vi.fn(async () => {
+      throw Object.assign(new Error("delete failed SECRET"), {
+        name: "DrizzleQueryError",
+        code: "40P01",
+      });
+    });
+    const executor = {
+      insert: vi.fn(() => ({ values })),
+      execute,
+    } as unknown as Parameters<typeof deferLongBattleReplays>[0];
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const result = await deferLongBattleReplays(
+      executor,
+      "user-1",
+      [replay(81)],
+      { keepLatestBatches: 2 },
+    );
+
+    expect(result[0]).toMatchObject({ log: [], replayId: expect.any(String) });
+    expect(warn).toHaveBeenCalledWith(
+      "[battleReplayStore] batch replay prune failed",
+      { name: "DrizzleQueryError", code: "40P01" },
+    );
     warn.mockRestore();
   });
 });

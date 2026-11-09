@@ -114,3 +114,124 @@ describe("guild workshop dismantle liberation confirmation", () => {
     ).toEqual([]);
   });
 });
+
+function craftedItem(iid: string, extra: Record<string, unknown> = {}) {
+  return {
+    iid,
+    id: "v2_storm_breaker_greatsword",
+    craftedBy: {
+      userId: "dismantler-1",
+      profession: "blacksmith",
+      level: 6,
+      craftedAt: "2026-08-29T00:00:00.000Z",
+    },
+    ...extra,
+  };
+}
+
+describe("guild workshop bulk dismantle (#840)", () => {
+  beforeEach(() => {
+    mocks.saves.set("equipment.v2", {
+      owned: [
+        craftedItem("a"),
+        craftedItem("b"),
+        craftedItem("locked", { locked: true }),
+        craftedItem("worn"),
+        craftedItem("keep"),
+      ],
+      equipped: { weapon: "worn" },
+    });
+  });
+
+  it("dismantles every requested item in one request and sums rewards", async () => {
+    const response = await POST(request({ iids: ["a", "b"] }));
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+    expect(json.dismantledCount).toBe(2);
+    expect(json.skippedCount).toBe(0);
+    expect(json.dismantledItems.map((item: { iid: string }) => item.iid)).toEqual([
+      "a",
+      "b",
+    ]);
+    const perItem = json.dismantledItems[0];
+    const totalReward = Object.values(json.rewards as Record<string, number>).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const perItemReward = Object.values(perItem.rewards as Record<string, number>).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    expect(totalReward).toBe(perItemReward * 2);
+    expect(json.artisanXp).toBe(perItem.artisanXp * 2);
+    const owned = (mocks.saves.get("equipment.v2") as { owned: { iid: string }[] })
+      .owned;
+    expect(owned.map((item) => item.iid)).toEqual(["locked", "worn", "keep"]);
+    const crafting = mocks.saves.get("crafting.v2") as {
+      artisan: { blacksmith: { xp: number } };
+    };
+    expect(crafting.artisan.blacksmith.xp).toBe(3_100 + perItem.artisanXp * 2);
+  });
+
+  it("skips equipped, locked and missing items instead of failing the batch", async () => {
+    const response = await POST(
+      request({ iids: ["a", "locked", "worn", "missing"] }),
+    );
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.dismantledCount).toBe(1);
+    expect(json.skippedCount).toBe(3);
+    const owned = (mocks.saves.get("equipment.v2") as { owned: { iid: string }[] })
+      .owned;
+    expect(owned.map((item) => item.iid)).toEqual([
+      "b",
+      "locked",
+      "worn",
+      "keep",
+    ]);
+  });
+
+  it("fails without saving when nothing in the batch can be dismantled", async () => {
+    const response = await POST(request({ iids: ["locked", "worn"] }));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "nothing_to_dismantle",
+    });
+    expect(
+      (mocks.saves.get("equipment.v2") as { owned: unknown[] }).owned,
+    ).toHaveLength(5);
+  });
+
+  it("asks once for every bound item in the batch before dismantling", async () => {
+    mocks.saves.set("equipment.v2", {
+      owned: [craftedItem("a"), craftedItem("bound-1", { bound: true })],
+      equipped: {},
+    });
+    const blocked = await POST(request({ iids: ["a", "bound-1"] }));
+    expect(blocked.status).toBe(409);
+    await expect(blocked.json()).resolves.toMatchObject({
+      error: "bound_confirmation_required",
+      items: [{ iid: "bound-1" }],
+    });
+    expect(
+      (mocks.saves.get("equipment.v2") as { owned: unknown[] }).owned,
+    ).toHaveLength(2);
+
+    const confirmed = await POST(
+      request({ iids: ["a", "bound-1"], confirmBound: true }),
+    );
+    expect(confirmed.status).toBe(200);
+    expect(
+      (mocks.saves.get("equipment.v2") as { owned: unknown[] }).owned,
+    ).toEqual([]);
+  });
+
+  it("rejects malformed or oversized batches", async () => {
+    expect((await POST(request({ iids: [] }))).status).toBe(400);
+    expect((await POST(request({ iids: [1, 2] }))).status).toBe(400);
+    const tooMany = Array.from({ length: 201 }, (_, index) => `x${index}`);
+    expect((await POST(request({ iids: tooMany }))).status).toBe(400);
+  });
+});

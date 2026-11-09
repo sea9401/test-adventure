@@ -68,10 +68,42 @@ describe("cooking v2 food", () => {
       ),
     ).toEqual({
       primaryPct: { str: 5 },
-      combatFlat: { atk: 300, maxHp: 3_000 },
+      combatFlat: { atk: 450, maxHp: 4_500 },
       huntExpPct: 15,
       huntGoldPct: 15,
     });
+  });
+
+  // 건의 #839: 고정 수치 상한이 5티어 기본값과 같아 품질 보정이 잘려 나갔다.
+  it("5티어 고정 수치 요리도 품질·원조·전문 보정만큼 오른다", () => {
+    const foodEffect = (quality: "normal" | "masterpiece" | "signature", originator = false, specialtyBonusPct = 0) =>
+      cookingFoodDefinition(cookingFoodId({ recipeId: "corn_cheese_bread", quality, originator, specialtyBonusPct }))?.effect;
+
+    expect(foodEffect("normal")?.combatFlat?.magicAtk).toBe(300);
+    expect(foodEffect("masterpiece")?.combatFlat?.magicAtk).toBe(360);
+    expect(foodEffect("signature", true, 5)?.combatFlat?.magicAtk).toBe(450);
+    expect(
+      scaleCookingEffect(
+        { primaryFlat: { str: 32 }, combatFlat: { maxHp: 3_000, maxMp: 1_000 } },
+        { quality: "signature", originator: true, specialtyBonusPct: 5 },
+      ),
+    ).toEqual({ primaryFlat: { str: 48 }, combatFlat: { maxHp: 4_500, maxMp: 1_500 } });
+  });
+
+  it("먹은 뒤 저장된 5티어 걸작 효과를 다시 읽어도 깎지 않는다", () => {
+    const now = Date.now();
+    const buff = activeCookingBuff(
+      {
+        recipeId: "corn_cheese_bread",
+        recipeName: "옥수수 치즈빵",
+        quality: "masterpiece",
+        effect: { combatFlat: { magicAtk: 360 } },
+        expiresAt: now + COOKING_BUFF_DURATION_MS,
+      },
+      now,
+    );
+
+    expect(buff?.effect.combatFlat?.magicAtk).toBe(360);
   });
 
   it("accepts only unexpired twelve-hour v2 buffs", () => {

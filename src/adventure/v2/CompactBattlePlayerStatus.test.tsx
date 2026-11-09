@@ -117,6 +117,46 @@ describe("사냥터 캐릭터 정보", () => {
     const third = renderPlayerStatus();
     expect(third.container.querySelector("details")?.open).toBe(true);
   });
+  it("접힌 요약의 직업 아래에 다음 전직 숙련도를 필요값별로 보여준다", async () => {
+    const { container } = render(
+      <CompactBattlePlayerStatus
+        name="을아"
+        subtitle="전투 Lv 100 / 100 · 고해사제"
+        hp={{ hp: 120, maxHp: 200 }}
+        exp={0}
+        maxExp={1}
+        hpCharges={1}
+        mpCharges={0}
+        proficiency={4_110}
+        advanceTargets={[
+          { required: 2_500, jobNames: ["마검사"] },
+          {
+            required: 4_500,
+            jobNames: ["대마법사", "화염 마법사", "냉기 마법사"],
+          },
+          { required: 18_000, jobNames: ["속죄주교"] },
+        ]}
+      >
+        <div>펼친 상세 정보</div>
+      </CompactBattlePlayerStatus>,
+    );
+
+    const summary = container.querySelector("summary");
+    if (!summary) throw new Error("summary not found");
+    fireEvent.click(summary);
+    await waitFor(() =>
+      expect(container.querySelector("details")?.open).toBe(false),
+    );
+
+    const lines = Array.from(
+      summary.querySelectorAll("[data-next-advance]"),
+    ).map((el) => el.textContent);
+    expect(lines).toEqual([
+      "다음 전직 2,500 달성 · 마검사",
+      "다음 전직 4,110/4,500 · 대마법사 외 2",
+      "다음 전직 4,110/18,000 · 속죄주교",
+    ]);
+  });
 });
 
 function renderPlayerStatus() {

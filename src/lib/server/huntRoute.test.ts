@@ -200,6 +200,7 @@ import {
 } from "@/lib/server/savesKv";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { battleReplays } from "@/db/schema";
+import { BATCH_HUNT_REPLAY_KEEP_BATCHES } from "@/lib/server/battleReplayStore";
 import { kstWeekMondayKey } from "@/lib/kst";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -1114,6 +1115,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       expect.arrayContaining([
         expect.objectContaining({ log: expect.any(Array) }),
       ]),
+      { keepLatestBatches: BATCH_HUNT_REPLAY_KEEP_BATCHES },
     );
     expect(
       deferLongBattleReplays.mock.calls[0]?.[2] as unknown[],

@@ -4,6 +4,7 @@ import {
   blacksmithFocusLabel,
   blacksmithSpecialtyLabel,
   blacksmithStructureLabel,
+  bulkDismantleTargets,
   matchesDismantleScopeFilter,
   matchesDismantleTierFilter,
   workshopEquipmentCodexStatus,
@@ -121,5 +122,42 @@ describe("blacksmith specialization labels", () => {
     expect(ERROR_TEXT.insufficient_catalyst).toContain("촉매");
     expect(ERROR_TEXT.pending_inspection).toContain("최종 검수");
     expect(ERROR_TEXT.inspection_not_found).toContain("검수");
+  });
+});
+
+describe("bulk dismantle targets (#840)", () => {
+  const items = [
+    candidate(8, { iid: "plain", craftQualityLevel: 0 }),
+    candidate(8, { iid: "star1", craftQualityLevel: 1 }),
+    candidate(8, { iid: "star2", craftQualityLevel: 2 }),
+    candidate(8, { iid: "blocked", canDismantle: false }),
+    candidate(8, { iid: "master", craftQualityLevel: 1, masterwork: true }),
+    candidate(8, { iid: "enhanced", enhanceLevel: 3 }),
+    candidate(8, {
+      iid: "liberated",
+      liberation: { rank: 1, lineCount: 1, revision: 1, options: [] },
+    }),
+  ];
+
+  it("keeps only dismantlable items at or below the chosen quality", () => {
+    expect(bulkDismantleTargets(items, 0).map((item) => item.iid)).toEqual([
+      "plain",
+    ]);
+    expect(bulkDismantleTargets(items, 1).map((item) => item.iid)).toEqual([
+      "plain",
+      "star1",
+    ]);
+    expect(bulkDismantleTargets(items, 2).map((item) => item.iid)).toEqual([
+      "plain",
+      "star1",
+      "star2",
+    ]);
+  });
+
+  it("never sweeps masterwork, enhanced or enchanted equipment", () => {
+    const iids = bulkDismantleTargets(items, 2).map((item) => item.iid);
+    expect(iids).not.toContain("master");
+    expect(iids).not.toContain("enhanced");
+    expect(iids).not.toContain("liberated");
   });
 });

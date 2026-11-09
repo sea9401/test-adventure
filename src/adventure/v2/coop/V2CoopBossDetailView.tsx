@@ -2,7 +2,8 @@
 
 // 협동 보스 상세 — 소환된 보스 인스턴스 하나의 토벌 화면(sessionId 단위, #714).
 // 구조(옛 레이드 화면의 v2 이식): 보스 일러스트·이름·HP 숫자/바·플레이버 → 공격 버튼 →
-// 참전자 명단(내 줄 강조) → 최근 공격. 전투 로그는 별도 페이지에서 본다.
+// 참전자 명단(내 줄 강조) → 최근 공격. 공격 직후에는 이 화면에 결과 요약만 남기고
+// (재공격·보상 수령을 바로 이어서) 전투 로그는 요약의 버튼으로 별도 페이지에서 본다.
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -37,6 +38,10 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { CombatMatchupSummary } from "@/adventure/battle/CombatMatchupSummary";
 import { CoopRecentAttackList } from "./CoopRecentAttackList";
+import {
+  CoopLastAttackSummary,
+  type CoopLastAttackSummaryData,
+} from "./CoopLastAttackSummary";
 import { TrackingThreatMeter } from "./TrackingThreatMeter";
 import { InvincibleFortressStatus } from "./InvincibleFortressStatus";
 import { SkywardCrystalEyeStatus } from "./SkywardCrystalEyeStatus";
@@ -93,6 +98,8 @@ export function V2CoopBossDetailView({
     setStamina,
   });
   const [now, setNow] = useState(() => Date.now());
+  const [lastAttack, setLastAttack] =
+    useState<CoopLastAttackSummaryData | null>(null);
   // 기여도 기준 안내 모달 — 헤더 우측 버튼으로 연다.
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   useEscapeKey(() => setCriteriaOpen(false));
@@ -103,7 +110,7 @@ export function V2CoopBossDetailView({
 
   const handleAttack = async (support = false) => {
     const result = await attack(support);
-    if (result) onOpenAttackLog(result.attackId);
+    if (result) setLastAttack(result);
   };
 
   if (missing) {
@@ -375,6 +382,12 @@ export function V2CoopBossDetailView({
                 ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`
                 : "기준 미달 확인"}
           </button>
+        )}
+        {lastAttack && (
+          <CoopLastAttackSummary
+            result={lastAttack}
+            onOpenAttackLog={onOpenAttackLog}
+          />
         )}
         {my.damage > 0 && (
           <p className="text-xs text-zinc-600 dark:text-zinc-300">

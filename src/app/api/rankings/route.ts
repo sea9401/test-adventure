@@ -210,7 +210,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
 }
 
 async function fetchLifeMasteryRows(): Promise<RankRow[]> {
-  const result = await db.execute(sql`
+  const result = await profileAsyncStage("ranking.lifeMastery.database", () => db.execute(sql`
     SELECT
       u.id AS user_id,
       u.banned_until AS "bannedUntil",
@@ -237,7 +237,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
     WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
-  `);
+  `));
   type DbRow = {
     user_id: string;
     bannedUntil: Date | string | null;
@@ -250,8 +250,8 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     cooking_save: unknown;
     updated_at: Date | string;
   };
-  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
-    .map((r) => {
+  return profileAsyncStage("ranking.lifeMastery.compute", async () => {
+    const scored = await mapWithCooperativeYield(filterRankingEligibleRows(result.rows as unknown as DbRow[]), (r) => {
       const mastery = lifeMasteryRankingFromSaves({
         farmRaw: r.farm_save,
         woodcuttingRaw: r.woodcutting_save,
@@ -278,35 +278,37 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
         totalXp: mastery.totalXp,
         updatedAtMs: new Date(r.updated_at).getTime(),
       };
-    })
-    .sort(
-      (a, b) =>
-        b.lifeMastery - a.lifeMastery ||
-        b.totalXp - a.totalXp ||
-        a.updatedAtMs - b.updatedAtMs ||
-        a.userId.localeCompare(b.userId),
-    )
-    .map((r, index) => ({
-      userId: r.userId,
-      name: r.name,
-      avatar: r.avatar,
-      level: r.level,
-      cumLevel: r.cumLevel,
-      paragonLevel: r.paragonLevel,
-      fame: r.fame,
-      combatPower: r.combatPower,
-      lifeMastery: r.lifeMastery,
-      codexCollected: r.codexCollected,
-      codexTotal: r.codexTotal,
-      masteryTowerFloor: r.masteryTowerFloor,
-      weekHighest: r.weekHighest,
-      challengeHighest: r.challengeHighest,
-      rank: index + 1,
-    }));
+    });
+    return scored
+      .sort(
+        (a, b) =>
+          b.lifeMastery - a.lifeMastery ||
+          b.totalXp - a.totalXp ||
+          a.updatedAtMs - b.updatedAtMs ||
+          a.userId.localeCompare(b.userId),
+      )
+      .map((r, index) => ({
+        userId: r.userId,
+        name: r.name,
+        avatar: r.avatar,
+        level: r.level,
+        cumLevel: r.cumLevel,
+        paragonLevel: r.paragonLevel,
+        fame: r.fame,
+        combatPower: r.combatPower,
+        lifeMastery: r.lifeMastery,
+        codexCollected: r.codexCollected,
+        codexTotal: r.codexTotal,
+        masteryTowerFloor: r.masteryTowerFloor,
+        weekHighest: r.weekHighest,
+        challengeHighest: r.challengeHighest,
+        rank: index + 1,
+      }));
+  });
 }
 
 async function fetchCodexCompletionRows(): Promise<RankRow[]> {
-  const result = await db.execute(sql`
+  const result = await profileAsyncStage("ranking.codexCompletion.database", () => db.execute(sql`
     SELECT
       u.id AS user_id,
       u.banned_until AS "bannedUntil",
@@ -345,7 +347,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
     WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
-  `);
+  `));
   type DbRow = {
     user_id: string;
     bannedUntil: Date | string | null;
@@ -362,8 +364,8 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     fishing_codex_save: unknown;
     updated_at: Date | string;
   };
-  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
-    .map((r) => {
+  return profileAsyncStage("ranking.codexCompletion.compute", async () => {
+    const scored = await mapWithCooperativeYield(filterRankingEligibleRows(result.rows as unknown as DbRow[]), (r) => {
       const codex = codexCompletionRankingFromSaves({
         characterRaw: r.character_save,
         proficiencyRaw: r.proficiency_save,
@@ -393,30 +395,32 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
         rank: 0,
         updatedAtMs: new Date(r.updated_at).getTime(),
       };
-    })
-    .sort(
-      (a, b) =>
-        b.codexCollected - a.codexCollected ||
-        a.updatedAtMs - b.updatedAtMs ||
-        a.userId.localeCompare(b.userId),
-    )
-    .map((r, index) => ({
-      userId: r.userId,
-      name: r.name,
-      avatar: r.avatar,
-      level: r.level,
-      cumLevel: r.cumLevel,
-      paragonLevel: r.paragonLevel,
-      fame: r.fame,
-      combatPower: r.combatPower,
-      lifeMastery: r.lifeMastery,
-      codexCollected: r.codexCollected,
-      codexTotal: r.codexTotal,
-      masteryTowerFloor: r.masteryTowerFloor,
-      weekHighest: r.weekHighest,
-      challengeHighest: r.challengeHighest,
-      rank: index + 1,
-    }));
+    });
+    return scored
+      .sort(
+        (a, b) =>
+          b.codexCollected - a.codexCollected ||
+          a.updatedAtMs - b.updatedAtMs ||
+          a.userId.localeCompare(b.userId),
+      )
+      .map((r, index) => ({
+        userId: r.userId,
+        name: r.name,
+        avatar: r.avatar,
+        level: r.level,
+        cumLevel: r.cumLevel,
+        paragonLevel: r.paragonLevel,
+        fame: r.fame,
+        combatPower: r.combatPower,
+        lifeMastery: r.lifeMastery,
+        codexCollected: r.codexCollected,
+        codexTotal: r.codexTotal,
+        masteryTowerFloor: r.masteryTowerFloor,
+        weekHighest: r.weekHighest,
+        challengeHighest: r.challengeHighest,
+        rank: index + 1,
+      }));
+  });
 }
 
 async function fetchAchievementRows(): Promise<RankRow[]> {

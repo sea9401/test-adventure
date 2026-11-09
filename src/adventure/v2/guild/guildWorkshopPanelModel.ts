@@ -415,6 +415,8 @@ export const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   not_crafted: `고유 장비와 필드 사냥 외 콘텐츠 장비는 재료를 회수할 수 없습니다. 제작품과 필드 사냥 일반 장비(구간 재료 ${GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS}개)만 해체할 수 있습니다.`,
   low_tier: "2T 미만 장비는 제작 재료를 회수할 수 없습니다.",
   no_material: "회수할 제작 재료가 없습니다.",
+  nothing_to_dismantle: "해체할 수 있는 장비가 없습니다. 목록을 새로 불러왔습니다.",
+  invalid_iids: "한 번에 해체할 수 있는 장비 수를 넘었습니다.",
 };
 
 export function emptyWorkshopStats(): WorkshopStatsView {
@@ -881,6 +883,24 @@ export function dismantleRewardTotal(item: DismantleCandidateView): number {
   return Object.values(item.rewards).reduce(
     (sum, amount) => sum + Math.max(0, Math.floor(Number(amount) || 0)),
     0,
+  );
+}
+
+/** 일괄 해체 품질 기준 — 0=일반만, 1=★ 이하, 2=★★ 이하. */
+export type BulkDismantleQualityMax = 0 | 1 | 2;
+
+/** 일괄 해체 대상(#840). 명장·강화·마법부여 장비는 실수로 쓸어 담지 않도록 늘 뺀다. */
+export function bulkDismantleTargets(
+  candidates: readonly DismantleCandidateView[],
+  qualityMax: BulkDismantleQualityMax,
+): DismantleCandidateView[] {
+  return candidates.filter(
+    (item) =>
+      item.canDismantle &&
+      item.craftQualityLevel <= qualityMax &&
+      !item.masterwork &&
+      item.enhanceLevel <= 0 &&
+      !item.liberation,
   );
 }
 

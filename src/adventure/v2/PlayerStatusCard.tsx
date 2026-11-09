@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import {
+  nextAdvanceLineText,
+  type NextAdvanceProficiencyTarget,
+} from "@/adventure/data/v2/v2JobCatalog";
+import {
   PlayerAvatar,
   type BattlePlayerStatus,
   type BattleStats,
@@ -181,6 +185,7 @@ export function PlayerStatusCard({
   combat,
   primaryAttack = "physical",
   proficiency = null,
+  advanceTargets = [],
 }: {
   gender: Gender;
   name: string;
@@ -200,6 +205,8 @@ export function PlayerStatusCard({
   primaryAttack?: "physical" | "magic";
   // 현재 전직 중인 구체 직업의 숙련도. null/미전달 = 모험가(무직업) → 줄 생략.
   proficiency?: number | null;
+  // 다음 전직 숙련도 목표(필요값별). 비어 있으면 줄 생략.
+  advanceTargets?: NextAdvanceProficiencyTarget[];
 }) {
   const expValue = Math.max(0, exp ?? 0);
   const expMax = maxExp && maxExp > 0 ? maxExp : expValue + 1;
@@ -231,6 +238,18 @@ export function PlayerStatusCard({
               <span className="font-semibold tabular-nums text-sky-500">
                 {proficiency.toLocaleString()}
               </span>
+            </div>
+          )}
+          {proficiency != null && advanceTargets.length > 0 && (
+            <div className="-mt-1 space-y-0.5">
+              {advanceTargets.map((target) => (
+                <div
+                  key={target.required}
+                  className="truncate text-[12px] leading-tight tabular-nums text-zinc-500 dark:text-zinc-400"
+                >
+                  {nextAdvanceLineText(target, proficiency)}
+                </div>
+              ))}
             </div>
           )}
           <div className="space-y-1">

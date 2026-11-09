@@ -32,7 +32,7 @@ const ERRORS: Record<string, string> = {
   battle_required: "현재 지점의 전투를 완료해 주세요.", unauthorized: "로그인 상태를 확인해 주세요.",
   invalid_difficulty: "선택할 수 없는 난이도입니다.",
 };
-const DIFFICULTY_OPTIONS = SANCTUARY_DIFFICULTIES.map((key) => ({ key, label: SANCTUARY_DIFFICULTY_LABELS[key] }));
+const DIFFICULTY_OPTIONS = SANCTUARY_DIFFICULTIES.map((key) => ({ key, label: SANCTUARY_DIFFICULTY_LABELS[key], tone: key === "hard" ? "danger" as const : "safe" as const }));
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 const DIFFICULTY_REQUIRED = "난이도를 먼저 선택해 주세요.";
 function RewardRates({ difficulty }: { difficulty: SanctuaryDifficulty | null }) {

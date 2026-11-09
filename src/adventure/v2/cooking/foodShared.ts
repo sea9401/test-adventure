@@ -25,7 +25,10 @@ export const COOKING_QUALITY_DELIVERY: Record<CookingQuality, 100 | 125 | 160 | 
 export const COOKING_QUALITY_RANK: Record<CookingQuality, number> = { normal: 0, careful: 1, masterpiece: 2, signature: 3 };
 // 걸작까지는 기존 상한 135, 명장만 150까지 오른다.
 const PERFORMANCE_CAP: Record<CookingQuality, number> = { normal: 135, careful: 135, masterpiece: 135, signature: 150 };
-const COMBAT_CAPS: Record<CookingCombatFlatKey, number> = { atk: 300, magicAtk: 300, def: 300, magicDef: 300, maxHp: 3_000, maxMp: 1_000, accuracy: 300 };
+// 고정 수치 상한 = 5티어 기본값 × 최대 성능 150%. 기본값과 같으면 5티어에서 품질 보정이 잘린다(건의 #839).
+// 능력치 %(5%)와 사냥·요리 보상(15%)은 설계상 제한이라 그대로 둔다.
+const COMBAT_CAPS: Record<CookingCombatFlatKey, number> = { atk: 450, magicAtk: 450, def: 450, magicDef: 450, maxHp: 4_500, maxMp: 1_500, accuracy: 450 };
+const PRIMARY_FLAT_CAP = 48;
 
 function boundedInt(raw: unknown, cap: number): number { return Math.min(cap, Math.max(0, Math.round(Number(raw) || 0))); }
 function boundedDecimal(raw: unknown, cap: number): number { return Math.min(cap, Math.max(0, Math.round((Number(raw) || 0) * 10) / 10)); }
@@ -44,7 +47,7 @@ export function cookingPerformancePct(args: { quality: CookingQuality; originato
 
 export function scaleCookingEffect(effect: CookingEffect, args: { quality: CookingQuality; originator: boolean; specialtyBonusPct: number }): CookingEffect {
   const multiplier = cookingPerformancePct(args) / 100;
-  const primaryFlat = scaledRecord<V2StatKey>(effect.primaryFlat, multiplier, () => 40, false);
+  const primaryFlat = scaledRecord<V2StatKey>(effect.primaryFlat, multiplier, () => PRIMARY_FLAT_CAP, false);
   const primaryPct = scaledRecord<V2StatKey>(effect.primaryPct, multiplier, () => 5, true);
   const combatFlat = scaledRecord<CookingCombatFlatKey>(effect.combatFlat, multiplier, (key) => COMBAT_CAPS[key], false);
   const huntExpPct = boundedDecimal((effect.huntExpPct ?? 0) * multiplier, 15);

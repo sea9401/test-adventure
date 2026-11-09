@@ -13,6 +13,7 @@ export type GameIdentityState = Pick<
   | "viewerLevel"
   | "viewerLevelCap"
   | "viewerJobTier"
+  | "viewerJobId"
   | "viewerClass"
   | "viewerExp"
   | "viewerExpToNext"

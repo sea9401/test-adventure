@@ -16,16 +16,19 @@ import {
   MasterworkBadge,
   LiberationBadge,
 } from "../V2ItemCard";
+import { Button } from "@/components/ui/Button";
 import { confirmGameAction } from "@/components/ui/gameDialog";
 import { boundEquipmentDisposalConfirmation } from "../item-card/shared";
 import {
   DISMANTLE_ERROR_TEXT,
+  bulkDismantleTargets,
   dismantleBlockedText,
   dismantleRewardTotal,
   matchesDismantleScopeFilter,
   matchesDismantleTierFilter,
   workshopEquipmentTierLabel,
   workshopMaterialRewardText,
+  type BulkDismantleQualityMax,
   type DismantleCandidateView,
   type DismantleResultView,
   type DismantleScopeFilter,
@@ -33,6 +36,15 @@ import {
   type DismantleState,
   type DismantleTierFilter,
 } from "./guildWorkshopPanelModel";
+
+/** 일괄 해체 한 번에 보낼 최대 장비 수. 서버 상한과 같다. */
+const BULK_DISMANTLE_MAX = 200;
+
+const BULK_QUALITY_LABEL: Record<BulkDismantleQualityMax, string> = {
+  0: "일반 품질만",
+  1: "★ 이하",
+  2: "★★ 이하",
+};
 
 // 장비 해체 패널 — GuildWorkshopPanel 의 dismantle 모드 클러스터(상태 8종 + 로드 +
 // 해체 mutation + 카드 JSX)를 분리(2026-07, #1196~1200 패널 분해 패턴의 연장).
@@ -65,6 +77,9 @@ export function WorkshopDismantlePanel({
   const [dismantleTierFilter, setDismantleTierFilter] =
     useState<DismantleTierFilter>("all");
   const [dismantleSort, setDismantleSort] = useState<DismantleSortMode>("tier");
+  const [bulkQualityMax, setBulkQualityMax] =
+    useState<BulkDismantleQualityMax>(0);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const loadDismantle = useCallback(async () => {
     setDismantleLoading(true);
@@ -132,6 +147,117 @@ export function WorkshopDismantlePanel({
     40,
     `${dismantleScopeFilter}:${dismantleTierFilter}:${dismantleSort}`,
   );
+
+  const bulkTargets = useMemo(
+    () =>
+      bulkDismantleTargets(filteredDismantleCandidates, bulkQualityMax).slice(
+        0,
+        BULK_DISMANTLE_MAX,
+      ),
+    [filteredDismantleCandidates, bulkQualityMax],
+  );
+  const busyAny = dismantleBusyIid != null || bulkBusy || dismantleLoading;
+
+  async function dismantleBulk() {
+    const targets = bulkTargets;
+    if (targets.length === 0) return;
+    const expectedRewards: Record<string, number> = {};
+    let expectedXp = 0;
+    for (const item of targets) {
+      for (const [id, amount] of Object.entries(item.rewards)) {
+        expectedRewards[id] = (expectedRewards[id] ?? 0) + amount;
+      }
+      expectedXp += item.artisanXp;
+    }
+    const confirmed = await confirmGameAction({
+      title: "일괄 해체",
+      message: [
+        `${BULK_QUALITY_LABEL[bulkQualityMax]} 장비 ${targets.length}개를 해체합니다.`,
+        `회수 · ${workshopMaterialRewardText(expectedRewards)}`,
+        ...(expectedXp > 0
+          ? [`대장장이 숙련도 +${expectedXp.toLocaleString()}`]
+          : []),
+        "",
+        "해체한 장비는 되돌릴 수 없습니다.",
+      ].join("\n"),
+      confirmLabel: `${targets.length}개 해체`,
+      tone: "danger",
+    });
+    if (!confirmed) return;
+
+    setBulkBusy(true);
+    setDismantleMessage(null);
+    setDismantleResult(null);
+    try {
+      const iids = targets.map((item) => item.iid);
+      const requestBulk = async (confirmBound: boolean) => {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            iids,
+            ...(confirmBound ? { confirmBound: true } : {}),
+          }),
+        });
+        return res.json();
+      };
+      let json = await requestBulk(false);
+      if (
+        json.error === "bound_confirmation_required" &&
+        Array.isArray(json.items)
+      ) {
+        if (
+          !(await confirmGameAction(
+            boundEquipmentDisposalConfirmation(json.items, "해체"),
+          ))
+        ) {
+          return;
+        }
+        json = await requestBulk(true);
+      }
+      if (!json.ok) {
+        setDismantleMessage(
+          DISMANTLE_ERROR_TEXT[json.error ?? ""] ?? "해체에 실패했습니다.",
+        );
+        await loadDismantle();
+        return;
+      }
+      const count = Math.max(0, Math.floor(Number(json.dismantledCount) || 0));
+      const skipped = Math.max(0, Math.floor(Number(json.skippedCount) || 0));
+      const xp = Math.max(0, Math.floor(Number(json.artisanXp) || 0));
+      const text = [
+        `${count.toLocaleString()}개`,
+        workshopMaterialRewardText(json.rewards ?? {}),
+        ...(xp > 0 ? [`숙련도 +${xp.toLocaleString()}`] : []),
+        ...(skipped > 0 ? [`건너뜀 ${skipped.toLocaleString()}개`] : []),
+      ].join(" · ");
+      setDismantleMessage(`일괄 해체 완료 · ${text}`);
+      notifyReward("일괄 해체 완료", text);
+      onWorkshopSync({ materials: json.materials, artisan: json.artisan });
+      const removed = new Set<string>(
+        Array.isArray(json.dismantledItems)
+          ? json.dismantledItems.map((item: { iid: string }) => item.iid)
+          : [],
+      );
+      setDismantle((prev) =>
+        prev
+          ? {
+              ...prev,
+              materials: json.materials ?? prev.materials,
+              candidates: prev.candidates.filter(
+                (item) => !removed.has(item.iid),
+              ),
+            }
+          : prev,
+      );
+      void loadDismantle();
+    } catch {
+      setDismantleMessage("해체에 실패했습니다.");
+      await loadDismantle();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function dismantleEquipment(iid: string) {
     setDismantleBusyIid(iid);
@@ -287,6 +413,38 @@ export function WorkshopDismantlePanel({
           {(dismantle?.candidates.filter((item) => item.canDismantle).length ?? 0).toLocaleString()}개
         </span>
       </div>
+      <div className="mb-2 flex flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+        <select
+          aria-label="일괄 해체 품질 기준"
+          value={bulkQualityMax}
+          onChange={(e) =>
+            setBulkQualityMax(Number(e.target.value) as BulkDismantleQualityMax)
+          }
+          className="min-h-10 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 sm:min-h-8 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        >
+          {([0, 1, 2] as const).map((level) => (
+            <option key={level} value={level}>
+              {BULK_QUALITY_LABEL[level]}
+            </option>
+          ))}
+        </select>
+        <Button
+          variant="danger"
+          size="xs"
+          disabled={bulkTargets.length === 0 || busyAny}
+          onClick={() => void dismantleBulk()}
+        >
+          {bulkBusy ? (
+            <SpinnerGap size={14} className="animate-spin" aria-hidden />
+          ) : null}
+          {bulkTargets.length.toLocaleString()}개 일괄 해체
+        </Button>
+        <span className="basis-full text-zinc-500 dark:text-zinc-400">
+          위 필터에 보이는 해체 가능 장비 중 고른 품질 이하를 한 번에 해체합니다.
+          명장·강화·마법부여 장비는 빠지며 한 번에 최대{" "}
+          {BULK_DISMANTLE_MAX}개까지 처리합니다.
+        </span>
+      </div>
       {dismantleMessage ? (
         <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {dismantleMessage}
@@ -364,8 +522,7 @@ export function WorkshopDismantlePanel({
                   disabled={
                     !item.canDismantle ||
                     busy ||
-                    dismantleBusyIid != null ||
-                    dismantleLoading
+                    busyAny
                   }
                   onClick={() => void dismantleEquipment(item.iid)}
                   className="shrink-0 rounded border border-rose-700 bg-rose-700 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"

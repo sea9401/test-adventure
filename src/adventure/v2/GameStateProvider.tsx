@@ -233,6 +233,8 @@ export type GameStateValue = {
   viewerLevel: number;
   viewerLevelCap: number | null;
   viewerJobTier: number | null;
+  // 현재 직업 id(jobsV2.currentJobId) — 사냥 화면 캐릭터 카드의 다음 전직 숙련도 표기용.
+  viewerJobId: string | null;
   viewerClass: string;
   viewerExp: number;
   viewerExpToNext: number;
@@ -392,6 +394,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
   const [viewerJobTier, setViewerJobTier] = useState<number | null>(null);
+  const [viewerJobId, setViewerJobId] = useState<string | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
   const [viewerExp, setViewerExp] = useState(0);
   const [viewerExpToNext, setViewerExpToNext] = useState(1);
@@ -646,6 +649,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           ? j.jobsV2.currentJobTier
           : null;
       setViewerJobTier(currentJobTier);
+      setViewerJobId(
+        typeof j.jobsV2?.currentJobId === "string" ? j.jobsV2.currentJobId : null,
+      );
       // jobsV2.currentJobLevelCap 은 실제 전투 레벨 상한이 아니라 전직 요구 레벨이다.
       // 생산직에서는 1(레벨 제한 없음)이므로 전투 UI의 상한으로 사용하면 Lv N/1이 된다.
       setViewerLevelCap(
@@ -1102,6 +1108,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       viewerLevel,
       viewerLevelCap,
       viewerJobTier,
+      viewerJobId,
       viewerClass,
       viewerExp,
       viewerExpToNext,
@@ -1177,6 +1184,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerLevel,
     viewerLevelCap,
     viewerJobTier,
+    viewerJobId,
     viewerClass,
     viewerExp,
     viewerExpToNext,

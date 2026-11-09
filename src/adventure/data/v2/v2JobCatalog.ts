@@ -1857,6 +1857,50 @@ export function jobUnlockProgressText(
   });
 }
 
+export type NextAdvanceProficiencyTarget = {
+  required: number;
+  jobNames: string[];
+};
+
+// 사냥 화면 캐릭터 카드의 "다음 전직" 표기. 현재 직업을 선행으로 둔 직업을 현재 직업 숙련도
+//   필요값별로 묶어 낮은 값부터 돌려준다. 다른 선행 직업·추가 조건은 전직 화면에서 확인한다.
+export function nextAdvanceProficiencyTargets(
+  currentJobId: string | null | undefined,
+): NextAdvanceProficiencyTarget[] {
+  if (!currentJobId) return [];
+  const byRequired = new Map<number, string[]>();
+  for (const job of V2_JOB_LIST) {
+    if (!Object.prototype.hasOwnProperty.call(job.unlock.prereqs, currentJobId)) {
+      continue;
+    }
+    const required = job.unlock.prereqs[currentJobId] ?? 0;
+    byRequired.set(required, [...(byRequired.get(required) ?? []), job.name]);
+  }
+  return [...byRequired.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([required, jobNames]) => ({ required, jobNames }));
+}
+
+// "다음 전직 4,110/18,000 · 속죄주교". 직업이 셋 이상 묶이면 "대마법사 외 6"으로 줄인다.
+export function nextAdvanceLineText(
+  target: NextAdvanceProficiencyTarget,
+  proficiency: number,
+): string {
+  const [first, ...rest] = target.jobNames;
+  const names =
+    rest.length === 0
+      ? first
+      : rest.length === 1
+        ? `${first}·${rest[0]}`
+        : `${first} 외 ${rest.length}`;
+  const required = target.required.toLocaleString("ko-KR");
+  const progress =
+    proficiency >= target.required
+      ? `${required} 달성`
+      : `${proficiency.toLocaleString("ko-KR")}/${required}`;
+  return `다음 전직 ${progress} · ${names}`;
+}
+
 function unlockConditionText(
   job: V2JobDefinition,
   formatPrereq: (prereqJobId: string, required: number) => string,

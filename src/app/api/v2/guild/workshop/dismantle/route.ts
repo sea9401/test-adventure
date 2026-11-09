@@ -21,7 +21,6 @@ import {
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
-  removeInstance,
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
 import { associationFacilityLevel } from "@/lib/server/adventurerAssociation";
@@ -138,19 +137,37 @@ export async function GET(req: Request) {
   });
 }
 
+/** 일괄 해체 한 번에 받을 최대 장비 수(#840). */
+const GUILD_WORKSHOP_BULK_DISMANTLE_MAX = 200;
+
+function parseBulkIids(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length === 0 || raw.length > GUILD_WORKSHOP_BULK_DISMANTLE_MAX) {
+    return null;
+  }
+  if (!raw.every((value) => typeof value === "string" && value.length > 0)) {
+    return null;
+  }
+  return [...new Set(raw as string[])];
+}
+
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
-  let body: { iid?: unknown; confirmBound?: unknown };
+  let body: { iid?: unknown; iids?: unknown; confirmBound?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return bad("invalid_json");
   }
+  const bulk = body.iids !== undefined;
+  const bulkIids = bulk ? parseBulkIids(body.iids) : null;
+  if (bulk && !bulkIids) return bad("invalid_iids");
   const iid =
     typeof body.iid === "string" && body.iid.length > 0 ? body.iid : null;
-  if (!iid) return bad("invalid_iid");
+  if (!bulk && !iid) return bad("invalid_iid");
+  const requestedIids = bulkIids ?? [iid!];
 
   const association = new URL(req.url).searchParams.get("scope") === "association";
   const memberGuildId = await getGuildIdByUser(userId);
@@ -198,48 +215,78 @@ export async function POST(req: Request) {
       };
     }
 
-    const inst = parsed.owned.find((entry) => entry.iid === iid);
-    if (!inst) {
-      return { status: 400, body: { ok: false as const, error: "not_owned" } };
+    // 요청한 장비마다 해체 가능 여부를 판정한다. 단건 요청은 첫 실패를 그대로
+    // 돌려주고(기존 동작), 일괄 요청은 실패한 장비만 건너뛴다.
+    const accepted: {
+      inst: V2EquipInstance;
+      plan: ReturnType<typeof guildWorkshopDismantlePlan>;
+    }[] = [];
+    let skippedCount = 0;
+    for (const targetIid of requestedIids) {
+      const inst = parsed.owned.find((entry) => entry.iid === targetIid);
+      const item = inst ? V2_EQUIPMENT[inst.id] : undefined;
+      const plan =
+        inst && item
+          ? guildWorkshopDismantlePlan(item, inst, blacksmithLevel)
+          : null;
+      const error = !inst || !item || !plan
+        ? "not_owned"
+        : parsed.equipped[item.slot] === targetIid
+          ? "equipped"
+          : inst.locked
+            ? "locked"
+            : plan.blockedReason ??
+              (Object.keys(plan.materials).length === 0 ? "no_material" : null);
+      if (error) {
+        if (!bulk) {
+          return { status: 400, body: { ok: false as const, error } };
+        }
+        skippedCount += 1;
+        continue;
+      }
+      accepted.push({ inst: inst!, plan: plan! });
     }
-    const item = V2_EQUIPMENT[inst.id];
-    if (parsed.equipped[item.slot] === iid) {
-      return { status: 400, body: { ok: false as const, error: "equipped" } };
-    }
-    if (inst.locked) {
-      return { status: 400, body: { ok: false as const, error: "locked" } };
-    }
-    if (inst.bound && body.confirmBound !== true) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "bound_confirmation_required" as const,
-          item: boundEquipmentDisposalView(inst),
-        },
-      };
-    }
-    const plan = guildWorkshopDismantlePlan(item, inst, blacksmithLevel);
-    if (plan.blockedReason || Object.keys(plan.materials).length === 0) {
+    if (accepted.length === 0) {
       return {
         status: 400,
-        body: {
-          ok: false as const,
-          error: plan.blockedReason ?? "no_material",
-        },
+        body: { ok: false as const, error: "nothing_to_dismantle" as const },
       };
     }
 
-    const nextMaterials = addGuildWorkshopMaterials(
-      parseGuildWorkshopMaterialInventory(charRaw.materials),
-      plan.materials,
-    );
+    const boundItems = accepted.filter(({ inst }) => inst.bound);
+    if (boundItems.length > 0 && body.confirmBound !== true) {
+      const items = boundItems.map(({ inst }) => boundEquipmentDisposalView(inst));
+      return {
+        status: 409,
+        body: bulk
+          ? {
+              ok: false as const,
+              error: "bound_confirmation_required" as const,
+              items,
+            }
+          : {
+              ok: false as const,
+              error: "bound_confirmation_required" as const,
+              item: items[0],
+            },
+      };
+    }
+
+    let nextMaterials = parseGuildWorkshopMaterialInventory(charRaw.materials);
+    let totalRewards: Record<string, number> = {};
+    let totalArtisanXp = 0;
+    for (const { plan } of accepted) {
+      nextMaterials = addGuildWorkshopMaterials(nextMaterials, plan.materials);
+      totalRewards = addGuildWorkshopMaterials(totalRewards, plan.materials);
+      totalArtisanXp += plan.artisanXp;
+    }
     const nextArtisan = addArtisanXpOnly(
       currentArtisan,
       "blacksmith",
-      plan.artisanXp,
+      totalArtisanXp,
     );
-    const { owned: nextOwned } = removeInstance(parsed.owned, iid);
+    const removeIids = new Set(accepted.map(({ inst }) => inst.iid));
+    const nextOwned = parsed.owned.filter((entry) => !removeIids.has(entry.iid));
     await upsertSave(tx, userId, "character.v2", {
       ...charRaw,
       materials: nextMaterials,
@@ -253,20 +300,33 @@ export async function POST(req: Request) {
       artisan: nextArtisan,
     });
 
+    const equippedIids = new Set(Object.values(parsed.equipped).filter(Boolean));
+    const dismantledItems = accepted.map(({ inst }) =>
+      candidateView(inst, equippedIids, blacksmithLevel),
+    );
+    const shared = {
+      materials: nextMaterials,
+      artisan: artisanView({ ...craftingRaw, artisan: nextArtisan }),
+      owned: nextOwned,
+      equipped: parsed.equipped,
+    };
     return {
       status: 200,
-      body: {
-        ok: true as const,
-        dismantled: candidateView(
-          inst,
-          new Set(Object.values(parsed.equipped).filter(Boolean)),
-          blacksmithLevel,
-        ),
-        materials: nextMaterials,
-        artisan: artisanView({ ...craftingRaw, artisan: nextArtisan }),
-        owned: nextOwned,
-        equipped: parsed.equipped,
-      },
+      body: bulk
+        ? {
+            ok: true as const,
+            dismantledItems,
+            dismantledCount: dismantledItems.length,
+            skippedCount,
+            rewards: totalRewards,
+            artisanXp: totalArtisanXp,
+            ...shared,
+          }
+        : {
+            ok: true as const,
+            dismantled: dismantledItems[0],
+            ...shared,
+          },
     };
   });
 

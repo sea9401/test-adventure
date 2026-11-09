@@ -217,6 +217,14 @@ describe("guild workshop recipe equipment codex badge", () => {
     expect(html).toContain("이 장비에는 조정 가능한 옵션 성향이 없습니다.");
     expect(html).not.toContain("성향 사용 안 함");
   });
+  it("제작 횟수 선택지(1~50회)를 보여 준다 (#840)", () => {
+    const html = renderWorkshop(new Set());
+    expect(html).toContain("제작 횟수");
+    for (const count of [1, 5, 10, 20, 50]) {
+      expect(html).toContain(`>${count}회</option>`);
+    }
+  });
+
   it("shows normal and masterwork crafting fees", () => {
     const html = renderWorkshop(new Set());
     expect(html).toContain("제작 수수료: 10,000 G");

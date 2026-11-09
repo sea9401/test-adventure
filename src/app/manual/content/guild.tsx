@@ -645,6 +645,16 @@ export function GuildContent() {
           <Em>{GUILD_WORKSHOP_FIELD_DISMANTLE_MATERIALS}개</Em> 돌려받습니다.
         </li>
         <li>
+          제작 탭의 <Em>제작 횟수</Em>로 같은 장비를 최대 50회까지 이어서
+          만들 수 있습니다. 재료나 골드가 모자라면 그 자리에서 멈추고, 제작
+          중 버튼을 다시 누르면 중지합니다.
+        </li>
+        <li>
+          해체 탭의 <Em>일괄 해체</Em>는 필터에 보이는 해체 가능 장비 중 고른
+          품질(일반·★·★★) 이하를 한 번에 최대 200개까지 해체합니다. 명장·강화·
+          마법부여 장비는 일괄 해체에서 빠집니다.
+        </li>
+        <li>
           일일 제작 납품은 매일 00:00 KST에 초기화됩니다. 대장장이 Lv10
           이상에 만든 명장 제작품은 기존 명장 보너스에 더해{" "}
           <Em>납품 보너스 +{GUILD_WORKSHOP_MASTER_MARK_DELIVERY_BONUS_PCT}%</Em>를

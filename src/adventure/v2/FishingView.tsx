@@ -42,6 +42,7 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -517,9 +518,9 @@ export function FishingView({
         }
         setResult(outcome);
         setPhase("result");
-      } catch {
+      } catch (caught) {
         if (!mounted.current) return;
-        setError("낚시 처리 중 문제가 생겼다.");
+        setError(sharedNetworkLimitMessage(caught) ?? "낚시 처리 중 문제가 생겼다.");
         setPhase("result");
       }
     },
@@ -570,7 +571,7 @@ export function FishingView({
         setPhase("idle");
         return;
       }
-      setError("찌를 던지지 못했다. 잠시 후 다시 시도해 보자.");
+      setError(sharedNetworkLimitMessage(caught) ?? "찌를 던지지 못했다. 잠시 후 다시 시도해 보자.");
       setPhase("idle");
     }
   }, [activeAutoActivity, cast, cooldownRemainingSec, handleCooldownError, onBite]);

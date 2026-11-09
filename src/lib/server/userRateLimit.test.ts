@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SHARED_NETWORK_LIMIT_ERROR } from "@/adventure/v2/sharedNetworkLimit";
 import {
   checkUserRateLimit,
   enforceUserAndIpRateLimit,
@@ -172,7 +173,7 @@ describe("userRateLimit", () => {
     }
   });
 
-  it("동일 IP의 생활 콘텐츠 4번째 계정부터 해당 IP 전체를 제한한다", () => {
+  it("동일 IP의 생활 콘텐츠 4번째 계정부터 해당 IP 전체를 제한한다", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const req = new Request("https://example.test", {
@@ -190,16 +191,21 @@ describe("userRateLimit", () => {
           }),
         ).toBeNull();
       }
-      expect(
-        enforceUserAndIpRateLimit(req, {
-          userId: "u4",
-          action: "v2:farming:mutation",
-          userLimit: 30,
-          ipLimit: 180,
-          windowMs: 60_000,
-          now: 2_000,
-        })?.status,
-      ).toBe(429);
+      const fanout = enforceUserAndIpRateLimit(req, {
+        userId: "u4",
+        action: "v2:farming:mutation",
+        userLimit: 30,
+        ipLimit: 180,
+        windowMs: 60_000,
+        now: 2_000,
+      });
+      expect(fanout?.status).toBe(429);
+      // 일반 요청 제한과 구분해 화면이 이유와 남은 시간을 안내할 수 있게 한다.
+      expect(await fanout?.json()).toEqual({
+        ok: false,
+        error: SHARED_NETWORK_LIMIT_ERROR,
+        retryAfterSec: 600,
+      });
       expect(
         enforceUserAndIpRateLimit(req, {
           userId: "u1",

@@ -4,6 +4,10 @@ import {
 } from "@/lib/server/abuseLog";
 import { recordOpsSignal } from "@/lib/server/opsAlert";
 import {
+  SHARED_NETWORK_LIMIT_ERROR,
+  SHARED_NETWORK_LIMIT_WINDOW_MS,
+} from "@/adventure/v2/sharedNetworkLimit";
+import {
   getRateLimitStore,
   resetRateLimitStoreForTests,
   type RateLimitResult,
@@ -28,7 +32,7 @@ type UserAndIpRateLimitOptions = {
 
 const lastLimitedLogAt = new Map<string, number>();
 const LIMITED_LOG_INTERVAL_MS = 60_000;
-const LIFE_IP_FANOUT_WINDOW_MS = 10 * 60_000;
+const LIFE_IP_FANOUT_WINDOW_MS = SHARED_NETWORK_LIMIT_WINDOW_MS;
 const LIFE_IP_FANOUT_ACCOUNT_LIMIT = 3;
 
 type LifeIpFanoutBucket = {
@@ -201,8 +205,10 @@ function lifeIpFanoutResponse(args: {
       },
     });
   }
-  return userRateLimitResponse(
-    Math.max(1, Math.ceil((bucket.resetAt - args.now) / 1000)),
+  const retryAfterSec = Math.max(1, Math.ceil((bucket.resetAt - args.now) / 1000));
+  return Response.json(
+    { ok: false, error: SHARED_NETWORK_LIMIT_ERROR, retryAfterSec },
+    { status: 429, headers: { "Retry-After": String(retryAfterSec) } },
   );
 }
 

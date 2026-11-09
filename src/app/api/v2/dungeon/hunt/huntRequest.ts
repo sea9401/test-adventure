@@ -20,7 +20,7 @@ import { RunOneHuntCtx, runOneHunt } from "./huntExecution";
 import { parseHuntRequestIntent } from "./huntRequestIntent";
 import { broadcastHuntUniqueDrops } from "./huntResultEffects";
 import { db } from "@/db";
-import { deferLongBattleReplays } from "@/lib/server/battleReplayStore";
+import { BATCH_HUNT_REPLAY_KEEP_BATCHES, deferLongBattleReplays } from "@/lib/server/battleReplayStore";
 import {
   recordCodexMasteryGameplayBatch,
   type CodexMasteryGameplayEvent,
@@ -387,6 +387,7 @@ export async function handleHunt(req: Request, userId: string) {
       db,
       userId,
       entries.map((entry) => entry.replay),
+      { keepLatestBatches: BATCH_HUNT_REPLAY_KEEP_BATCHES },
     ));
     result.body.batch.replays = entries.map((entry, index) => ({
       ...entry,

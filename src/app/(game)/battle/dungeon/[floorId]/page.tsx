@@ -42,6 +42,7 @@ export default function DungeonFloorPage() {
     viewerExpToNext,
     playerSubtitle,
     viewerProficiency,
+    viewerJobId,
     stamina,
     staminaMax,
     adventureSupportActive,
@@ -118,6 +119,7 @@ export default function DungeonFloorPage() {
       initialMpCharges={mpCharges}
       playerSubtitle={playerSubtitle}
       playerProficiency={viewerProficiency}
+      playerJobId={viewerJobId}
       stamina={stamina}
       staminaMax={staminaMax}
       adventureSupportActive={adventureSupportActive}

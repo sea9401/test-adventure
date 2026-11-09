@@ -1,5 +1,6 @@
 "use client";
 
+import { lifeRequestError } from "./sharedNetworkLimit";
 import { useCallback, useEffect, useState } from "react";
 import type {
   MiningHandlers,
@@ -138,7 +139,7 @@ export function useMining(): MiningHandlers {
       if (!response.ok) {
         const active = parseAutoActivity(json?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
-        throw new Error("mining_start_failed");
+        throw lifeRequestError(json, "mining_start_failed");
       }
       const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
       const strikes = Math.max(1, Math.floor(Number(json?.strikes) || 0));
@@ -174,7 +175,7 @@ export function useMining(): MiningHandlers {
         if (!response.ok || !json?.ok) {
           const active = parseAutoActivity(json?.activeAutoActivity);
           if (active) setActiveAutoActivity(active);
-          throw new Error("mining_finish_failed");
+          throw lifeRequestError(json, "mining_finish_failed");
         }
         if (!json.success && json.reason === "not_ready" && attempt === 0) {
           await wait(Math.max(25, Math.floor(Number(json.retryAfterMs) || 0) + 25));
@@ -229,7 +230,7 @@ export function useMining(): MiningHandlers {
       if (!response.ok || !json?.ok) {
         const active = parseAutoActivity(json?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
-        throw new Error("mining_auto_start_failed");
+        throw lifeRequestError(json, "mining_auto_start_failed");
       }
       const session = parseAutoGatheringSessionView(json.autoSession, {
         serverNow: json.serverNow,
@@ -257,7 +258,7 @@ export function useMining(): MiningHandlers {
     setAutoLoading(true);
     try {
       const { response, json } = await requestAutoGathering("mining", { action: "claim" }, readJson);
-      if (!response.ok || !json?.ok) throw new Error("mining_auto_claim_failed");
+      if (!response.ok || !json?.ok) throw lifeRequestError(json, "mining_auto_claim_failed");
       if (json.levelCurveMigrated) {
         notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
       }
@@ -276,7 +277,7 @@ export function useMining(): MiningHandlers {
     setAutoLoading(true);
     try {
       const { response, json } = await requestAutoGathering("mining", { action: "cancel" }, readJson);
-      if (!response.ok || !json?.ok) throw new Error("mining_auto_cancel_failed");
+      if (!response.ok || !json?.ok) throw lifeRequestError(json, "mining_auto_cancel_failed");
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);

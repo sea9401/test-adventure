@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
+import {
+  nextAdvanceLineText,
+  type NextAdvanceProficiencyTarget,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 const HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY =
   "v2-hunt-player-status-expanded.v1";
@@ -36,6 +40,7 @@ export function CompactBattlePlayerStatus({
   hpCharges,
   mpCharges,
   proficiency = null,
+  advanceTargets = [],
   children,
 }: {
   name: string;
@@ -47,6 +52,7 @@ export function CompactBattlePlayerStatus({
   hpCharges: number;
   mpCharges: number;
   proficiency?: number | null;
+  advanceTargets?: NextAdvanceProficiencyTarget[];
   children: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -82,6 +88,16 @@ export function CompactBattlePlayerStatus({
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-semibold leading-tight text-zinc-800 dark:text-zinc-100">{name}</span>
               {subtitle && <span className="block truncate text-[12px] leading-tight text-zinc-500 dark:text-zinc-400">{subtitle}</span>}
+              {proficiency != null &&
+                advanceTargets.map((target) => (
+                  <span
+                    key={target.required}
+                    data-next-advance
+                    className="mt-0.5 block truncate text-[12px] leading-tight tabular-nums text-sky-600 dark:text-sky-400"
+                  >
+                    {nextAdvanceLineText(target, proficiency)}
+                  </span>
+                ))}
             </span>
             <span className="shrink-0 whitespace-nowrap text-right text-[0.6875rem] tabular-nums text-zinc-500 dark:text-zinc-400">
               <span className="block">HP {hp.hp.toLocaleString()} / {hp.maxHp.toLocaleString()}{mp && mp.maxMp > 0 ? ` · MP ${mp.mp.toLocaleString()} / ${mp.maxMp.toLocaleString()}` : ""}</span>

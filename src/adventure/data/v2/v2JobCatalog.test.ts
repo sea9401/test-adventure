@@ -38,6 +38,7 @@ import {
   jobUnlockSpBonus,
   jobUnlockConditionText,
   jobUnlockProgressText,
+  nextAdvanceProficiencyTargets,
   cumLevelForJob,
   highestVisitedFishingJobId,
   isFarmingJobId,
@@ -1749,6 +1750,26 @@ describe("jobUnlockProgressText (해금 조건 진행도 표기)", () => {
     expect(
       jobUnlockProgressText(V2_JOB_CATALOG.horticulturist, profWith({})),
     ).toContain(`농사 Lv ${FARMING_LEVEL_REQUIREMENTS.horticulturist}`);
+  });
+});
+
+describe("nextAdvanceProficiencyTargets (다음 전직 숙련도 목표)", () => {
+  it("현재 직업을 선행으로 둔 직업을 필요 숙련도별로 묶는다", () => {
+    expect(nextAdvanceProficiencyTargets("confessor")).toEqual([
+      { required: 18_000, jobNames: [V2_JOB_CATALOG.atonementbishop.name] },
+    ]);
+  });
+
+  it("필요 숙련도가 다르면 낮은 값부터 따로 보여준다", () => {
+    const targets = nextAdvanceProficiencyTargets("magus");
+    expect(targets.map((t) => t.required)).toEqual([2_500, 4_500]);
+    expect(targets[0].jobNames).toEqual([V2_JOB_CATALOG.spellblade.name]);
+    expect(targets[1].jobNames).toHaveLength(7);
+  });
+
+  it("다음 직업이 없거나 직업이 없으면 빈 목록", () => {
+    expect(nextAdvanceProficiencyTargets(null)).toEqual([]);
+    expect(nextAdvanceProficiencyTargets("unknown-job")).toEqual([]);
   });
 });
 

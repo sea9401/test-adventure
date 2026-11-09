@@ -26,6 +26,7 @@ import {
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 import { useActivityVerification } from "./useActivityVerification";
 import { useCallback, useEffect, useState } from "react";
+import { lifeRequestError } from "./sharedNetworkLimit";
 
 function parseLog(value: unknown): WoodcuttingLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -121,7 +122,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     if (!response.ok) {
       const active = parseAutoActivity(json?.activeAutoActivity);
       if (active) setActiveAutoActivity(active);
-      throw new Error("woodcutting_start_failed");
+      throw lifeRequestError(json, "woodcutting_start_failed");
     }
     const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
     const chops = Math.max(1, Math.floor(Number(json?.chops) || 0));
@@ -157,7 +158,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       if (!response.ok) {
         const active = parseAutoActivity(json?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
-        throw new Error("woodcutting_finish_failed");
+        throw lifeRequestError(json, "woodcutting_finish_failed");
       }
       if (!json?.ok) throw new Error("woodcutting_finish_failed");
       if (!json.success && json.reason === "not_ready" && attempt === 0) {
@@ -227,7 +228,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       if (!response.ok || !json?.ok) {
         const active = parseAutoActivity(json?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
-        throw new Error("woodcutting_auto_start_failed");
+        throw lifeRequestError(json, "woodcutting_auto_start_failed");
       }
       const session = parseAutoGatheringSessionView(json.autoSession, {
         serverNow: json.serverNow,
@@ -255,7 +256,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     setAutoLoading(true);
     try {
       const { response, json } = await requestAutoGathering("woodcutting", { action: "claim" }, readJson);
-      if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_claim_failed");
+      if (!response.ok || !json?.ok) throw lifeRequestError(json, "woodcutting_auto_claim_failed");
       if (json.levelCurveMigrated) {
         notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
       }
@@ -274,7 +275,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     setAutoLoading(true);
     try {
       const { response, json } = await requestAutoGathering("woodcutting", { action: "cancel" }, readJson);
-      if (!response.ok || !json?.ok) throw new Error("woodcutting_auto_cancel_failed");
+      if (!response.ok || !json?.ok) throw lifeRequestError(json, "woodcutting_auto_cancel_failed");
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);

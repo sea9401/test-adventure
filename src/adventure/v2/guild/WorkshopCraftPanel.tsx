@@ -77,6 +77,7 @@ import { WorkshopInspectionPanel } from "./WorkshopInspectionPanel";
 import { workshopMaterialSource } from "./workshopMaterialSources";
 import {
   useWorkshopCraftAction,
+  WORKSHOP_REPEAT_CRAFT_OPTIONS,
   type CraftServerSync,
   type WorkshopCraftControl,
 } from "./useWorkshopCraftAction";
@@ -328,6 +329,7 @@ export function WorkshopCraftPanel({
   >("all");
   const [recipeTierFilter, setRecipeTierFilter] =
     useState<WorkshopTierFilter | null>(null);
+  const [repeatCount, setRepeatCount] = useState<number>(1);
   const [expandedRecipeIds, setExpandedRecipeIds] = useState<
     ReadonlySet<GuildWorkshopRecipeId>
   >(() => new Set());
@@ -502,7 +504,14 @@ export function WorkshopCraftPanel({
     );
   }
 
-  const { craftingId, craftResult, closeCraftResult, craft } =
+  const {
+    craftingId,
+    craftResult,
+    craftProgress,
+    closeCraftResult,
+    stopCraft,
+    craft,
+  } =
     useWorkshopCraftAction({
       state,
       endpoint,
@@ -553,8 +562,28 @@ export function WorkshopCraftPanel({
     }
   }
 
+  // 연속 제작 중에는 그 레시피의 제작 버튼이 중지 버튼이 된다(#840).
+  function onCraftButton(
+    recipeId: GuildWorkshopRecipeId,
+    mode: "normal" | "masterwork",
+  ) {
+    if (craftProgress?.recipeId === recipeId) {
+      stopCraft();
+      return;
+    }
+    void craft(recipeId, mode, false, repeatCount);
+  }
+
+  function repeatLabel(label: string): string {
+    if (repeatCount <= 1) return label;
+    if (label === "제작") return `${repeatCount}회 제작`;
+    if (label === "명장 제작") return `명장 ${repeatCount}회 제작`;
+    return label;
+  }
+
   function renderRecipeRow(recipe: WorkshopRecipeView) {
     const busy = craftingId === recipe.id;
+    const repeating = craftProgress?.recipeId === recipe.id ? craftProgress : null;
     const expanded = expandedRecipeIds.has(recipe.id);
     const masterwork = recipe.masterwork;
     const weeklyHints = weeklyRecipeHints(recipe, weekly);
@@ -680,18 +709,21 @@ export function WorkshopCraftPanel({
             <button
               type="button"
               disabled={
-                !recipe.canCraft ||
-                busy ||
-                craftingId != null ||
-                pendingInspection != null
+                !repeating &&
+                (!recipe.canCraft ||
+                  busy ||
+                  craftingId != null ||
+                  pendingInspection != null)
               }
-              onClick={() => void craft(recipe.id)}
+              onClick={() => onCraftButton(recipe.id, "normal")}
               className="inline-flex h-8 flex-1 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
             >
-              {busy ? (
+              {repeating ? (
+                `중지 ${repeating.done}/${repeating.total}`
+              ) : busy ? (
                 <SpinnerGap size={14} className="animate-spin" aria-hidden />
               ) : (
-                normalCraftLabel
+                repeatLabel(normalCraftLabel)
               )}
             </button>
             <button
@@ -864,18 +896,21 @@ export function WorkshopCraftPanel({
               <button
                 type="button"
                 disabled={
-                  !recipe.canCraft ||
-                  busy ||
-                  craftingId != null ||
-                  pendingInspection != null
+                  !repeating &&
+                  (!recipe.canCraft ||
+                    busy ||
+                    craftingId != null ||
+                    pendingInspection != null)
                 }
-                onClick={() => void craft(recipe.id)}
+                onClick={() => onCraftButton(recipe.id, "normal")}
                 className="inline-flex h-7 min-w-16 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
               >
-                {busy ? (
+                {repeating ? (
+                  `중지 ${repeating.done}/${repeating.total}`
+                ) : busy ? (
                   <SpinnerGap size={14} className="animate-spin" aria-hidden />
                 ) : (
-                  normalCraftLabel
+                  repeatLabel(normalCraftLabel)
                 )}
               </button>
             </div>
@@ -905,7 +940,7 @@ export function WorkshopCraftPanel({
                 substitution={recipe.materialSubstitution}
                 busy={busy}
                 crafting={craftingId != null || pendingInspection != null}
-                onCraft={() => void craft(recipe.id, "normal", true)}
+                onCraft={() => void craft(recipe.id, "normal", true, repeatCount)}
               />
             ) : null}
           </div>
@@ -918,18 +953,21 @@ export function WorkshopCraftPanel({
               <button
                 type="button"
                 disabled={
-                  !masterwork?.canCraft ||
-                  busy ||
-                  craftingId != null ||
-                  pendingInspection != null
+                  !repeating &&
+                  (!masterwork?.canCraft ||
+                    busy ||
+                    craftingId != null ||
+                    pendingInspection != null)
                 }
-                onClick={() => void craft(recipe.id, "masterwork")}
+                onClick={() => onCraftButton(recipe.id, "masterwork")}
                 className="inline-flex h-7 min-w-20 items-center justify-center rounded border border-rose-700 bg-rose-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
               >
-                {busy ? (
+                {repeating ? (
+                  `중지 ${repeating.done}/${repeating.total}`
+                ) : busy ? (
                   <SpinnerGap size={14} className="animate-spin" aria-hidden />
                 ) : (
-                  masterworkButtonText(recipe)
+                  repeatLabel(masterworkButtonText(recipe))
                 )}
               </button>
             </div>
@@ -970,7 +1008,7 @@ export function WorkshopCraftPanel({
                 substitution={masterwork.materialSubstitution}
                 busy={busy}
                 crafting={craftingId != null || pendingInspection != null}
-                onCraft={() => void craft(recipe.id, "masterwork", true)}
+                onCraft={() => void craft(recipe.id, "masterwork", true, repeatCount)}
               />
             ) : null}
           </div>
@@ -1189,6 +1227,31 @@ export function WorkshopCraftPanel({
               {label}
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+          <label className="flex items-center gap-2">
+            <span className="font-medium text-zinc-800 dark:text-zinc-100">
+              제작 횟수
+            </span>
+            <select
+              value={repeatCount}
+              disabled={craftingId != null}
+              onChange={(e) => setRepeatCount(Number(e.target.value))}
+              className="min-h-10 rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 sm:min-h-8 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            >
+              {WORKSHOP_REPEAT_CRAFT_OPTIONS.map((count) => (
+                <option key={count} value={count}>
+                  {count}회
+                </option>
+              ))}
+            </select>
+          </label>
+          {repeatCount > 1 ? (
+            <span className="text-zinc-500 dark:text-zinc-400">
+              재료나 골드가 모자라면 그 자리에서 멈춥니다. 제작 중 버튼을 다시
+              누르면 중지합니다.
+            </span>
+          ) : null}
         </div>
         <div className="grid gap-1.5 sm:grid-cols-[1fr_1fr_auto]">
           <select

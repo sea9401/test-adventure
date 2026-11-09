@@ -1,5 +1,6 @@
 "use client";
 
+import { lifeRequestError } from "./sharedNetworkLimit";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   countClaimableFishingTasks,
@@ -113,7 +114,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
       if (!res.ok) {
         const active = parseAutoActivity(j?.activeAutoActivity);
         if (active) setActiveAutoActivity(active);
-        throw new Error(j?.error === "auto_active" ? "auto_active" : "cast_failed");
+        throw lifeRequestError(j, j?.error === "auto_active" ? "auto_active" : "cast_failed");
       }
       if (
         !j?.ok ||
@@ -151,7 +152,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         if (!res.ok) {
           const active = parseAutoActivity(j?.activeAutoActivity);
           if (active) setActiveAutoActivity(active);
-          throw new Error(j?.error === "auto_active" ? "auto_active" : "reel_failed");
+          throw lifeRequestError(j, j?.error === "auto_active" ? "auto_active" : "reel_failed");
         }
         if (!j?.ok) throw new Error("reel_failed");
         if (j.levelCurveMigrated) {

@@ -40,6 +40,7 @@ import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 export type MiningLogView = {
   successes: number;
@@ -519,7 +520,7 @@ export function MiningView({
         setPhase("idle");
         return;
       }
-      setError("채광을 시작하지 못했습니다.");
+      setError(sharedNetworkLimitMessage(caught) ?? "채광을 시작하지 못했습니다.");
       setPhase("idle");
     }
   }, [activeAutoActivity, cooldownRemainingSec, handleCooldownError, spotId, start]);
@@ -563,9 +564,9 @@ export function MiningView({
           }
           setPhase("result");
         })
-        .catch(() => {
+        .catch((caught: unknown) => {
           if (!alive) return;
-          setError("채광 처리 중 문제가 생겼습니다.");
+          setError(sharedNetworkLimitMessage(caught) ?? "채광 처리 중 문제가 생겼습니다.");
           setPhase("result");
         });
     }, run.durationMs + MINING_SETTLE_MS);

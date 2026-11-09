@@ -109,6 +109,8 @@ describe("sanctuary play screen", () => {
     expect(rates.textContent).toContain("난이도를 선택");
     expect(screen.getByRole("button", { name: "노말" }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByRole("button", { name: "하드" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "노말" }).className).toContain("bg-emerald-50");
+    expect(screen.getByRole("button", { name: "하드" }).className).toContain("bg-rose-50");
     expect((screen.getByRole("button", { name: /일괄 진행$/ }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 이동 가능/ }));
     const dialog = screen.getByRole("dialog");

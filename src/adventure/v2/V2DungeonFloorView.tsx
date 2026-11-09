@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Button } from "@/components/ui/Button";
 import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
@@ -28,6 +28,7 @@ import {
 } from "@/adventure/v2/useDungeonHunt";
 import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
 import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
+import { nextAdvanceProficiencyTargets } from "@/adventure/data/v2/v2JobCatalog";
 import {
   HUNT_COST,
   msUntilStaminaAtLeast,
@@ -313,6 +314,7 @@ export function V2DungeonFloorView({
   onBack,
   playerSubtitle,
   playerProficiency = null,
+  playerJobId = null,
   frontierDepth = 2,
   onFrontierUnlocked,
   onLevelUp,
@@ -371,6 +373,8 @@ export function V2DungeonFloorView({
   // 현재 전직 중인 구체 직업의 숙련도("직업 숙련도") — 캐릭터 카드 상시 readout 의 시작값(화면 진입 시점).
   //   사냥 응답(masteryAfter/일괄 proficiencyAfter)이 들어오면 그 최신값이 우선. null=모험가(무직업).
   playerProficiency?: number | null;
+  // 현재 직업 id — 캐릭터 카드의 다음 전직 숙련도(필요값별) 표기용. null=표기 생략.
+  playerJobId?: string | null;
   // 무한 프론티어 — 현재 최고 도달 깊이. floorId 가 이를 초과하면 도전(미정복) 구역.
   frontierDepth?: number;
   // 도전 성공 시 최고 깊이 갱신 콜백.
@@ -592,6 +596,10 @@ export function V2DungeonFloorView({
   //   없으면 화면 진입 시점 값(playerProficiency). null = 모험가(무직업) → 카드에서 줄 생략.
   const statusProficiency =
     lastResult?.masteryAfter ?? batchStatus?.proficiency ?? latestProficiency;
+  const advanceTargets = useMemo(
+    () => nextAdvanceProficiencyTargets(playerJobId),
+    [playerJobId],
+  );
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const effectiveAdventureSupportTier =
     adventureSupportTier ??
@@ -1331,6 +1339,7 @@ export function V2DungeonFloorView({
           hpCharges={statusHpCharges}
           mpCharges={statusMpCharges}
           proficiency={statusProficiency}
+          advanceTargets={advanceTargets}
         >
           <PlayerStatusCard
             gender={playerGender}
@@ -1346,6 +1355,7 @@ export function V2DungeonFloorView({
             combat={playerCombat}
             primaryAttack={playerPrimaryAttack}
             proficiency={statusProficiency}
+            advanceTargets={advanceTargets}
           />
         </CompactBattlePlayerStatus>
       )}

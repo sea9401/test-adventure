@@ -30,7 +30,13 @@ function candidate(index: number) {
   };
 }
 
-describe.each(["combatPower", "achievementScore"])("%s ranking responsiveness", (metric) => {
+// 생활 숙련·도감 완성도도 전 유저 세이브를 계산하므로 양보 없이 돌면 서버 전체가 수 초 멈춘다.
+describe.each([
+  ["combatPower", "character_save"],
+  ["achievementScore", "character_save"],
+  ["lifeMastery", "farm_save"],
+  ["codexCompletion", "character_save"],
+] as const)("%s ranking responsiveness", (metric, probeField) => {
   const request = () => new Request(`http://localhost/api/rankings?metric=${metric}`);
 
   it("processes other work during scoring while preserving all eligible rows and ties", async () => {
@@ -40,13 +46,15 @@ describe.each(["combatPower", "achievementScore"])("%s ranking responsiveness", 
     const visited = new Set<number>();
     let visitedAtPulse = 0;
     let pulse: Promise<void> | undefined;
-    const rows = Array.from({ length: 12 }, (_, index) => ({
+    const rows = Array.from({ length: 12 }, (_, index) => Object.defineProperty({
       ...candidate(index),
       bannedUntil: index === 5 ? "9999-12-31T00:00:00.000Z" : null,
-      get character_save() {
+    }, probeField, {
+      enumerable: true,
+      get() {
         visited.add(index);
         if (!pulse) pulse = nextTurn().then(() => { visitedAtPulse = visited.size; });
-        return { level: 30 };
+        return probeField === "farm_save" ? {} : { level: 30 };
       },
     }));
     execute.mockResolvedValue({ rows });
@@ -92,13 +100,13 @@ describe.each(["combatPower", "achievementScore"])("%s ranking responsiveness", 
     vi.spyOn(performance, "now").mockImplementation(() => clock += 8);
     const failure = new Error("score calculation failed");
     let fail = true;
-    execute.mockResolvedValue({ rows: [candidate(0), {
-      ...candidate(6),
-      get character_save() {
+    execute.mockResolvedValue({ rows: [candidate(0), Object.defineProperty({ ...candidate(6) }, probeField, {
+      enumerable: true,
+      get() {
         if (fail) throw failure;
-        return { level: 30 };
+        return probeField === "farm_save" ? {} : { level: 30 };
       },
-    }] });
+    })] });
     await expect(GET(request())).rejects.toBe(failure);
     fail = false;
     const result = await (await GET(request())).json();

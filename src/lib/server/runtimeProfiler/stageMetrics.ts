@@ -3,13 +3,17 @@ export const PROFILE_RANKING_METRICS = [
   "masteryTower", "achievementScore", "towerWeek", "towerChallenge",
 ] as const;
 type RankingMetric = typeof PROFILE_RANKING_METRICS[number];
+const COMPUTED_RANKING_METRICS = [
+  "combatPower", "achievementScore", "lifeMastery", "codexCompletion",
+] as const;
+type ComputedRankingMetric = typeof COMPUTED_RANKING_METRICS[number];
 const HUNT_STAGES = [
   "hunt.intent", "hunt.transaction", "hunt.prepare", "hunt.battle",
   "hunt.rewards", "hunt.save", "hunt.replay", "hunt.broadcast",
 ] as const;
 export type ProfileStage = typeof HUNT_STAGES[number]
   | `ranking.${RankingMetric}.refresh`
-  | `ranking.${"combatPower" | "achievementScore"}.${"database" | "compute"}`;
+  | `ranking.${ComputedRankingMetric}.${"database" | "compute"}`;
 export type ProfileCounter = "hunt.requestedBattles" | "hunt.resolvedBattles" | "hunt.turns"
   | `ranking.${RankingMetric}.${"cacheHit" | "cacheMiss" | "cacheShared"}`;
 export type StageMetric = { count: number; errors: number; totalMs: number; maxMs: number };
@@ -21,7 +25,7 @@ export type StageDetails = {
 const allowedStages = new Set<string>([
   ...HUNT_STAGES,
   ...PROFILE_RANKING_METRICS.map((metric) => `ranking.${metric}.refresh`),
-  ...["combatPower", "achievementScore"].flatMap((metric) =>
+  ...COMPUTED_RANKING_METRICS.flatMap((metric) =>
     ["database", "compute"].map((phase) => `ranking.${metric}.${phase}`)),
 ]);
 const allowedCounters = new Set<string>([

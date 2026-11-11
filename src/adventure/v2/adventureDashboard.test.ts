@@ -23,6 +23,15 @@ const activity = (
   ...overrides,
 });
 
+describe("모험 홈 기본 배치", () => {
+  it("튜토리얼·퀘스트 카드를 오늘의 모험 체크보다 먼저 둔다", () => {
+    const order: readonly string[] = DEFAULT_ADVENTURE_HOME_WIDGET_ORDER;
+    expect(order.indexOf("quest_rewards")).toBeLessThan(
+      order.indexOf("activity_checklist"),
+    );
+  });
+});
+
 describe("모험 홈 환경설정 정규화", () => {
   it("알 수 없는 값과 중복을 버리고 새 기본 위젯을 뒤에 보충한다", () => {
     const parsed = normalizeAdventureHomePreferences(

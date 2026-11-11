@@ -262,6 +262,16 @@ export function V2DungeonList({
   }
 
   function renderList(selectedStart: number | null) {
+    // 100레벨 전에는 들어갈 수 없는 카드라, 지금 갈 수 있는 사냥터 아래에 둔다.
+    const unexploredLocked = unexploredSnapshot?.eligible === false;
+    const unexploredCard =
+      unexploredSnapshot && onSelectUnexplored ? (
+        <UnexploredDungeonCard
+          snapshot={unexploredSnapshot}
+          onSelect={onSelectUnexplored}
+          onOpenNetwork={onOpenUnexploredNetwork}
+        />
+      ) : null;
     return (
       <div className="space-y-3">
         <GrowthSummary
@@ -269,13 +279,7 @@ export function V2DungeonList({
           playerLevelCap={playerLevelCap}
           playerJobTier={playerJobTier}
         />
-        {unexploredSnapshot && onSelectUnexplored && (
-          <UnexploredDungeonCard
-            snapshot={unexploredSnapshot}
-            onSelect={onSelectUnexplored}
-            onOpenNetwork={onOpenUnexploredNetwork}
-          />
-        )}
+        {!unexploredLocked && unexploredCard}
         <div className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <span className="font-medium text-zinc-600 dark:text-zinc-300">
             표시 사냥터 {visibleGroups.length}/{groups.length}
@@ -434,6 +438,7 @@ export function V2DungeonList({
             })}
           </div>
         )}
+        {unexploredLocked && unexploredCard}
       </div>
     );
   }

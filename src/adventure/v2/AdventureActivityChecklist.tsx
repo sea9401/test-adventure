@@ -60,11 +60,15 @@ function actionableLabel(activity: AdventureActivityView): string {
 
 function ActivityRow({ activity }: { activity: AdventureActivityView }) {
   const actionable = activity.state === "actionable";
-  const completed = activity.state === "completed";
+  // 생활·길드 묶음의 completed는 "걸어 둔 작업이 없음"이다. 끝낸 일처럼 보이지 않게 대기로 표시한다.
+  const idle = activity.group === "ready" && activity.state === "completed";
+  const completed = activity.state === "completed" && !idle;
   const stateLabel =
     activity.countsTowardCompletion === false
       ? "반복"
-      : actionable
+      : idle
+        ? "대기"
+        : actionable
         ? actionableLabel(activity)
         : STATE_LABELS[activity.state];
 

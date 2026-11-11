@@ -290,6 +290,8 @@ export function GrowthLeapMissionPanel({
   coinShopAccessible?: boolean;
 }) {
   if (mission.status === "not_purchased") {
+    // 상점을 쓸 수 없는 계정에는 살 수 없는 패키지를 안내하지 않는다.
+    if (!coinShopAccessible) return null;
     return (
       <Card padding="md" className="space-y-2">
         <div className="flex items-center gap-2">

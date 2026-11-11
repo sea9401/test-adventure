@@ -133,8 +133,8 @@ describe("환경 설정 화면", () => {
       widgetOrder: [
         "character_summary",
         "stamina",
-        "activity_checklist",
         "quest_rewards",
+        "activity_checklist",
         "hot_time",
         "announcements",
         "bulletin_preview",

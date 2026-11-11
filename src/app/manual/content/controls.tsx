@@ -4,7 +4,26 @@ import {
 } from "@/adventure/data/v2/adventureSupport";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { EMBLEM_GRADE_PCT, EMBLEM_KINDS } from "@/adventure/data/v2/emblems";
+import {
+  WINTER_DAILY_DICE_MAX,
+  WINTER_LAP_COINS,
+  WINTER_MILESTONES,
+  WINTER_QUEST_DICE_DAILY_CAP,
+  WINTER_ROLLING_ENDS_AT,
+  WINTER_SHOP_ENDS_AT,
+  WINTER_SHOP_ITEMS,
+  WINTER_TILES,
+} from "@/adventure/data/v2/winterBoard";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
+
+const winterDay = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "long",
+  day: "numeric",
+});
+// 종료 시각은 다음 날 0시라, 그 직전의 날짜가 마지막 날이다.
+const WINTER_ROLLING_LAST_DAY = winterDay.format(WINTER_ROLLING_ENDS_AT - 1);
+const WINTER_SHOP_LAST_DAY = winterDay.format(WINTER_SHOP_ENDS_AT - 1);
 
 export function ControlsContent() {
   return (
@@ -75,8 +94,8 @@ export function ControlsContent() {
       <H2>홈 화면 구성과 알림</H2>
       <P>
         <Em>메뉴(☰) → 환경 설정 → 홈 화면 구성</Em>에서 홈 위젯의 순서를
-        바꾸거나 쓰지 않는 항목을 숨길 수 있습니다. 캐릭터·스태미나·오늘의 모험
-        체크·퀘스트·핫타임·공지·최근 게시글·랭킹 위젯을 조정하며, 기본 배치로
+        바꾸거나 쓰지 않는 항목을 숨길 수 있습니다. 캐릭터·스태미나·퀘스트·오늘의
+        모험 체크·핫타임·공지·최근 게시글·랭킹 위젯을 조정하며, 기본 배치로
         되돌릴 수도 있습니다.
       </P>
       <P>
@@ -180,6 +199,46 @@ export function ControlsContent() {
           일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤 이어집니다.
         </li>
       </UL>
+
+      <H3>겨울 이벤트</H3>
+      <P>
+        이벤트 화면의 <Em>겨울 이벤트</Em> 탭에서 주사위를 굴려 {WINTER_TILES.length}칸
+        말판을 돕니다.{" "}
+        {`주사위 굴리기는 ${WINTER_ROLLING_LAST_DAY}까지, 바퀴 보상 받기와 교환소는 ${WINTER_SHOP_LAST_DAY}까지입니다.`}
+      </P>
+      <UL>
+        <li>
+          <Em>주사위</Em>: 매일 접속하면 1개, 일일 퀘스트를 하나 완료할 때마다 1개(하루{" "}
+          {WINTER_QUEST_DICE_DAILY_CAP}개까지)를 받습니다.{" "}
+          {`하루 최대 ${WINTER_DAILY_DICE_MAX}개`}이고, 굴리지 않은 주사위는 다음 날로
+          넘어갑니다. 접속해 있으면 완료한 퀘스트만큼 자동으로 적립됩니다.
+        </li>
+        <li>
+          <Em>칸</Em>: 겨울 주화 2·5·10개, 스태미나 회복약 1개, 한 번 더(주사위 1개를
+          돌려받음), 앞으로 3칸이 있습니다.{" "}
+          {`출발 칸을 지날 때마다 겨울 주화 ${WINTER_LAP_COINS}개`}를 더 받습니다.
+        </li>
+        <li>
+          <Em>누적 바퀴 보상</Em>: 조건을 채운 뒤 받기를 눌러야 지급됩니다.
+        </li>
+      </UL>
+      <Table
+        head={["바퀴", "보상"]}
+        rows={WINTER_MILESTONES.map((milestone) => [
+          `${milestone.laps}바퀴`,
+          milestone.label,
+        ])}
+        caption="회복약, 마법부여서, 문장 상자는 계정 귀속입니다."
+      />
+      <Table
+        head={["교환 품목", "겨울 주화", "교환 한도"]}
+        rows={WINTER_SHOP_ITEMS.map((item) => [
+          item.name,
+          `${item.cost}개`,
+          `${item.limit}회`,
+        ])}
+        caption="한도는 이벤트 전체 기간 기준입니다. 남은 겨울 주화는 교환소가 닫히면 쓸 수 없습니다."
+      />
 
       <H3>게임 홍보와 쿠폰</H3>
       <P>

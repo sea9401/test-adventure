@@ -216,3 +216,54 @@ describe("요리 레시피 연구 재료 선택", () => {
     expect(screen.getByRole("button", { name: "이미 실패한 조합" })).toBeTruthy();
   });
 });
+
+describe("요리 연구 보유 재료 즐겨찾기", () => {
+  const ingredientOrder = () =>
+    screen
+      .getAllByRole("button", { name: /×\d+$/ })
+      .map((button) => button.textContent?.replace(/×\d+$/, ""));
+
+  afterEach(() => localStorage.clear());
+
+  it("별을 찍은 재료를 맨 앞으로 옮기고 연구 선택은 바꾸지 않는다", () => {
+    render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, milk: 1, egg: 1 })}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+    const last = ingredientOrder().at(-1)!;
+    const star = screen.getByRole("button", { name: `${last} 즐겨찾기` });
+    expect(star.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(star);
+
+    expect(ingredientOrder()[0]).toBe(last);
+    expect(screen.getByRole("button", { name: `${last} 즐겨찾기` }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: new RegExp(`^${last}×`) }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText("선택 0/2")).toBeTruthy();
+  });
+
+  it("다시 열어도 즐겨찾기 재료가 앞에 있다", async () => {
+    const view = render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, milk: 1, egg: 1 })}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+    const last = ingredientOrder().at(-1)!;
+    fireEvent.click(screen.getByRole("button", { name: `${last} 즐겨찾기` }));
+    view.unmount();
+
+    render(
+      <CookingResearchPanel
+        data={researchFixture({ wheat: 1, milk: 1, egg: 1 })}
+        busy={false}
+        mutate={vi.fn(async () => undefined)}
+      />,
+    );
+    await waitFor(() => expect(ingredientOrder()[0]).toBe(last));
+  });
+});

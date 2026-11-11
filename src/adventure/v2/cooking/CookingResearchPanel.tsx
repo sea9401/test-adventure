@@ -1,11 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Star } from "@phosphor-icons/react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { favoritesFirst, useStoredFavoriteIds } from "../favoriteIds";
 import { COOKING_METHOD_NAMES, COOKING_METHOD_UNLOCK_LEVEL, type CookingIngredientId, type CookingMethod } from "./types";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingIngredientCount, cookingIngredientName, cookingResearchIngredients } from "./clientDisplay";
 import { cookingResearchAttemptKey } from "./researchKey";
+
+// 자주 보는 재료를 보유 재료 목록 앞에 고정한다(기기별 저장).
+export const COOKING_INGREDIENT_FAVORITES_KEY = "adventure.v2.cookingIngredientFavorites";
 
 const RESEARCH_TIME_FORMAT = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
@@ -29,6 +34,11 @@ export function CookingResearchPanel({ data, busy, mutate }: {
   );
   const maxSlots = data.level >= 35 ? 5 : data.level >= 20 ? 4 : data.level >= 10 ? 3 : 2;
   const ingredients = useMemo(() => cookingResearchIngredients(data), [data]);
+  const { favoriteIds, toggleFavorite } = useStoredFavoriteIds(COOKING_INGREDIENT_FAVORITES_KEY);
+  const orderedIngredients = useMemo(
+    () => favoritesFirst(ingredients, favoriteIds, (id) => id),
+    [favoriteIds, ingredients],
+  );
   const failedAttemptKeys = useMemo(
     () => new Set(data.failedResearchKeys),
     [data.failedResearchKeys],
@@ -111,14 +121,24 @@ export function CookingResearchPanel({ data, busy, mutate }: {
           <div className="mb-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200">보유 재료</div>
           {ingredients.length > 0 ? (
             <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-              {ingredients.map((id) => {
+              {orderedIngredients.map((id) => {
                 const active = selected.includes(id);
+                const favorite = favoriteIds.has(id);
+                const name = cookingIngredientName(data, id);
                 return (
-                  <button key={id} type="button" aria-pressed={active} onClick={() => toggle(id)}
-                    className={`rounded-md border px-2.5 py-2 text-left text-xs ${active ? "border-amber-500 bg-amber-100 text-amber-950 dark:bg-zinc-800 dark:text-amber-100" : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"}`}>
-                    <span className="font-semibold">{cookingIngredientName(data, id)}</span>
-                    <span className="ml-1 text-zinc-500">×{cookingIngredientCount(data, id)}</span>
-                  </button>
+                  <div key={id}
+                    className={`flex items-stretch rounded-md border text-xs ${active ? "border-amber-500 bg-amber-100 text-amber-950 dark:bg-zinc-800 dark:text-amber-100" : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"}`}>
+                    <button type="button" aria-pressed={active} onClick={() => toggle(id)}
+                      className="min-w-0 flex-1 px-2.5 py-2 text-left">
+                      <span className="font-semibold">{name}</span>
+                      <span className="ml-1 tabular-nums text-zinc-500">×{cookingIngredientCount(data, id)}</span>
+                    </button>
+                    <button type="button" aria-label={`${name} 즐겨찾기`} aria-pressed={favorite}
+                      onClick={() => toggleFavorite(id)}
+                      className={`flex w-10 shrink-0 items-center justify-center ${favorite ? "text-amber-500" : "text-zinc-400 hover:text-amber-500"}`}>
+                      <Star size={16} weight={favorite ? "fill" : "regular"} aria-hidden />
+                    </button>
+                  </div>
                 );
               })}
             </div>

@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import OperationsPage from "./operations/page";
 import PrivacyPage from "./privacy/page";
 import TermsPage from "./terms/page";
@@ -43,6 +43,29 @@ describe("공개 정책 페이지", () => {
     expect(privacy).toContain("토스페이먼츠");
     expect(privacy).toContain("카드번호와 CVC를 저장하지 않습니다");
     expect(privacy).toContain("5년");
+  });
+
+  it("상점을 열고 결제 시작일을 정하면 사전 안내 대신 시작일을 고지한다", () => {
+    vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "true");
+    vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_PAYMENTS_LAUNCH_DATE", "2026-11-10");
+    try {
+      const terms = renderToStaticMarkup(<TermsPage />);
+      expect(terms).toContain("2026년 11월 10일부터");
+      expect(terms).not.toContain("아직 운영 환경에서 활성화되지 않았습니다");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("결제 시작일이 비어 있으면 상점 공개 여부와 관계없이 사전 안내를 유지한다", () => {
+    vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN", "true");
+    vi.stubEnv("NEXT_PUBLIC_MUSEUN_COIN_PAYMENTS_LAUNCH_DATE", "");
+    try {
+      const terms = renderToStaticMarkup(<TermsPage />);
+      expect(terms).toContain("아직 운영 환경에서 활성화되지 않았습니다");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("충전형 코인의 환불 수단, 양도 금지, 사용·환불 기한과 소멸 기한을 명시한다", () => {

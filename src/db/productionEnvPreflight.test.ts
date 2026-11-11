@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -17,17 +20,85 @@ describe("production environment preflight", () => {
     expect(result.stderr).toContain("production IS_STAGING must not be true");
   });
 
-  it("rejects opening the paid coin shop before launch approval", () => {
+  it("rejects an open coin shop with test payments that would grant coins for free", () => {
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
       env: {
         NODE_ENV: "production",
         NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN: "true",
+        MUSEUN_COIN_PAYMENTS_MODE: "test",
       },
     });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("production coin shop must remain closed");
+    expect(result.stderr).toContain("open coin shop must not use test payments");
+  });
+
+  it("lets an open coin shop restart with payments disabled for an emergency stop", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN: "true",
+        MUSEUN_COIN_PAYMENTS_MODE: "disabled",
+      },
+    });
+
+    expect(result.stderr).not.toContain("coin shop");
+    expect(result.stderr).toContain("REFERRAL_IDENTITY_SECRET");
+  });
+
+  it("reads the shop flag from the tracked build env when the runtime env omits it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "coin-shop-env-"));
+    const trackedEnvPath = join(dir, ".env.production");
+    writeFileSync(trackedEnvPath, "NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=true\n");
+    try {
+      const result = spawnSync(process.execPath, [scriptPath], {
+        encoding: "utf8",
+        env: {
+          NODE_ENV: "production",
+          TRACKED_PRODUCTION_ENV_PATH: trackedEnvPath,
+          MUSEUN_COIN_PAYMENTS_MODE: "test",
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("open coin shop must not use test payments");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects live payments with Toss test keys", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: {
+        NODE_ENV: "production",
+        MUSEUN_COIN_PAYMENTS_MODE: "live",
+        TOSS_PAYMENTS_CLIENT_KEY: "test_gck_placeholder",
+        TOSS_PAYMENTS_SECRET_KEY: "test_gsk_placeholder",
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("live payments require matching Toss Payments live keys");
+  });
+
+  it("accepts an open coin shop with live payment keys", () => {
+    const result = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN: "true",
+        MUSEUN_COIN_PAYMENTS_MODE: "live",
+        TOSS_PAYMENTS_CLIENT_KEY: "live_gck_placeholder",
+        TOSS_PAYMENTS_SECRET_KEY: "live_gsk_placeholder",
+      },
+    });
+
+    expect(result.stderr).not.toContain("coin shop");
+    expect(result.stderr).not.toContain("live payments");
+    expect(result.stderr).toContain("REFERRAL_IDENTITY_SECRET");
   });
 
   it("rejects homepage review mode without a complete public merchant disclosure", () => {

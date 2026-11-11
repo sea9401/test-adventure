@@ -5,8 +5,9 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async original => ({
   V2_ATB_SKILLS: true,
 }));
 import type { UnexploredBossEffectKind } from "@/adventure/data/v2/unexploredBossUniqueEffects";
+import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
 import type { PlayerCombat } from "./engine";
-import { advanceTurnPvP, endAttackerPhase, initialBattleStatePvP, resolveBattlePvP, type PvPBattleState } from "./engine-pvp";
+import { advanceTurnPvP, castV2SkillOnAttackerTurnPvP, endAttackerPhase, initialBattleStatePvP, resolveBattlePvP, type PvPBattleState } from "./engine-pvp";
 import { effectiveSideSpd } from "./engine.pvp-atb";
 import type { BossUniqueRuntime } from "./unexploredBossUniqueEffects";
 
@@ -92,6 +93,40 @@ describe.each(["p1", "p2"] as const)("%s boss unique PvP", side => {
     expect(logsOf(endAttackerPhase(saved, target, side, { tickDefenderDots: false }), "[영겁]")).toHaveLength(1);
     const dead = basic(prepare({ ...saved, [side]: { ...saved[side], hp: 50 } }, target));
     expect(dead[side].hp).toBe(0);
+  });
+});
+
+// 건의 #846: 아레나 스킬 시전이 공격 시작 훅의 상태·로그를 버려 별궤 조준·보정 사격 표시가 안 나오고
+// 다음 공격 보너스가 소비되지 않아 계속 붙던 문제.
+describe.each(["p1", "p2"] as const)("%s boss unique PvP direct skill casts", side => {
+  const skills: V2SkillId[] = ["v2c_martial_combo"];
+  const castBattle = (kinds: UnexploredBossEffectKind[]) => initialBattleStatePvP(
+    side === "p1" ? boss(kinds) : fighter({ hp: 100000, maxHp: 100000 }),
+    side === "p2" ? boss(kinds) : fighter({ hp: 100000, maxHp: 100000 }),
+    "P1", "P2",
+    side === "p1" ? { learned: skills, equipped: skills } : undefined,
+    side === "p2" ? { learned: skills, equipped: skills } : undefined,
+    undefined, undefined, side,
+  );
+  const cast = (state: PvPBattleState) => castV2SkillOnAttackerTurnPvP(prepare(state, side), side).state;
+
+  it("logs and consumes pending next-attack bonuses", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const initial = withBoss(castBattle(["starpath_aim", "prismatic_correction"]), side, {
+      starpathPending: true, correctionPending: true, freezeBonusPending: true,
+    });
+    const next = cast(initial);
+    expect(logsOf(next, "[별궤 조준]")).toHaveLength(1);
+    expect(logsOf(next, "[보정 사격]")).toHaveLength(1);
+    expect(logsOf(next, "[빙결 일격]")).toHaveLength(1);
+    expect(next[side].stacks.unexploredBoss).toMatchObject({ correctionPending: false, correctionHits: 1, freezeBonusPending: false });
+  });
+
+  it("resets orbit pursuit after an orbit cut", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const next = cast(withBoss(castBattle(["infinite_orbit"]), side, { pursuit: 10 }));
+    expect(logsOf(next, "[궤도 절단]")).toHaveLength(1);
+    expect(next[side].stacks.unexploredBoss?.pursuit).toBe(1);
   });
 });
 

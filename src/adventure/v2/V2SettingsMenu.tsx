@@ -21,6 +21,7 @@ import {
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useAttendanceReminder } from "./useAttendanceReminder";
+import { useWinterBoardReminder } from "./useWinterBoardReminder";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/우편함/거래소/랭킹/전체 소식) + 게임 안내서 +
 // 환경 설정 + 로그아웃. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
@@ -33,8 +34,14 @@ export function V2SettingsMenu() {
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const attendancePending = useAttendanceReminder();
-  const eventPending = attendancePending;
-  const reminderLabel = attendancePending ? "오늘 출석 체크 필요" : "";
+  const winterPending = useWinterBoardReminder() > 0;
+  const eventPending = attendancePending || winterPending;
+  const reminderLabel = [
+    attendancePending ? "오늘 출석 체크 필요" : "",
+    winterPending ? "겨울 이벤트 주사위 있음" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   useEffect(() => {
     if (coinShopAccessible) return;

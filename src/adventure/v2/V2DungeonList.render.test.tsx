@@ -93,6 +93,38 @@ describe("미개척지 사냥터 카드", () => {
     expect(beforeStart).toContain(' disabled=""');
   });
 
+  it("100레벨 미만이면 미개척지 카드를 사냥터 목록 아래에 둔다", () => {
+    const snapshot = {
+      level: 1,
+      eligible: false,
+      selectedNodeIds: [],
+      difficulty: 95,
+      encounterShares: [{ kind: "base" as const, share: 100 }],
+    };
+    const locked = renderToStaticMarkup(
+      <V2DungeonList
+        frontierDepth={2}
+        unexploredSnapshot={snapshot}
+        onSelectUnexplored={vi.fn()}
+        onSelectFloor={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(locked).toContain("100레벨 달성 필요");
+    expect(locked.indexOf("들판")).toBeLessThan(locked.indexOf("미개척지"));
+
+    const open = renderToStaticMarkup(
+      <V2DungeonList
+        frontierDepth={84}
+        unexploredSnapshot={{ ...snapshot, level: 100, eligible: true, selectedNodeIds: ["start"] }}
+        onSelectUnexplored={vi.fn()}
+        onSelectFloor={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(open.indexOf("미개척지")).toBeLessThan(open.indexOf("들판"));
+  });
+
   it("탐사 시작 전 카드는 탐사망으로 안내하고 누르면 탐사망을 연다", () => {
     const onSelect = vi.fn();
     const onOpenNetwork = vi.fn();

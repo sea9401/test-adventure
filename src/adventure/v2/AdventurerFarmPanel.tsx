@@ -434,13 +434,26 @@ export function AdventurerFarmPanel({
         title="모험가 농장"
         onBack={onBack}
         right={
-          <button
-            type="button"
-            onClick={refresh}
-            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            새로고침
-          </button>
+          // 새로고침 자리는 그대로 두고 그 왼쪽에 주방 바로가기를 둔다(주방 화면의 농장 버튼과 대칭).
+          // 휴대폰 폭에서는 가운데 제목과 겹치지 않게 아이콘만 보인다.
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onOpenKitchen}
+              aria-label="주방"
+              className="flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-zinc-900 dark:text-amber-200 dark:hover:bg-amber-950"
+            >
+              <CookingPot size={15} weight="duotone" aria-hidden />
+              <span className="hidden sm:inline">주방</span>
+            </button>
+            <button
+              type="button"
+              onClick={refresh}
+              className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              새로고침
+            </button>
+          </div>
         }
       />
       <LifeFestivalBadge activity="farming" />

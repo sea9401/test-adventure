@@ -67,10 +67,8 @@ describe("production security surface", () => {
     expect(devLayout).toContain('process.env.IS_STAGING !== "true"');
     expect(devLayout).toContain("notFound()");
 
+    // 공개 플래그 자체는 결제 시작일과 함께 paymentSecuritySurface.test.ts 가 검증한다.
     const productionEnv = source(join(ROOT, ".env.production"));
-    expect(productionEnv).toMatch(
-      /^NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=false$/m,
-    );
     expect(productionEnv).toMatch(
       /^MUSEUN_COIN_SHOP_REVIEW_LOGIN_IDS=gcrb-review-01,gcrb-review-02,gcrb-review-03$/m,
     );

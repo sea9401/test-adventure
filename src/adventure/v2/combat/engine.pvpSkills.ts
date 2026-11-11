@@ -347,16 +347,18 @@ export function castV2SkillOnAttackerTurnPvPBody(
   const unexploredAttack = beginUnexploredAttackPvP(st, who,
     attemptedDirectSkill ? "direct_skill" : "independent", Math.max(0, side.mp - settledCastMp));
   const unexploredSkillHits: EnemyHitResolution[] = [];
+  // 공격 시작 훅이 남긴 로그([별궤 조준]·[보정 사격] 등)를 이어서 쌓는다(사냥 스킬 경로와 같은 순서).
+  const castStartLog = unexploredAttack.state.log;
   // 구조화된 시전 경계와 별개로 damage/heal 로그에도 스킬명을 포함한다.
   let nextLog =
     result.castSkillId && result.castSkillName
       ? appendSkillCastLog(
-          st.log,
+          castStartLog,
           result.castSkillId,
           result.castSkillName,
           { side: who },
         )
-      : st.log;
+      : castStartLog;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
   let nextOppPain = opp.stacks.pain;
@@ -1511,6 +1513,8 @@ export function castV2SkillOnAttackerTurnPvPBody(
     ...side.stacks,
     patternAlternateLastSkillByPair: advancePatternAlternateState(side.stacks.patternAlternateLastSkillByPair, result.patternAlternateTransition),
     ...(side.stacks.unexplored ? { unexplored: unexploredAttack.state[who].stacks.unexplored } : {}),
+    // 공격 시작 훅이 소비한 보스 고유 효과 대기 보너스(별궤 조준·보정 사격·빙결 일격·궤도 절단)를 반영한다.
+    ...(side.stacks.unexploredBoss ? { unexploredBoss: unexploredAttack.state[who].stacks.unexploredBoss } : {}),
     ...(nextTier7 ? { tier7: nextTier7 } : {}),
     tripleWard: refreshedTripleWard,
     evadesRemaining:

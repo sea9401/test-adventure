@@ -13,7 +13,9 @@ import {
 } from "@/adventure/data/v2/v2StatKeys";
 import type { Tier7AdvancementStatus } from "@/adventure/data/v2/tier7Advancement";
 
-export const JOB_GOAL_STORAGE_KEY = "adventure.v2.jobGoalId";
+// 목표 직업(별표) 목록. 예전에는 하나만 저장했다(LEGACY 키, 첫 읽기 때 목록으로 이어받는다).
+export const JOB_GOAL_STORAGE_KEY = "adventure.v2.jobGoalIds";
+export const LEGACY_JOB_GOAL_STORAGE_KEY = "adventure.v2.jobGoalId";
 
 export type JobExplorerJob = {
   id: string;

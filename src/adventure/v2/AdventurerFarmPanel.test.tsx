@@ -406,3 +406,32 @@ describe("목장 푸시 딥링크", () => {
     });
   });
 });
+
+describe("농장 상단 주방 바로가기", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("새로고침 왼쪽에 주방 버튼을 두고 누르면 주방으로 이동한다", () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const onOpenKitchen = vi.fn();
+    render(
+      <AdventurerFarmPanel
+        onBack={vi.fn()}
+        onOpenKitchen={onOpenKitchen}
+        onOpenLifeWorkshop={vi.fn()}
+      />,
+    );
+
+    const kitchen = screen.getByRole("button", { name: "주방" });
+    const refresh = screen.getByRole("button", { name: "새로고침" });
+    expect(kitchen.parentElement).toBe(refresh.parentElement);
+    expect(
+      kitchen.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(kitchen);
+    expect(onOpenKitchen).toHaveBeenCalledTimes(1);
+  });
+});

@@ -147,6 +147,27 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "생활 축제 상점에서 축제 증표 3,000개로 구매",
     category: "collection",
   },
+  winter_wanderer: {
+    id: "winter_wanderer",
+    name: "겨울 나그네",
+    description: "2026년 겨울, 눈길을 걸은 모험가.",
+    condition: "2026 겨울 이벤트 교환소에서 겨울 주화 150개로 교환",
+    category: "collection",
+  },
+  winter_trailblazer: {
+    id: "winter_trailblazer",
+    name: "눈길의 개척자",
+    description: "2026년 겨울, 눈길을 먼저 낸 모험가.",
+    condition: "2026 겨울 이벤트 교환소에서 겨울 주화 400개로 교환",
+    category: "collection",
+  },
+  winter_finisher: {
+    id: "winter_finisher",
+    name: "겨울을 완주한 모험가",
+    description: "2026년 겨울 말판을 열다섯 바퀴 돈 모험가.",
+    condition: "2026 겨울 이벤트 말판 15바퀴 보상",
+    category: "collection",
+  },
   frail: {
     id: "frail",
     name: "약골",

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   CalendarCheck,
+  DiceFive,
   Gift,
   ShareNetwork,
   Ticket,
@@ -16,23 +17,39 @@ import { V2CouponView } from "./V2CouponView";
 import { V2ReferralView } from "./V2ReferralView";
 import { V2AttendanceView } from "./V2AttendanceView";
 import { useAttendanceReminder } from "./useAttendanceReminder";
+import { winterPhase } from "@/adventure/data/v2/winterBoard";
+import { V2WinterBoardView } from "./V2WinterBoardView";
+import { useWinterBoardReminder } from "./useWinterBoardReminder";
 
-export type EventTab = "attendance" | "promotion" | "coupon";
+export type EventTab = "attendance" | "winter" | "promotion" | "coupon";
+
+const TAB_LABELS: Record<EventTab, string> = {
+  attendance: "출석 체크",
+  winter: "겨울 이벤트",
+  promotion: "게임 홍보",
+  coupon: "쿠폰 등록",
+};
 
 const EVENT_TABS = [
   {
     key: "attendance" as const,
-    label: "출석 체크",
+    label: TAB_LABELS.attendance,
     icon: <CalendarCheck size={18} weight="duotone" />,
   },
   {
+    // 겨울 이벤트가 끝나면 이 탭은 목록에서 빠진다.
+    key: "winter" as const,
+    label: TAB_LABELS.winter,
+    icon: <DiceFive size={18} weight="duotone" />,
+  },
+  {
     key: "promotion" as const,
-    label: "게임 홍보",
+    label: TAB_LABELS.promotion,
     icon: <ShareNetwork size={18} weight="duotone" />,
   },
   {
     key: "coupon" as const,
-    label: "쿠폰 등록",
+    label: TAB_LABELS.coupon,
     icon: <Ticket size={18} weight="duotone" />,
   },
 ];
@@ -43,16 +60,29 @@ export function V2EventsView({
   initialTab?: EventTab;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<EventTab>(initialTab);
+  // 한 번 정한 뒤 바꾸지 않는다. 화면을 보는 중에 끝나도 다음 진입 때 탭이 빠진다.
+  const [winterOpen] = useState(() => winterPhase(Date.now()) !== "ended");
+  const [tab, setTab] = useState<EventTab>(
+    initialTab === "winter" && !winterOpen ? "attendance" : initialTab,
+  );
   const attendancePending = useAttendanceReminder();
-  const tabs = EVENT_TABS.map((item) =>
+  const winterPending = useWinterBoardReminder();
+  const tabs = EVENT_TABS.filter(
+    (item) => item.key !== "winter" || winterOpen,
+  ).map((item) =>
     item.key === "attendance" && attendancePending
       ? {
           ...item,
           badge: "!",
           badgeLabel: "오늘 출석 체크 필요",
         }
-      : item,
+      : item.key === "winter" && winterPending > 0
+        ? {
+            ...item,
+            badge: "!",
+            badgeLabel: "굴릴 주사위나 받을 보상 있음",
+          }
+        : item,
   );
 
   const changeTab = (next: EventTab) => {
@@ -92,17 +122,13 @@ export function V2EventsView({
 
       <section
         role="tabpanel"
-        aria-label={
-          tab === "attendance"
-            ? "출석 체크"
-            : tab === "promotion"
-              ? "게임 홍보"
-              : "쿠폰 등록"
-        }
+        aria-label={TAB_LABELS[tab]}
         className="space-y-4"
       >
         {tab === "attendance" ? (
           <V2AttendanceView />
+        ) : tab === "winter" ? (
+          <V2WinterBoardView />
         ) : tab === "promotion" ? (
           <V2ReferralView embedded />
         ) : (

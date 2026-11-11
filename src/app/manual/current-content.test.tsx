@@ -111,6 +111,36 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("영구 해금");
   });
 
+  it("모험가로 시작해 레벨 100에 첫 직업을 고른다고 안내한다", () => {
+    const jobs = renderToStaticMarkup(<JobsContent />);
+    expect(jobs).toContain("모험가로 시작");
+    expect(jobs).toContain("첫 직업");
+    expect(jobs).not.toContain("시작 직업은");
+
+    const overview = renderToStaticMarkup(<OverviewContent />);
+    expect(overview).toContain("모험가로 시작");
+
+    const quests = renderToStaticMarkup(<QuestsContent />);
+    expect(quests).not.toContain("첫 직업·첫 전투");
+    expect(quests).toContain("레벨 100에 첫 직업");
+  });
+
+  it("홈 화면 구성 안내가 기본 위젯 순서와 같다", () => {
+    const html = renderToStaticMarkup(<ControlsContent />);
+    expect(html).toContain("캐릭터·스태미나·퀘스트·오늘의 모험 체크");
+  });
+
+  it("이벤트 절에서 겨울 이벤트의 주사위 얻는 법과 기간을 안내한다", () => {
+    const html = renderToStaticMarkup(<ControlsContent />);
+
+    expect(html).toContain("겨울 이벤트");
+    expect(html).toContain("하루 최대 5개");
+    expect(html).toContain("주사위 굴리기는 12월 10일까지");
+    expect(html).toContain("교환소는 12월 14일까지");
+    expect(html).toContain("출발 칸을 지날 때마다 겨울 주화 10개");
+    expect(html).toContain("겨울을 완주한 모험가");
+  });
+
   it("전직 이력이 있는 전투 직업을 골라 수행할 수 있다고 안내한다", () => {
     const html = renderToStaticMarkup(<JobsContent />);
 

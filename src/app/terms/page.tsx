@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PolicyDocument } from "@/components/PolicyDocument";
+import { formatMuseunCoinLaunchDate } from "@/lib/museunCoinLaunch";
 
 const EFFECTIVE_DATE = "2026년 10월 4일";
 
@@ -11,6 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
+  const paymentsLaunchDate =
+    process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN === "true"
+      ? formatMuseunCoinLaunchDate(process.env.NEXT_PUBLIC_MUSEUN_COIN_PAYMENTS_LAUNCH_DATE)
+      : null;
   return (
     <PolicyDocument
       title="이용약관"
@@ -82,9 +87,15 @@ export default function TermsPage() {
 
       <section>
         <h2>제7조 유료 서비스</h2>
-        <p>
-          카드 결제 기능은 아직 운영 환경에서 활성화되지 않았습니다. 아래 내용은 유료 무슨 코인 판매를 실제로 활성화하기 전에 제공하는 사전 안내이며, 결제 기능 활성화일 이후 체결되는 거래부터 적용됩니다. 활성화 시 회원은 결제 화면에서 상품의 코인 수량, 원화 가격과 환불 조건을 확인한 뒤 구매할 수 있습니다.
-        </p>
+        {paymentsLaunchDate ? (
+          <p>
+            유료 무슨 코인 판매와 결제는 {paymentsLaunchDate}부터 운영하며, 아래 내용은 이날 이후 체결된 거래에 적용됩니다. 회원은 결제 화면에서 상품의 코인 수량, 원화 가격과 환불 조건을 확인한 뒤 구매할 수 있습니다.
+          </p>
+        ) : (
+          <p>
+            카드 결제 기능은 아직 운영 환경에서 활성화되지 않았습니다. 아래 내용은 유료 무슨 코인 판매를 실제로 활성화하기 전에 제공하는 사전 안내이며, 결제 기능 활성화일 이후 체결되는 거래부터 적용됩니다. 활성화 시 회원은 결제 화면에서 상품의 코인 수량, 원화 가격과 환불 조건을 확인한 뒤 구매할 수 있습니다.
+          </p>
+        )}
         <ol className="mt-3">
           <li>유료 무슨 코인은 토스페이먼츠를 통한 카드 결제가 최종 승인된 뒤 계정에 지급되며, 무료 지급 코인과 구분해 기록합니다. 화면에는 두 종류를 합한 잔액을 표시하고 사용할 때에는 무료 코인을 먼저 차감합니다.</li>
           <li>유료 코인을 사용하거나 취소·환불을 요청할 수 있는 기간은 구매일로부터 1년입니다. 구매일로부터 5년이 지나면 남은 유료 코인은 소멸합니다.</li>

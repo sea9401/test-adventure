@@ -12,6 +12,25 @@ const base = {
 };
 
 describe("dungeonReadiness", () => {
+  it("아직 깊이를 넓힌 적 없는 시작 구간은 정복 기록이라고 하지 않는다", () => {
+    const starter = dungeonReadiness({
+      depth: 2,
+      frontierDepth: 2,
+      jobTier: 0,
+      level: 1,
+      levelCap: 100,
+    });
+    expect(starter).toMatchObject({ status: "starter", tone: "neutral" });
+    expect(starter.label).toBe("시작 구간");
+    expect(starter.label).not.toContain("정복 기록");
+  });
+
+  it("깊이를 넓힌 뒤에는 시작 구간도 정복 기록으로 안내한다", () => {
+    expect(
+      dungeonReadiness({ depth: 2, frontierDepth: 4, jobTier: 0, level: 5, levelCap: 100 }),
+    ).toMatchObject({ status: "proven" });
+  });
+
   it("스탯 합계가 높아도 미정복 단계는 도전으로 안내한다", () => {
     expect(dungeonReadiness({ ...base, ...{ playerPower: 2_060 } })).toMatchObject({
       status: "challenge",

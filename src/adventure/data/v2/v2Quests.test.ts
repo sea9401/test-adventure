@@ -377,14 +377,63 @@ describe("v2Quests 카탈로그 무결성", () => {
 });
 
 describe("성장의 길 (순차 라인)", () => {
-  it("신규 캐릭터 — 첫 퀘만 active, 나머지는 locked", () => {
-    expect(questStatus(questById("g_first_job")!, NEWCOMER, none)).toBe(
+  it("신규 모험가 — 첫 전투가 첫 단계이고 첫 직업은 잠겨 있다", () => {
+    expect(questStatus(questById("g_first_battle")!, NEWCOMER, none)).toBe(
       "active",
     );
-    expect(questStatus(questById("g_first_battle")!, NEWCOMER, none)).toBe(
+    expect(questStatus(questById("g_equip")!, NEWCOMER, none)).toBe("locked");
+    expect(questStatus(questById("g_first_job")!, NEWCOMER, none)).toBe(
       "locked",
     );
-    expect(questStatus(questById("g_equip")!, NEWCOMER, none)).toBe("locked");
+  });
+
+  it("모험가도 레벨 100 전 단계 보상을 직업 없이 받을 수 있다", () => {
+    const adventurer: QuestCtx = {
+      ...NEWCOMER,
+      level: 10,
+      battleCount: 3,
+      hasManuallyEquippedGear: true,
+      hasBattledAfterEquippingGear: true,
+    };
+    for (const id of [
+      "g_first_battle",
+      "g_equip",
+      "g_equipped_battle",
+      "g_level10",
+    ]) {
+      expect(isQuestClaimable(questById(id)!, adventurer, none)).toBe(true);
+    }
+  });
+
+  it("첫 직업 단계는 레벨 100(정점) 바로 다음에 온다", () => {
+    const growthIds = V2_QUESTS.filter((q) => q.line === "growth").map(
+      (q) => q.id,
+    );
+    expect(growthIds[0]).toBe("g_first_battle");
+    expect(growthIds.indexOf("g_first_job")).toBe(
+      growthIds.indexOf("g_cap1") + 1,
+    );
+  });
+
+  it("레벨 100에 도달한 모험가에게 첫 직업 단계가 열린다", () => {
+    const capped: QuestCtx = {
+      ...NEWCOMER,
+      level: 100,
+      battleCount: 3_000,
+      frontierDepth: 40,
+      hasManuallyEquippedGear: true,
+      hasBattledAfterEquippingGear: true,
+    };
+    expect(questStatus(questById("g_first_job")!, capped, none)).toBe(
+      "active",
+    );
+  });
+
+  it("정점과 첫 직업 안내에 레벨 100에 첫 직업을 고른다고 적는다", () => {
+    expect(questById("g_cap1")!.desc).toContain("첫 직업");
+    expect(questById("g_first_job")!.desc).toContain(`레벨 ${V2_LEVEL_CAP}`);
+    const growthLine = QUEST_LINES.find((line) => line.id === "growth")!;
+    expect(growthLine.subtitle).toContain(`레벨 ${V2_LEVEL_CAP}의 첫 직업`);
   });
 
   it("앞 퀘 조건만 충족하면 뒤 퀘도 동시 수령 가능(수령 순서 강제 안 함)", () => {
@@ -823,7 +872,7 @@ describe("장비·수집·교류 업적", () => {
 
 describe("currentGuideQuest (홈 배너)", () => {
   it("신규 캐릭터 — 첫 퀘(active) 안내", () => {
-    expect(currentGuideQuest(NEWCOMER, none)?.id).toBe("g_first_job");
+    expect(currentGuideQuest(NEWCOMER, none)?.id).toBe("g_first_battle");
   });
 
   it("수령 가능한 마일스톤이 진행 중 퀘보다 우선(라인 순서 무관)", () => {

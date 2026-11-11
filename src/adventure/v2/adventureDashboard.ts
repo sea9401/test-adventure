@@ -1,8 +1,9 @@
 export const DEFAULT_ADVENTURE_HOME_WIDGET_ORDER = [
   "character_summary",
   "stamina",
-  "activity_checklist",
+  // 튜토리얼 카드가 첫 화면 안에 보이도록 오늘의 모험 체크보다 앞에 둔다.
   "quest_rewards",
+  "activity_checklist",
   "hot_time",
   "announcements",
   "bulletin_preview",

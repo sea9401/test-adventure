@@ -85,8 +85,8 @@ describe("JobRoadmapDetails", () => {
           cumLevel: 0,
         }}
         currentJobId="warrior"
-        goalJobId={null}
-        onSetGoal={() => {}}
+        goalJobIds={new Set<string>()}
+        onToggleGoal={() => {}}
       />,
     );
 
@@ -134,10 +134,10 @@ describe("JobRoadmapDetails", () => {
           tier7Advancement,
         }}
         currentJobId="swordsaint"
-        goalJobId={null}
+        goalJobIds={new Set<string>()}
         atLevelCap
         currentJobSelectable
-        onSetGoal={() => {}}
+        onToggleGoal={() => {}}
       />,
     );
 
@@ -152,10 +152,10 @@ describe("JobRoadmapDetails", () => {
       <JobRoadmapDetails
         job={{ ...squireJob, unlocked: true }}
         currentJobId="warrior"
-        goalJobId={null}
+        goalJobIds={new Set<string>()}
         atLevelCap
         currentJobSelectable={false}
-        onSetGoal={() => {}}
+        onToggleGoal={() => {}}
         onPickJob={() => {}}
         onInspectSkill={() => {}}
       />,
@@ -174,10 +174,10 @@ describe("JobRoadmapDetails", () => {
       <JobRoadmapDetails
         job={{ ...squireJob, unlocked: true }}
         currentJobId="squire"
-        goalJobId={null}
+        goalJobIds={new Set<string>()}
         atLevelCap
         currentJobSelectable
-        onSetGoal={() => {}}
+        onToggleGoal={() => {}}
         onPickJob={() => {}}
         onInspectSkill={() => {}}
       />,
@@ -211,10 +211,10 @@ describe("JobRoadmapDetails", () => {
         <JobRoadmapDetails
           job={job}
           currentJobId="warrior"
-          goalJobId={null}
+          goalJobIds={new Set<string>()}
           atLevelCap={atLevelCap}
           currentJobSelectable={false}
-          onSetGoal={() => {}}
+          onToggleGoal={() => {}}
           onPickJob={() => {}}
           onInspectSkill={() => {}}
         />,
@@ -238,8 +238,8 @@ describe("JobRoadmapDetails", () => {
           unlocked: true,
         }}
         currentJobId="warrior"
-        goalJobId={null}
-        onSetGoal={() => {}}
+        goalJobIds={new Set<string>()}
+        onToggleGoal={() => {}}
         onInspectSkill={() => {}}
       />,
     );
@@ -275,8 +275,8 @@ describe("JobRoadmapDetails", () => {
       <JobRoadmapDetails
         job={job}
         currentJobId={currentJobId}
-        goalJobId={null}
-        onSetGoal={() => {}}
+        goalJobIds={new Set<string>()}
+        onToggleGoal={() => {}}
         onInspectSkill={() => {}}
       />,
     );
@@ -289,8 +289,8 @@ describe("JobRoadmapDetails", () => {
       <JobRoadmapDetails
         job={{ ...squireJob, unlocked: false, visited: false }}
         currentJobId="warrior"
-        goalJobId={null}
-        onSetGoal={() => {}}
+        goalJobIds={new Set<string>()}
+        onToggleGoal={() => {}}
         onInspectSkill={() => {}}
       />,
     );
@@ -313,8 +313,8 @@ describe("JobRoadmapDetails", () => {
           conditionRevealed: false,
         }}
         currentJobId="warrior"
-        goalJobId={null}
-        onSetGoal={() => {}}
+        goalJobIds={new Set<string>()}
+        onToggleGoal={() => {}}
         onInspectSkill={() => {}}
       />,
     );

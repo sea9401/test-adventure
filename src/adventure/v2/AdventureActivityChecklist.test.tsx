@@ -77,6 +77,31 @@ describe("오늘의 모험 체크", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it("시작한 작업이 없는 생활 항목은 완료가 아니라 대기로 표시한다", () => {
+    render(
+      <AdventureActivityChecklist
+        activities={[
+          {
+            ...activities[0]!,
+            detail: "재배 중인 작물 없음",
+            state: "completed",
+          },
+        ]}
+        summary={{ completed: 0, total: 0, actionableCount: 0 }}
+        loading={false}
+        error={null}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByRole("link", { name: /농장 수확/ });
+    expect(row.textContent).toContain("대기");
+    expect(row.textContent).not.toContain("완료");
+    expect(row.getAttribute("aria-label")).toBe(
+      "농장 수확, 재배 중인 작물 없음, 대기",
+    );
+  });
+
   it("반복 활동은 오늘 진행률에서 제외하고 반복으로 표시한다", () => {
     render(
       <AdventureActivityChecklist

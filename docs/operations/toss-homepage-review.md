@@ -263,3 +263,64 @@ MUSEUN_COIN_PAYMENTS_MODE=disabled
 저장소에서 제거한다. 공개 상품 페이지와 사업자 고지는 유지할 수 있다. 라이브 결제 전환은
 카드사 심사 완료, 약관 시행일 공지, 웹훅, 환불·장애 대응 확인을 마친 뒤 별도 변경과 별도
 배포로 진행한다.
+
+## 라이브 결제 전환
+
+2026-10-27 토스 입점 심사를 통과해 전자결제 계약이 완료됐다(MID `msmsge4l8p`). 이어서 카드사별
+심사가 진행되며 상태는 상점관리자 > 이용정보에서 확인한다. 2026-11-11 기준 국민카드만 빼고 모두
+승인됐고, 오너 결정으로 국민카드 승인을 기다리지 않고 전환한다. 국민카드 이용자는 토스페이·PAYCO
+등 다른 수단으로 결제할 수 있다. 1단계에서 라이브 결제창에 국민카드가 목록에서 빠지는지, 보이지만
+결제가 실패하는지 확인하고, 실패한다면 공개 전에 충전 화면과 오픈 공지에 이용 불가 안내를 넣는다.
+
+운영 사전검사(`scripts/check-production-env.mjs`)는 다음을 막는다.
+
+- 상점이 열려 있는데 `MUSEUN_COIN_PAYMENTS_MODE=test`인 경우. 테스트 키로 상점을 열면 실제
+  대금 없이 코인이 지급되기 때문이다. 상점 공개 플래그는 운영 런타임 env와 추적되는
+  `.env.production` 중 한쪽이라도 `true`면 열린 것으로 본다. `disabled`는 긴급 결제 중단용으로
+  허용한다.
+- `live` 모드인데 클라이언트·시크릿 키가 `live_gck_`·`live_gsk_`로 시작하지 않는 경우.
+
+CI는 `.env.production`에서 `NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=true`일 때
+`NEXT_PUBLIC_MUSEUN_COIN_PAYMENTS_LAUNCH_DATE`가 실제 날짜(`YYYY-MM-DD`)인지 검사한다. 약관
+제7조는 상점이 열리고 이 날짜가 있을 때만 사전 안내 대신 결제 시작일을 표시한다.
+
+### 1단계: 상점은 닫은 채 라이브 결제 확인
+
+1. 상점관리자 > 개발자센터에서 결제위젯 라이브 키(`live_gck_`·`live_gsk_`)를 확인한다.
+2. 상점관리자에 라이브 웹훅 `https://msmsge.com/api/toss-payments/webhook`을 등록하고
+   `PAYMENT_STATUS_CHANGED`·`CANCEL_STATUS_CHANGED`를 구독한다.
+3. SSM `/adventure-rpg/production/env`를 다음처럼 바꾼다. 테스트 키는 지운다.
+
+   ```dotenv
+   PG_HOMEPAGE_REVIEW_MODE=false
+   MUSEUN_COIN_PAYMENTS_MODE=live
+   TOSS_PAYMENTS_CLIENT_KEY=<live_gck_...>
+   TOSS_PAYMENTS_SECRET_KEY=<live_gsk_...>
+   ```
+
+   `REVIEW_LOGIN_*`는 심사 모드와 관계없이 값이 있으면 심사 계정 로그인을 열어 둔다. Google Play
+   심사 등 다른 심사에 계속 쓸지 오너와 정한 뒤 지우거나 비밀번호를 회전한다.
+4. 오너 지시를 받아 재시작한다. 이 단계에서는 운영자(`ADMIN_EMAILS`)와 심사 계정만 상점에
+   들어갈 수 있다.
+5. 운영자 계정으로 가장 싼 상품을 실제 카드로 결제해 코인 지급을 확인하고, 결제 내역에서
+   환불을 요청해 관리자 결제 탭에서 취소까지 처리한다. 토스 상점관리자의 거래 내역과 주문번호·
+   금액·상태를 대조한다.
+6. 심사 중 만든 테스트 결제 데이터(2026-10-15 주문 `mc_8870f329d4394c638b8a25b3334a59e4`,
+   심사 계정 잔액 600코인)를 정리한다. 운영 DB 쓰기이므로 오너 승인 후 진행한다.
+
+### 2단계: 일반 이용자에게 공개
+
+1. 결제 시작일을 정하고 공지사항에 시작일과 약관 제7조 적용을 미리 알린다.
+2. `.env.production`을 바꾸는 PR을 만든다.
+
+   ```dotenv
+   NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=true
+   NEXT_PUBLIC_MUSEUN_COIN_PAYMENTS_LAUNCH_DATE=<YYYY-MM-DD>
+   ```
+
+3. 공개 플래그는 빌드 시 반영되므로 일반 운영 배포 절차로 배포한다.
+4. 배포 후 일반 계정으로 메뉴 노출, 결제창 결제수단, 약관 제7조 시작일 표시를 확인한다.
+
+결제를 즉시 멈춰야 하면 SSM `MUSEUN_COIN_PAYMENTS_MODE=disabled`로 바꾸고 재시작한다. 상점
+화면은 남지만 주문 생성과 승인이 막히고 충전 버튼은 "결제 준비 중"으로 바뀐다. 상점 자체를
+닫으려면 위 두 값을 `false`·빈 값으로 되돌려 다시 배포한다.

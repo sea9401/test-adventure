@@ -67,19 +67,19 @@ export type JobRoadmapPlayerJob = {
 export function JobRoadmapDialog({
   jobs,
   currentJobId,
-  goalJobId,
+  goalJobIds,
   atLevelCap,
   currentJobSelectable,
-  onSetGoal,
+  onToggleGoal,
   onPickJob,
   onClose,
 }: {
   jobs: readonly JobRoadmapPlayerJob[];
   currentJobId: string;
-  goalJobId: string | null;
+  goalJobIds: ReadonlySet<string>;
   atLevelCap: boolean;
   currentJobSelectable: boolean;
-  onSetGoal: (jobId: string | null) => void;
+  onToggleGoal: (jobId: string) => void;
   onPickJob: (job: JobRoadmapPlayerJob) => void;
   onClose: () => void;
 }) {
@@ -194,10 +194,10 @@ export function JobRoadmapDialog({
               <JobRoadmapDetails
                 job={selectedJob}
                 currentJobId={currentJobId}
-                goalJobId={goalJobId}
+                goalJobIds={goalJobIds}
                 atLevelCap={atLevelCap}
                 currentJobSelectable={currentJobSelectable}
-                onSetGoal={onSetGoal}
+                onToggleGoal={onToggleGoal}
                 onPickJob={onPickJob}
                 onInspectSkill={openSkillDetail}
               />
@@ -234,19 +234,19 @@ export function JobRoadmapDialog({
 export function JobRoadmapDetails({
   job,
   currentJobId,
-  goalJobId,
+  goalJobIds,
   atLevelCap,
   currentJobSelectable,
-  onSetGoal,
+  onToggleGoal,
   onPickJob,
   onInspectSkill = () => {},
 }: {
   job: JobRoadmapPlayerJob;
   currentJobId: string;
-  goalJobId: string | null;
+  goalJobIds: ReadonlySet<string>;
   atLevelCap?: boolean;
   currentJobSelectable?: boolean;
-  onSetGoal: (jobId: string | null) => void;
+  onToggleGoal: (jobId: string) => void;
   onPickJob?: (job: JobRoadmapPlayerJob) => void;
   onInspectSkill?: (
     skillId: V2SkillId,
@@ -254,6 +254,7 @@ export function JobRoadmapDetails({
   ) => void;
 }) {
   const cultivation = jobCultivationSummary(job.id);
+  const isGoal = goalJobIds.has(job.id);
   const tierLabel = job.tier <= 0 ? "루트 직업" : `${job.tier}차 직업`;
   const canInspectSkills =
     job.id === currentJobId || job.visited === true || job.unlocked !== false;
@@ -298,18 +299,18 @@ export function JobRoadmapDetails({
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+            onClick={() => onToggleGoal(job.id)}
             className={`flex min-h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition ${
-              job.id === goalJobId
+              isGoal
                 ? "border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
                 : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             }`}
           >
             <Star
               size={14}
-              weight={job.id === goalJobId ? "fill" : "regular"}
+              weight={isGoal ? "fill" : "regular"}
             />
-            {job.id === goalJobId ? "목표 해제" : "목표로 설정"}
+            {isGoal ? "목표 해제" : "목표로 설정"}
           </button>
           {onPickJob ? (
             <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -13,8 +13,10 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
+import { useStoredFavoriteIds } from "./favoriteIds";
 import {
   JOB_GOAL_STORAGE_KEY,
+  LEGACY_JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
   jobCardTags,
   matchesJobExplorerFilters,
@@ -41,30 +43,12 @@ export function jobCodexSectionExpanded(
 export function JobCodexList({ codex }: { codex: JobCodex }) {
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
-  const [goalJobId, setGoalJobId] = useState<string | null>(null);
+  const { favoriteIds: goalJobIds, toggleFavorite: toggleGoal } =
+    useStoredFavoriteIds(JOB_GOAL_STORAGE_KEY, LEGACY_JOB_GOAL_STORAGE_KEY);
   const [toggledSections, setToggledSections] = useState<
     Set<JobCodexSectionKey>
   >(() => new Set());
   const currentJobId = codex.jobs.find((job) => job.isCurrent)?.id ?? null;
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(JOB_GOAL_STORAGE_KEY);
-      if (stored) queueMicrotask(() => setGoalJobId(stored));
-    } catch {
-      // ignore storage-disabled browsers
-    }
-  }, []);
-
-  const setGoal = (jobId: string | null) => {
-    setGoalJobId(jobId);
-    try {
-      if (jobId) localStorage.setItem(JOB_GOAL_STORAGE_KEY, jobId);
-      else localStorage.removeItem(JOB_GOAL_STORAGE_KEY);
-    } catch {
-      // ignore storage-disabled browsers
-    }
-  };
 
   const filteredJobs = useMemo(
     () =>
@@ -73,15 +57,15 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
       ),
     [activeTags, codex.jobs, currentJobId, query],
   );
-  const goalJobs = filteredJobs.filter((job) => job.id === goalJobId);
+  const goalJobs = filteredJobs.filter((job) => goalJobIds.has(job.id));
   const currentJobs = filteredJobs.filter(
-    (job) => job.isCurrent && job.id !== goalJobId,
+    (job) => job.isCurrent && !goalJobIds.has(job.id),
   );
   const unlockedJobs = filteredJobs.filter(
-    (job) => job.unlocked && !job.isCurrent && job.id !== goalJobId,
+    (job) => job.unlocked && !job.isCurrent && !goalJobIds.has(job.id),
   );
   const lockedJobs = filteredJobs.filter(
-    (job) => !job.unlocked && job.id !== goalJobId,
+    (job) => !job.unlocked && !goalJobIds.has(job.id),
   );
   const filteringActive = query.trim().length > 0 || activeTags.size > 0;
 
@@ -159,9 +143,9 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
             jobs={goalJobs}
             expanded={jobCodexSectionExpanded("goal", filteringActive, toggledSections)}
             onToggle={() => toggleSection("goal")}
-            goalJobId={goalJobId}
+            goalJobIds={goalJobIds}
             currentJobId={currentJobId}
-            onSetGoal={setGoal}
+            onToggleGoal={toggleGoal}
           />
           <JobSection
             sectionKey="current"
@@ -169,9 +153,9 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
             jobs={currentJobs}
             expanded={jobCodexSectionExpanded("current", filteringActive, toggledSections)}
             onToggle={() => toggleSection("current")}
-            goalJobId={goalJobId}
+            goalJobIds={goalJobIds}
             currentJobId={currentJobId}
-            onSetGoal={setGoal}
+            onToggleGoal={toggleGoal}
           />
           <JobSection
             sectionKey="unlocked"
@@ -179,9 +163,9 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
             jobs={unlockedJobs}
             expanded={jobCodexSectionExpanded("unlocked", filteringActive, toggledSections)}
             onToggle={() => toggleSection("unlocked")}
-            goalJobId={goalJobId}
+            goalJobIds={goalJobIds}
             currentJobId={currentJobId}
-            onSetGoal={setGoal}
+            onToggleGoal={toggleGoal}
           />
           <JobSection
             sectionKey="locked"
@@ -189,9 +173,9 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
             jobs={lockedJobs}
             expanded={jobCodexSectionExpanded("locked", filteringActive, toggledSections)}
             onToggle={() => toggleSection("locked")}
-            goalJobId={goalJobId}
+            goalJobIds={goalJobIds}
             currentJobId={currentJobId}
-            onSetGoal={setGoal}
+            onToggleGoal={toggleGoal}
           />
         </div>
       )}
@@ -236,18 +220,18 @@ function JobSection({
   jobs,
   expanded,
   onToggle,
-  goalJobId,
+  goalJobIds,
   currentJobId,
-  onSetGoal,
+  onToggleGoal,
 }: {
   sectionKey: JobCodexSectionKey;
   title: string;
   jobs: JobCodex["jobs"];
   expanded: boolean;
   onToggle: () => void;
-  goalJobId: string | null;
+  goalJobIds: ReadonlySet<string>;
   currentJobId: string | null;
-  onSetGoal: (jobId: string | null) => void;
+  onToggleGoal: (jobId: string) => void;
 }) {
   if (jobs.length === 0) return null;
   return (
@@ -275,9 +259,9 @@ function JobSection({
             <JobRow
               key={job.id}
               job={job}
-              isGoal={job.id === goalJobId}
+              isGoal={goalJobIds.has(job.id)}
               currentJobId={currentJobId}
-              onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+              onSetGoal={() => onToggleGoal(job.id)}
             />
           ))}
         </ul>

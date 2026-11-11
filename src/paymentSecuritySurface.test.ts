@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { formatMuseunCoinLaunchDate } from "@/lib/museunCoinLaunch";
 import { readMuseunCoinPaymentConfig } from "@/lib/server/museunCoinPaymentConfig";
 import nextConfig from "../next.config";
 
@@ -20,10 +21,17 @@ describe("payment release gates", () => {
     );
     expect(scriptSources).not.toContain("https://*.tosspayments.com");
   });
-  it("keeps tracked production payment and shop gates closed", () => {
+  it("keeps tracked payment mode closed and opens the shop only with a launch date", () => {
     const env = readFileSync(".env.production", "utf8");
-    expect(env).toContain("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=false");
-    expect(env).toContain("MUSEUN_COIN_PAYMENTS_MODE=disabled");
+    expect(env).toMatch(/^MUSEUN_COIN_PAYMENTS_MODE=disabled$/m);
+    expect(env).toMatch(/^PG_HOMEPAGE_REVIEW_MODE=false$/m);
+    const shopOpen = /^NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN=(true|false)$/m.exec(env)?.[1];
+    const launchDate = /^NEXT_PUBLIC_MUSEUN_COIN_PAYMENTS_LAUNCH_DATE=(.*)$/m.exec(env)?.[1];
+    expect(shopOpen).toBeDefined();
+    expect(launchDate).toBeDefined();
+    if (shopOpen === "true") {
+      expect(formatMuseunCoinLaunchDate(launchDate)).not.toBeNull();
+    }
   });
   it("keeps checkout callbacks and payment APIs behind the shop proxy gate", () => {
     const proxy = readFileSync("src/proxy.ts", "utf8");

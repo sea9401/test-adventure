@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   createDatabaseSslOptions,
   normalizeDatabaseUrl,
@@ -10,8 +12,37 @@ if (process.env.IS_STAGING?.trim() === "true") {
   process.exit(1);
 }
 
-if (process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN?.trim() === "true") {
-  console.error("✗ production coin shop must remain closed before paid-service approval");
+// 상점 공개 플래그는 빌드 시 .env.production 에서 굳어지고 운영 런타임 env(SSM)에는 보통 없다.
+// 둘 중 어느 쪽이든 열려 있으면 열린 것으로 보고 결제 모드와 맞는지 확인한다.
+// 열린 상점에 test 결제가 붙으면 실제 대금 없이 코인이 지급된다. disabled 는 긴급 결제 중단용으로 허용한다.
+function readTrackedEnvValue(key) {
+  const path =
+    process.env.TRACKED_PRODUCTION_ENV_PATH?.trim() ||
+    fileURLToPath(new URL("../.env.production", import.meta.url));
+  if (!existsSync(path)) return undefined;
+  const line = readFileSync(path, "utf8")
+    .split(/\r?\n/)
+    .find((entry) => entry.startsWith(`${key}=`));
+  return line?.slice(key.length + 1).trim();
+}
+
+const coinShopOpen = [
+  process.env.NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN,
+  readTrackedEnvValue("NEXT_PUBLIC_MUSEUN_COIN_SHOP_OPEN"),
+].some((value) => value?.trim() === "true");
+const coinPaymentsMode = process.env.MUSEUN_COIN_PAYMENTS_MODE?.trim();
+
+if (coinShopOpen && coinPaymentsMode === "test") {
+  console.error("✗ open coin shop must not use test payments");
+  process.exit(1);
+}
+
+if (
+  coinPaymentsMode === "live" &&
+  (!process.env.TOSS_PAYMENTS_CLIENT_KEY?.trim().startsWith("live_gck_") ||
+    !process.env.TOSS_PAYMENTS_SECRET_KEY?.trim().startsWith("live_gsk_"))
+) {
+  console.error("✗ live payments require matching Toss Payments live keys");
   process.exit(1);
 }
 

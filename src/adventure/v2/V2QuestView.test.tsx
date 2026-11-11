@@ -53,7 +53,7 @@ const activeGrowthLeap: GrowthLeapMissionView = {
 };
 
 describe("성장 도약 의뢰", () => {
-  it("상점 접근 권한이 없는 계정에는 무슨 코인 상점 링크를 숨긴다", () => {
+  it("상점을 쓸 수 없는 계정에는 패키지 구매 안내를 보여 주지 않는다", () => {
     const hidden = renderToStaticMarkup(
       <GrowthLeapMissionPanel
         mission={{ status: "not_purchased" }}
@@ -63,8 +63,7 @@ describe("성장 도약 의뢰", () => {
         coinShopAccessible={false}
       />,
     );
-    expect(hidden).not.toContain("무슨 코인 상점에서 확인");
-    expect(hidden).not.toContain('href="/settings/coin-shop"');
+    expect(hidden).toBe("");
 
     const allowed = renderToStaticMarkup(
       <GrowthLeapMissionPanel

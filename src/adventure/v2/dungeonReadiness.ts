@@ -1,4 +1,5 @@
 export type DungeonReadinessStatus =
+  | "starter"
   | "proven"
   | "rebuilding"
   | "challenge";
@@ -18,6 +19,8 @@ export type DungeonReadinessInput = {
 };
 
 const REJOB_RECOVERY_RATIO = 0.35;
+// 새 캐릭터의 기본 개척 깊이. 이 값에서는 실제로 이긴 적이 있는지 알 수 없다.
+const STARTING_FRONTIER_DEPTH = 2;
 
 /**
  * 사냥터 안내는 정복 기록과 현재 성장 상태만 사용한다.
@@ -44,6 +47,9 @@ export function dungeonReadiness(input: DungeonReadinessInput): DungeonReadiness
   }
 
   if (input.depth <= input.frontierDepth) {
+    if (input.frontierDepth <= STARTING_FRONTIER_DEPTH) {
+      return { status: "starter", label: "시작 구간", tone: "neutral" };
+    }
     return {
       status: "proven",
       label: "정복 기록 있음 · 빌드별 차이",

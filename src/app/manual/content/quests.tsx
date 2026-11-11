@@ -1,3 +1,4 @@
+import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { H2, P, UL, Em, Note } from "./primitives";
 
 export function QuestsContent() {
@@ -19,8 +20,9 @@ export function QuestsContent() {
       </P>
       <UL>
         <li>
-          <Em>성장의 길</Em>은 첫 직업·첫 전투·장비 교체·성장·수행·전직을
-          순서대로 안내합니다.
+          <Em>성장의 길</Em>은 첫 전투·장비 교체·성장을 거쳐{" "}
+          {`레벨 ${V2_LEVEL_CAP}에 첫 직업을 고르고`}, 수행과 전직까지 순서대로
+          안내합니다.
         </li>
         <li>
           <Em>기초 튜토리얼</Em>은 치료소·은행·스킬과 농장·벌목·채광·

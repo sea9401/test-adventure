@@ -14,12 +14,15 @@ export default async function EventsPage({
 }) {
   const params = await searchParams;
   // 끝난 추석 이벤트 링크(?tab=chuseok)를 포함해 알 수 없는 탭은 출석 체크로 연다.
+  // 겨울 이벤트가 끝난 뒤의 ?tab=winter 는 화면 쪽에서 출석 체크로 돌린다.
   const initialTab =
     params.tab === "coupon"
       ? "coupon"
       : params.tab === "promotion"
         ? "promotion"
-        : "attendance";
+        : params.tab === "winter"
+          ? "winter"
+          : "attendance";
 
   return <V2EventsView initialTab={initialTab} />;
 }

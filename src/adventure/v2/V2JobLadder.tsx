@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import {
   CaretDown,
   CaretUp,
@@ -16,9 +16,11 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { useSystemMessageState } from "./RewardToastProvider";
 import { JobRoadmapDialog } from "./JobRoadmapDialog";
+import { useStoredFavoriteIds } from "./favoriteIds";
 import {
   JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
+  LEGACY_JOB_GOAL_STORAGE_KEY,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
   jobCardTags,
@@ -148,28 +150,11 @@ export function V2JobLadder({
   const [msg, setMsg] = useSystemMessageState();
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
-  const [goalJobId, setGoalJobId] = useState<string | null>(null);
+  // 목표 직업은 여러 개 찍을 수 있다(7차·복합 직업은 두 계보를 번갈아 키운다).
+  const { favoriteIds: goalJobIds, toggleFavorite: toggleGoal } =
+    useStoredFavoriteIds(JOB_GOAL_STORAGE_KEY, LEGACY_JOB_GOAL_STORAGE_KEY);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
   const closeRoadmap = useCallback(() => setRoadmapOpen(false), []);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(JOB_GOAL_STORAGE_KEY);
-      if (stored) queueMicrotask(() => setGoalJobId(stored));
-    } catch {
-      // ignore storage-disabled browsers
-    }
-  }, []);
-
-  const setGoal = (jobId: string | null) => {
-    setGoalJobId(jobId);
-    try {
-      if (jobId) localStorage.setItem(JOB_GOAL_STORAGE_KEY, jobId);
-      else localStorage.removeItem(JOB_GOAL_STORAGE_KEY);
-    } catch {
-      // ignore storage-disabled browsers
-    }
-  };
 
   const visibleJobs = useMemo(
     () => jobs.filter(isJobVisibleInShrine).sort(compareJobExplorerLineOrder),
@@ -182,17 +167,17 @@ export function V2JobLadder({
       ),
     [activeTags, currentJobId, query, visibleJobs],
   );
-  const goalJobs = filteredJobs.filter((job) => job.id === goalJobId);
+  const goalJobs = filteredJobs.filter((job) => goalJobIds.has(job.id));
   const currentJobs = filteredJobs.filter(
-    (job) => job.id === currentJobId && job.id !== goalJobId,
+    (job) => job.id === currentJobId && !goalJobIds.has(job.id),
   );
   const availableJobs = filteredJobs.filter(
     (job) =>
-      job.id !== currentJobId && job.id !== goalJobId && job.unlocked !== false,
+      job.id !== currentJobId && !goalJobIds.has(job.id) && job.unlocked !== false,
   );
   const lockedJobs = filteredJobs.filter(
     (job) =>
-      job.id !== currentJobId && job.id !== goalJobId && job.unlocked === false,
+      job.id !== currentJobId && !goalJobIds.has(job.id) && job.unlocked === false,
   );
   const isFiltering = query.trim().length > 0 || activeTags.size > 0;
   const hasNoCharacterLevelRequirement = rejobRequiredLevel <= 1;
@@ -348,8 +333,8 @@ export function V2JobLadder({
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
               currentJobSelectable={currentJobSelectable}
-              goalJobId={goalJobId}
-              onSetGoal={setGoal}
+              goalJobIds={goalJobIds}
+              onToggleGoal={toggleGoal}
               onPick={pickJob}
             />
             <JobSection
@@ -358,8 +343,8 @@ export function V2JobLadder({
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
               currentJobSelectable={currentJobSelectable}
-              goalJobId={goalJobId}
-              onSetGoal={setGoal}
+              goalJobIds={goalJobIds}
+              onToggleGoal={toggleGoal}
               onPick={pickJob}
             />
             <JobSection
@@ -371,8 +356,8 @@ export function V2JobLadder({
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
               currentJobSelectable={currentJobSelectable}
-              goalJobId={goalJobId}
-              onSetGoal={setGoal}
+              goalJobIds={goalJobIds}
+              onToggleGoal={toggleGoal}
               onPick={pickJob}
             />
             <JobSection
@@ -384,8 +369,8 @@ export function V2JobLadder({
               currentJobId={currentJobId}
               atLevelCap={atLevelCap}
               currentJobSelectable={currentJobSelectable}
-              goalJobId={goalJobId}
-              onSetGoal={setGoal}
+              goalJobIds={goalJobIds}
+              onToggleGoal={toggleGoal}
               onPick={pickJob}
             />
           </div>
@@ -454,10 +439,10 @@ export function V2JobLadder({
         <JobRoadmapDialog
           jobs={jobs}
           currentJobId={currentJobId}
-          goalJobId={goalJobId}
+          goalJobIds={goalJobIds}
           atLevelCap={atLevelCap}
           currentJobSelectable={currentJobSelectable}
-          onSetGoal={setGoal}
+          onToggleGoal={toggleGoal}
           onPickJob={pickJob}
           onClose={closeRoadmap}
         />
@@ -472,8 +457,8 @@ function JobSection({
   currentJobId,
   atLevelCap,
   currentJobSelectable,
-  goalJobId,
-  onSetGoal,
+  goalJobIds,
+  onToggleGoal,
   onPick,
   previewLimit,
   collapsedByDefault = false,
@@ -485,8 +470,8 @@ function JobSection({
   currentJobId: string;
   atLevelCap: boolean;
   currentJobSelectable: boolean;
-  goalJobId: string | null;
-  onSetGoal: (jobId: string | null) => void;
+  goalJobIds: ReadonlySet<string>;
+  onToggleGoal: (jobId: string) => void;
   onPick: (job: JobLadderEntry) => void;
   previewLimit?: number;
   collapsedByDefault?: boolean;
@@ -551,11 +536,11 @@ function JobSection({
               key={job.id}
               job={job}
               isCurrent={job.id === currentJobId}
-              isGoal={job.id === goalJobId}
+              isGoal={goalJobIds.has(job.id)}
               atLevelCap={atLevelCap}
               currentJobSelectable={currentJobSelectable}
               currentJobId={currentJobId}
-              onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
+              onSetGoal={() => onToggleGoal(job.id)}
               onPick={() => onPick(job)}
             />
           ))}

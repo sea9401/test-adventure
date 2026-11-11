@@ -226,17 +226,6 @@ export type QuestLine = {
 // 신규 캐릭터는 6부위를 자동 장착한 채 시작하므로 equippedCount 만으로 장착 행동을 판정하지 않는다.
 const GROWTH: QuestDef[] = [
   {
-    id: "g_first_job",
-    line: "growth",
-    title: "첫 직업",
-    desc: "캐릭터 > 성장의 신전에서 첫 직업을 선택하세요.",
-    href: "/character/shrine",
-    reward: { staminaPotions: 1 },
-    progress: (c) => (c.class !== "none" && c.tier >= 1 ? 1 : 0),
-    goal: 1,
-    check: (c) => c.class !== "none" && c.tier >= 1,
-  },
-  {
     id: "g_first_battle",
     line: "growth",
     title: "첫 발걸음",
@@ -310,7 +299,7 @@ const GROWTH: QuestDef[] = [
     id: "g_cap1",
     line: "growth",
     title: "정점",
-    desc: `사냥터에서 성장해 레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
+    desc: `사냥터에서 성장해 레벨 한계치(${V2_LEVEL_CAP})에 도달하세요. 모험가는 이때 첫 직업을 고를 수 있습니다.`,
     href: "/battle/dungeon",
     reward: { staminaPotions: 1 },
     progress: (c) => Math.max(c.level, Math.min(c.cumLevel, V2_LEVEL_CAP)),
@@ -318,6 +307,18 @@ const GROWTH: QuestDef[] = [
     // 현재 레벨 또는 보존 숙련도 기준. level 만 보면 재전직 직후 레벨 1 리셋으로 뒤 퀘스트가
     // 재잠금되고, cumLevel 만 보면 EXP 묘약 등 레벨 성장 경로와 설명이 어긋난다.
     check: (c) => c.level >= V2_LEVEL_CAP || c.cumLevel >= V2_LEVEL_CAP,
+  },
+  {
+    // 모험가는 레벨 100에 첫 직업을 고른다. 순차 라인이라 정점 앞에 두면 그 전 단계가 전부 잠긴다.
+    id: "g_first_job",
+    line: "growth",
+    title: "첫 직업",
+    desc: `레벨 ${V2_LEVEL_CAP}에 도달했다면 캐릭터 > 성장의 신전에서 첫 직업을 선택하세요. 그때부터 직업 숙련도가 쌓입니다.`,
+    href: "/character/shrine",
+    reward: { staminaPotions: 1 },
+    progress: (c) => (c.class !== "none" && c.tier >= 1 ? 1 : 0),
+    goal: 1,
+    check: (c) => c.class !== "none" && c.tier >= 1,
   },
   {
     id: "g_cultivate",
@@ -1147,7 +1148,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "growth",
     name: "성장의 길",
-    subtitle: "첫 직업과 전투 준비부터 수행·2차·3차 전직까지 차례로 따라오세요.",
+    subtitle: `전투 준비부터 레벨 ${V2_LEVEL_CAP}의 첫 직업, 수행·2차·3차 전직까지 차례로 따라오세요.`,
     sequential: true,
     tutorial: true,
   },

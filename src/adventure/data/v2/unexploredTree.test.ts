@@ -111,12 +111,13 @@ describe("unexplored tree catalogue", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
-    const selected = difficultyIds.slice(0, -1);
+    // 대담한 계약(+5)과 난이도 노드 13개(+31)로 이미 130단 상한(+35)을 넘긴다.
+    const selected = ["deep-contract", ...difficultyIds.slice(0, -1)];
     const before = deriveUnexploredEffects(selected);
     const after = deriveUnexploredEffects([...selected, difficultyIds.at(-1)!]);
 
-    expect(before.difficulty).toBe(120);
-    expect(after.difficulty).toBe(120);
+    expect(before.difficulty).toBe(130);
+    expect(after.difficulty).toBe(130);
     expect(after.rewardPct).toEqual(before.rewardPct);
     expect(after.traceExtraChancePct).toBe(before.traceExtraChancePct);
     expect(after.rareCopyChancePct).toBe(before.rareCopyChancePct);
@@ -126,13 +127,20 @@ describe("unexplored tree catalogue", () => {
     const difficultyNodes = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     );
-    const effects = deriveUnexploredEffects(difficultyNodes.map((node) => node.id));
+    const effects = deriveUnexploredEffects([
+      "deep-contract",
+      ...difficultyNodes.map((node) => node.id),
+    ]);
     const totals = difficultyNodes.map((node) => {
       const effect = node.effects.find((e) => e.kind === "difficulty_reward");
       return effect?.kind === "difficulty_reward" ? effect.difficulty : 0;
     });
 
-    let remaining = 25;
+    expect(effects.difficultyApplication["deep-contract"]).toEqual({
+      applied: 5,
+      total: 5,
+    });
+    let remaining = 35 - 5;
     difficultyNodes.forEach((node, index) => {
       const applied = Math.min(totals[index], remaining);
       remaining -= applied;
@@ -142,9 +150,10 @@ describe("unexplored tree catalogue", () => {
       });
     });
 
-    const reversed = deriveUnexploredEffects(
-      difficultyNodes.map((node) => node.id).reverse(),
-    );
+    const reversed = deriveUnexploredEffects([
+      "deep-contract",
+      ...difficultyNodes.map((node) => node.id).reverse(),
+    ]);
     expect(reversed.difficultyApplication[difficultyNodes[0].id]).toEqual({
       applied: 0,
       total: totals[0],
@@ -152,11 +161,11 @@ describe("unexplored tree catalogue", () => {
     expect(effects.difficultyApplication.start).toBeUndefined();
   });
 
-  it("lets a chosen risk node fill the 120 cap first or last without changing the total", () => {
+  it("lets a chosen risk node fill the 130 cap first or last without changing the total", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
-    const selected = ["start", ...difficultyIds];
+    const selected = ["start", "deep-contract", ...difficultyIds];
     const before = deriveUnexploredEffects(selected);
     const lastId = difficultyIds.at(-1)!;
     const firstId = difficultyIds[0];
@@ -173,8 +182,8 @@ describe("unexplored tree catalogue", () => {
       applied: before.difficultyApplication[lastId]!.total,
       total: before.difficultyApplication[lastId]!.total,
     });
-    expect(afterPromote.difficultyIncrease).toBe(25);
-    expect(afterPromote.difficulty).toBe(120);
+    expect(afterPromote.difficultyIncrease).toBe(35);
+    expect(afterPromote.difficulty).toBe(130);
 
     const deferred = unexploredDifficultyReorder(selected, firstId, "last");
     expect(deferred.ok).toBe(true);
@@ -182,7 +191,7 @@ describe("unexplored tree catalogue", () => {
     expect(deferred.nodeIds.at(-1)).toBe(firstId);
     const afterDefer = deriveUnexploredEffects(deferred.nodeIds);
     expect(afterDefer.difficultyApplication[firstId]?.applied).toBe(0);
-    expect(afterDefer.difficultyIncrease).toBe(25);
+    expect(afterDefer.difficultyIncrease).toBe(35);
   });
 
   it("only reorders active risk nodes", () => {
@@ -224,26 +233,51 @@ describe("unexplored tree catalogue", () => {
     }
   });
 
-  it("caps the fourteen difficulty nodes at 120 and prorates the last reward", () => {
+  it("applies all fourteen difficulty nodes in full up to difficulty 130", () => {
     const difficultyNodeIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
     const effects = deriveUnexploredEffects(difficultyNodeIds);
 
     expect(difficultyNodeIds).toHaveLength(14);
-    expect(effects.difficultyIncrease).toBe(25);
-    expect(effects.difficulty).toBe(120);
+    expect(effects.difficultyIncrease).toBe(35);
+    expect(effects.difficulty).toBe(130);
     expect(effects.rewardPct).toMatchObject({
       gold: 30,
       baseMaterial: 65,
       equipment: 65,
-      specialMaterial: 42,
+      specialMaterial: 115,
     });
-    expect(effects.traceExtraChancePct).toBe(30);
+    expect(effects.traceExtraChancePct).toBe(65);
     expect(effects.rareCopyChancePct).toBe(55);
   });
 
-  it("rejects a second conversion node and permits route nodes at difficulty 120", () => {
+  it("caps difficulty at 130 and prorates the node that crosses the cap", () => {
+    const difficultyNodeIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const effects = deriveUnexploredEffects([
+      "deep-contract",
+      ...difficultyNodeIds,
+    ]);
+
+    expect(effects.difficultyIncrease).toBe(35);
+    expect(effects.difficulty).toBe(130);
+    // 계약 +5 뒤 남은 +30을 순서대로 채운다. 흔적 추적 III(+4, +35%p)은 +3만 반영되고
+    // 마지막 특화 전용 재료 IV(+4, +50%)는 반영되지 않는다.
+    expect(effects.difficultyApplication["outer-medium-7"]).toEqual({
+      applied: 3,
+      total: 4,
+    });
+    expect(effects.difficultyApplication["outer-medium-8"]).toEqual({
+      applied: 0,
+      total: 4,
+    });
+    expect(effects.traceExtraChancePct).toBe(10 + 20 + 26);
+    expect(effects.rewardPct.specialMaterial).toBe(10 + 20 + 35 + 15);
+  });
+
+  it("rejects a second conversion node and permits route nodes at difficulty 130", () => {
     const goldPath = shortestUnexploredPath("deep-gold");
     const collectorPath = shortestUnexploredPath("deep-collector");
     const selected = [...new Set([...goldPath, ...collectorPath.slice(0, -1)])];
@@ -268,7 +302,7 @@ describe("unexplored tree catalogue", () => {
     expect(
       deriveUnexploredEffects([...overCapSelected, finalDifficultyId])
         .difficultyIncrease,
-    ).toBe(25);
+    ).toBe(35);
     expect(
       unexploredActivationError(overCapSelected, finalDifficultyId, 160),
     ).toBeNull();

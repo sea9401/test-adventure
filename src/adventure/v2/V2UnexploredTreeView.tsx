@@ -38,6 +38,7 @@ import {
 } from "@/adventure/data/v2/unexploredBosses";
 import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
 import { UNEXPLORED_ACHIEVEMENTS } from "@/adventure/data/v2/unexploredProgression";
+import { UNEXPLORED_MAX_DIFFICULTY } from "@/adventure/data/v2/unexploredTree";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import {
   buildUnexploredTreeModel,
@@ -690,7 +691,7 @@ export function V2UnexploredTreeView({
                         : node.planState === "refund"
                           ? " · 반환 대기"
                           : ""
-                    }${capped ? " · 120단 초과로 보상 덜 반영" : ""}${
+                    }${capped ? ` · ${UNEXPLORED_MAX_DIFFICULTY}단 초과로 보상 덜 반영` : ""}${
                       searchMatch ? " · 검색 일치" : ""
                     }`}
                     onClick={() => setSelectedNodeId(node.id)}
@@ -826,7 +827,7 @@ export function V2UnexploredTreeView({
                     (effect.kind === "deep" && effect.effect === "contract"),
                   ) && (
                     <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                      난이도는 먼저 찍은 노드부터 120단까지 반영됩니다. 120단을 넘겨 찍은 노드는 경로만 연결하고 보상은 적용되지 않습니다.
+                      난이도는 먼저 찍은 노드부터 {UNEXPLORED_MAX_DIFFICULTY}단까지 반영됩니다. {UNEXPLORED_MAX_DIFFICULTY}단을 넘겨 찍은 노드는 경로만 연결하고 보상은 적용되지 않습니다.
                     </p>
                   )}
                   {model.selectedDifficultyOrder && (
@@ -941,7 +942,7 @@ export function V2UnexploredTreeView({
             <h3 className="mb-2 font-bold">현재 보상 보정</h3>
             {cappedNodeCount > 0 && (
               <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
-                120단을 넘겨 보상이 덜 반영된 난이도 노드 {cappedNodeCount}개 (점선 테두리)
+                {UNEXPLORED_MAX_DIFFICULTY}단을 넘겨 보상이 덜 반영된 난이도 노드 {cappedNodeCount}개 (점선 테두리)
               </p>
             )}
             <div className="grid grid-cols-2 gap-2">

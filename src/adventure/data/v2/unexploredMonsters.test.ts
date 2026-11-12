@@ -33,9 +33,9 @@ describe("unexplored runtime monsters", () => {
     }
   });
 
-  it("keeps every integer difficulty from 95 through 120 finite and continuous", () => {
+  it("keeps every integer difficulty from 95 through 130 finite and continuous", () => {
     let previous = unexploredBaseMonstersAtDifficulty(95)[0].monster;
-    for (let difficulty = 95; difficulty <= 120; difficulty += 1) {
+    for (let difficulty = 95; difficulty <= 130; difficulty += 1) {
       const monsters = [
         ...unexploredBaseMonstersAtDifficulty(difficulty),
         ...unexploredActiveSpecialMonstersAtDifficulty(difficulty, []),
@@ -733,6 +733,23 @@ describe("unexplored runtime monsters", () => {
     ).toThrow(/not active/i);
   });
 
+  it("rejects runtime difficulty outside 95 through 130", () => {
+    expect(() => unexploredBaseMonstersAtDifficulty(94)).toThrow(
+      "Unsupported unexplored runtime difficulty: 94",
+    );
+    expect(() => unexploredBaseMonstersAtDifficulty(131)).toThrow(
+      "Unsupported unexplored runtime difficulty: 131",
+    );
+  });
+
+  it("raises base monster health and attack at 130 by the extended curve", () => {
+    const at120 = unexploredBaseMonstersAtDifficulty(120)[0].monster;
+    const at130 = unexploredBaseMonstersAtDifficulty(130)[0].monster;
+    expect(at130.hp / at120.hp).toBeGreaterThan(2.2);
+    expect(at130.atk / at120.atk).toBeGreaterThan(2);
+    expect(at130.spd).toBe(at120.spd);
+  });
+
   it("preserves the approved anchor values and ends resource compensation at 110", () => {
     expect(unexploredBaseMonstersAtDifficulty(95)[0].monster).toMatchObject({
       hp: 397_012,
@@ -748,7 +765,7 @@ describe("unexplored runtime monsters", () => {
       magicDef: 2_461,
       spd: 17,
     });
-    for (let difficulty = 110; difficulty <= 120; difficulty += 1) {
+    for (let difficulty = 110; difficulty <= 130; difficulty += 1) {
       expect(unexploredResourceGrowthCompensation(difficulty)).toEqual({
         hp: 1,
         atk: 1,

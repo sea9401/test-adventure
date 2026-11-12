@@ -6,7 +6,7 @@ import {
 } from "@/adventure/v2/combat/combatTimeline";
 
 export const UNEXPLORED_SIMULATION_DIFFICULTIES = [
-  90, 95, 100, 105, 110, 115, 120,
+  90, 95, 100, 105, 110, 115, 120, 125, 130,
 ] as const;
 export type UnexploredSimulationDifficulty =
   (typeof UNEXPLORED_SIMULATION_DIFFICULTIES)[number];
@@ -27,6 +27,9 @@ const UNEXPLORED_RAW_SPD_ANCHORS = {
   110: { slow: 21, normal: 34, fast: 83, extreme: 122 },
   115: { slow: 23, normal: 36, fast: 86, extreme: 126 },
   120: { slow: 24, normal: 38, fast: 88, extreme: 129 },
+  // 120 뒤로는 행동 속도를 더 올리지 않고 체력·공격·방어 배율만 키운다.
+  125: { slow: 24, normal: 38, fast: 88, extreme: 129 },
+  130: { slow: 24, normal: 38, fast: 88, extreme: 129 },
 } as const satisfies Record<
   UnexploredSimulationDifficulty,
   Record<UnexploredSpeedBand, number>
@@ -36,7 +39,7 @@ const CALIBRATION_PLAYER_SPD = 930;
 const SOURCE_MEDIAN_RAW_MONSTER_SPD = 9;
 
 function assertSupportedDifficulty(difficulty: number): void {
-  if (!Number.isInteger(difficulty) || difficulty < 90 || difficulty > 120) {
+  if (!Number.isInteger(difficulty) || difficulty < 90 || difficulty > 130) {
     throw new Error(`Unsupported unexplored difficulty: ${difficulty}`);
   }
 }
@@ -99,6 +102,8 @@ const UNEXPLORED_RESOURCE_GROWTH_COMPENSATION = {
   110: { hp: 1, atk: 1, def: 1 },
   115: { hp: 1, atk: 1, def: 1 },
   120: { hp: 1, atk: 1, def: 1 },
+  125: { hp: 1, atk: 1, def: 1 },
+  130: { hp: 1, atk: 1, def: 1 },
 } as const satisfies Record<
   UnexploredSimulationDifficulty,
   UnexploredHighDifficultyMultipliers

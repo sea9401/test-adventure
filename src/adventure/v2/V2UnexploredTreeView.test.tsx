@@ -288,12 +288,15 @@ describe("V2UnexploredTreeView", () => {
     expect(screen.queryByText(/검색 결과/)).toBeNull();
   });
 
-  it("120단을 넘겨 찍은 난이도 노드를 점선으로 표시하고 보상 미적용을 안내한다", () => {
+  it("130단을 넘겨 찍은 난이도 노드를 점선으로 표시하고 보상 미적용을 안내한다", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
     const selectedNodeIds = [
-      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+      ...new Set([
+        ...shortestUnexploredPath("deep-contract"),
+        ...difficultyIds.flatMap((id) => shortestUnexploredPath(id)),
+      ]),
     ];
     const lastId = difficultyIds.at(-1)!;
     const { container } = render(
@@ -315,10 +318,10 @@ describe("V2UnexploredTreeView", () => {
       container.querySelector(`[data-unexplored-node="${difficultyIds[0]}"]`)!
         .getAttribute("data-unexplored-capped"),
     ).toBeNull();
-    expect(screen.getByText(/120단을 넘겨 보상이 덜 반영된 난이도 노드/)).toBeTruthy();
+    expect(screen.getByText(/130단을 넘겨 보상이 덜 반영된 난이도 노드/)).toBeTruthy();
 
     fireEvent.click(lastNode);
-    expect(screen.getByText(/120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고/)).toBeTruthy();
+    expect(screen.getByText(/130단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고/)).toBeTruthy();
   });
 
   it("상한에 걸린 난이도 노드에서 먼저 반영을 누르면 반영 순서 변경을 요청한다", async () => {
@@ -326,7 +329,10 @@ describe("V2UnexploredTreeView", () => {
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
     const selectedNodeIds = [
-      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+      ...new Set([
+        ...shortestUnexploredPath("deep-contract"),
+        ...difficultyIds.flatMap((id) => shortestUnexploredPath(id)),
+      ]),
     ];
     const lastId = difficultyIds.at(-1)!;
     const initialSnapshot = {

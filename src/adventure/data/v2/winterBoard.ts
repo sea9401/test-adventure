@@ -104,7 +104,7 @@ export const WINTER_SHOP_ITEMS: readonly WinterShopItem[] = [
   { id: "title_wanderer", name: "칭호 ‘겨울 나그네’", cost: 150, limit: 1, reward: { kind: "title", titleId: WINTER_TITLE_WANDERER_ID } },
   { id: "title_trailblazer", name: "칭호 ‘눈길의 개척자’", cost: 400, limit: 1, reward: { kind: "title", titleId: WINTER_TITLE_TRAILBLAZER_ID } },
   { id: "mastery_certificate", name: "숙련 증서 10개", cost: 15, limit: null, reward: { kind: "mastery_certificate", count: 10 } },
-  { id: "stamina_potion_extra", name: "스태미나 회복약 1개", cost: 30, limit: null, reward: { kind: "stamina_potion", count: 1 } },
+  { id: "stamina_potion_extra", name: "스태미나 회복약 1개", cost: 40, limit: null, reward: { kind: "stamina_potion", count: 1 } },
 ];
 
 const SHOP_ITEM_BY_ID = new Map(WINTER_SHOP_ITEMS.map((item) => [item.id, item]));

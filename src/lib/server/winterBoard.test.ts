@@ -223,7 +223,7 @@ describe("겨울 말판 조회", () => {
       purchased: 2,
     });
     expect(view.shop.find((item) => item.id === "stamina_potion_extra")).toMatchObject({
-      cost: 30,
+      cost: 40,
       limit: null,
       purchased: 0,
     });
@@ -376,7 +376,7 @@ describe("겨울 교환소", () => {
   });
 
   it("한도가 없는 품목은 여러 번 살 수 있다", async () => {
-    seed({ coins: 75, questDiceGranted: 4 });
+    seed({ coins: 95, questDiceGranted: 4 });
     ok(await buyWinterBoardItem(USER, "stamina_potion_extra", ACTIVE));
     const second = ok(await buyWinterBoardItem(USER, "stamina_potion_extra", ACTIVE));
     expect(second.coins).toBe(15);

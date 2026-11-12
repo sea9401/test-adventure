@@ -438,8 +438,8 @@ describe("겨울 교환소", () => {
   });
 
   it("한도가 없는 품목은 주화가 남아 있는 한 계속 살 수 있다", () => {
-    let state = withState({ coins: 95, purchases: { stamina_potion_extra: 40 } });
-    for (const left of [65, 35, 5]) {
+    let state = withState({ coins: 125, purchases: { stamina_potion_extra: 40 } });
+    for (const left of [85, 45, 5]) {
       const bought = buyWinterShopItem(state, "stamina_potion_extra");
       if ("error" in bought) throw new Error(bought.error);
       expect(bought.item.reward).toEqual({ kind: "stamina_potion", count: 1 });
@@ -458,7 +458,7 @@ describe("겨울 교환소", () => {
       ["title_wanderer", 150, 1],
       ["title_trailblazer", 400, 1],
       ["mastery_certificate", 15, null],
-      ["stamina_potion_extra", 30, null],
+      ["stamina_potion_extra", 40, null],
     ]);
   });
 

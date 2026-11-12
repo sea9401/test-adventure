@@ -59,6 +59,21 @@ describe("겨울 말판 화면", () => {
     expect(current).toHaveLength(1);
     expect(current[0]!.textContent).toContain("3");
     expect(current[0]!.textContent).toContain("주화 5");
+    expect(current[0]!.textContent).toContain("내 위치");
+  });
+
+  it("칸마다 종류에 맞는 그림을 보여 준다", () => {
+    renderContent();
+    const board = screen.getByRole("list", { name: "겨울 말판" });
+    const tiles = within(board).getAllByRole("listitem");
+    const art = (index: number) =>
+      decodeURIComponent(tiles[index]!.querySelector("img")?.getAttribute("src") ?? "");
+    expect(art(0)).toContain("/images/event/winter-tile-start.webp");
+    expect(art(3)).toContain("/images/event/winter-tile-coins.webp");
+    expect(art(4)).toContain("/images/event/winter-tile-again.webp");
+    expect(art(6)).toContain("/images/event/winter-tile-potion.webp");
+    expect(art(8)).toContain("/images/event/winter-tile-forward.webp");
+    expect(tiles[8]!.textContent).toContain("앞으로 3칸");
   });
 
   it("주사위가 있으면 굴리기와 모두 굴리기를 누를 수 있다", () => {

@@ -68,6 +68,12 @@ class MemoryStore implements MuseunCoinAccountStore {
   ) {
     this.allocations.push(...rows);
   }
+  async getLedgerById(id: number) {
+    return this.ledger.find((row) => row.id === id) ?? null;
+  }
+  async listSpendAllocations(ledgerId: number) {
+    return this.allocations.filter((row) => row.ledgerId === ledgerId);
+  }
   async mirrorLegacyBalance(_userId: string, coins: number) {
     this.mirroredCoins.push(coins);
   }
@@ -297,5 +303,151 @@ describe("Museun Coin account operations", () => {
     expect(store.lots[0]).toMatchObject({ availableCoins: 700, heldCoins: 0 });
     expect(store.account.paidBalance).toBe(700);
     expect(store.mirroredCoins.at(-1)).toBe(700);
+  });
+
+  function lot(orderId: string, availableCoins: number, createdAt: string) {
+    return {
+      orderId,
+      userId: "user-1",
+      grantedCoins: 1_000,
+      availableCoins,
+      heldCoins: 0,
+      createdAt: new Date(createdAt),
+    };
+  }
+
+  it("restores part of a spend to the paid lots it was drawn from, newest draw first", async () => {
+    const store = new MemoryStore({ paidBalance: 1_300 });
+    store.lots = [
+      lot("mc_order_old", 300, "2026-09-01"),
+      lot("mc_order_new", 1_000, "2026-09-02"),
+    ];
+    const service = createMuseunCoinAccountOperations(store);
+    const spent = await service.spend({
+      userId: "user-1",
+      coins: 1_000,
+      eventKey: "shop:1",
+      kind: "shop_purchase",
+      sourceId: "adventure_support_30d",
+    });
+    if (!spent.ok || spent.duplicate) throw new Error("spend failed");
+
+    const restored = await service.restoreSpend({
+      userId: "user-1",
+      spendLedgerId: spent.ledgerId,
+      coins: 800,
+      kind: "shop_price_adjustment",
+      sourceId: "adventure_support_30d",
+    });
+
+    expect(restored).toMatchObject({
+      freeCoins: 0,
+      paidCoins: 1_100,
+      coins: 1_100,
+      freeRestored: 0,
+      paidRestored: 800,
+      duplicate: false,
+    });
+    expect(store.lots.map((row) => row.availableCoins)).toEqual([100, 1_000]);
+    expect(store.ledger.at(-1)).toMatchObject({
+      kind: "shop_price_adjustment",
+      sourceId: "adventure_support_30d",
+      freeDelta: 0,
+      paidDelta: 800,
+      paidBalanceAfter: 1_100,
+      detail: {
+        spendLedgerId: spent.ledgerId,
+        lots: [
+          { orderId: "mc_order_new", coins: 700 },
+          { orderId: "mc_order_old", coins: 100 },
+        ],
+      },
+    });
+    expect(store.mirroredCoins.at(-1)).toBe(1_100);
+  });
+
+  it("returns the remainder as free coins when the spend used free coins", async () => {
+    const store = new MemoryStore({ freeBalance: 800, paidBalance: 1_000 });
+    store.lots = [lot("mc_order_1", 1_000, "2026-09-01")];
+    const service = createMuseunCoinAccountOperations(store);
+    const spent = await service.spend({
+      userId: "user-1",
+      coins: 1_000,
+      eventKey: "shop:1",
+      kind: "shop_purchase",
+    });
+    if (!spent.ok || spent.duplicate) throw new Error("spend failed");
+
+    const restored = await service.restoreSpend({
+      userId: "user-1",
+      spendLedgerId: spent.ledgerId,
+      coins: 300,
+      kind: "shop_price_adjustment",
+    });
+
+    expect(restored).toMatchObject({
+      freeCoins: 100,
+      paidCoins: 1_000,
+      freeRestored: 100,
+      paidRestored: 200,
+    });
+    expect(store.lots[0]?.availableCoins).toBe(1_000);
+  });
+
+  it("restores a given spend only once", async () => {
+    const store = new MemoryStore({ paidBalance: 1_000 });
+    store.lots = [lot("mc_order_1", 1_000, "2026-09-01")];
+    const service = createMuseunCoinAccountOperations(store);
+    const spent = await service.spend({
+      userId: "user-1",
+      coins: 1_000,
+      eventKey: "shop:1",
+      kind: "shop_purchase",
+    });
+    if (!spent.ok || spent.duplicate) throw new Error("spend failed");
+    const input = {
+      userId: "user-1",
+      spendLedgerId: spent.ledgerId,
+      coins: 300,
+      kind: "shop_price_adjustment",
+    };
+
+    await service.restoreSpend(input);
+    const again = await service.restoreSpend(input);
+
+    expect(again).toMatchObject({ coins: 300, duplicate: true });
+    expect(store.lots[0]?.availableCoins).toBe(300);
+    expect(store.ledger).toHaveLength(2);
+  });
+
+  it("refuses to restore more than the spend or another user's spend", async () => {
+    const store = new MemoryStore({ paidBalance: 1_000 });
+    store.lots = [lot("mc_order_1", 1_000, "2026-09-01")];
+    const service = createMuseunCoinAccountOperations(store);
+    const spent = await service.spend({
+      userId: "user-1",
+      coins: 700,
+      eventKey: "shop:1",
+      kind: "shop_purchase",
+    });
+    if (!spent.ok || spent.duplicate) throw new Error("spend failed");
+    const base = {
+      userId: "user-1",
+      spendLedgerId: spent.ledgerId,
+      kind: "shop_price_adjustment",
+    };
+
+    await expect(service.restoreSpend({ ...base, coins: 701 })).rejects.toThrow(
+      "restore_exceeds_spend",
+    );
+    await expect(
+      service.restoreSpend({ ...base, coins: 100, spendLedgerId: 999 }),
+    ).rejects.toThrow("spend_ledger_not_found");
+    store.ledger[0] = { ...store.ledger[0]!, userId: "user-2" };
+    await expect(service.restoreSpend({ ...base, coins: 100 })).rejects.toThrow(
+      "spend_ledger_not_found",
+    );
+    expect(store.lots[0]?.availableCoins).toBe(300);
+    expect(store.account.paidBalance).toBe(300);
   });
 });

@@ -39,7 +39,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("월간 스태미나 회복약 세트");
     expect(html).toContain("귀속 회복약 20개");
     expect(html).toContain("월 3회");
-    expect(html).toContain("1,200 무슨 코인");
+    expect(html).toContain("800 무슨 코인");
     expect(html).toContain("계정당 평생 1회");
     expect(html).toContain("30일 진행 + 7일 수령 유예");
     expect(html).toContain("누적 50,000");

@@ -241,7 +241,7 @@ describe("무슨 코인 상점 일괄 구매", () => {
 
   it("여러 개의 총 결제액이 보유 코인을 넘으면 아무것도 저장하지 않는다", async () => {
     const response = await POST(
-      request({ itemId: "adventure_support_30d", quantity: 4 }),
+      request({ itemId: "adventure_support_30d", quantity: 5 }),
     );
     const json = await response.json();
 
@@ -249,7 +249,7 @@ describe("무슨 코인 상점 일괄 구매", () => {
     expect(json).toMatchObject({
       error: "insufficient_coins",
       coins: 3_000,
-      requiredCoins: 4_000,
+      requiredCoins: 3_500,
     });
     expect(upsertSave).not.toHaveBeenCalled();
   });
@@ -303,8 +303,8 @@ describe("무슨 코인 상점 일괄 구매", () => {
     expect(first.status).toBe(200);
     expect(await first.json()).toMatchObject({
       itemId: "growth_leap_package",
-      totalPrice: 1_200,
-      coins: 1_800,
+      totalPrice: 800,
+      coins: 2_200,
       delivery: "bundle",
       growthLeapPackage: { owned: true },
       cashItems: { chroma_name_box: 3, profile_border_box: 1 },
@@ -317,7 +317,7 @@ describe("무슨 코인 상점 일괄 구매", () => {
     const second = await POST(request({ itemId: "growth_leap_package" }));
     expect(second.status).toBe(409);
     expect(await second.json()).toMatchObject({ error: "already_owned" });
-    expect(saves.get(MUSEUN_COIN_WALLET_KEY)).toEqual({ coins: 1_800 });
+    expect(saves.get(MUSEUN_COIN_WALLET_KEY)).toEqual({ coins: 2_200 });
   });
 
   it("번들 상품은 구매 수량을 한 개로 고정한다", async () => {

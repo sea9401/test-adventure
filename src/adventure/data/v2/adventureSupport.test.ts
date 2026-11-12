@@ -48,7 +48,7 @@ describe("월간 모험 지원권", () => {
   });
 
   it("지원권 가격과 기간을 고정한다", () => {
-    expect(ADVENTURE_SUPPORT_PASS.coinPrice).toBe(1_000);
+    expect(ADVENTURE_SUPPORT_PASS.coinPrice).toBe(700);
     expect(ADVENTURE_SUPPORT_PASS.durationDays).toBe(30);
   });
 

@@ -81,7 +81,7 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "rename" },
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_30d).toMatchObject({
-      coinPrice: 1_000,
+      coinPrice: 700,
       effect: { kind: "adventure_support", days: 30 },
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_premium_30d).toMatchObject({
@@ -136,7 +136,7 @@ describe("무슨 코인 캐시 소모품", () => {
     });
     expect(MUSEUN_CASH_ITEMS.growth_leap_package).toMatchObject({
       name: "성장 도약 패키지",
-      coinPrice: 1_200,
+      coinPrice: 800,
       delivery: "bundle",
       tradeable: false,
       effect: { kind: "growth_leap", potions: 30, missionDays: 30 },

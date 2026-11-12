@@ -23,7 +23,7 @@ export const PREMIUM_ADVENTURE_SUPPORT_PASS = {
   id: "monthly_adventure_support_premium",
   name: "월간 모험 지원권 프리미엄",
   durationDays: 30,
-  coinPrice: 2_500,
+  coinPrice: 2_000,
   staminaMaxBonus: 3_000,
   staminaActivationGrant: 0,
   staminaRegenBonusPct: 20,

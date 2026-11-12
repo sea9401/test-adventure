@@ -12,6 +12,7 @@ import {
   type ActiveBattlePreps,
   type BattlePrepSlot,
 } from "@/adventure/data/v2/battlePrep";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 export type BattlePrepBadgeRow = {
   slot: BattlePrepSlot;
@@ -64,7 +65,7 @@ function formatRemaining(ms: number): string {
   return remainder > 0 ? `${hours}시간 ${remainder}분` : `${hours}시간`;
 }
 
-/** 캐릭터 카드용 — 음식 효과 줄과 같은 모양으로 칸마다 한 줄. */
+/** 캐릭터 카드용 — 음식 효과 줄과 같은 배치로 칸마다 한 줄. 색은 중립 표면을 쓴다. */
 export function ActiveBattlePrepBadges({ active }: { active: ActiveBattlePreps | null | undefined }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -79,13 +80,13 @@ export function ActiveBattlePrepBadges({ active }: { active: ActiveBattlePreps |
         <div
           key={row.slot}
           title={`${row.slotName} · ${row.itemName} · ${row.effectText}`}
-          className="flex min-w-0 items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+          className={`${SURFACE_INSET} flex min-w-0 items-center gap-1.5 px-2 py-1 text-xs text-zinc-700 dark:text-zinc-200`}
         >
           <BattlePrepIcon slot={row.slot} size={15} className="shrink-0" />
           <span className="min-w-0 truncate">
             <span className="font-semibold">{row.itemName}</span> · {row.effectText}
           </span>
-          <span className="shrink-0 text-amber-700 dark:text-amber-300">
+          <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
             {formatRemaining(row.expiresAt - now)}
           </span>
         </div>

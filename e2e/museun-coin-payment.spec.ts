@@ -1,10 +1,20 @@
 import { expect, test } from "@playwright/test";
 
-test("운영 기본값에서 결제 화면과 사용자 API는 실제 404로 닫혀 있다", async ({
+test("결제 결과 화면은 비로그인 요청을 로그인 화면으로 보낸다", async ({ request }) => {
+  const response = await request.fetch(
+    "/settings/coin-shop/payment/fail?code=PAY_PROCESS_CANCELED",
+    { maxRedirects: 0 },
+  );
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toContain("/sign-in");
+});
+
+// 추적되는 .env.production 의 결제 모드는 disabled 다. 운영 런타임(SSM)이 live 로 덮어쓰기 전에는
+// 상점이 열려 있어도 주문·승인·환불 API가 404로 닫혀 있어야 한다.
+test("추적 설정의 결제 모드에서는 결제 API가 실제 404로 닫혀 있다", async ({
   request,
 }) => {
   for (const { path, method } of [
-    { path: "/settings/coin-shop/payment/fail?code=PAY_PROCESS_CANCELED", method: "GET" },
     { path: "/api/v2/museun-coin-payments/orders", method: "GET" },
     { path: "/api/v2/museun-coin-payments/orders", method: "POST" },
     { path: "/api/v2/museun-coin-payments/confirm", method: "POST" },

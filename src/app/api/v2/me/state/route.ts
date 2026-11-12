@@ -52,6 +52,7 @@ import {
   cookingLevelForXp,
   parseCookingState,
 } from "@/adventure/v2/cooking/state";
+import { activeBattlePreps } from "@/adventure/data/v2/battlePrep";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { kstWeekMondayKey } from "@/lib/kst";
@@ -245,6 +246,7 @@ export async function GET(req: Request) {
     museunCosmetics?: unknown;
     arenaChampionshipBadges?: unknown;
     activeFoodBuff?: unknown;
+    activeBattlePreps?: unknown;
   };
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
@@ -589,6 +591,7 @@ export async function GET(req: Request) {
         }
       : null,
     activeFoodBuff: activeCookingBuff(charSave.activeFoodBuff, now),
+    activeBattlePreps: activeBattlePreps(charSave.activeBattlePreps, now),
     activeGuildDiningEffect: guildDiningEffectSummary(
       stateSaves.get(GUILD_DINING_USER_SAVE_KEY),
       {

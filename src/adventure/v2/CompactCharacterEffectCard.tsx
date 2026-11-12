@@ -22,6 +22,8 @@ import {
 import { itemCardPosition } from "./item-card/V2ItemCardPopover";
 import type { ItemCardAnchor } from "./V2ItemCard";
 import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
+import type { BattlePrepSlot } from "@/adventure/data/v2/battlePrep";
+import { BattlePrepIcon } from "./BattlePrepBadges";
 
 const VIEWPORT_MARGIN = 8;
 
@@ -54,6 +56,14 @@ export type CompactCharacterEffectDetail =
   | {
       kind: "guildDining";
       effect: GuildDiningEffectSummary;
+    }
+  | {
+      kind: "battlePrep";
+      slot: BattlePrepSlot;
+      slotName: string;
+      itemName: string;
+      effectText: string;
+      expiresAt: number;
     };
 
 function formatFoodRemaining(expiresAt: number, now: number): string {
@@ -93,6 +103,7 @@ export function CompactCharacterEffectCard({
 
   const isSupport = detail.kind === "support";
   const isFood = detail.kind === "food";
+  const isPrep = detail.kind === "battlePrep";
   const supportTier =
     isSupport &&
     detail.tier === "premium" &&
@@ -106,7 +117,9 @@ export function CompactCharacterEffectCard({
       : "모험 지원권"
     : isFood
       ? detail.buff.recipeName
-      : detail.effect.name;
+      : isPrep
+        ? detail.itemName
+        : detail.effect.name;
   const supportConfig = adventureSupportBenefits(supportTier);
   const supportBenefits = isSupport
     ? [
@@ -121,7 +134,9 @@ export function CompactCharacterEffectCard({
     ? detail.activeUntil
     : isFood
       ? detail.buff.expiresAt
-      : detail.effect.expiresAt;
+      : isPrep
+        ? detail.expiresAt
+        : detail.effect.expiresAt;
   const supportCurrentUntil =
     isSupport &&
     supportTier === "premium" &&
@@ -157,7 +172,9 @@ export function CompactCharacterEffectCard({
               : "모험 지원권 정보"
             : isFood
               ? `${detail.buff.recipeName} 음식 효과`
-              : `${detail.effect.name} 길드 음식 효과`
+              : isPrep
+                ? `${detail.itemName} ${detail.slotName} 효과`
+                : `${detail.effect.name} 길드 음식 효과`
         }
         style={{ position: "fixed", width, left, ...pos }}
         className={`${SURFACE_CARD} ui-floating-reveal z-50 overflow-y-auto p-4 shadow-xl`}
@@ -168,6 +185,8 @@ export function CompactCharacterEffectCard({
               <Sparkle size={22} weight="duotone" className="shrink-0 text-amber-500" aria-hidden />
             ) : detail.kind === "guildDining" ? (
               <ForkKnife size={22} weight="duotone" className="shrink-0 text-emerald-500" aria-hidden />
+            ) : isPrep ? (
+              <BattlePrepIcon slot={detail.slot} size={22} className="shrink-0 text-zinc-500 dark:text-zinc-400" />
             ) : (
               <CookingPot size={22} weight="duotone" className="shrink-0 text-orange-500" aria-hidden />
             )}
@@ -177,7 +196,9 @@ export function CompactCharacterEffectCard({
                   ? "혜택 적용 중"
                   : isFood
                     ? `${cookingQualityName(detail.buff.quality)} · 음식 효과 적용 중`
-                    : "길드 음식 효과 적용 중"}
+                    : isPrep
+                      ? `${detail.slotName} 적용 중`
+                      : "길드 음식 효과 적용 중"}
               </p>
               <h2 className="truncate text-base font-bold text-zinc-900 dark:text-zinc-100">{title}</h2>
             </div>
@@ -207,7 +228,9 @@ export function CompactCharacterEffectCard({
             <p className="mt-1 text-xs leading-relaxed text-zinc-800 dark:text-zinc-100">
               {isFood
                 ? cookingEffectText(detail.buff.effect) || "효과 없음"
-                : guildDiningEffectText}
+                : isPrep
+                  ? detail.effectText
+                  : guildDiningEffectText}
             </p>
           </div>
         )}

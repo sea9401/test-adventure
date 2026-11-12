@@ -22,7 +22,8 @@ import {
 //   lock-read 한 곳이 중복 select 없이 직접 derive 하도록 분리(behavior 는 래퍼와 byte-동일).
 //   character 없으면 null(래퍼와 동일).
 export function derivePlayerCombatV2FromSaves(saves: {
-  character: SavedCharacterV2 | undefined;
+  // 켜 둔 전투 준비물(숫돌·보강재) 필드는 여기서만 읽는다. Pure 모듈은 줄 수 예산이 동결돼 있다.
+  character: (SavedCharacterV2 & { activeBattlePreps?: unknown }) | undefined;
   equipmentSave: unknown;
   proficiencyRaw: unknown;
   skillsRaw: unknown;

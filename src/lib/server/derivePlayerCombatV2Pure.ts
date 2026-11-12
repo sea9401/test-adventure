@@ -101,8 +101,6 @@ export type SavedCharacterV2 = {
   specChoice?: unknown;
   /** 개인 요리로 얻은 PvE 전용 능력치 버프. 만료 여부는 derive 시점에 검사한다. */
   activeFoodBuff?: unknown;
-  /** 켜 둔 전투 준비물(숫돌·보강재). `activeBattlePreps`로 읽는다. */
-  activeBattlePreps?: unknown;
 };
 
 export type DerivedPlayerCombatV2 = {

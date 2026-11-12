@@ -122,6 +122,33 @@ describe("접을 수 있는 캐릭터 요약", () => {
     expect(dialog.textContent).toContain("까지");
   });
 
+  it("켜 둔 준비물을 음식 옆에 보여 주고 누르면 칸·효과·남은 시간을 보여 준다", () => {
+    render(
+      <CompactCharacterSummary
+        character={{ name: "젠피", level: 87, exp: 462, expToNext: 1_000, hp: 80, maxHp: 100, mp: 20, maxMp: 40, gold: 0 }}
+        guild={null}
+        activeBattlePreps={{
+          weapon: { itemId: "v2_prep_whetstone_3", expiresAt: Date.now() + 3_600_000 },
+          armor: { itemId: "v2_prep_brace_1", expiresAt: Date.now() - 1 },
+        }}
+        expanded={false}
+        onExpandedChange={vi.fn()}
+      >
+        <div>전체 캐릭터 카드</div>
+      </CompactCharacterSummary>,
+    );
+
+    expect(screen.queryByRole("button", { name: "초급 보강재 방어구 손질 효과 보기" })).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "상급 숫돌 무기 손질 효과 보기" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "상급 숫돌 무기 손질 효과" });
+    expect(dialog.textContent).toContain("무기 손질 적용 중");
+    expect(dialog.textContent).toContain("공격력·마법공격력 +130");
+    expect(dialog.textContent).toContain("남음");
+  });
+
   it("길드 음식을 누르면 경험치 효과와 남은 시간을 상세 카드로 보여준다", () => {
     render(
       <CompactCharacterSummary

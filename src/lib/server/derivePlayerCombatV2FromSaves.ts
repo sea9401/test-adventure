@@ -9,6 +9,7 @@ import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
 import { aggregateEquippedPassives, parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { duelistStanceSnapshot } from "@/adventure/v2/combat/duelistCombat";
+import { activeBattlePreps, battlePrepCombatFlat } from "@/adventure/data/v2/battlePrep";
 import { activeCookingBuff } from "@/adventure/v2/cooking/food";
 import {
   DerivedPlayerCombatV2,
@@ -25,7 +26,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   equipmentSave: unknown;
   proficiencyRaw: unknown;
   skillsRaw: unknown;
-  /** 아레나·훈련 대련처럼 음식 효과를 제외할 때 false. 기본은 PvE 적용. */
+  /** 아레나·훈련 대련처럼 음식 효과와 전투 준비물을 함께 제외할 때 false. 기본은 PvE 적용. */
   includeCookingBuff?: boolean;
 }): DerivedPlayerCombatV2 | null {
   const { character, equipmentSave, proficiencyRaw, skillsRaw } = saves;
@@ -199,20 +200,35 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveBasicCritHastePct: passiveAgg.basicCritHastePct,
     passiveBasicCritChanceCap: passiveAgg.basicCritChanceCap,
   });
-  if (!foodBuff?.effect.combatFlat) return derived;
-  const flat = foodBuff.effect.combatFlat;
-  const maxHp = derived.maxHp + (flat.maxHp ?? 0);
-  const maxMp = (derived.player.maxMp ?? 0) + (flat.maxMp ?? 0);
+  // 전투 준비물(숫돌·보강재)은 음식과 같은 범위에 적용되고, 음식을 제외하는 전투에서는 함께 빠진다.
+  const prepFlat =
+    saves.includeCookingBuff === false
+      ? null
+      : battlePrepCombatFlat(activeBattlePreps(character.activeBattlePreps));
+  const hasPrepFlat = prepFlat !== null && Object.values(prepFlat).some((value) => value > 0);
+  const foodFlat = foodBuff?.effect.combatFlat;
+  if (!foodFlat && !hasPrepFlat) return derived;
+  const flat = {
+    atk: (foodFlat?.atk ?? 0) + (prepFlat?.atk ?? 0),
+    magicAtk: (foodFlat?.magicAtk ?? 0) + (prepFlat?.magicAtk ?? 0),
+    def: (foodFlat?.def ?? 0) + (prepFlat?.def ?? 0),
+    magicDef: (foodFlat?.magicDef ?? 0) + (prepFlat?.magicDef ?? 0),
+    maxHp: (foodFlat?.maxHp ?? 0) + (prepFlat?.maxHp ?? 0),
+    maxMp: foodFlat?.maxMp ?? 0,
+    accuracy: foodFlat?.accuracy ?? 0,
+  };
+  const maxHp = derived.maxHp + flat.maxHp;
+  const maxMp = (derived.player.maxMp ?? 0) + flat.maxMp;
   return {
     ...derived,
     maxHp,
     player: {
       ...derived.player,
-      atk: derived.player.atk + (flat.atk ?? 0),
-      magicAtk: (derived.player.magicAtk ?? derived.player.atk) + (flat.magicAtk ?? 0),
-      def: derived.player.def + (flat.def ?? 0),
-      magicDef: (derived.player.magicDef ?? 0) + (flat.magicDef ?? 0),
-      accRating: (derived.player.accRating ?? 0) + (flat.accuracy ?? 0),
+      atk: derived.player.atk + flat.atk,
+      magicAtk: (derived.player.magicAtk ?? derived.player.atk) + flat.magicAtk,
+      def: derived.player.def + flat.def,
+      magicDef: (derived.player.magicDef ?? 0) + flat.magicDef,
+      accRating: (derived.player.accRating ?? 0) + flat.accuracy,
       maxHp,
       maxMp,
     },

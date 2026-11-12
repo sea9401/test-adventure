@@ -22,6 +22,7 @@ import { EMBLEM_LABELS, type EmblemKind } from "@/adventure/data/v2/emblems";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, parseSpFruitUsed, type SpFruitTier } from "@/adventure/data/v2/spFruit";
+import { BATTLE_PREP_ITEM_BY_ID } from "@/adventure/data/v2/battlePrep";
 import { canLiberateEquipment } from "@/adventure/data/v2/equipmentLiberation";
 import {
   V2_EQUIPMENT,
@@ -395,6 +396,37 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           `✓ ${SP_FRUIT[tier].name} 사용, SP 최대치 +${SP_FRUIT[tier].spPerUse}` +
             (typeof j.spBudget === "number" ? ` (현재 ${j.spBudget})` : ""),
         );
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refresh, refreshGameState],
+  );
+
+  // 전투 준비물(숫돌·보강재) 사용 — 1개 소모, 해당 칸을 새 품목으로 교체.
+  const useBattlePrep = useCallback(
+    async (itemId: string) => {
+      const item = BATTLE_PREP_ITEM_BY_ID.get(itemId);
+      if (!item) return;
+      setBusy(`battle_prep_${itemId}`);
+      try {
+        const res = await fetch("/api/v2/me/use-battle-prep", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        });
+        const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+        if (!j?.ok) {
+          const label =
+            j?.error === "not_owned" ? "보유한 준비물이 없습니다" : (j?.error ?? `http ${res.status}`);
+          notifySystem(`✗ ${label}`);
+          return;
+        }
+        await refresh();
+        await refreshGameState();
+        notifySystem(`✓ ${item.name} 적용 · ${item.durationMs / 3_600_000}시간`);
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
@@ -1200,6 +1232,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               spFruitUsed={spFruitUsed}
               busy={busy}
               onUseSpFruit={useSpFruit}
+              onUseBattlePrep={useBattlePrep}
               onUseEquipmentBox={useCoopEquipmentBox}
               onUseMasteryTome={useCoopMasteryTome}
               masteryCertificates={masteryCertificates}

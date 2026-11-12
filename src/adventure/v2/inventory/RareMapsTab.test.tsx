@@ -177,3 +177,28 @@ it.each([4, 5])("SP 열매 VI 사용 %i회에서 5회 한도를 표시하고 차
   if (used === 4) expect(onUse).toHaveBeenCalledWith(6);
   else expect(onUse).not.toHaveBeenCalled();
 });
+
+it("전투 준비물은 일반 소모품에 보이고 검색어와 요리 필터로 걸러진다", () => {
+  const onUseBattlePrep = vi.fn();
+  const view = (search: string) => (
+    <RareMapsTab search={search} materials={{ v2_prep_whetstone_3: 2, v2_prep_brace_1: 1 }}
+      spFruitUsed={{1:0,2:0,3:0,4:0,5:0,6:0}} busy={null}
+      onUseSpFruit={vi.fn()} onUseBattlePrep={onUseBattlePrep} onUseEquipmentBox={vi.fn()} onUseMasteryTome={vi.fn()}
+      masteryCertificates={0} onUseMasteryCertificate={vi.fn()} rareMaps={[]} cashItems={{}}
+      onUseCashItem={vi.fn()} cookingFoods={{}} cookingFoodDefinitions={{}} onUseCookingFood={vi.fn()}
+      onUseExpTome={vi.fn()} fishSpecimens={{}} registeredFishIds={[]} onUseFishSpecimen={vi.fn()} />
+  );
+  const { rerender } = render(view(""));
+  fireEvent.click(screen.getByRole("button", { name: "상급 숫돌 사용" }));
+  expect(onUseBattlePrep).toHaveBeenCalledWith("v2_prep_whetstone_3");
+  expect(screen.getByText("초급 보강재")).toBeTruthy();
+
+  rerender(view("보강"));
+  expect(screen.queryByText("상급 숫돌")).toBeNull();
+  expect(screen.getByText("초급 보강재")).toBeTruthy();
+  expect(screen.queryByText("검색 결과가 없습니다")).toBeNull();
+
+  rerender(view(""));
+  fireEvent.click(screen.getByRole("button", { name: "요리" }));
+  expect(screen.queryByText("상급 숫돌")).toBeNull();
+});

@@ -14,6 +14,7 @@ import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import type { ActiveCookingBuff } from "@/adventure/v2/cooking/foodShared";
 import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
+import type { ActiveBattlePreps } from "@/adventure/data/v2/battlePrep";
 import type {
   V2EquipInstance,
   V2EquipSlot,
@@ -56,6 +57,7 @@ type StateResponse = {
   };
   cosmetics?: MuseunCosmeticAppearance;
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeBattlePreps?: ActiveBattlePreps | null;
   activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
@@ -167,6 +169,7 @@ export function V2AdventureHome() {
       activePresetName={activePresetName}
       adventureSupport={state.adventureSupport}
       activeFoodBuff={state.activeFoodBuff ?? null}
+      activeBattlePreps={state.activeBattlePreps ?? null}
       activeGuildDiningEffect={state.activeGuildDiningEffect ?? null}
       equipped={equipment?.equipped}
       owned={equipment?.owned}
@@ -187,6 +190,7 @@ export function V2AdventureHome() {
         chatNameEffect={state.cosmetics?.chatNameEffect ?? null}
         championshipBadge={state.cosmetics?.championshipBadge ?? null}
         activeFoodBuff={state.activeFoodBuff ?? null}
+        activeBattlePreps={state.activeBattlePreps ?? null}
         activeGuildDiningEffect={state.activeGuildDiningEffect ?? null}
         profileShowcase={state.profileShowcase ?? null}
         profileShowcaseSlots={state.profileShowcaseSlots}

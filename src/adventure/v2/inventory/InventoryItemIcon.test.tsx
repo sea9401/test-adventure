@@ -1,5 +1,30 @@
-import { describe, expect, it } from "vitest";
-import { inventoryIconKind } from "./InventoryItemIcon";
+// @vitest-environment jsdom
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { InventoryItemIcon, inventoryIconKind } from "./InventoryItemIcon";
+
+afterEach(cleanup);
+
+describe("InventoryItemIcon", () => {
+  it("전투 준비물은 품목 그림을 요청한 크기로 보여 준다", () => {
+    const { container } = render(<InventoryItemIcon itemId="v2_prep_brace_master" size={22} className="shrink-0" />);
+    const image = container.querySelector("img");
+    expect(decodeURIComponent(image?.getAttribute("src") ?? "")).toContain(
+      "/images/items/battle-prep/v2_prep_brace_master.webp",
+    );
+    expect(image?.getAttribute("width")).toBe("22");
+    expect(image?.getAttribute("alt")).toBe("");
+    expect(image?.className).toContain("shrink-0");
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
+  it("그림이 없는 재료는 계열 아이콘을 그린다", () => {
+    const { container } = render(<InventoryItemIcon itemId="v2_oak_log" size={22} />);
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+});
 
 describe("inventoryIconKind", () => {
   it("재료 계열을 서로 다른 아이콘으로 구분한다", () => {

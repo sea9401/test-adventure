@@ -48,6 +48,8 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 import { InventoryItemIcon } from "./InventoryItemIcon";
+import { BattlePrepSection } from "./BattlePrepSection";
+import { BATTLE_PREP_ITEMS } from "@/adventure/data/v2/battlePrep";
 import { MasteryCertificateEntryCard } from "../MasteryCertificateUseModal";
 import type { FishId } from "@/adventure/data/v2/fish";
 import type { FishSpecimenInventory } from "@/adventure/v2/fishSpecimens";
@@ -83,6 +85,7 @@ export function RareMapsTab({
   spFruitUsed,
   busy,
   onUseSpFruit,
+  onUseBattlePrep,
   onUseEquipmentBox,
   onUseMasteryTome,
   masteryCertificates: allMasteryCertificates,
@@ -103,6 +106,8 @@ export function RareMapsTab({
   spFruitUsed: Record<SpFruitTier, number>;
   busy: string | null;
   onUseSpFruit: (tier: SpFruitTier) => void;
+  /** 전투 준비물(숫돌·보강재) 사용. 넘기지 않으면 섹션을 그리지 않는다. */
+  onUseBattlePrep?: (itemId: string) => void;
   onUseEquipmentBox: (boxId: string) => void;
   onUseMasteryTome: () => void;
   masteryCertificates: number;
@@ -133,6 +138,8 @@ export function RareMapsTab({
     (box) => (materials[box.id] ?? 0) > 0,
   );
   const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
+  const hasBattlePrep =
+    onUseBattlePrep !== undefined && BATTLE_PREP_ITEMS.some((item) => (materials[item.id] ?? 0) > 0);
   const hasMasteryCertificate = masteryCertificates > 0;
   const hasCashItem = MUSEUN_UTILITY_ITEM_IDS.some(
     (id) => (cashItems[id] ?? 0) > 0,
@@ -142,7 +149,7 @@ export function RareMapsTab({
   );
   const noSearchResults = search.trim() &&
     !(filter !== "general" && hasCookingFood) &&
-    !(filter !== "food" && (hasSpFruit || hasEquipmentBox || hasMasteryTome ||
+    !(filter !== "food" && (hasSpFruit || hasBattlePrep || hasEquipmentBox || hasMasteryTome ||
       hasMasteryCertificate || hasCashItem ||
       Object.values(fishSpecimens).some((count) => (count ?? 0) > 0) ||
       rareMaps?.some((map) => RARE_MAP_KINDS[map.kind]?.category === "utility")));
@@ -188,6 +195,9 @@ export function RareMapsTab({
         busy={busy}
         onUse={onUseSpFruit}
       />
+      {onUseBattlePrep ? (
+        <BattlePrepSection materials={materials} busy={busy} onUse={onUseBattlePrep} />
+      ) : null}
       <CoopEquipmentBoxSection
         materials={materials}
         busy={busy}

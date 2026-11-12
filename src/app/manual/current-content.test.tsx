@@ -22,6 +22,7 @@ import { HuntingContent } from "./content/hunting";
 import { JobsContent } from "./content/jobs";
 import { LevelingContent } from "./content/leveling";
 import { PastimesContent } from "./content/pastimes";
+import { BATTLE_PREP_ITEMS } from "@/adventure/data/v2/battlePrep";
 import { PlazaContent } from "./content/plaza";
 import { QuestsContent } from "./content/quests";
 import { SkillsContent } from "./content/skills";
@@ -165,6 +166,21 @@ describe("최신 게임 안내서 내용", () => {
     const html = renderToStaticMarkup(<>{JobCodexContent?.()}</>);
     expect(html).toContain("전체 직업 도감");
     expect(html).toContain(`${V2_JOB_LIST.length}개 중 ${V2_JOB_LIST.length}개`);
+  });
+
+  it("전투 준비물의 칸·효과·재료·제작 조건을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("전투 준비물");
+    for (const item of BATTLE_PREP_ITEMS) expect(html).toContain(item.name);
+    expect(html).toContain("공격력·마법공격력 +130");
+    expect(html).toContain("방어력·마법방어력 +90 · 최대 HP +1,400");
+    expect(html).toContain("마력 합금 20");
+    expect(html).toContain("채광 Lv.35");
+    expect(html).toContain("벌목 주전공 명장 3단계");
+    expect(html).toContain("음식 효과는 무기 손질·방어구 손질과 함께 적용됩니다.");
+    expect(html).toContain("준비물은 거래소에서 거래할 수 있습니다.");
+    expect(html).not.toMatch(/v2_prep_/);
   });
 
   it("명장 요리와 단련 촉매의 제작 조건·재료·효과를 안내한다", () => {

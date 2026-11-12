@@ -21,12 +21,12 @@ export const LIFE_MAJOR_PRODUCTS: Record<
   woodcutting: {
     id: LIFE_MAJOR_PRODUCT_ID.woodcutting,
     name: "명장 목재",
-    description: "벌목 명장만 고를 수 있는 결 좋은 목재. 단련 촉매의 재료가 된다.",
+    description: "벌목 명장만 고를 수 있는 결 좋은 목재. 단련 촉매와 명장의 보강재의 재료가 된다.",
   },
   mining: {
     id: LIFE_MAJOR_PRODUCT_ID.mining,
     name: "명장 합금",
-    description: "채광 명장만 뽑아낼 수 있는 순도 높은 합금. 단련 촉매의 재료가 된다.",
+    description: "채광 명장만 뽑아낼 수 있는 순도 높은 합금. 단련 촉매와 명장의 숫돌의 재료가 된다.",
   },
   fishing: {
     id: LIFE_MAJOR_PRODUCT_ID.fishing,

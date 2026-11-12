@@ -82,6 +82,8 @@ import type {
 } from "@/adventure/profile/profileShowcase";
 import { ProfileBadgeRack } from "./ProfileBadgeRack";
 import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
+import type { ActiveBattlePreps } from "@/adventure/data/v2/battlePrep";
+import { ActiveBattlePrepBadges } from "./BattlePrepBadges";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -176,6 +178,7 @@ export function V2CharacterCard({
   chatNameEffect = null,
   championshipBadge = null,
   activeFoodBuff = null,
+  activeBattlePreps = null,
   activeGuildDiningEffect = null,
   profileShowcase = null,
   profileShowcaseSlots,
@@ -211,6 +214,7 @@ export function V2CharacterCard({
   chatNameEffect?: MuseunCosmeticAppearance["chatNameEffect"];
   championshipBadge?: MuseunCosmeticAppearance["championshipBadge"];
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeBattlePreps?: ActiveBattlePreps | null;
   activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   profileShowcase?: ProfileShowcaseSelection | null;
   profileShowcaseSlots?: ProfileShowcaseSlots;
@@ -413,6 +417,7 @@ export function V2CharacterCard({
             {activeFoodBuff ? (
               <ActiveFoodBuffBadge buff={activeFoodBuff} />
             ) : null}
+            <ActiveBattlePrepBadges active={activeBattlePreps} />
             {activeGuildDiningEffect ? (
               <ActiveGuildDiningEffectBadge effect={activeGuildDiningEffect} />
             ) : null}

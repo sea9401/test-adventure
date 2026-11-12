@@ -47,9 +47,9 @@ export const WINTER_TILE_COIN_VALUES: readonly number[] = [
 
 /** 하루 전투 횟수 단계별 주화. 단계를 넘는 순간 그 단계의 주화를 한 번 준다. */
 export const WINTER_BATTLE_COIN_TIERS: readonly { battles: number; coins: number }[] = [
-  { battles: 30, coins: 5 },
-  { battles: 300, coins: 5 },
-  { battles: 3_000, coins: 10 },
+  { battles: 30, coins: 10 },
+  { battles: 300, coins: 10 },
+  { battles: 3_000, coins: 20 },
 ];
 export const WINTER_BATTLE_COINS_DAILY_MAX = WINTER_BATTLE_COIN_TIERS.reduce(
   (sum, tier) => sum + tier.coins,

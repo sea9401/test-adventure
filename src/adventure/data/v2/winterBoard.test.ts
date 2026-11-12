@@ -217,26 +217,26 @@ describe("주사위 적립", () => {
 });
 
 describe("전투 주화", () => {
-  it("하루 전투 30·300·3,000회에 주화 5·5·10개를 준다", () => {
+  it("하루 전투 30·300·3,000회에 주화 10·10·20개를 준다", () => {
     expect(WINTER_BATTLE_COIN_TIERS).toEqual([
-      { battles: 30, coins: 5 },
-      { battles: 300, coins: 5 },
-      { battles: 3_000, coins: 10 },
+      { battles: 30, coins: 10 },
+      { battles: 300, coins: 10 },
+      { battles: 3_000, coins: 20 },
     ]);
-    expect(WINTER_BATTLE_COINS_DAILY_MAX).toBe(20);
+    expect(WINTER_BATTLE_COINS_DAILY_MAX).toBe(40);
     expect([0, 29, 30, 299, 300, 2_999, 3_000, 99_999].map(winterBattleCoinsFor)).toEqual([
-      0, 0, 5, 5, 10, 10, 20, 20,
+      0, 0, 10, 10, 20, 20, 40, 40,
     ]);
   });
 
   it("넘은 단계의 주화만 더 주고 같은 날 다시 주지 않는다", () => {
     const first = syncWinterBattleCoins(EMPTY, "2026-11-20", 45);
-    expect(first.granted).toBe(5);
+    expect(first.granted).toBe(10);
     expect(first.state).toMatchObject({
-      coins: 5,
-      coinsEarnedTotal: 5,
+      coins: 10,
+      coinsEarnedTotal: 10,
       battleDayKey: "2026-11-20",
-      battleCoinsGranted: 5,
+      battleCoinsGranted: 10,
     });
 
     const same = syncWinterBattleCoins(first.state, "2026-11-20", 200);
@@ -244,8 +244,8 @@ describe("전투 주화", () => {
     expect(same.state).toBe(first.state);
 
     const more = syncWinterBattleCoins(first.state, "2026-11-20", 3_500);
-    expect(more.granted).toBe(15);
-    expect(more.state.coins).toBe(20);
+    expect(more.granted).toBe(30);
+    expect(more.state.coins).toBe(40);
     expect(syncWinterBattleCoins(more.state, "2026-11-20", 9_000).granted).toBe(0);
   });
 
@@ -253,17 +253,17 @@ describe("전투 주화", () => {
     const granted = syncWinterBattleCoins(EMPTY, "2026-11-20", 400).state;
     const lower = syncWinterBattleCoins(granted, "2026-11-20", 10);
     expect(lower.granted).toBe(0);
-    expect(lower.state.coins).toBe(10);
+    expect(lower.state.coins).toBe(20);
   });
 
   it("날짜가 바뀌면 그날 몫을 새로 준다", () => {
     const day1 = syncWinterBattleCoins(EMPTY, "2026-11-20", 3_000).state;
     const day2 = syncWinterBattleCoins(day1, "2026-11-21", 30);
-    expect(day2.granted).toBe(5);
+    expect(day2.granted).toBe(10);
     expect(day2.state).toMatchObject({
-      coins: 25,
+      coins: 50,
       battleDayKey: "2026-11-21",
-      battleCoinsGranted: 5,
+      battleCoinsGranted: 10,
     });
   });
 
@@ -272,8 +272,8 @@ describe("전투 주화", () => {
       completedDailyQuests: 2,
       battlesToday: 300,
     });
-    expect(synced).toMatchObject({ dice: 3, coins: 10 });
-    expect(synced.state).toMatchObject({ dice: 3, coins: 10, questDiceGranted: 2 });
+    expect(synced).toMatchObject({ dice: 3, coins: 20 });
+    expect(synced.state).toMatchObject({ dice: 3, coins: 20, questDiceGranted: 2 });
 
     const again = syncWinterDaily(synced.state, "2026-11-20", {
       completedDailyQuests: 2,

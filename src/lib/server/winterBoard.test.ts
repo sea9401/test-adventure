@@ -126,9 +126,9 @@ describe("겨울 말판 조회", () => {
       questDiceGranted: 2,
       questDiceCap: 4,
       battleCoins: [
-        { battles: 30, coins: 5, granted: false },
-        { battles: 300, coins: 5, granted: false },
-        { battles: 3_000, coins: 10, granted: false },
+        { battles: 30, coins: 10, granted: false },
+        { battles: 300, coins: 10, granted: false },
+        { battles: 3_000, coins: 20, granted: false },
       ],
     });
     expect(view.pending).toBe(3);
@@ -148,22 +148,22 @@ describe("겨울 말판 조회", () => {
     seed({ questDiceGranted: 4, coins: 3 });
     mocks.battlesToday = 450;
     const view = ok(await readWinterBoard(USER, ACTIVE));
-    expect(view.coins).toBe(13);
+    expect(view.coins).toBe(23);
     expect(view.today.battleCoins.map((tier) => tier.granted)).toEqual([true, true, false]);
-    expect(saved()).toMatchObject({ coins: 13, battleDayKey: "2026-11-20", battleCoinsGranted: 10 });
+    expect(saved()).toMatchObject({ coins: 23, battleDayKey: "2026-11-20", battleCoinsGranted: 20 });
 
     mocks.battlesToday = 3_000;
-    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(23);
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(43);
     mocks.battlesToday = 9_999;
-    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(23);
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(43);
   });
 
   it("주사위와 전투 주화를 모두 채운 날에는 진행도를 다시 세지 않는다", async () => {
-    seed({ questDiceGranted: 4, battleDayKey: "2026-11-20", battleCoinsGranted: 10 });
+    seed({ questDiceGranted: 4, battleDayKey: "2026-11-20", battleCoinsGranted: 20 });
     ok(await readWinterBoard(USER, ACTIVE));
     expect(mocks.progressReads).toBe(1);
 
-    seed({ questDiceGranted: 4, battleDayKey: "2026-11-20", battleCoinsGranted: 20 });
+    seed({ questDiceGranted: 4, battleDayKey: "2026-11-20", battleCoinsGranted: 40 });
     ok(await readWinterBoard(USER, ACTIVE));
     expect(mocks.progressReads).toBe(1);
   });
@@ -284,8 +284,8 @@ describe("겨울 말판 굴리기", () => {
     );
     expect(rolled.result.events).toHaveLength(2);
     expect(rolled.dice).toBe(0);
-    // 전투 주화 5 + 1번·2번 칸 주화 4씩
-    expect(rolled.coins).toBe(13);
+    // 전투 주화 10 + 1번·2번 칸 주화 4씩
+    expect(rolled.coins).toBe(18);
     expect(rolled.result.coins).toBe(8);
   });
 
@@ -295,7 +295,7 @@ describe("겨울 말판 굴리기", () => {
     expect(
       await rollWinterBoard(USER, { requestId: REQUEST_A, all: false }, ACTIVE, dice(1)),
     ).toEqual({ ok: false, error: "no_dice", status: 409 });
-    expect(saved().coins).toBe(5);
+    expect(saved().coins).toBe(10);
   });
 
   it("주사위가 없으면 409, 굴리기 기간이 끝났으면 409, 종료 뒤에는 410이다", async () => {

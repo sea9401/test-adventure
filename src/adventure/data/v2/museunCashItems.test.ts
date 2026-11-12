@@ -86,7 +86,7 @@ describe("무슨 코인 캐시 소모품", () => {
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_premium_30d).toMatchObject({
       name: "월간 모험 지원권 프리미엄 (30일)",
-      coinPrice: 2_500,
+      coinPrice: 2_000,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "adventure_support_premium", days: 30 },

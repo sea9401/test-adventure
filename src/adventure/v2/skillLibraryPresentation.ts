@@ -43,6 +43,9 @@ export function isConditionalPassiveSkill(skillId: string): boolean {
       passive.burnRekindle ||
       passive.fireSpellMpCostReductionPct ||
       passive.fireBurstShieldPctMaxMp ||
+      passive.vulnDurationBonusTurns ||
+      passive.lightningSpellMpCostReductionPct ||
+      passive.lightningCritHastePct ||
       passive.windCurrentShieldPctPerStack ||
       passive.windCurrentReleaseEvades ||
       passive.windCurrentMpRestorePctPerStack ||
@@ -185,6 +188,9 @@ export function equippedPassiveSummary(
   if (aggregate.burnRekindle) add("burnRekindle", "겁화 붕괴 적중 시 연소 부여", true);
   if (aggregate.fireSpellMpCostReductionPct) add("fireSpellMpCostReductionPct", `화염 계보 주문 MP 소모 -${aggregate.fireSpellMpCostReductionPct}%`, true);
   if (aggregate.fireBurstShieldPctMaxMp) add("fireBurstShieldPctMaxMp", `겁화 붕괴 사용 시 최대 MP ${aggregate.fireBurstShieldPctMaxMp}% 보호막`, true);
+  if (aggregate.vulnDurationBonusTurns) add("vulnDurationBonusTurns", `새로 거는 취약 지속 +${aggregate.vulnDurationBonusTurns}행동`, true);
+  if (aggregate.lightningSpellMpCostReductionPct) add("lightningSpellMpCostReductionPct", `전격 계보 주문 MP 소모 -${aggregate.lightningSpellMpCostReductionPct}%`, true);
+  if (aggregate.lightningCritHastePct) add("lightningCritHastePct", `전격 계보 주문 치명타 적중 시 다음 행동 ${aggregate.lightningCritHastePct}% 가속`, true);
   if (aggregate.windCurrentShieldPctPerStack) add("windCurrentShieldPctPerStack", `새 기류 1개당 최대 MP ${aggregate.windCurrentShieldPctPerStack}% 보호막`, true);
   if (aggregate.windCurrentReleaseEvades) add("windCurrentReleaseEvades", `기류 3개 소비 시 확정 회피 ${aggregate.windCurrentReleaseEvades}회 확보 (누적 없음)`, true);
   if (aggregate.windCurrentMpRestorePctPerStack) add("windCurrentMpRestorePctPerStack", `새 기류 1개당 최대 MP ${aggregate.windCurrentMpRestorePctPerStack}% 회복`, true);

@@ -6,6 +6,7 @@ import {
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   UNEXPLORED_EDGES,
+  UNEXPLORED_MAX_DIFFICULTY,
   UNEXPLORED_NODE_BY_ID,
   UNEXPLORED_NODES,
   deriveUnexploredEffects,
@@ -81,7 +82,7 @@ export type UnexploredTreeNodeModel = UnexploredNode & {
   planState: "activate" | "refund" | null;
   categoryLabel: string;
   activationError: UnexploredActivationError | "level_required" | null;
-  /** 활성 위험 노드가 120단 상한 안에서 실제로 반영한 난이도. 그 외 노드는 null. */
+  /** 활성 위험 노드가 난이도 상한 안에서 실제로 반영한 난이도. 그 외 노드는 null. */
   difficultyApplication: UnexploredDifficultyApplication | null;
 };
 
@@ -109,7 +110,7 @@ export type UnexploredTreePlan = {
     | null;
 };
 
-/** 위험 노드가 120단 상한에 걸려 난이도·보상이 덜 반영될 때 상세 패널에 띄울 안내. 전부 반영되면 null. */
+/** 위험 노드가 난이도 상한에 걸려 난이도·보상이 덜 반영될 때 상세 패널에 띄울 안내. 전부 반영되면 null. */
 export function unexploredDifficultyCapNotice(
   application: UnexploredDifficultyApplication | null,
   active: boolean,
@@ -117,8 +118,8 @@ export function unexploredDifficultyCapNotice(
   if (!application || application.applied >= application.total) return null;
   if (application.applied === 0) {
     return active
-      ? "120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고 경로만 연결합니다. 먼저 반영을 누르면 이 노드부터 120단을 채웁니다."
-      : "지금 찍으면 120단 상한에 걸려 난이도와 보상이 적용되지 않고 경로만 연결합니다.";
+      ? `${UNEXPLORED_MAX_DIFFICULTY}단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고 경로만 연결합니다. 먼저 반영을 누르면 이 노드부터 ${UNEXPLORED_MAX_DIFFICULTY}단을 채웁니다.`
+      : `지금 찍으면 ${UNEXPLORED_MAX_DIFFICULTY}단 상한에 걸려 난이도와 보상이 적용되지 않고 경로만 연결합니다.`;
   }
   const ratio = `난이도 +${application.total} 중 +${application.applied}만 반영되어 보상도 ${application.applied}/${application.total}만 적용`;
   return active ? `${ratio}됩니다.` : `지금 찍으면 ${ratio}됩니다.`;

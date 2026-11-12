@@ -653,6 +653,46 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/battle-prep/v2_prep_brace_1.webp",
+      "sha256": "469a00329f3961d78f635bf19f3ed7d45bca28f08a316f2131c84c6140a58f43",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_brace_2.webp",
+      "sha256": "7cfd01fa5ad6d5cb6ad9e6c432fed1cb09f44dfb196f3f2befe1eb0a08768823",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_brace_3.webp",
+      "sha256": "a5eabd760c94129bcd9ad232584965ab5d917598b9a5371bc74b1389744d550a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_brace_master.webp",
+      "sha256": "4ade562a88ddf484fd0c13debb91cf12c5c15474b610259361174aff552bfb1f",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_whetstone_1.webp",
+      "sha256": "dc7c5ae2762437553761f9c35189778f7ec217e7ccb2e387206c800bf013da6a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_whetstone_2.webp",
+      "sha256": "0e12827a6ea5ab9621b0c40956523bf1e6b1dbdbd82b8574e618333cb2808ef7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_whetstone_3.webp",
+      "sha256": "79b77d84ab2ba2b50069b583e085b74f3887e07c8e08d3ed02a0ca44bb820893",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_whetstone_master.webp",
+      "sha256": "216803834658e7d3f20a5157a2fbf10fd42ab6b74aade6df975f6ba1ed3da4d7",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cash/adventure_support_30d.svg",
       "sha256": "0d3c8056484b8b44245bba517d1be154b6fa18d9d53cc52594ec27f8dff2b058",
       "source": "repository-authored-vector"

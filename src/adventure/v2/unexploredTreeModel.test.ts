@@ -369,7 +369,7 @@ describe("unexplored tree model", () => {
     expect(model.selected?.activationError).toBe("conversion_conflict");
   });
 
-  it("난이도 120에서도 다음 경로 노드를 활성화할 수 있게 표시한다", () => {
+  it("난이도 130에서도 다음 경로 노드를 활성화할 수 있게 표시한다", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
@@ -394,16 +394,19 @@ describe("unexplored tree model", () => {
 
     expect(model.selected?.state).toBe("available");
     expect(model.selected?.activationError).toBeNull();
-    expect(model.previewDifficulty).toBe(120);
+    expect(model.previewDifficulty).toBe(130);
     expect(model.selectedDifficultyApplication).toEqual({ applied: 0, total: 4 });
   });
 
-  it("120단을 넘겨 찍은 위험 노드는 보상 미적용으로 표시한다", () => {
+  it("130단을 넘겨 찍은 위험 노드는 보상 미적용으로 표시한다", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
     const selectedNodeIds = [
-      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+      ...new Set([
+        ...shortestUnexploredPath("deep-contract"),
+        ...difficultyIds.flatMap((id) => shortestUnexploredPath(id)),
+      ]),
     ];
     const lastId = difficultyIds.at(-1)!;
     const model = buildUnexploredTreeModel(
@@ -427,7 +430,10 @@ describe("unexplored tree model", () => {
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
     const overCap = [
-      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+      ...new Set([
+        ...shortestUnexploredPath("deep-contract"),
+        ...difficultyIds.flatMap((id) => shortestUnexploredPath(id)),
+      ]),
     ];
     const overCapSnapshot = snapshot({
       earnedPoints: 160,
@@ -487,8 +493,8 @@ describe("unexploredDifficultyCapNotice", () => {
   });
 
   it("미적용과 일부 적용을 활성 여부에 맞춰 안내한다", () => {
-    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, true)).toContain("120단을 넘겨 찍은 노드라");
-    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, false)).toContain("지금 찍으면 120단 상한에 걸려");
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, true)).toContain("130단을 넘겨 찍은 노드라");
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, false)).toContain("지금 찍으면 130단 상한에 걸려");
     expect(unexploredDifficultyCapNotice({ applied: 1, total: 3 }, true)).toBe(
       "난이도 +3 중 +1만 반영되어 보상도 1/3만 적용됩니다.",
     );

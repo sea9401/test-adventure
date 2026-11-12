@@ -120,7 +120,11 @@ export function BulletinBoardView({
         } else {
           setCategory("guild");
         }
-      } else if (category === "all" || created.category === category) {
+      } else if (
+        created.category === category ||
+        // 전체 탭에는 공지사항이 보이지 않으므로 공지를 쓰면 공지사항 탭으로 옮긴다.
+        (category === "all" && created.category !== "notice")
+      ) {
         setPosts((prev) => (prev ? [created, ...prev] : [created]));
       } else {
         setCategory(created.category);
@@ -289,7 +293,7 @@ export function BulletinBoardView({
 
   const boardDescription =
     category === "all"
-      ? "공개 게시판의 글을 최신순으로 모아 봅니다."
+      ? "자유게시판과 공략·팁 글을 최신순으로 모아 봅니다."
       : category === "guild"
         ? `${guild?.name ?? "길드"} 길드원만 볼 수 있는 게시판입니다.`
         : BULLETIN_CATEGORY_LABELS[category].description;

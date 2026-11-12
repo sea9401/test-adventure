@@ -5,6 +5,10 @@ import {
   type UnexploredPoolId,
 } from "./unexploredMonsterPools";
 import {
+  UNEXPLORED_BASE_DIFFICULTY,
+  UNEXPLORED_MAX_DIFFICULTY,
+} from "./unexploredTree";
+import {
   unexploredBaseProxyMonsters,
   unexploredSpecialMonsters,
   type UnexploredSimulationDifficulty,
@@ -117,7 +121,11 @@ type UnexploredMonsterAtDifficultyParams = {
 );
 
 function validateDifficulty(difficulty: number): number {
-  if (!Number.isInteger(difficulty) || difficulty < 95 || difficulty > 120) {
+  if (
+    !Number.isInteger(difficulty) ||
+    difficulty < UNEXPLORED_BASE_DIFFICULTY ||
+    difficulty > UNEXPLORED_MAX_DIFFICULTY
+  ) {
     throw new Error(`Unsupported unexplored runtime difficulty: ${difficulty}`);
   }
   return difficulty;

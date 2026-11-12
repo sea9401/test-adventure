@@ -2537,3 +2537,34 @@ describe("불사의 순교·불사마혈의 장착 흡혈", () => {
     expect(derived.player.enchantLifestealPct ?? 0).toBe(0);
   });
 });
+
+describe("전투 준비물", () => {
+  const base = { equipmentSave: {}, proficiencyRaw: {}, skillsRaw: {} };
+  const future = Date.now() + 60_000;
+  const prep = { weapon: { itemId: "v2_prep_whetstone_3", expiresAt: future }, armor: { itemId: "v2_prep_brace_3", expiresAt: future } };
+
+  it("숫돌·보강재의 고정 수치를 더한다", () => {
+    const plain = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100 } })!;
+    const buffed = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: prep } })!;
+    expect(buffed.player.atk - plain.player.atk).toBe(130);
+    expect((buffed.player.magicAtk ?? 0) - (plain.player.magicAtk ?? plain.player.atk)).toBe(130);
+    expect(buffed.player.def - plain.player.def).toBe(65);
+    expect((buffed.player.magicDef ?? 0) - (plain.player.magicDef ?? 0)).toBe(65);
+    expect(buffed.maxHp - plain.maxHp).toBe(1_000);
+    expect(buffed.player.maxHp).toBe(buffed.maxHp);
+  });
+
+  it("음식과 함께 켜면 둘 다 더해진다", () => {
+    const food = { recipeId: "flame_corn_stew", recipeName: "불꽃 옥수수 스튜", quality: "normal", effect: { combatFlat: { maxHp: 300 } }, expiresAt: future };
+    const plain = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100 } })!;
+    const both = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeFoodBuff: food, activeBattlePreps: prep } })!;
+    expect(both.maxHp - plain.maxHp).toBe(1_300);
+  });
+
+  it("음식을 제외하는 전투에서는 준비물도 빠지고, 만료된 칸은 무시한다", () => {
+    const plain = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100 } })!;
+    expect(derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: prep }, includeCookingBuff: false })).toEqual(plain);
+    const expired = { weapon: { itemId: "v2_prep_whetstone_3", expiresAt: Date.now() - 1 } };
+    expect(derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: expired } })).toEqual(plain);
+  });
+});

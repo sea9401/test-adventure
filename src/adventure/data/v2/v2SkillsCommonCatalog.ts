@@ -1878,6 +1878,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxMpPct: 12, magicDefPct: 12 },
   },
   v2c_lightningmage_thunderbolt: {
+    lightningMageSpell: true,
     id: "v2c_lightningmage_thunderbolt", name: "천뢰격", stat: "int", category: "attack", tier: 3,
     description: "벼락을 한 점에 내리꽂아 큰 피해를 주고 적의 방어 흐름을 노출한다.",
     mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,

@@ -19,13 +19,22 @@ const BASE: WinterBoardView = {
   laps: 4,
   dice: 2,
   coins: 70,
-  today: { visitGranted: true, questDiceGranted: 1, questDiceCap: 4 },
+  today: {
+    visitGranted: true,
+    questDiceGranted: 1,
+    questDiceCap: 4,
+    battleCoins: [
+      { battles: 30, coins: 5, granted: true },
+      { battles: 300, coins: 5, granted: false },
+      { battles: 3_000, coins: 10, granted: false },
+    ],
+  },
   milestones: [
     { laps: 3, label: "스태미나 회복약 3개", claimed: false, claimable: true },
     { laps: 6, label: "숙련 증서 30개", claimed: false, claimable: false },
   ],
   shop: [
-    { id: "mastery_certificate", name: "숙련 증서 10개", cost: 15, limit: 20, purchased: 0 },
+    { id: "mastery_certificate", name: "숙련 증서 10개", cost: 15, limit: null, purchased: 24 },
     { id: "enchant_scroll", name: "마법부여서 1장", cost: 60, limit: 3, purchased: 3 },
     { id: "title_trailblazer", name: "칭호 ‘눈길의 개척자’", cost: 400, limit: 1, purchased: 0 },
   ],
@@ -58,7 +67,7 @@ describe("겨울 말판 화면", () => {
     const current = tiles.filter((tile) => tile.getAttribute("aria-current") === "true");
     expect(current).toHaveLength(1);
     expect(current[0]!.textContent).toContain("3");
-    expect(current[0]!.textContent).toContain("주화 5");
+    expect(current[0]!.textContent).toContain("주화 10");
     expect(current[0]!.textContent).toContain("내 위치");
   });
 
@@ -113,13 +122,26 @@ describe("겨울 말판 화면", () => {
     const [certificate, scroll, title] = within(shop).getAllByRole("listitem");
     fireEvent.click(within(certificate!).getByRole("button", { name: "교환" }));
     expect(props.onBuy).toHaveBeenCalledWith("mastery_certificate");
-    expect(within(scroll!).getByRole("button").hasAttribute("disabled")).toBe(true);
+    // 한도가 없는 품목은 산 횟수와 관계없이 계속 교환할 수 있다.
+    expect(within(certificate!).getByText("제한 없음")).toBeTruthy();
+    expect(within(scroll!).getByRole("button", { name: "완료" }).hasAttribute("disabled")).toBe(true);
     expect(within(scroll!).getByText("3/3")).toBeTruthy();
     expect(within(title!).getByRole("button").hasAttribute("disabled")).toBe(true);
   });
 
+  it("전투 주화 단계와 오늘 받았는지를 보여 준다", () => {
+    renderContent();
+    const tiers = within(screen.getByRole("list", { name: "전투 주화" })).getAllByRole("listitem");
+    expect(tiers.map((tier) => tier.textContent)).toEqual([
+      "전투 30회주화 5개받음",
+      "전투 300회주화 5개미달성",
+      "전투 3,000회주화 10개미달성",
+    ]);
+  });
+
   it("굴리기가 끝난 뒤에는 굴리기 대신 교환 기간을 안내한다", () => {
     renderContent({ phase: "shop_only", dice: 5 });
+    expect(screen.queryByRole("list", { name: "전투 주화" })).toBeNull();
     expect(screen.queryByRole("button", { name: "주사위 굴리기" })).toBeNull();
     expect(
       screen.getByText(

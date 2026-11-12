@@ -11,7 +11,7 @@ import { woodcuttingXpForLevel } from "./woodcuttingProgression";
 
 import type { CookingField } from "./cooking/types";
 import { LIFE_MAJOR_PRODUCT_ID, LIFE_MAJOR_PRODUCTS, TEMPERING_CATALYST } from "./lifeMajorProducts";
-import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
+import { LIFE_MAJOR_CHANGE_COOLDOWN_MS, LIFE_MAJOR_CRAFT_MIN_STAGE } from "./lifeMajorRules";
 
 export {
   TEMPERING_CATALYST,
@@ -22,13 +22,11 @@ export {
 
 export const LIFE_MAJOR_SAVE_KEY = "life-major.v1";
 export const LIFE_MAJOR_MAX_STAGE = 10;
-export { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
+export { LIFE_MAJOR_CHANGE_COOLDOWN_MS, LIFE_MAJOR_CRAFT_MIN_STAGE } from "./lifeMajorRules";
 export const LIFE_MAJOR_MAJOR_BONUS_PER_STAGE = 1;
 export const LIFE_MAJOR_MINOR_FACTOR = 0.5;
 export const LIFE_MAJOR_PRODUCT_BASE_PCT = 0.5;
 export const LIFE_MAJOR_PRODUCT_PER_STAGE_PCT = 0.15;
-/** 명장 제작(명장 요리·단련 촉매)에 필요한 주전공 명장 단계. */
-export const LIFE_MAJOR_CRAFT_MIN_STAGE = 3;
 
 export const LIFE_MAJOR_ACTIVITIES = [
   "farming",

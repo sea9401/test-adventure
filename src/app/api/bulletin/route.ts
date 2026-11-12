@@ -34,6 +34,7 @@ import {
   type BulletinCategory,
 } from "@/lib/bulletin-config";
 import {
+  bulletinListCategoryWhere,
   getViewerGuild,
   visibleBulletinWhere,
   type BulletinScope,
@@ -52,7 +53,7 @@ import {
 import { readNoticePreview } from "./preview";
 
 // GET /api/bulletin?category=<cat>&q=<search>
-//   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
+//   category 미지정 — 전체 탭. 공지사항은 빼고 반환한다(공지는 category=notice 로만 조회).
 //   q — title/content 부분일치(ILIKE %q%). 짧은 입력은 클라에서 막아도 됨.
 // 응답 — like/comment 카운트와 likedByMe 를 서브쿼리로 동봉 (N+1 회피).
 export async function GET(req: Request) {
@@ -82,9 +83,8 @@ export async function GET(req: Request) {
       : scopeParam === "public"
         ? [isNull(bulletinPosts.guildId)]
         : [visibleBulletinWhere(viewerGuild?.guildId ?? null)];
-  if (categoryParam && isBulletinCategory(categoryParam)) {
-    filters.push(eq(bulletinPosts.category, categoryParam));
-  }
+  const categoryWhere = bulletinListCategoryWhere(categoryParam, scopeParam);
+  if (categoryWhere) filters.push(categoryWhere);
   if (blockedUserIds.length > 0) {
     filters.push(notInArray(bulletinPosts.userId, blockedUserIds));
   }

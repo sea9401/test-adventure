@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  WINTER_BATTLE_COIN_TIERS,
   WINTER_MILESTONES,
   WINTER_QUEST_DICE_DAILY_CAP,
   WINTER_ROLLING_ENDS_AT,
@@ -31,6 +32,10 @@ function toView(state: WinterBoardState): WinterBoardView {
       visitGranted: true,
       questDiceGranted: 2,
       questDiceCap: WINTER_QUEST_DICE_DAILY_CAP,
+      battleCoins: WINTER_BATTLE_COIN_TIERS.map((tier, index) => ({
+        ...tier,
+        granted: index === 0,
+      })),
     },
     milestones: WINTER_MILESTONES.map((m) => ({
       laps: m.laps,

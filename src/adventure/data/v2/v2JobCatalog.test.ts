@@ -279,30 +279,30 @@ describe("jobUnlockSpBonus", () => {
       woodcuttingLevel: 1_000,
       miningLevel: 1_000,
     };
-    // 골렘 2~6차 5종이 기존 99에 +3을 더한다(51개째부터 두 직업당 +1).
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(99 + 3);
+    // 골렘 2~6차 5종이 기존 99에 +3, 전격·마검 5·6차 4종이 +2를 더한다(51개째부터 두 직업당 +1).
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(99 + 3 + 2);
 
-    // 7차는 하나당 +1(골렘 2~6차 포함 기준 102에서 시작).
+    // 7차는 하나당 +1(전격·마검 5·6차 포함 기준 104에서 시작).
     proficiency.jobHistory = [TIER7_COMBAT_JOB_IDS[0]];
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(103);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(105);
 
     proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
-    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(102 + TIER7_COMBAT_JOB_IDS.length);
+    expect(jobUnlockSpBonus(proficiency, ctx)).toBe(104 + TIER7_COMBAT_JOB_IDS.length);
   });
 });
 
 describe("v2JobCatalog 구조", () => {
   it("화염·바람·대지 5·6차, 골렘 2~6차와 7차를 포함한 전체 직업 수를 정의한다", () => {
-    // 7차 5종 추가 후 166개에 골렘 2~6차를 더한다.
-    expect(V2_JOB_LIST).toHaveLength(166 + GOLEM_LINE.length);
+    // 7차 5종 추가 후 166개에 골렘 2~6차, 전격·마검 5·6차 4종을 더한다.
+    expect(V2_JOB_LIST).toHaveLength(166 + GOLEM_LINE.length + 4);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(3);
     expect(byTier(1)).toBe(6);
     expect(byTier(2)).toBe(20);
     expect(byTier(3)).toBe(28);
     expect(byTier(4)).toBe(34);
-    expect(byTier(5)).toBe(33);
-    expect(byTier(6)).toBe(33);
+    expect(byTier(5)).toBe(35);
+    expect(byTier(6)).toBe(35);
     expect(byTier(7)).toBe(14);
   });
 

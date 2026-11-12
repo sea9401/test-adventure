@@ -5,6 +5,7 @@ import {
   prepareUnexploredHunt,
   validateDungeonHuntMode,
 } from "./unexploredHunt";
+import { UNEXPLORED_NODES } from "@/adventure/data/v2/unexploredTree";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 
@@ -53,6 +54,21 @@ describe("unexplored hunt server authority", () => {
       ok: false,
       error: "start_required",
     });
+  });
+
+  it("prepares a difficulty 130 monster when every difficulty node is active", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const prepared = prepareUnexploredHunt(
+      character(["start", ...difficultyIds]),
+      () => 0,
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.difficulty).toBe(130);
+    expect(prepared.runtime.difficulty).toBe(130);
+    expect(prepared.runtime.monster.hp).toBeGreaterThan(0);
   });
 
   it("ignores client depth by deriving difficulty and encounter shares from nodes", () => {

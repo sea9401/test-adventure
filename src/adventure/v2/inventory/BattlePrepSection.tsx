@@ -16,7 +16,7 @@ export function BattlePrepSection({
   busy,
   onUse,
 }: {
-  materials: Record<string, number>;
+  materials: Partial<Record<string, number>>;
   busy: string | null;
   onUse: (itemId: string) => void;
 }) {

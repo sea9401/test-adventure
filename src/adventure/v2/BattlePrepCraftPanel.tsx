@@ -10,7 +10,7 @@ import {
   type BattlePrepCraftRow,
 } from "@/adventure/data/v2/battlePrep";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
-import { LIFE_MAJOR_CRAFT_MIN_STAGE } from "@/adventure/v2/lifeMajor";
+import { LIFE_MAJOR_CRAFT_MIN_STAGE } from "@/adventure/v2/lifeMajorRules";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Skeleton } from "@/components/ui/Skeleton";

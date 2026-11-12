@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -31,6 +33,13 @@ function row(name: string) {
 }
 
 describe("생활 공방 전투 준비물 패널", () => {
+  it("서버 전용 요리 카탈로그로 이어지는 lifeMajor 모듈을 화면에서 import하지 않는다", () => {
+    // lifeMajor.ts → cooking/state → cooking/catalog("server-only") 경로라 클라이언트 번들에 넣으면 빌드가 깨진다.
+    const source = readFileSync("src/adventure/v2/BattlePrepCraftPanel.tsx", "utf8");
+    expect(source).not.toMatch(/from "@\/adventure\/v2\/lifeMajor"/);
+    expect(source).not.toMatch(/from "\.\/lifeMajor"/);
+  });
+
   it("칸별로 8행을 보여 주고 막힌 이유와 재료 보유량을 알려 준다", async () => {
     stubFetch(() =>
       json({ ok: true, rows: battlePrepCraftRows({ materials: { v2_processed_softwood: 95 }, ...CONTEXT }) }),

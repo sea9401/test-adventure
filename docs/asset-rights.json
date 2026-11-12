@@ -213,6 +213,41 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/event/winter-banner.webp",
+      "sha256": "ae34ee025499c47b2f927505b59621660a4f7c866fc1cd443cc663f91fe04f0b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/event/winter-board.webp",
+      "sha256": "634a9603a8a849b18ca3d47405a5a6d883c493f8d919fbb01fec0572d3579cf8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/event/winter-tile-again.webp",
+      "sha256": "4253fb56ac9bf7eb00da3fbe37caf628de09835c3c53b80ec4061badea92e6c8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/event/winter-tile-coins.webp",
+      "sha256": "523a6b529edf3c036160e77b26d54c28fbbf31e849deece547d7eb1ca66469a9",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/event/winter-tile-forward.webp",
+      "sha256": "53ded2f63141d1063a92e7c189d4d757064aaad8ae553b23ee822d7f14700899",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/event/winter-tile-potion.webp",
+      "sha256": "8d55b219073951e2ec6c244d68126d763acca5f5110016b097619d2c854e54a4",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/event/winter-tile-start.webp",
+      "sha256": "c68337f28443eb559edba448f578ad705b8423d1fc484512a5191723f478bc14",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/fish/abyss_catfish.webp",
       "sha256": "79546b36fd37c8cf20f72380e162dd65d98e39a67bc23a75bd4fe4956cf1e86a",
       "source": "operator-cleared-game-art"

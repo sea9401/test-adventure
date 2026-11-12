@@ -140,7 +140,7 @@ describe("월간 모험 지원권", () => {
 
   it("프리미엄 혜택은 일반 혜택과 합산하지 않는다", () => {
     expect(PREMIUM_ADVENTURE_SUPPORT_PASS).toMatchObject({
-      coinPrice: 2_500,
+      coinPrice: 2_000,
       durationDays: 30,
       staminaMaxBonus: 3_000,
       staminaActivationGrant: 0,

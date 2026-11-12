@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
@@ -33,6 +35,19 @@ it("8종의 효과·지속·조건이 스펙 값과 같다", () => {
     expect(item.requiredLevel).toBe(item.tier === 2 ? 20 : item.tier === 1 ? 1 : 35);
     expect(item.activity).toBe(item.slot === "weapon" ? "mining" : "woodcutting");
   }
+});
+
+it("8종 모두 품목 id와 같은 이름의 그림 파일이 있고 제작 행에도 실린다", () => {
+  for (const item of BATTLE_PREP_ITEMS) {
+    expect(item.image).toBe(`/images/items/battle-prep/${item.id}.webp`);
+    expect(existsSync(`public${item.image}`)).toBe(true);
+  }
+  const rows = battlePrepCraftRows({
+    materials: {},
+    levels: { mining: 1, woodcutting: 1 },
+    masterCraft: { mining: false, woodcutting: false },
+  });
+  expect(rows.map((row) => row.image)).toEqual(BATTLE_PREP_ITEMS.map((item) => item.image));
 });
 
 it("제작 재료가 스펙 표와 같고 모두 재료 카탈로그에 있다", () => {

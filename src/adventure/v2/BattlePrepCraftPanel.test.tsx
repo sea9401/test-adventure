@@ -56,6 +56,14 @@ describe("생활 공방 전투 준비물 패널", () => {
     expect(row("초급 보강재").textContent).toContain("다듬은 목재 95/40");
     expect(row("초급 보강재").textContent).toContain("방어력·마법방어력 +20 · 최대 HP +300 · 12시간");
     expect(row("중급 보강재").textContent).toContain("재료가 부족합니다.");
+    // 만들 수 없는 행은 수량 입력을 그리지 않고 이유만 보여 준다.
+    expect(screen.getByLabelText("초급 보강재 제작 수량")).toBeTruthy();
+    expect(screen.queryByLabelText("상급 숫돌 제작 수량")).toBeNull();
+    expect(screen.queryByLabelText("중급 보강재 제작 수량")).toBeNull();
+    expect(screen.getAllByRole("spinbutton")).toHaveLength(1);
+    expect(decodeURIComponent(row("상급 숫돌").querySelector("img")?.getAttribute("src") ?? "")).toContain(
+      "/images/items/battle-prep/v2_prep_whetstone_3.webp",
+    );
   });
 
   it("제작하면 POST를 보내고 응답 행으로 갱신하며 알림을 올린다", async () => {

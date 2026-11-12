@@ -20,6 +20,8 @@ export type BattlePrepItem = {
   id: string;
   name: string;
   description: string;
+  /** `public/images/items/battle-prep/<id>.webp` */
+  image: string;
   slot: BattlePrepSlot;
   tier: BattlePrepTier;
   activity: BattlePrepActivity;
@@ -77,10 +79,12 @@ function defineItem(args: {
   const weapon = args.slot === "weapon";
   const effect = { ...NO_EFFECT, ...args.effect };
   const durationMs = (args.tier === "master" ? 24 : 12) * HOUR_MS;
+  const id = `v2_prep_${weapon ? "whetstone" : "brace"}_${TIER_SUFFIX[args.tier]}`;
   return {
-    id: `v2_prep_${weapon ? "whetstone" : "brace"}_${TIER_SUFFIX[args.tier]}`,
+    id,
     name: `${TIER_PREFIX[args.tier]}${weapon ? "숫돌" : "보강재"}`,
     description: `${BATTLE_PREP_SLOT_NAME[args.slot]}에 쓴다. ${battlePrepEffectText(effect)} · ${durationMs / HOUR_MS}시간.`,
+    image: `/images/items/battle-prep/${id}.webp`,
     slot: args.slot,
     tier: args.tier,
     activity: weapon ? "mining" : "woodcutting",
@@ -213,6 +217,7 @@ export function craftBattlePrep(
 export type BattlePrepCraftRow = {
   id: string;
   name: string;
+  image: string;
   slot: BattlePrepSlot;
   tier: BattlePrepTier;
   activity: BattlePrepActivity;
@@ -234,6 +239,7 @@ export function battlePrepCraftRows(
     return {
       id: item.id,
       name: item.name,
+      image: item.image,
       slot: item.slot,
       tier: item.tier,
       activity: item.activity,

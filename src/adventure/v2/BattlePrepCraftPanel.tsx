@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -125,15 +126,29 @@ export function BattlePrepCraftPanel({
                   const blocked = blockedText(row);
                   return (
                     <li key={row.id} className={`${SURFACE_INSET} p-3`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 font-bold">{row.name}</div>
-                        <span className="shrink-0 text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                          보유 {row.owned.toLocaleString()}
-                        </span>
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-200 bg-white dark:border-amber-900 dark:bg-zinc-950">
+                          <Image
+                            src={row.image}
+                            width={256}
+                            height={256}
+                            sizes="56px"
+                            alt=""
+                            className="size-full object-contain p-1.5"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 font-bold">{row.name}</div>
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                              보유 {row.owned.toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            {row.effectText} · {row.durationHours}시간
+                          </p>
+                        </div>
                       </div>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        {row.effectText} · {row.durationHours}시간
-                      </p>
                       <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
                         {row.costs.map((cost, index) => (
                           <span key={cost.id}>
@@ -149,21 +164,23 @@ export function BattlePrepCraftPanel({
                           </span>
                         ))}
                       </p>
-                      <div className="mt-2">
-                        <LifeWorkshopQuantityControls
-                          maxQuantity={Math.min(row.maxCraftable, BATTLE_PREP_CRAFT_MAX_QUANTITY)}
-                          unit="개"
-                          actionLabel="제작"
-                          inputLabel={`${row.name} 제작 수량`}
-                          busy={busy || crafting}
-                          onSubmit={(quantity) => void craft(row, quantity)}
-                        />
-                      </div>
+                      {/* 만들 수 없는 행은 수량 입력 없이 이유만 보여 줘 목록을 짧게 유지한다. */}
                       {blocked ? (
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{blocked}</p>
+                        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{blocked}</p>
                       ) : row.maxCraftable === 0 ? (
-                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">재료가 부족합니다.</p>
-                      ) : null}
+                        <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">재료가 부족합니다.</p>
+                      ) : (
+                        <div className="mt-2">
+                          <LifeWorkshopQuantityControls
+                            maxQuantity={Math.min(row.maxCraftable, BATTLE_PREP_CRAFT_MAX_QUANTITY)}
+                            unit="개"
+                            actionLabel="제작"
+                            inputLabel={`${row.name} 제작 수량`}
+                            busy={busy || crafting}
+                            onSubmit={(quantity) => void craft(row, quantity)}
+                          />
+                        </div>
+                      )}
                     </li>
                   );
                 })}

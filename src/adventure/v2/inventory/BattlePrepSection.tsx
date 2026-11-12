@@ -34,7 +34,7 @@ export function BattlePrepSection({
             <li key={item.id} className={`${SURFACE_INSET} px-3 py-2`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-                  <InventoryItemIcon itemId={item.id} size={18} className="shrink-0" />
+                  <InventoryItemIcon itemId={item.id} size={28} className="shrink-0" />
                   <span className="truncate">{item.name}</span>
                   <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                     ×{materials[item.id]}

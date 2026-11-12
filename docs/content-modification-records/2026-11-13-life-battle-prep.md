@@ -49,6 +49,7 @@
 ### 사용·거래·표시
 
 - 인벤토리 소모품 탭에서 사용한다.
+- 생활 공방에서 지금 만들 수 없는 품목은 수량 입력 없이 이유(레벨·전공 조건, 재료 부족)만 보여 준다.
 - 준비물은 재료로 등록되어 거래소에서 거래할 수 있다. NPC 판매 대상은 아니다.
 - 켜 둔 준비물은 캐릭터 간략 정보와 캐릭터 카드의 음식 효과 옆에 보인다.
 - 안내서 생활 항목에 전투 준비물 표와 설명을 추가했다. 명장 합금·명장 목재 설명에 준비물 재료라는 점을 더했다.
@@ -64,12 +65,11 @@
 
 ## 아이콘
 
-그림 8종이 아직 없다. 없는 동안에는 기존 재료 기본 아이콘으로 표시된다.
+품목마다 그림 1장, 모두 8장을 넣었다.
 
-- 위치: `public/images/items/battle-prep/<품목 id>.webp`
-- 품목 id: `v2_prep_whetstone_1`, `v2_prep_whetstone_2`, `v2_prep_whetstone_3`, `v2_prep_whetstone_master`,
-  `v2_prep_brace_1`, `v2_prep_brace_2`, `v2_prep_brace_3`, `v2_prep_brace_master`
-- 규격: 기존 `public/images/items/life-aids`와 같은 규격. 그림을 넣을 때 인벤토리 아이콘 매핑에 연결한다.
+- 위치: `public/images/items/battle-prep/<품목 id>.webp` (256x256, 투명 배경)
+- 쓰이는 곳: 생활 공방 제작 탭의 전투 준비물 행, 인벤토리 소모품·재료 탭과 길드 창고의 품목 아이콘.
+- 출처와 후처리: `docs/asset-provenance-life-battle-prep-2026-11-13.md`. 해시는 `docs/asset-rights.json`에 등록했다.
 
 ## 출시 뒤 확인할 것
 

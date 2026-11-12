@@ -31,6 +31,44 @@ const GOLEM_LINE_JOB_IDS = [
   "primevalgolem",
 ] as const;
 
+const LIGHTNING_LINE_GUIDE: JobManualGuide = {
+  overview:
+    "취약을 먼저 걸고, 취약한 적에게 치명타와 관통으로 큰 피해를 주는 전격 계열입니다.",
+  rules: [
+    "전격 주문은 천뢰격·연쇄 뇌격·만뢰 강림 세 가지입니다.",
+    "천뢰격과 만뢰 강림은 취약 18%를 3행동 동안 겁니다. 취약은 중첩되지 않고 지속시간을 갱신합니다.",
+    "연쇄 뇌격은 대상이 이미 취약 상태면 치명타 확률이 25%p 오릅니다.",
+    "만뢰 강림은 대상이 이미 취약 상태면 방어 무시 추가 피해 20%를 더합니다. 같은 시전으로 새로 건 취약은 조건에 들지 않습니다.",
+    "전도는 새로 거는 취약을 1행동 늘리고 전격 주문의 MP 소모를 20% 줄입니다.",
+    "뇌신의 심장은 전격 주문이 치명타로 적중했을 때만 다음 행동을 20% 앞당깁니다.",
+    "축전·뇌정은 스킬 치명타 피해를 올리며 기본 공격에는 적용되지 않습니다.",
+    "계열 패시브는 현재 직업과 관계없이 장착하면 적용됩니다.",
+  ],
+  examples: [
+    "천뢰격으로 취약 부여 → 연쇄 뇌격으로 치명타 노리기 → 만뢰 강림으로 관통과 취약 갱신",
+  ],
+};
+
+const LIGHTNING_LINE_JOB_IDS = ["electromancer", "thundersovereign"] as const;
+
+const RUNE_SWORD_LINE_GUIDE: JobManualGuide = {
+  overview:
+    "한 번의 공격에 물리와 마법 타격을 함께 싣고, 적의 두 방어를 함께 깎는 마검 계열입니다.",
+  rules: [
+    "물리 타격은 공격력과 힘, 마법 타격은 마법 공격력과 지능을 따릅니다. 힘과 지능을 함께 올려야 두 타격이 모두 강해집니다.",
+    "물리 타격은 물리 방어로, 마법 타격은 마법 방어로 각각 줄어듭니다.",
+    "룬 연격은 물리·마법·물리 순서로 세 번 타격합니다.",
+    "마검 해방은 물리와 마법을 한 번씩 타격하고 각 타격에 방어 무시 추가 피해 15%를 더한 뒤 취약 14%를 3행동 동안 겁니다.",
+    "균열 간파·룬 균열은 적의 물리 방어와 마법 방어를 함께 낮춥니다. 갑주 간파·마력 해체와 같이 장착하면 남은 방어력에 차례로 적용됩니다.",
+    "계열 패시브는 현재 직업과 관계없이 장착하면 적용됩니다.",
+  ],
+  examples: [
+    "룬 검격으로 취약 부여 → 룬 연격으로 3연타 → 마검 해방으로 관통 공격과 취약 갱신",
+  ],
+};
+
+const RUNE_SWORD_LINE_JOB_IDS = ["spellswordmaster", "spellswordemperor"] as const;
+
 const JOB_MANUAL_GUIDES: Record<string, JobManualGuide> = {
   radiantknight: {
   "overview": "성역으로 회복하며 성력을 모으고 여명의 심판으로 소비하는 성기사 계열입니다.",
@@ -262,6 +300,12 @@ const JOB_MANUAL_GUIDES: Record<string, JobManualGuide> = {
 export function jobManualGuideFor(jobId: string): JobManualGuide | null {
   if ((GOLEM_LINE_JOB_IDS as readonly string[]).includes(jobId)) {
     return GOLEM_LINE_GUIDE;
+  }
+  if ((LIGHTNING_LINE_JOB_IDS as readonly string[]).includes(jobId)) {
+    return LIGHTNING_LINE_GUIDE;
+  }
+  if ((RUNE_SWORD_LINE_JOB_IDS as readonly string[]).includes(jobId)) {
+    return RUNE_SWORD_LINE_GUIDE;
   }
   return JOB_MANUAL_EXPANSION_GUIDES[jobId] ?? JOB_MANUAL_GUIDES[jobId] ?? null;
 }

@@ -144,6 +144,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
   frostmage: ["v2c_frostmage_glacier", "v2c_frostmage_frozenheart"],
   lightningmage: ["v2c_lightningmage_thunderbolt", "v2c_lightningmage_overcharge"],
+  electromancer: ["v2c_electromancer_chain", "v2c_electromancer_capacitor", "v2c_electromancer_conduction"],
+  thundersovereign: ["v2c_thundersovereign_descent", "v2c_thundersovereign_heart", "v2c_thundersovereign_thunderclap"],
   aeromancer: ["v2c_aeromancer_blade", "v2c_aeromancer_spirit", "v2c_aeromancer_current"],
   stormbringer: ["v2c_stormbringer_burst", "v2c_stormbringer_will", "v2c_stormbringer_current"],
   windmage: ["v2c_windmage_tempest", "v2c_windmage_flow"],
@@ -172,6 +174,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   radiantknight: ["v2c_radiantknight_verdict", "v2c_radiantknight_grace"], // 성휘기사: 성역 선포 + 성휘의 가호
   dawnpaladin: ["v2c_dawnpaladin_judgment", "v2c_dawnpaladin_covenant"], // 여명성기사: 여명의 심판 + 영원의 서약
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
+  spellswordmaster: ["v2c_spellswordmaster_flurry", "v2c_spellswordmaster_dualmark", "v2c_spellswordmaster_fissure"], // 마검호: 룬 연격 + 이중 각인 + 균열 간파
+  spellswordemperor: ["v2c_spellswordemperor_release", "v2c_spellswordemperor_unity", "v2c_spellswordemperor_rift"], // 마검황: 마검 해방 + 만룬 합일 + 룬 균열
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판(방어비례/회복억제) + 피의 서약
   contender: ["v2c_contender_insight", "v2c_contender_precision"],
   // ── 5차 직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──

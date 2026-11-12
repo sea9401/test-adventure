@@ -1040,6 +1040,20 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 20, spi: 8 },
     unlock: { prereqs: { firemage: TIER5_UNLOCK_CUMLEVEL } },
   },
+  // 전격 단일 계보 — 원소군주(원소 5종)와 별도로 전격만으로 6차까지 잇는다.
+  electromancer: {
+    id: "electromancer", name: "뇌전술사", tier: 5,
+    cultivateProfile: { int: 3, spi: 2 },
+    jobBonus: { int: 20, spi: 8 },
+    unlock: { prereqs: { lightningmage: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  // 룬 기사 단일 계보 — 초월자(성전사 + 룬 기사)와 별도로 마검만으로 6차까지 잇는다.
+  spellswordmaster: {
+    id: "spellswordmaster", name: "마검호", tier: 5,
+    cultivateProfile: { str: 3, int: 2 },
+    jobBonus: { str: 13, int: 13 },
+    unlock: { prereqs: { runeknight: TIER5_UNLOCK_CUMLEVEL } },
+  },
   dragonwing: {
     id: "dragonwing", name: "용익기사", tier: 5,
     cultivateProfile: { str: 3, vit: 2 },
@@ -1329,6 +1343,18 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { int: 4, spi: 2 },
     jobBonus: { int: 28, spi: 12 },
     unlock: { prereqs: { pyromancer: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  thundersovereign: {
+    id: "thundersovereign", name: "뇌천제", tier: 6,
+    cultivateProfile: { int: 4, spi: 2 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { electromancer: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  spellswordemperor: {
+    id: "spellswordemperor", name: "마검황", tier: 6,
+    cultivateProfile: { str: 3, int: 3 },
+    jobBonus: { str: 20, int: 20 },
+    unlock: { prereqs: { spellswordmaster: TIER6_UNLOCK_CUMLEVEL } },
   },
   dragonsovereign: {
     id: "dragonsovereign", name: "용왕기사", tier: 6,
@@ -2197,6 +2223,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   tectomancer: { class: "mage", spec: "tectomancer" },
   pyromancer: { class: "mage", spec: "pyromancer" },
   infernomancer: { class: "mage", spec: "infernomancer" },
+  electromancer: { class: "mage", spec: "electromancer" },
+  thundersovereign: { class: "mage", spec: "thundersovereign" },
   frostmage: { class: "mage", spec: "frostmage" },
   lightningmage: { class: "mage", spec: "lightningmage" },
   windmage: { class: "mage", spec: "windmage" },
@@ -2225,6 +2253,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   radiantknight: { class: "warrior", spec: "radiantknight" },
   dawnpaladin: { class: "warrior", spec: "dawnpaladin" },
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
+  spellswordmaster: { class: "warrior", spec: "spellswordmaster" },
+  spellswordemperor: { class: "warrior", spec: "spellswordemperor" },
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 방어와 회복 억제의 탱딜
   contender: { class: "warrior", spec: "contender" },
   // tier 5 — 핵심 5개 상급 심화 직업.

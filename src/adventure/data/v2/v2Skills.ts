@@ -29,6 +29,8 @@ import { darkPriestPattern } from "./darkPriestPattern";
 import { DARK_PRIEST_SKILLS, type DarkPriestSkillId } from "./darkPriestSkills";
 import { EARTH_MAGE_SKILLS, type EarthMageSkillId } from "./earthMageSkills";
 import { FIRE_MAGE_SKILLS, type FireMageSkillId } from "./fireMageSkills";
+import { LIGHTNING_MAGE_SKILLS, type LightningMageSkillId } from "./lightningMageSkills";
+import { RUNE_KNIGHT_SKILLS, type RuneKnightSkillId } from "./runeKnightSkills";
 import { DRAGON_KNIGHT_SKILLS, type DragonKnightSkillId } from "./dragonKnightSkills";
 import { TIER7_EXPANSION_SKILLS, type Tier7ExpansionSkillId } from "./tier7ExpansionSkills";
 import { TIER7_SECOND_EXPANSION_SKILLS, type Tier7SecondExpansionSkillId } from "./tier7SecondExpansionSkills";
@@ -183,6 +185,12 @@ export type V2PassiveSkillEffect = {
   burnRekindle?: boolean;
   fireSpellMpCostReductionPct?: number;
   fireBurstShieldPctMaxMp?: number;
+  /** 자신이 새로 거는 취약(enemyVuln) 지속 +N행동. 여러 개 장착 시 큰 값. */
+  vulnDurationBonusTurns?: number;
+  /** 전격 계보 주문 MP 소모 -%. */
+  lightningSpellMpCostReductionPct?: number;
+  /** 전격 계보 주문이 치명타로 적중하면 다음 행동 가속 %. 여러 개 장착 시 큰 값. */
+  lightningCritHastePct?: number;
   windCurrentShieldPctPerStack?: number;
   windCurrentReleaseEvades?: number;
   windCurrentMpRestorePctPerStack?: number;
@@ -326,6 +334,8 @@ export type V2SkillId =
   | V2CommonSkillId
   | DragonKnightSkillId
   | FireMageSkillId
+  | LightningMageSkillId
+  | RuneKnightSkillId
   | WindMageSkillId
   | ParagonSkillId
   | DarkPriestSkillId
@@ -534,6 +544,8 @@ export type V2SkillDetail = {
 export type V2SkillDefinition = {
   windCurrent?: WindCurrentSkill;
   fireMageSpell?: boolean;
+  /** 전격 계보 주문(천뢰격·연쇄 뇌격·만뢰 강림). 전도의 MP 감소와 뇌신의 심장 가속 대상. */
+  lightningMageSpell?: boolean;
   id: V2SkillId;
   name: string;
   /** 분류 메타데이터 — 교관 NPC 그룹화 + 데미지 스케일링 기본 stat. selfBuff/enemyDebuff
@@ -574,6 +586,10 @@ export type V2SkillDefinition = {
   lineageBonus?: LineagePassiveBonus;
   /** 이 액티브에만 적용되는 치명타 확률 가산(%p). */
   skillCritChancePct?: number;
+  /** 시전 전 대상이 취약 상태일 때만 더하는 이 액티브의 치명타 확률(%p). */
+  vulnerableTargetCritChancePct?: number;
+  /** 시전 전 대상이 취약 상태일 때만 더하는 이 액티브의 관통(0방어 피해 기준 추가 피해 %). */
+  vulnerableTargetPiercePct?: number;
   /** 시전 전 보호막 조건. 범용 직접 마법 증폭에 가산하며 보호막을 소모하지 않는다. */
   shieldedDirectMagicDamagePct?: number;
   /** 이 액티브에만 적용되는 명중도 가산(%p). */
@@ -975,6 +991,10 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     if (p.paragonMastery) mag += 3;
     if (p.windCurrentRebound) mag += 1;
     mag += (p.fireSpellMpCostReductionPct ?? 0) / 20;
+    mag += (p.vulnDurationBonusTurns ?? 0) * 0.75;
+    mag += (p.lightningSpellMpCostReductionPct ?? 0) / 20;
+    // 전격 주문이 발동하고 치명타까지 나야 하는 조건부 가속이라 상시 가속보다 낮게 평가한다.
+    mag += (p.lightningCritHastePct ?? 0) / 20;
     mag += (p.fireBurstShieldPctMaxMp ?? 0) / 16;
     mag += (p.windCurrentShieldPctPerStack ?? 0) * 3 / 16;
     mag += (p.windCurrentReleaseEvades ?? 0) * 1.5;
@@ -1082,6 +1102,13 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   raw += (def.fortressImpactDamagePctPerStack ?? 0) / 20;
   raw += (def.fortressFullImpactCounterBoostPct ?? 0) / 50;
   raw += (def.skillCritChancePct ?? 0) / 20;
+  // 대상이 이미 취약해야 하는 조건부 보너스 — 조건 실현율을 절반으로 본다.
+  raw += (def.vulnerableTargetCritChancePct ?? 0) / 40;
+  if (def.vulnerableTargetPiercePct) {
+    const hits = def.effects.filter(isDirectDamageEffect);
+    const direct = hits.reduce((sum, e) => sum + spEffectValue(def, e, Math.max(1, hits.length)), 0);
+    raw += direct * (def.vulnerableTargetPiercePct / 100) * 0.75 * 0.5;
+  }
   raw += (def.accuracyBonusPct ?? 0) / 30;
   raw += bleedHuntPowerValue(def.bleedHunt);
   raw += weightCyclePowerValue(def.weightCycle, raw);
@@ -1241,6 +1268,10 @@ const ACTIVE_JOB_TEMPO: Partial<Record<string, ActiveJobTempo>> = {
   tectomancer: "burst",
   pyromancer: "steady",
   infernomancer: "burst",
+  electromancer: "rapid",
+  thundersovereign: "burst",
+  spellswordmaster: "rapid",
+  spellswordemperor: "burst",
   dragonknight: "steady",
   drakeblood: "steady",
   dragonwing: "rapid",
@@ -1581,6 +1612,8 @@ const RAW_V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_COMMON_SKILLS,
   ...DRAGON_KNIGHT_SKILLS,
   ...FIRE_MAGE_SKILLS,
+  ...LIGHTNING_MAGE_SKILLS,
+  ...RUNE_KNIGHT_SKILLS,
   ...WIND_MAGE_SKILLS,
   ...PARAGON_SKILLS,
   ...EARTH_MAGE_SKILLS,
@@ -1714,6 +1747,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   burnRekindle?: boolean;
   fireSpellMpCostReductionPct?: number;
   fireBurstShieldPctMaxMp?: number;
+  vulnDurationBonusTurns?: number;
+  lightningSpellMpCostReductionPct?: number;
+  lightningCritHastePct?: number;
   windCurrentShieldPctPerStack?: number;
   windCurrentReleaseEvades?: number;
   windCurrentMpRestorePctPerStack?: number;
@@ -1787,6 +1823,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
   let burnRekindle = false;
   let fireSpellMpCostReductionPct = 0;
   let fireBurstShieldPctMaxMp = 0;
+  let vulnDurationBonusTurns = 0;
+  let lightningSpellMpCostReductionPct = 0;
+  let lightningCritHastePct = 0;
   let windCurrentShieldPctPerStack = 0;
   let windCurrentReleaseEvades = 0;
   let windCurrentMpRestorePctPerStack = 0;
@@ -1898,6 +1937,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     burnRekindle ||= p.burnRekindle ?? false;
     fireSpellMpCostReductionPct += p.fireSpellMpCostReductionPct ?? 0;
     fireBurstShieldPctMaxMp = Math.max(fireBurstShieldPctMaxMp, p.fireBurstShieldPctMaxMp ?? 0);
+    vulnDurationBonusTurns = Math.max(vulnDurationBonusTurns, p.vulnDurationBonusTurns ?? 0);
+    lightningSpellMpCostReductionPct += p.lightningSpellMpCostReductionPct ?? 0;
+    lightningCritHastePct = Math.max(lightningCritHastePct, p.lightningCritHastePct ?? 0);
     windCurrentShieldPctPerStack += p.windCurrentShieldPctPerStack ?? 0;
     windCurrentReleaseEvades = Math.max(windCurrentReleaseEvades, p.windCurrentReleaseEvades ?? 0);
     windCurrentMpRestorePctPerStack += p.windCurrentMpRestorePctPerStack ?? 0;
@@ -1984,6 +2026,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[], jobId?
     ...(burnRekindle ? { burnRekindle } : {}),
     ...(fireSpellMpCostReductionPct > 0 ? { fireSpellMpCostReductionPct } : {}),
     ...(fireBurstShieldPctMaxMp > 0 ? { fireBurstShieldPctMaxMp } : {}),
+    ...(vulnDurationBonusTurns > 0 ? { vulnDurationBonusTurns } : {}),
+    ...(lightningSpellMpCostReductionPct > 0 ? { lightningSpellMpCostReductionPct } : {}),
+    ...(lightningCritHastePct > 0 ? { lightningCritHastePct } : {}),
     ...(windCurrentShieldPctPerStack > 0 ? { windCurrentShieldPctPerStack } : {}),
     ...(windCurrentReleaseEvades > 0 ? { windCurrentReleaseEvades } : {}),
     ...(windCurrentMpRestorePctPerStack > 0 ? { windCurrentMpRestorePctPerStack } : {}),
@@ -2552,6 +2597,9 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.burnRekindle) chips.push("겁화 붕괴 적중 시 연소 부여");
   if (p.fireSpellMpCostReductionPct) chips.push(`화염 계보 주문 MP 소모 -${p.fireSpellMpCostReductionPct}%`);
   if (p.fireBurstShieldPctMaxMp) chips.push(`겁화 붕괴 사용 시 최대 MP ${p.fireBurstShieldPctMaxMp}% 보호막`);
+  if (p.vulnDurationBonusTurns) chips.push(`새로 거는 취약 지속 +${p.vulnDurationBonusTurns}행동`);
+  if (p.lightningSpellMpCostReductionPct) chips.push(`전격 계보 주문 MP 소모 -${p.lightningSpellMpCostReductionPct}%`);
+  if (p.lightningCritHastePct) chips.push(`전격 계보 주문 치명타 적중 시 다음 행동 ${p.lightningCritHastePct}% 가속`);
   if (p.windCurrentShieldPctPerStack) chips.push(`새 기류 1개당 최대 MP ${p.windCurrentShieldPctPerStack}% 보호막`);
   if (p.windCurrentReleaseEvades) chips.push(`기류 3개 소비 시 확정 회피 ${p.windCurrentReleaseEvades}회 확보 (누적 없음)`);
   if (p.windCurrentMpRestorePctPerStack) chips.push(`새 기류 1개당 최대 MP ${p.windCurrentMpRestorePctPerStack}% 회복`);
@@ -2916,6 +2964,12 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   }
   if (skill.skillCritChancePct) {
     chips.push(`이 스킬 치명타 확률 +${skill.skillCritChancePct}%p`);
+  }
+  if (skill.vulnerableTargetCritChancePct) {
+    chips.push(`취약 대상에게 이 스킬 치명타 확률 +${skill.vulnerableTargetCritChancePct}%p`);
+  }
+  if (skill.vulnerableTargetPiercePct) {
+    chips.push(`취약 대상에게 방어 무시 추가 피해 +${skill.vulnerableTargetPiercePct}%`);
   }
   if (skill.accuracyBonusPct) {
     chips.push(`이 스킬 적중도 +${skill.accuracyBonusPct}%`);

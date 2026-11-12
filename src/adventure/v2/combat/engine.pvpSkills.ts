@@ -62,6 +62,7 @@ import { consumePurificationWard, refreshTripleWardState, resolveTripleWardDamag
 import { type EnemyHitResolution } from "./unexploredSetEffects";
 import { appendIronWallGainLogPvP, beginUnexploredAttackPvP, finishUnexploredAttackPvP, recordUnexploredHitPvP, unyieldingDamagePvP } from "./unexploredSetPvpAdapter";
 import { previewPlayerWindCurrent, settlePlayerWindCurrent } from "./windCurrentCast";
+import { lightningCritHastePct, skillCritChanceBonusPct } from "./lightningCast";
 export { applyImmediateProvokedBasicAttacksPvP } from "./engine.pvpProvoke";
 
 
@@ -438,9 +439,10 @@ export function castV2SkillOnAttackerTurnPvPBody(
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. PvP 확률 판정은 대상의 치명타 저항을 차감하며, 강제 치명타는 저항을 무시한다.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
+  // 취약 대상 조건부 가산(연쇄 뇌격) — 이번 행동에 유효한 시전 전 취약만 인정한다(행동 시작 감소 반영).
   const rawSkillCritPct =
     (side.player.critChancePct ?? 0) +
-    (castDefinition?.skillCritChancePct ?? 0);
+    skillCritChanceBonusPct(castDefinition, side.stacks.enemyVulnTurns > 1);
   const skillCritResolution = resolveCriticalChanceAfterResistance(
     rawSkillCritPct,
     opp.player.critResistPct ?? 0,
@@ -2003,6 +2005,7 @@ export function castV2SkillOnAttackerTurnPvPBody(
     crossover?.hastePct ?? 0,
     formulaPreview?.completes ? 12 : 0,
     windFinal.hastePct,
+    lightningCritHastePct({ def: castDefinition, equipped: side.v2Skills.equipped, critical: skillCritFired, landed: landedSkillHits > 0 }),
   );
   const enemyDelayPct = blockHostileStatus
     ? 0

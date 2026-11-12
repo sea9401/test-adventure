@@ -100,7 +100,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "adventure_support_premium_30d",
     name: "월간 모험 지원권 프리미엄 (30일)",
     description:
-      "사용한 시점부터 프리미엄 모험 지원 혜택이 30일 적용됩니다. 일반 지원권의 남은 기간은 프리미엄 종료 뒤 이어지며, 사용할 때마다 꾸미기 30일 연장권 2개를 받습니다. 구매 후 가방에 보관되며 거래소에서 거래할 수 있습니다.",
+      "사용한 시점부터 프리미엄 모험 지원 혜택이 30일 적용됩니다. 일반 지원권의 남은 기간은 프리미엄 종료 뒤 이어지며, 사용할 때마다 꾸미기 30일 연장권 2개를 받습니다. 연장권은 설정 메뉴의 꾸미기에서 사용합니다. 구매 후 가방에 보관되며 거래소에서 거래할 수 있습니다.",
     coinPrice: PREMIUM_ADVENTURE_SUPPORT_PASS.coinPrice,
     delivery: "inventory",
     tradeable: true,
@@ -113,7 +113,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "adventure_support_30d",
     name: "월간 모험 지원권 (30일)",
     description:
-      "사용한 시점부터 월간 모험 지원 혜택이 30일 연장됩니다. 구매 후 가방에 보관되며 거래소에서 거래할 수 있습니다.",
+      "사용한 시점부터 월간 모험 지원 혜택이 30일 연장됩니다. 프리미엄 혜택과 합쳐지지 않으며, 프리미엄 이용 중에 사용하면 프리미엄 종료 뒤부터 이어집니다. 구매 후 가방에 보관되며 거래소에서 거래할 수 있습니다.",
     coinPrice: ADVENTURE_SUPPORT_PASS.coinPrice,
     delivery: "inventory",
     tradeable: true,

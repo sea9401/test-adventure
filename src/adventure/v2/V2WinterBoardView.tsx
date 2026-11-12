@@ -267,6 +267,36 @@ export function WinterBoardContent({
         </div>
       </Card>
 
+      {rolling && (
+        <Card padding="md" className="space-y-2">
+          <SectionHeading title="전투 주화" />
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            오늘 치른 전투 횟수에 따라 주화가 바로 들어옵니다. 접속해 있으면 몇 분 안에
+            반영되고, 횟수는 매일 0시에 다시 셉니다.
+          </p>
+          <ul aria-label="전투 주화" className="divide-y divide-zinc-200 dark:divide-zinc-700">
+            {view.today.battleCoins.map((tier) => (
+              <li
+                key={tier.battles}
+                className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm"
+              >
+                <span className="min-w-0">
+                  <span className="font-semibold tabular-nums">
+                    전투 {tier.battles.toLocaleString("ko-KR")}회
+                  </span>
+                  <span className="ml-2 tabular-nums text-amber-700 dark:text-amber-300">
+                    주화 {tier.coins.toLocaleString("ko-KR")}개
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                  {tier.granted ? "받음" : "미달성"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card padding="md" className="space-y-2">
         <SectionHeading title="누적 바퀴 보상" />
         <ul aria-label="누적 바퀴 보상" className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -304,7 +334,7 @@ export function WinterBoardContent({
         <SectionHeading title="겨울 교환소" />
         <ul aria-label="겨울 교환소" className="divide-y divide-zinc-200 dark:divide-zinc-700">
           {view.shop.map((item) => {
-            const soldOut = item.purchased >= item.limit;
+            const soldOut = item.limit !== null && item.purchased >= item.limit;
             const affordable = view.coins >= item.cost;
             return (
               <li
@@ -318,7 +348,7 @@ export function WinterBoardContent({
                   </span>
                 </span>
                 <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                  {item.purchased}/{item.limit}
+                  {item.limit === null ? "제한 없음" : `${item.purchased}/${item.limit}`}
                 </span>
                 <Button
                   size="sm"

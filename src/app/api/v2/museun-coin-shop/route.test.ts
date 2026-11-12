@@ -303,8 +303,8 @@ describe("무슨 코인 상점 일괄 구매", () => {
     expect(first.status).toBe(200);
     expect(await first.json()).toMatchObject({
       itemId: "growth_leap_package",
-      totalPrice: 1_200,
-      coins: 1_800,
+      totalPrice: 800,
+      coins: 2_200,
       delivery: "bundle",
       growthLeapPackage: { owned: true },
       cashItems: { chroma_name_box: 3, profile_border_box: 1 },
@@ -317,7 +317,7 @@ describe("무슨 코인 상점 일괄 구매", () => {
     const second = await POST(request({ itemId: "growth_leap_package" }));
     expect(second.status).toBe(409);
     expect(await second.json()).toMatchObject({ error: "already_owned" });
-    expect(saves.get(MUSEUN_COIN_WALLET_KEY)).toEqual({ coins: 1_800 });
+    expect(saves.get(MUSEUN_COIN_WALLET_KEY)).toEqual({ coins: 2_200 });
   });
 
   it("번들 상품은 구매 수량을 한 개로 고정한다", async () => {

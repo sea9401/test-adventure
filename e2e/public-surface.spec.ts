@@ -104,13 +104,22 @@ test("출시 전 비공개 화면과 API는 로그인 화면으로 새지 않고
 }) => {
   for (const { path, method } of [
     { path: "/dev", method: "GET" },
-    { path: "/settings/coin-shop", method: "GET" },
-    { path: "/api/v2/museun-coin-shop", method: "GET" },
     { path: "/api/v2/dev/grant", method: "POST" },
   ] as const) {
     const response = await request.fetch(path, { method, maxRedirects: 0 });
     expect(response.status(), path).toBe(404);
   }
+});
+
+test("공개된 코인 상점은 비로그인 요청을 로그인 화면과 401로 돌려보낸다", async ({
+  request,
+}) => {
+  const page = await request.fetch("/settings/coin-shop", { maxRedirects: 0 });
+  expect(page.status()).toBe(307);
+  expect(page.headers().location).toContain("/sign-in");
+
+  const api = await request.fetch("/api/v2/museun-coin-shop", { maxRedirects: 0 });
+  expect(api.status()).toBe(401);
 });
 
 test("공개 고지 원문과 PWA 메타 파일을 제공한다", async ({ request }) => {

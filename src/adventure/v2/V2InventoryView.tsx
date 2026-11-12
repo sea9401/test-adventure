@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { adventureSupportUseNotice } from "./adventureSupportDisplay";
 import { ItemSearchInput } from "./ItemSearchInput";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TwoPane } from "@/components/ui/TwoPane";
@@ -18,10 +19,12 @@ import {
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import { type AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { EMBLEM_LABELS, type EmblemKind } from "@/adventure/data/v2/emblems";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, parseSpFruitUsed, type SpFruitTier } from "@/adventure/data/v2/spFruit";
+import { BATTLE_PREP_ITEM_BY_ID } from "@/adventure/data/v2/battlePrep";
 import { canLiberateEquipment } from "@/adventure/data/v2/equipmentLiberation";
 import {
   V2_EQUIPMENT,
@@ -404,6 +407,37 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [notifySystem, refresh, refreshGameState],
   );
 
+  // 전투 준비물(숫돌·보강재) 사용 — 1개 소모, 해당 칸을 새 품목으로 교체.
+  const useBattlePrep = useCallback(
+    async (itemId: string) => {
+      const item = BATTLE_PREP_ITEM_BY_ID.get(itemId);
+      if (!item) return;
+      setBusy(`battle_prep_${itemId}`);
+      try {
+        const res = await fetch("/api/v2/me/use-battle-prep", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        });
+        const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+        if (!j?.ok) {
+          const label =
+            j?.error === "not_owned" ? "보유한 준비물이 없습니다" : (j?.error ?? `http ${res.status}`);
+          notifySystem(`✗ ${label}`);
+          return;
+        }
+        await refresh();
+        await refreshGameState();
+        notifySystem(`✓ ${item.name} 적용 · ${item.durationMs / 3_600_000}시간`);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refresh, refreshGameState],
+  );
+
   // 협동 보스 장비 상자 사용 — 상자 1개 소모 후 장비 인스턴스 1개 획득.
   const useCoopEquipmentBox = useCallback(
     async (boxId: string) => {
@@ -541,6 +575,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           error?: string;
           cashItems?: MuseunCashItemCounts;
           daysAdded?: number;
+          tier?: AdventureSupportTier;
           refundedPoints?: number;
           level?: number;
           levelsGained?: number;
@@ -569,7 +604,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             ? `✓ 수행 초기화 완료 · Lv.1로 초기화 · 숙달 포인트 +${(data.refundedPoints ?? 0).toLocaleString()}`
             : itemId === EMBLEM_BOX_ITEM_ID && data.emblem
             ? `✓ ${EMBLEM_LABELS[data.emblem.kind]} 문장 ${data.emblem.grade}등급 획득`
-            : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
+            : `✓ ${adventureSupportUseNotice({
+                premiumItem: itemId === "adventure_support_premium_30d",
+                daysAdded: data.daysAdded ?? 30,
+                tier: data.tier ?? "standard",
+              })}`,
         );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
@@ -1200,6 +1239,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               spFruitUsed={spFruitUsed}
               busy={busy}
               onUseSpFruit={useSpFruit}
+              onUseBattlePrep={useBattlePrep}
               onUseEquipmentBox={useCoopEquipmentBox}
               onUseMasteryTome={useCoopMasteryTome}
               masteryCertificates={masteryCertificates}

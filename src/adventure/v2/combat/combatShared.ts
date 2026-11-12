@@ -44,6 +44,7 @@ type V2SkillsState,
 import { normalizeWindCurrent } from "@/adventure/data/v2/windCurrent";
 import { evaluateCombatPatternCandidates, V2_PATTERN_DOT_POWER_MULT, V2_PATTERN_SKILL_MIN_BASIC_MULT_BY_TIER, V2_PATTERN_SKILL_POWER_MULT_BY_TIER, v2PureSkillFormulaCoefficients, v2SkillAttackCoef, v2SkillHealStatCoef, v2SpecializedSkillStatCoef, type V2CombatPattern, type V2CombatRole, type V2PatternCtx, type V2PatternSelfStatus } from "./combatPattern";
 import { type PlayerCombat } from "./engineState";
+import { lineageSpellMpReductionFor, lineageSpellMpReductions, vulnDurationBonusTurns, vulnerableTargetPiercePct } from "./lightningCast";
 import { holyJudgmentCoefficient, normalizeHolyPower, type HolyPowerState } from "./holyPower";
 import { canReleaseLawInscriptions, emptyLawInscriptionState, lawInscriptionGainForCast, lawInscriptionRelease, lawInscriptionTotal, normalizeLawInscriptionState, type LawInscriptionState } from "./lawInscription";
 import { clampMutationResource, equippedWeightCyclePassives, mutationCastTransition, resolveWeightCycleCast, weightPhysicalSkillMultiplier, type MutationCastTransition } from "./mutationCombat";
@@ -908,14 +909,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const activeCombatSet = new Set<string>(activeCombatSkillIds);
   const learnedSet = new Set<V2SkillId>(input.skills.learned);
   const overdraftSkillIds = new Set(input.mpOverdraftSkillIds ?? []);
-  const fireSpellMpReduction = [...equippedSet].reduce((sum, id) =>
-    sum + (learnedSet.has(id as V2SkillId) ? V2_SKILLS[id as V2SkillId]?.passive?.fireSpellMpCostReductionPct ?? 0 : 0), 0);
+  const lineageMpReductions = lineageSpellMpReductions(equippedSet, learnedSet);
   const castMpCost = (def: V2SkillDefinition): number => {
     const base = v2SkillMpCost(def);
     if (!v2SkillHasDirectMagicDamage(def)) return base;
     const reduction = Math.min(
       100,
-      Math.max(0, input.magicMpCostReductionPct ?? 0) + (def.fireMageSpell ? Math.max(0, fireSpellMpReduction) : 0),
+      Math.max(0, input.magicMpCostReductionPct ?? 0) + lineageSpellMpReductionFor(def, lineageMpReductions),
     );
     if (base <= 0 || reduction <= 0) return base;
     return Math.max(1, base - Math.floor((base * reduction) / 100));
@@ -1382,7 +1382,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     (pureDirectPhysical ? sumBleedHunt("directPhysicalAccuracyPct") : 0);
   const bleedHuntPiercePct =
     sumBleedHunt("skillPenetrationPct") +
-    (pureDirectPhysical ? sumBleedHunt("directPhysicalPenetrationPct") : 0) + weightCycle.piercePct;
+    (pureDirectPhysical ? sumBleedHunt("directPhysicalPenetrationPct") : 0) + weightCycle.piercePct + vulnerableTargetPiercePct(def, input.target.enemyVulnerabilityActive);
   const bleedHuntDamagePct = pureDirectPhysical
     ? sumBleedHunt("directPhysicalDamagePct") + weightCycle.directPhysicalDamagePct
     : 0;
@@ -1565,7 +1565,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     } else if (effect.kind === "enemyDebuff") {
       enemyDebuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
     } else if (effect.kind === "enemyVuln") {
-      enemyVulnToApply = { pct: effect.pct, turns: effect.turns };
+      enemyVulnToApply = { pct: effect.pct, turns: effect.turns + vulnDurationBonusTurns(input.skills.equipped) };
     } else if (effect.kind === "enemyEvasionDown") {
       enemyEvasionDownToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "enemyAccuracyDown") {

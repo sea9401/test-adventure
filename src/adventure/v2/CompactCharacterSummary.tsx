@@ -24,6 +24,7 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import type { ActiveCookingBuff } from "@/adventure/v2/cooking/foodShared";
+import type { ActiveBattlePreps, BattlePrepSlot } from "@/adventure/data/v2/battlePrep";
 import type { GuildDiningEffectSummary } from "@/adventure/data/v2/guildDining";
 import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { Button } from "@/components/ui/Button";
@@ -35,8 +36,13 @@ import {
   type CompactCharacterEffectDetail,
 } from "./CompactCharacterEffectCard";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import { BattlePrepIcon, battlePrepBadgeRows } from "./BattlePrepBadges";
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
+
+// 접힌 요약의 효과 칩(음식·전투 준비물 등)이 함께 쓰는 모양.
+const EFFECT_CHIP_CLASS =
+  "inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white";
 
 const EQUIPMENT_SLOTS: {
   slot: V2EquipSlot;
@@ -86,7 +92,12 @@ type AdventureSupportSummary = {
 
 type CompactDetailSelection =
   | {
-      kind: CompactCharacterEffectDetail["kind"];
+      kind: Exclude<CompactCharacterEffectDetail["kind"], "battlePrep">;
+      anchor: ItemCardAnchor;
+    }
+  | {
+      kind: "battlePrep";
+      slot: BattlePrepSlot;
       anchor: ItemCardAnchor;
     }
   | {
@@ -103,6 +114,7 @@ export function CompactCharacterSummary({
   activePresetName,
   adventureSupport,
   activeFoodBuff,
+  activeBattlePreps,
   activeGuildDiningEffect,
   equipped,
   owned,
@@ -116,6 +128,7 @@ export function CompactCharacterSummary({
   activePresetName?: string | null;
   adventureSupport?: AdventureSupportSummary;
   activeFoodBuff?: ActiveCookingBuff | null;
+  activeBattlePreps?: ActiveBattlePreps | null;
   activeGuildDiningEffect?: GuildDiningEffectSummary | null;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
@@ -163,6 +176,11 @@ export function CompactCharacterSummary({
   const visibleGuildDiningEffect =
     activeGuildDiningEffect && activeGuildDiningEffect.expiresAt > effectNow
       ? activeGuildDiningEffect
+      : null;
+  const battlePrepRows = battlePrepBadgeRows(activeBattlePreps, effectNow);
+  const selectedBattlePrep =
+    selectedDetail?.kind === "battlePrep"
+      ? (battlePrepRows.find((row) => row.slot === selectedDetail.slot) ?? null)
       : null;
   const equippedBySlot = new Map(
     EQUIPMENT_SLOTS.map(({ slot }) => {
@@ -240,12 +258,33 @@ export function CompactCharacterSummary({
                     anchor: anchorOf(event.currentTarget),
                   })
                 }
-                className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white"
+                className={EFFECT_CHIP_CLASS}
               >
                 <CookingPot size={13} className="text-orange-500" aria-hidden />
                 <span className="max-w-28 truncate">{activeFoodBuff.recipeName}</span>
               </Inset>
             ) : null}
+            {battlePrepRows.map((row) => (
+              <Inset
+                key={row.slot}
+                as="button"
+                type="button"
+                padding="none"
+                aria-label={`${row.itemName} ${row.slotName} 효과 보기`}
+                aria-haspopup="dialog"
+                onClick={(event) =>
+                  setSelectedDetail({
+                    kind: "battlePrep",
+                    slot: row.slot,
+                    anchor: anchorOf(event.currentTarget),
+                  })
+                }
+                className={EFFECT_CHIP_CLASS}
+              >
+                <BattlePrepIcon slot={row.slot} size={13} className="text-zinc-500 dark:text-zinc-400" />
+                <span className="max-w-28 truncate">{row.itemName}</span>
+              </Inset>
+            ))}
             {visibleGuildDiningEffect ? (
               <Inset
                 as="button"
@@ -259,7 +298,7 @@ export function CompactCharacterSummary({
                     anchor: anchorOf(event.currentTarget),
                   })
                 }
-                className="inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white"
+                className={EFFECT_CHIP_CLASS}
               >
                 <ForkKnife size={13} className="text-emerald-500" aria-hidden />
                 <span className="max-w-28 truncate">
@@ -402,6 +441,12 @@ export function CompactCharacterSummary({
       ) : selectedDetail?.kind === "food" && activeFoodBuff ? (
         <CompactCharacterEffectCard
           detail={{ kind: "food", buff: activeFoodBuff }}
+          anchor={selectedDetail.anchor}
+          onClose={() => setSelectedDetail(null)}
+        />
+      ) : selectedDetail?.kind === "battlePrep" && selectedBattlePrep ? (
+        <CompactCharacterEffectCard
+          detail={{ kind: "battlePrep", ...selectedBattlePrep }}
           anchor={selectedDetail.anchor}
           onClose={() => setSelectedDetail(null)}
         />

@@ -56,6 +56,7 @@ import { applyTier6UniquePveEvent, tier6DotContext, tier6PveCastContext, tier6St
 import { refreshTripleWardState } from "./tripleWard";
 import { chainDriveFollowUp, manaRedeployment, type UnexploredAttackContext } from "./unexploredSetEffects";
 import { previewPlayerWindCurrent, settlePlayerWindCurrent } from "./windCurrentCast";
+import { lightningCritHastePct, skillCritChanceBonusPct } from "./lightningCast";
 export { applyImmediateProvokedEnemyBasicAttacks } from "./engine.pveProvoke";
 
 // v2 플레이어 스킬 시전 + 효과 적용 — resolveBattleLegacy 에서 추출(ATB 경로 공유용).
@@ -488,23 +489,16 @@ export function applyPlayerV2SkillCast(
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
   const skillCritAfterEvadeFired =
     result.enemyDamage > 0 && state.flags.skillCritAfterEvadePending;
+  // 이 액티브의 치명타 가산 — 취약 대상 조건부 가산(연쇄 뇌격)은 시전 전 취약만 인정한다.
+  const rawSkillCritPct =
+    (player.critChancePct ?? 0) +
+    skillCritChanceBonusPct(castDefinition, state.stacks.enemyVulnTurns > 0);
   const skillCritFired =
     result.enemyDamage > 0 &&
     (result.berserkerTransition.forceSkillCrit ||
       skillCritAfterEvadeFired ||
-      ((player.critChancePct ?? 0) +
-        (result.castSkillId
-          ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
-          : 0) >
-        0 &&
-        combatRandom() * 100 <
-          Math.min(
-            CRIT_PCT_CAP,
-            (player.critChancePct ?? 0) +
-              (result.castSkillId
-                ? (V2_SKILLS[result.castSkillId]?.skillCritChancePct ?? 0)
-                : 0),
-          )));
+      (rawSkillCritPct > 0 &&
+        combatRandom() * 100 < Math.min(CRIT_PCT_CAP, rawSkillCritPct)));
   // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
   //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
   //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
@@ -1670,6 +1664,7 @@ export function applyPlayerV2SkillCast(
       crossover?.hastePct ?? 0,
       formulaPreview?.completes ? 20 : 0,
       windFinal.hastePct,
+      lightningCritHastePct({ def: castDefinition, equipped: state.v2Skills.equipped, critical: skillCritFired, landed: landedSkillHits > 0 }),
     ),
     enemyDelayPct: Math.max(
       result.enemyDelayToApply?.pct ?? 0,

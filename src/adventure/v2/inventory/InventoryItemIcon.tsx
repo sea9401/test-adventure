@@ -24,6 +24,9 @@ import {
   type Icon,
   type IconProps,
 } from "@phosphor-icons/react";
+import Image from "next/image";
+
+import { BATTLE_PREP_ITEM_BY_ID } from "@/adventure/data/v2/battlePrep";
 import { STAMINA_SHARD_MATERIAL_ID } from "@/adventure/data/v2/staminaPotionCrafting";
 import {
   ENHANCE_EMBER_MATERIAL_ID,
@@ -184,6 +187,20 @@ export function InventoryItemIcon({
   size = 20,
   ...props
 }: Omit<IconProps, "children"> & { itemId: string }) {
+  // 전투 준비물은 품목마다 그림이 있다. 나머지 재료는 계열 아이콘으로 묶는다.
+  const image = BATTLE_PREP_ITEM_BY_ID.get(itemId)?.image;
+  if (image) {
+    const pixels = typeof size === "number" ? size : 20;
+    return (
+      <Image
+        src={image}
+        width={pixels}
+        height={pixels}
+        alt=""
+        className={["object-contain", className].filter(Boolean).join(" ")}
+      />
+    );
+  }
   const { Icon: Component, tone } = ICONS[inventoryIconKind(itemId)];
   return (
     <Component

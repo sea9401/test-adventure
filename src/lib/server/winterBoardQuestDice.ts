@@ -1,9 +1,11 @@
-// 겨울 이벤트 주사위 적립용 — 오늘 완료한 일일 퀘스트 수(진행도 ≥ 목표).
+// 겨울 이벤트 적립용 — 오늘 완료한 일일 퀘스트 수(진행도 ≥ 목표)와 오늘 전투 횟수.
 //
 // 일일 퀘스트에는 개별 수령이 없어서, 퀘스트 화면과 같은 방식으로 완료 수를 다시 계산한다.
+// 전투 횟수도 같은 일일 기준선과의 차이로 센다(일일 퀘스트 "오늘의 사냥"과 같은 값).
 // 주기 롤오버를 먼저 확정해야 자정 뒤 첫 조회가 어제 기준선으로 계산되지 않는다.
 
 import { db } from "@/db";
+import type { WinterDailyProgress } from "@/adventure/data/v2/winterBoard";
 import {
   deriveRepeatBundle,
   parseRepeatSave,
@@ -19,10 +21,10 @@ import {
   rolloverRepeatQuestsBeforeProgress,
 } from "@/lib/server/v2QuestContext";
 
-export async function countCompletedDailyQuests(
+export async function readWinterDailyProgress(
   userId: string,
   now: Date,
-): Promise<number> {
+): Promise<WinterDailyProgress> {
   return db.transaction(async (tx) => {
     await rolloverRepeatQuestsBeforeProgress(tx, userId, now);
     const repeatRaw = await readSave<unknown>(tx, userId, REPEAT_QUESTS_KEY, {});
@@ -38,7 +40,12 @@ export async function countCompletedDailyQuests(
       miningRaw,
       craftingRaw,
     });
-    return deriveRepeatBundle(parseRepeatSave(repeatRaw), signals, "daily")
-      .completed;
+    const save = parseRepeatSave(repeatRaw);
+    return {
+      completedDailyQuests: deriveRepeatBundle(save, signals, "daily").completed,
+      battlesToday: save.daily
+        ? Math.max(0, signals.battleCount - save.daily.baseline.battleCount)
+        : 0,
+    };
   });
 }

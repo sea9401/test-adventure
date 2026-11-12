@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   locked: [] as string[],
   completedDaily: 0,
+  battlesToday: 0,
+  progressReads: 0,
   onboarded: true,
   grantTitleIfMissingInTx: vi.fn(async () => true),
   recordEconomyEventSoon: vi.fn(),
@@ -34,7 +36,10 @@ vi.mock("@/lib/server/profile", () => ({
   hasCompletedOnboarding: vi.fn(async () => mocks.onboarded),
 }));
 vi.mock("@/lib/server/winterBoardQuestDice", () => ({
-  countCompletedDailyQuests: vi.fn(async () => mocks.completedDaily),
+  readWinterDailyProgress: vi.fn(async () => {
+    mocks.progressReads += 1;
+    return { completedDailyQuests: mocks.completedDaily, battlesToday: mocks.battlesToday };
+  }),
 }));
 vi.mock("@/lib/server/grantTitle", () => ({
   grantTitleIfMissingInTx: mocks.grantTitleIfMissingInTx,
@@ -97,6 +102,8 @@ function ok<T extends { ok: boolean }>(value: T): Extract<T, { ok: true }> {
 
 beforeEach(() => {
   mocks.completedDaily = 0;
+  mocks.battlesToday = 0;
+  mocks.progressReads = 0;
   mocks.onboarded = true;
 });
 
@@ -114,7 +121,16 @@ describe("겨울 말판 조회", () => {
 
     expect(view.phase).toBe("active");
     expect(view.dice).toBe(3);
-    expect(view.today).toEqual({ visitGranted: true, questDiceGranted: 2, questDiceCap: 4 });
+    expect(view.today).toEqual({
+      visitGranted: true,
+      questDiceGranted: 2,
+      questDiceCap: 4,
+      battleCoins: [
+        { battles: 30, coins: 10, granted: false },
+        { battles: 300, coins: 10, granted: false },
+        { battles: 3_000, coins: 20, granted: false },
+      ],
+    });
     expect(view.pending).toBe(3);
     expect(saved().dice).toBe(3);
 
@@ -128,11 +144,58 @@ describe("겨울 말판 조회", () => {
     expect(mocks.locked).toEqual([]);
   });
 
+  it("오늘 전투 횟수가 넘은 단계의 전투 주화를 지갑에 바로 넣는다", async () => {
+    seed({ questDiceGranted: 4, coins: 3 });
+    mocks.battlesToday = 450;
+    const view = ok(await readWinterBoard(USER, ACTIVE));
+    expect(view.coins).toBe(23);
+    expect(view.today.battleCoins.map((tier) => tier.granted)).toEqual([true, true, false]);
+    expect(saved()).toMatchObject({ coins: 23, battleDayKey: "2026-11-20", battleCoinsGranted: 20 });
+
+    mocks.battlesToday = 3_000;
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(43);
+    mocks.battlesToday = 9_999;
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(43);
+  });
+
+  it("주사위와 전투 주화를 모두 채운 날에는 진행도를 다시 세지 않는다", async () => {
+    seed({ questDiceGranted: 4, battleDayKey: "2026-11-20", battleCoinsGranted: 20 });
+    ok(await readWinterBoard(USER, ACTIVE));
+    expect(mocks.progressReads).toBe(1);
+
+    seed({ questDiceGranted: 4, battleDayKey: "2026-11-20", battleCoinsGranted: 40 });
+    ok(await readWinterBoard(USER, ACTIVE));
+    expect(mocks.progressReads).toBe(1);
+  });
+
+  it("보상 2배 조정 전에 번 주화는 다음 저장 때 한 번만 더해진다", async () => {
+    mocks.store.set(WINTER_BOARD_SAVE_KEY, {
+      version: 1,
+      coins: 12,
+      coinsEarnedTotal: 40,
+      dayKey: "2026-11-20",
+      visitGranted: true,
+      questDiceGranted: 4,
+      dice: 1,
+    });
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(52);
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(52);
+
+    const rolled = ok(
+      await rollWinterBoard(USER, { requestId: REQUEST_A, all: false }, ACTIVE, dice(3)),
+    );
+    expect(rolled.coins).toBe(62);
+    expect(saved()).toMatchObject({ coins: 62, coinsEarnedTotal: 90, boostTopUp: 40 });
+    expect(ok(await readWinterBoard(USER, ACTIVE)).coins).toBe(62);
+  });
+
   it("굴리기가 끝난 뒤에는 적립하지 않고 교환 기간으로 보여 준다", async () => {
     mocks.completedDaily = 4;
+    mocks.battlesToday = 5_000;
     const view = ok(await readWinterBoard(USER, SHOP_ONLY));
     expect(view.phase).toBe("shop_only");
     expect(view.dice).toBe(0);
+    expect(view.coins).toBe(0);
   });
 
   it("이벤트가 끝나면 410, 캐릭터가 없으면 409다", async () => {
@@ -159,6 +222,11 @@ describe("겨울 말판 조회", () => {
       limit: 15,
       purchased: 2,
     });
+    expect(view.shop.find((item) => item.id === "stamina_potion_extra")).toMatchObject({
+      cost: 40,
+      limit: null,
+      purchased: 0,
+    });
   });
 });
 
@@ -170,7 +238,7 @@ describe("겨울 말판 굴리기", () => {
     );
     expect(rolled.result.events).toHaveLength(1);
     expect(rolled.position).toBe(3);
-    expect(rolled.coins).toBe(5);
+    expect(rolled.coins).toBe(10);
     expect(rolled.dice).toBe(0);
     expect(mocks.locked).toEqual([WINTER_BOARD_SAVE_KEY]);
   });
@@ -210,11 +278,24 @@ describe("겨울 말판 굴리기", () => {
 
   it("굴리기 직전에 그날 적립분을 반영한다", async () => {
     mocks.completedDaily = 1;
+    mocks.battlesToday = 30;
     const rolled = ok(
       await rollWinterBoard(USER, { requestId: REQUEST_A, all: true }, ACTIVE, dice(1, 1)),
     );
     expect(rolled.result.events).toHaveLength(2);
     expect(rolled.dice).toBe(0);
+    // 전투 주화 10 + 1번·2번 칸 주화 4씩
+    expect(rolled.coins).toBe(18);
+    expect(rolled.result.coins).toBe(8);
+  });
+
+  it("주사위가 없어도 전투 주화 적립분은 저장한다", async () => {
+    seed({ dice: 0, questDiceGranted: 4 });
+    mocks.battlesToday = 30;
+    expect(
+      await rollWinterBoard(USER, { requestId: REQUEST_A, all: false }, ACTIVE, dice(1)),
+    ).toEqual({ ok: false, error: "no_dice", status: 409 });
+    expect(saved().coins).toBe(10);
   });
 
   it("주사위가 없으면 409, 굴리기 기간이 끝났으면 409, 종료 뒤에는 410이다", async () => {
@@ -292,6 +373,22 @@ describe("겨울 교환소", () => {
     expect(mocks.recordEconomyEventSoon).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: "reward.winter_board.shop", itemId: "stamina_potion" }),
     );
+  });
+
+  it("한도가 없는 품목은 여러 번 살 수 있다", async () => {
+    seed({ coins: 95, questDiceGranted: 4 });
+    ok(await buyWinterBoardItem(USER, "stamina_potion_extra", ACTIVE));
+    const second = ok(await buyWinterBoardItem(USER, "stamina_potion_extra", ACTIVE));
+    expect(second.coins).toBe(15);
+    expect(second.shop.find((item) => item.id === "stamina_potion_extra")).toMatchObject({
+      limit: null,
+      purchased: 2,
+    });
+    expect(mocks.store.get(STAMINA_POTIONS_KEY)).toEqual({ count: 2, boundCount: 2 });
+
+    const certificate = ok(await buyWinterBoardItem(USER, "mastery_certificate", SHOP_ONLY));
+    expect(certificate.coins).toBe(0);
+    expect(mocks.store.get("inventory.v2")).toEqual({ [MASTERY_CERTIFICATE_KEY]: 10 });
   });
 
   it("교환 기간에도 살 수 있고, 주화가 모자라면 아무것도 주지 않는다", async () => {

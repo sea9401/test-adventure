@@ -173,7 +173,7 @@ export function preparePvPSkillCast(side: PvPSide, opp: PvPSide, diagnosticActor
       // 약점 노출 — 비전 작렬(magicVuln payoff)이 상대 누적 스택을 읽어 추가딜.
       magicVulnStacks: opp.stacks.magicVulnStacks,
       frostChillStacks: opp.stacks.frostChillStacks,
-      enemyVulnerabilityActive: opp.stacks.enemyVulnTurns > 0,
+      enemyVulnerabilityActive: side.stacks.enemyVulnTurns > 1, // 취약은 시전자 쪽 스택 — 행동 시작 감소 뒤에도 남는 값만 유효.
       enemyDamageDownActive: opp.stacks.damageDownTurns > 0 || (opp.stacks.nextAttackDamageDownPct ?? 0) > 0,
       enemySkillProcDownActive: opp.stacks.skillProcDownTurns > 0,
       enemyHealReductionActive: healingReductionPct(opp.v2Dots, opp.stacks.healReduceTurns > 0 ? opp.stacks.healReducePct : 0) > 0,

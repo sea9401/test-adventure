@@ -190,7 +190,8 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
         },
       });
 
-    expect(multiHitSkills).toHaveLength(27);
+    // 연쇄 뇌격·룬 연격·마검 해방 3종 포함.
+    expect(multiHitSkills).toHaveLength(30);
     for (const skill of multiHitSkills) {
       const noDef = cast(skill.id, 0);
       const guarded = cast(skill.id, TARGET_DEF);

@@ -5,6 +5,8 @@ import {
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { EMBLEM_GRADE_PCT, EMBLEM_KINDS } from "@/adventure/data/v2/emblems";
 import {
+  WINTER_BATTLE_COIN_TIERS,
+  WINTER_BATTLE_COINS_DAILY_MAX,
   WINTER_DAILY_DICE_MAX,
   WINTER_LAP_COINS,
   WINTER_MILESTONES,
@@ -12,6 +14,7 @@ import {
   WINTER_ROLLING_ENDS_AT,
   WINTER_SHOP_ENDS_AT,
   WINTER_SHOP_ITEMS,
+  WINTER_TILE_COIN_VALUES,
   WINTER_TILES,
 } from "@/adventure/data/v2/winterBoard";
 import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
@@ -195,8 +198,10 @@ export function ControlsContent() {
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
           제공합니다. 사용할 때마다 꾸미기 30일 연장권{" "}
-          {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받습니다.
-          일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤 이어집니다.
+          {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받으며,
+          연장권은 설정 메뉴의 꾸미기에서 사용합니다. 일반 지원권과 혜택이 합쳐지지
+          않고, 일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤
+          이어집니다.
         </li>
       </UL>
 
@@ -214,9 +219,15 @@ export function ControlsContent() {
           넘어갑니다. 접속해 있으면 완료한 퀘스트만큼 자동으로 적립됩니다.
         </li>
         <li>
-          <Em>칸</Em>: 겨울 주화 2·5·10개, 스태미나 회복약 1개, 한 번 더(주사위 1개를
-          돌려받음), 앞으로 3칸이 있습니다.{" "}
+          <Em>칸</Em>: {`겨울 주화 ${WINTER_TILE_COIN_VALUES.join("·")}개`}, 스태미나 회복약
+          1개, 한 번 더(주사위 1개를 돌려받음), 앞으로 3칸이 있습니다.{" "}
           {`출발 칸을 지날 때마다 겨울 주화 ${WINTER_LAP_COINS}개`}를 더 받습니다.
+        </li>
+        <li>
+          <Em>전투 주화</Em>:{" "}
+          {`하루 전투 ${WINTER_BATTLE_COIN_TIERS.map((tier) => `${tier.battles.toLocaleString("ko-KR")}회에 ${tier.coins}개`).join(", ")}`}
+          를 받습니다. {`하루 최대 ${WINTER_BATTLE_COINS_DAILY_MAX}개`}이고, 주사위 굴리기
+          기간에만 받을 수 있습니다. 접속해 있으면 자동으로 들어옵니다.
         </li>
         <li>
           <Em>누적 바퀴 보상</Em>: 조건을 채운 뒤 받기를 눌러야 지급됩니다.
@@ -235,7 +246,7 @@ export function ControlsContent() {
         rows={WINTER_SHOP_ITEMS.map((item) => [
           item.name,
           `${item.cost}개`,
-          `${item.limit}회`,
+          item.limit === null ? "제한 없음" : `${item.limit}회`,
         ])}
         caption="한도는 이벤트 전체 기간 기준입니다. 남은 겨울 주화는 교환소가 닫히면 쓸 수 없습니다."
       />

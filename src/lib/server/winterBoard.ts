@@ -18,11 +18,14 @@ import {
   claimWinterMilestone,
   parseWinterBoardState,
   rollWinterDice,
-  syncWinterDice,
+  syncWinterDaily,
+  winterBattleCoinTiersView,
+  winterDailyCapped,
   winterPendingCount,
   winterPhase,
   type WinterBoardState,
   type WinterBoardView,
+  type WinterDailyProgress,
   type WinterPhase,
   type WinterReward,
   type WinterRollResult,
@@ -41,7 +44,7 @@ import {
   upsertSave,
   type DbExecutor,
 } from "@/lib/server/savesKv";
-import { countCompletedDailyQuests } from "@/lib/server/winterBoardQuestDice";
+import { readWinterDailyProgress } from "@/lib/server/winterBoardQuestDice";
 
 export type { WinterBoardView };
 
@@ -72,7 +75,8 @@ function count(value: unknown): number {
 
 function toView(state: WinterBoardState, now: Date): WinterBoardView {
   const nowMs = now.getTime();
-  const sameDay = state.dayKey === kstDayKey(now);
+  const dayKey = kstDayKey(now);
+  const sameDay = state.dayKey === dayKey;
   return {
     ok: true,
     phase: winterPhase(nowMs),
@@ -87,6 +91,7 @@ function toView(state: WinterBoardState, now: Date): WinterBoardView {
       visitGranted: sameDay && state.visitGranted,
       questDiceGranted: sameDay ? state.questDiceGranted : 0,
       questDiceCap: WINTER_QUEST_DICE_DAILY_CAP,
+      battleCoins: winterBattleCoinTiersView(state, dayKey),
     },
     milestones: WINTER_MILESTONES.map((milestone) => {
       const claimed = state.claimedMilestones.includes(milestone.laps);
@@ -122,17 +127,16 @@ async function gate(
   return phase;
 }
 
-/** 오늘 더 적립할 수 있는 주사위가 남아 있을 때만 일일 퀘스트 완료 수를 다시 센다. */
-async function completedDailyFor(
+/** 오늘 더 적립할 주사위나 전투 주화가 남아 있을 때만 일일 퀘스트 완료 수와 전투 횟수를 다시 센다. */
+async function dailyProgressFor(
   userId: string,
   now: Date,
   state: WinterBoardState,
-): Promise<number> {
-  const capped =
-    state.dayKey === kstDayKey(now) &&
-    state.visitGranted &&
-    state.questDiceGranted >= WINTER_QUEST_DICE_DAILY_CAP;
-  return capped ? state.questDiceGranted : countCompletedDailyQuests(userId, now);
+): Promise<WinterDailyProgress> {
+  // 다 채운 날의 0은 "더 줄 것 없음"으로 읽힌다(적립은 이미 준 수보다 줄지 않는다).
+  return winterDailyCapped(state, kstDayKey(now))
+    ? { completedDailyQuests: 0, battlesToday: 0 }
+    : readWinterDailyProgress(userId, now);
 }
 
 /**
@@ -216,15 +220,15 @@ export async function readWinterBoard(
   );
   if (phase === "active") {
     const dayKey = kstDayKey(now);
-    const completed = await completedDailyFor(userId, now, state);
-    if (syncWinterDice(state, dayKey, completed).granted > 0) {
+    const progress = await dailyProgressFor(userId, now, state);
+    if (syncWinterDaily(state, dayKey, progress).state !== state) {
       state = await db.transaction(async (tx) => {
         const locked = await lockWinterState(tx, userId);
-        const synced = syncWinterDice(locked, dayKey, completed);
-        if (synced.granted > 0) {
-          await upsertSave(tx, userId, WINTER_BOARD_SAVE_KEY, synced.state);
+        const synced = syncWinterDaily(locked, dayKey, progress).state;
+        if (synced !== locked) {
+          await upsertSave(tx, userId, WINTER_BOARD_SAVE_KEY, synced);
         }
-        return synced.state;
+        return synced;
       });
     }
   }
@@ -245,7 +249,7 @@ export async function rollWinterBoard(
   const preview = parseWinterBoardState(
     await readSave<unknown>(db, userId, WINTER_BOARD_SAVE_KEY, {}),
   );
-  const completed = await completedDailyFor(userId, now, preview);
+  const progress = await dailyProgressFor(userId, now, preview);
 
   type RollOutcome =
     | { error: "no_dice" }
@@ -255,7 +259,7 @@ export async function rollWinterBoard(
     if (locked.lastRoll?.requestId === input.requestId) {
       return { state: locked, result: locked.lastRoll.result, replay: true };
     }
-    const synced = syncWinterDice(locked, dayKey, completed).state;
+    const synced = syncWinterDaily(locked, dayKey, progress).state;
     const rolled = rollWinterDice(synced, { all: input.all, rng });
     if ("error" in rolled) {
       if (synced !== locked) {

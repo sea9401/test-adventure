@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adventureSupportRemaining,
+  adventureSupportUseNotice,
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
   queuedStandardSupportMs,
@@ -44,5 +45,22 @@ describe("월간 모험 지원권 표시", () => {
       queuedStandardSupportMs(activeUntil, premiumUntil, premiumUntil),
     ).toBe(0);
     expect(queuedStandardSupportMs(premiumUntil, premiumUntil, now)).toBe(0);
+  });
+
+  it("프리미엄 사용 알림은 연장권 지급과 사용 위치를 알린다", () => {
+    expect(
+      adventureSupportUseNotice({ premiumItem: true, daysAdded: 30, tier: "premium" }),
+    ).toBe(
+      "월간 모험 지원권 프리미엄 30일 적용 · 꾸미기 30일 연장권 2개 지급 (설정 메뉴의 꾸미기에서 사용)",
+    );
+  });
+
+  it("프리미엄 이용 중 일반 지원권을 쓰면 프리미엄 종료 뒤 이어진다고 알린다", () => {
+    expect(
+      adventureSupportUseNotice({ premiumItem: false, daysAdded: 30, tier: "premium" }),
+    ).toBe("월간 모험 지원권 30일 추가 · 프리미엄 종료 뒤부터 이어집니다");
+    expect(
+      adventureSupportUseNotice({ premiumItem: false, daysAdded: 30, tier: "standard" }),
+    ).toBe("월간 모험 지원권 30일 적용");
   });
 });

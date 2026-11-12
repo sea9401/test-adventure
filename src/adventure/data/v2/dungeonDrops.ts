@@ -40,6 +40,7 @@ import { SCAVENGED_CRAFT_MATERIALS } from "./scavengedCrafting";
 import { STORM_EXPEDITION_MATERIALS } from "./stormExpeditionRewards";
 import { LIFE_PROCESSED_MATERIALS } from "@/adventure/v2/lifeWorkshop";
 import { LIFE_MAJOR_PRODUCTS, TEMPERING_CATALYST } from "@/adventure/v2/lifeMajorProducts";
+import { BATTLE_PREP_MATERIALS } from "./battlePrep";
 import {
   DANGEROUS_FISH,
   DANGEROUS_FISHING_MATERIALS,
@@ -84,6 +85,8 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
     name: TEMPERING_CATALYST.name,
     description: TEMPERING_CATALYST.description,
   },
+  // 전투 준비물(숫돌·보강재) — 생활 공방 제작, 인벤토리 소모품 탭에서 사용. NPC 판매 비등재.
+  ...BATTLE_PREP_MATERIALS,
   [ENHANCE_STONE_MATERIAL_ID.red]: {
     id: ENHANCE_STONE_MATERIAL_ID.red,
     name: ENHANCE_STONES.red.name,

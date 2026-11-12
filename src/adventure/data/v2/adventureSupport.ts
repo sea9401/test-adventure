@@ -9,7 +9,7 @@ export const ADVENTURE_SUPPORT_PASS = {
   id: "monthly_adventure_support",
   name: "월간 모험 지원권",
   durationDays: 30,
-  coinPrice: 1_000,
+  coinPrice: 700,
   staminaMaxBonus: 1_000,
   staminaActivationGrant: 0,
   staminaRegenBonusPct: 20,

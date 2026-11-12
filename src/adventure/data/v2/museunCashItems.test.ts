@@ -81,7 +81,7 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "rename" },
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_30d).toMatchObject({
-      coinPrice: 1_000,
+      coinPrice: 700,
       effect: { kind: "adventure_support", days: 30 },
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_premium_30d).toMatchObject({

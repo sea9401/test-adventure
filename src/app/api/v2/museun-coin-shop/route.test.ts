@@ -241,7 +241,7 @@ describe("무슨 코인 상점 일괄 구매", () => {
 
   it("여러 개의 총 결제액이 보유 코인을 넘으면 아무것도 저장하지 않는다", async () => {
     const response = await POST(
-      request({ itemId: "adventure_support_30d", quantity: 4 }),
+      request({ itemId: "adventure_support_30d", quantity: 5 }),
     );
     const json = await response.json();
 
@@ -249,7 +249,7 @@ describe("무슨 코인 상점 일괄 구매", () => {
     expect(json).toMatchObject({
       error: "insufficient_coins",
       coins: 3_000,
-      requiredCoins: 4_000,
+      requiredCoins: 3_500,
     });
     expect(upsertSave).not.toHaveBeenCalled();
   });

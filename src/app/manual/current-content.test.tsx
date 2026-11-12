@@ -137,7 +137,11 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("하루 최대 5개");
     expect(html).toContain("주사위 굴리기는 12월 10일까지");
     expect(html).toContain("교환소는 12월 14일까지");
-    expect(html).toContain("출발 칸을 지날 때마다 겨울 주화 10개");
+    expect(html).toContain("겨울 주화 4·10·20개");
+    expect(html).toContain("출발 칸을 지날 때마다 겨울 주화 20개");
+    expect(html).toContain("하루 전투 30회에 5개, 300회에 5개, 3,000회에 10개");
+    expect(html).toContain("하루 최대 20개");
+    expect(html).toContain("제한 없음");
     expect(html).toContain("겨울을 완주한 모험가");
   });
 

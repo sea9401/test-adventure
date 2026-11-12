@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  WINTER_BATTLE_COIN_TIERS,
+  WINTER_BATTLE_COINS_DAILY_MAX,
   WINTER_LAP_COINS,
   WINTER_MILESTONES,
   WINTER_QUEST_DICE_DAILY_CAP,
@@ -13,7 +15,10 @@ import {
   parseWinterBoardState,
   resolveWinterMove,
   rollWinterDice,
+  syncWinterBattleCoins,
+  syncWinterDaily,
   syncWinterDice,
+  winterBattleCoinsFor,
   winterPendingCount,
   winterPhase,
   winterTileCell,
@@ -53,25 +58,26 @@ describe("겨울 말판 구성", () => {
     expect(WINTER_TILES[0]).toEqual({ kind: "start" });
     const coins = (n: number) =>
       WINTER_TILES.filter((t) => t.kind === "coins" && t.coins === n).length;
-    expect(coins(2)).toBe(10);
-    expect(coins(5)).toBe(5);
-    expect(coins(10)).toBe(2);
+    expect(coins(4)).toBe(10);
+    expect(coins(10)).toBe(5);
+    expect(coins(20)).toBe(2);
+    expect(WINTER_LAP_COINS).toBe(20);
     expect(WINTER_TILES.filter((t) => t.kind === "potion")).toHaveLength(2);
     expect(WINTER_TILES.filter((t) => t.kind === "again")).toHaveLength(2);
     expect(WINTER_TILES.filter((t) => t.kind === "forward")).toHaveLength(2);
   });
 
-  it("앞으로 3칸은 주화 10 칸으로 이어진다", () => {
+  it("앞으로 3칸은 주화 20 칸으로 이어진다", () => {
     WINTER_TILES.forEach((tile, index) => {
       if (tile.kind !== "forward") return;
-      expect(WINTER_TILES[index + tile.steps]).toEqual({ kind: "coins", coins: 10 });
+      expect(WINTER_TILES[index + tile.steps]).toEqual({ kind: "coins", coins: 20 });
     });
   });
 
-  it("교환소 품목을 전부 사는 데 주화 1,510개가 든다", () => {
+  it("한도가 있는 교환소 품목을 전부 사는 데 주화 1,210개가 든다", () => {
     expect(
-      WINTER_SHOP_ITEMS.reduce((sum, item) => sum + item.cost * item.limit, 0),
-    ).toBe(1_510);
+      WINTER_SHOP_ITEMS.reduce((sum, item) => sum + item.cost * (item.limit ?? 0), 0),
+    ).toBe(1_210);
     expect(WINTER_MILESTONES.map((m) => m.laps)).toEqual([3, 6, 9, 12, 15]);
   });
 });
@@ -104,6 +110,9 @@ describe("겨울 말판 저장 상태", () => {
         claimedMilestones: [],
         recentRolls: [],
         lastRoll: null,
+        battleDayKey: "",
+        battleCoinsGranted: 0,
+        boostTopUp: 0,
       });
     }
   });
@@ -119,16 +128,53 @@ describe("겨울 말판 저장 상태", () => {
       dayKey: "2026-11-20",
       visitGranted: true,
       questDiceGranted: 9,
-      purchases: { stamina_potion: 2, bogus: 4 },
+      purchases: { stamina_potion: 2, mastery_certificate: 45, enchant_scroll: 9, bogus: 4 },
       claimedMilestones: [3, 3, 99],
+      battleDayKey: "2026-11-20",
+      battleCoinsGranted: 99,
+      boostTopUp: 30,
     });
     expect(state.position).toBe(5);
     expect(state.laps).toBe(4);
     expect(state.dice).toBe(3);
     expect(state.coins).toBe(77);
     expect(state.questDiceGranted).toBe(WINTER_QUEST_DICE_DAILY_CAP);
-    expect(state.purchases).toEqual({ stamina_potion: 2 });
+    expect(state.coinsEarnedTotal).toBe(120);
+    expect(state.boostTopUp).toBe(30);
+    // 한도가 없는 품목은 산 만큼, 한도가 있는 품목은 한도까지만 읽는다.
+    expect(state.purchases).toEqual({ stamina_potion: 2, mastery_certificate: 45, enchant_scroll: 3 });
     expect(state.claimedMilestones).toEqual([3]);
+    expect(state.battleDayKey).toBe("2026-11-20");
+    expect(state.battleCoinsGranted).toBe(WINTER_BATTLE_COINS_DAILY_MAX);
+  });
+});
+
+describe("보상 2배 조정 전에 번 주화", () => {
+  const event = {
+    die: 3, from: 0, landed: 3, to: 3, tile: "coins", coins: 5, potions: 0, diceRefund: 0, lapsGained: 0,
+  };
+  const before = {
+    version: 1,
+    coins: 12,
+    coinsEarnedTotal: 40,
+    recentRolls: [event],
+    lastRoll: { requestId: "r", result: { events: [event], coins: 5, potions: 0, lapsGained: 0 } },
+  };
+
+  it("조정 전 저장분은 그동안 번 만큼 한 번 더 받는다", () => {
+    const state = parseWinterBoardState(before);
+    expect(state.coins).toBe(52);
+    expect(state.coinsEarnedTotal).toBe(80);
+    expect(state.boostTopUp).toBe(40);
+    expect(state.recentRolls[0]!.coins).toBe(10);
+    expect(state.lastRoll!.result.coins).toBe(10);
+    expect(state.lastRoll!.result.events[0]!.coins).toBe(10);
+  });
+
+  it("한 번 반영해 저장한 뒤에는 다시 더하지 않는다", () => {
+    const once = parseWinterBoardState(before);
+    const twice = parseWinterBoardState(JSON.parse(JSON.stringify(once)));
+    expect(twice).toEqual(once);
   });
 });
 
@@ -170,6 +216,74 @@ describe("주사위 적립", () => {
   });
 });
 
+describe("전투 주화", () => {
+  it("하루 전투 30·300·3,000회에 주화 5·5·10개를 준다", () => {
+    expect(WINTER_BATTLE_COIN_TIERS).toEqual([
+      { battles: 30, coins: 5 },
+      { battles: 300, coins: 5 },
+      { battles: 3_000, coins: 10 },
+    ]);
+    expect(WINTER_BATTLE_COINS_DAILY_MAX).toBe(20);
+    expect([0, 29, 30, 299, 300, 2_999, 3_000, 99_999].map(winterBattleCoinsFor)).toEqual([
+      0, 0, 5, 5, 10, 10, 20, 20,
+    ]);
+  });
+
+  it("넘은 단계의 주화만 더 주고 같은 날 다시 주지 않는다", () => {
+    const first = syncWinterBattleCoins(EMPTY, "2026-11-20", 45);
+    expect(first.granted).toBe(5);
+    expect(first.state).toMatchObject({
+      coins: 5,
+      coinsEarnedTotal: 5,
+      battleDayKey: "2026-11-20",
+      battleCoinsGranted: 5,
+    });
+
+    const same = syncWinterBattleCoins(first.state, "2026-11-20", 200);
+    expect(same.granted).toBe(0);
+    expect(same.state).toBe(first.state);
+
+    const more = syncWinterBattleCoins(first.state, "2026-11-20", 3_500);
+    expect(more.granted).toBe(15);
+    expect(more.state.coins).toBe(20);
+    expect(syncWinterBattleCoins(more.state, "2026-11-20", 9_000).granted).toBe(0);
+  });
+
+  it("전투 횟수가 줄어 보여도 받은 주화를 빼지 않는다", () => {
+    const granted = syncWinterBattleCoins(EMPTY, "2026-11-20", 400).state;
+    const lower = syncWinterBattleCoins(granted, "2026-11-20", 10);
+    expect(lower.granted).toBe(0);
+    expect(lower.state.coins).toBe(10);
+  });
+
+  it("날짜가 바뀌면 그날 몫을 새로 준다", () => {
+    const day1 = syncWinterBattleCoins(EMPTY, "2026-11-20", 3_000).state;
+    const day2 = syncWinterBattleCoins(day1, "2026-11-21", 30);
+    expect(day2.granted).toBe(5);
+    expect(day2.state).toMatchObject({
+      coins: 25,
+      battleDayKey: "2026-11-21",
+      battleCoinsGranted: 5,
+    });
+  });
+
+  it("하루치 적립은 주사위와 전투 주화를 함께 반영한다", () => {
+    const synced = syncWinterDaily(EMPTY, "2026-11-20", {
+      completedDailyQuests: 2,
+      battlesToday: 300,
+    });
+    expect(synced).toMatchObject({ dice: 3, coins: 10 });
+    expect(synced.state).toMatchObject({ dice: 3, coins: 10, questDiceGranted: 2 });
+
+    const again = syncWinterDaily(synced.state, "2026-11-20", {
+      completedDailyQuests: 2,
+      battlesToday: 300,
+    });
+    expect(again).toEqual({ state: synced.state, dice: 0, coins: 0 });
+    expect(again.state).toBe(synced.state);
+  });
+});
+
 describe("주사위 굴리기", () => {
   it("주사위가 없으면 굴릴 수 없다", () => {
     expect(rollWinterDice(EMPTY, { all: false, rng: dice(3) })).toEqual({ error: "no_dice" });
@@ -178,13 +292,13 @@ describe("주사위 굴리기", () => {
   it("주화 칸에 서면 그만큼 주화를 받고 주사위 1개를 쓴다", () => {
     const { state, result } = mustRoll(withState({ dice: 2 }), dice(3));
     expect(state.position).toBe(3);
-    expect(state.coins).toBe(5);
-    expect(state.coinsEarnedTotal).toBe(5);
+    expect(state.coins).toBe(10);
+    expect(state.coinsEarnedTotal).toBe(10);
     expect(state.dice).toBe(1);
     expect(result.events).toEqual([
-      { die: 3, from: 0, landed: 3, to: 3, tile: "coins", coins: 5, potions: 0, diceRefund: 0, lapsGained: 0 },
+      { die: 3, from: 0, landed: 3, to: 3, tile: "coins", coins: 10, potions: 0, diceRefund: 0, lapsGained: 0 },
     ]);
-    expect(result).toMatchObject({ coins: 5, potions: 0, lapsGained: 0 });
+    expect(result).toMatchObject({ coins: 10, potions: 0, lapsGained: 0 });
   });
 
   it("회복약 칸은 회복약 1개를 결과에 담는다", () => {
@@ -207,19 +321,19 @@ describe("주사위 굴리기", () => {
       landed: 8,
       to: 11,
       tile: "forward",
-      coins: 10,
+      coins: 20,
     });
     expect(state.position).toBe(11);
-    expect(state.coins).toBe(10);
+    expect(state.coins).toBe(20);
   });
 
   it("출발 칸을 지나가면 한 바퀴로 세고 완주 주화를 준다", () => {
     const { state, result } = mustRoll(withState({ dice: 1, position: 22 }), dice(3));
     expect(state.position).toBe(1);
     expect(state.laps).toBe(1);
-    expect(state.coins).toBe(WINTER_LAP_COINS + 2);
+    expect(state.coins).toBe(WINTER_LAP_COINS + 4);
     expect(result.lapsGained).toBe(1);
-    expect(result.events[0]).toMatchObject({ lapsGained: 1, coins: WINTER_LAP_COINS + 2 });
+    expect(result.events[0]).toMatchObject({ lapsGained: 1, coins: WINTER_LAP_COINS + 4 });
   });
 
   it("출발 칸에 정확히 서도 한 바퀴다", () => {
@@ -235,7 +349,7 @@ describe("주사위 굴리기", () => {
     );
     const move = resolveWinterMove(20, 2, tiles);
     expect(move).toMatchObject({ landed: 22, to: 1, lapsGained: 1, tile: "forward" });
-    expect(move.coins).toBe(WINTER_LAP_COINS + 2);
+    expect(move.coins).toBe(WINTER_LAP_COINS + 4);
 
     const chained: WinterTile[] = WINTER_TILES.map((tile, index) =>
       index === 8 || index === 11 ? { kind: "forward", steps: 3 } : tile,
@@ -245,11 +359,11 @@ describe("주사위 굴리기", () => {
   });
 
   it("모두 굴리기는 돌려받은 주사위까지 이어서 굴린다", () => {
-    // 0 → 4(한 번 더, 환급) → 5(주화 2) → 주사위 소진
+    // 0 → 4(한 번 더, 환급) → 5(주화 4) → 주사위 소진
     const { state, result } = mustRoll(withState({ dice: 2 }), dice(4, 1, 1), true);
     expect(result.events.map((e) => e.to)).toEqual([4, 5, 6]);
     expect(state.dice).toBe(0);
-    expect(result.coins).toBe(2);
+    expect(result.coins).toBe(4);
     expect(result.potions).toBe(1);
   });
 
@@ -323,15 +437,34 @@ describe("겨울 교환소", () => {
     expect(buyWinterShopItem(state, "title_wanderer")).toEqual({ error: "limit_reached" });
   });
 
+  it("한도가 없는 품목은 주화가 남아 있는 한 계속 살 수 있다", () => {
+    let state = withState({ coins: 95, purchases: { stamina_potion_extra: 40 } });
+    for (const left of [65, 35, 5]) {
+      const bought = buyWinterShopItem(state, "stamina_potion_extra");
+      if ("error" in bought) throw new Error(bought.error);
+      expect(bought.item.reward).toEqual({ kind: "stamina_potion", count: 1 });
+      state = bought.state;
+      expect(state.coins).toBe(left);
+    }
+    expect(state.purchases).toEqual({ stamina_potion_extra: 43 });
+    expect(buyWinterShopItem(state, "stamina_potion_extra")).toEqual({ error: "not_enough_coins" });
+  });
+
   it("품목과 가격이 설계와 같다", () => {
     expect(WINTER_SHOP_ITEMS.map((i) => [i.id, i.cost, i.limit])).toEqual([
-      ["mastery_certificate", 15, 20],
       ["stamina_potion", 20, 15],
       ["enchant_scroll", 60, 3],
       ["emblem_box", 60, 3],
       ["title_wanderer", 150, 1],
       ["title_trailblazer", 400, 1],
+      ["mastery_certificate", 15, null],
+      ["stamina_potion_extra", 30, null],
     ]);
+  });
+
+  it("한도가 없는 회복약은 한도가 있는 회복약보다 비싸다", () => {
+    const cost = (id: string) => WINTER_SHOP_ITEMS.find((item) => item.id === id)!.cost;
+    expect(cost("stamina_potion_extra")).toBeGreaterThan(cost("stamina_potion"));
   });
 });
 
@@ -374,18 +507,18 @@ describe("예상 획득량 모의 계산", () => {
     return { coins: coins / runs, laps: laps / runs };
   }
 
-  it("매일 5개를 굴리면 3주에 17바퀴 안팎, 주화 570개 안팎이다", () => {
+  it("매일 5개를 굴리면 3주에 17바퀴 안팎, 주화 1,140개 안팎이다", () => {
     const average = simulate(5);
     expect(average.laps).toBeGreaterThan(16);
     expect(average.laps).toBeLessThan(19);
-    expect(average.coins).toBeGreaterThan(500);
-    expect(average.coins).toBeLessThan(640);
+    expect(average.coins).toBeGreaterThan(1_000);
+    expect(average.coins).toBeLessThan(1_280);
   });
 
-  it("매일 2개만 굴리면 3주에 주화 230개 안팎이다", () => {
+  it("매일 2개만 굴리면 3주에 주화 460개 안팎이다", () => {
     const average = simulate(2);
-    expect(average.coins).toBeGreaterThan(195);
-    expect(average.coins).toBeLessThan(255);
+    expect(average.coins).toBeGreaterThan(390);
+    expect(average.coins).toBeLessThan(510);
   });
 });
 

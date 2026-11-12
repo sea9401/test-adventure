@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import { MapPin } from "@phosphor-icons/react";
 import {
   WINTER_LAP_COINS,
   WINTER_TILES,
@@ -13,7 +15,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { StatusBanner } from "@/components/ui/StatusBanner";
-import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 import { useWinterBoard, type WinterBoardBusy } from "./useWinterBoard";
 
 const dayFormat = new Intl.DateTimeFormat("ko-KR", {
@@ -26,6 +32,17 @@ const dayFormat = new Intl.DateTimeFormat("ko-KR", {
 function lastDayLabel(endsAt: number): string {
   return dayFormat.format(endsAt - 1);
 }
+
+const WINTER_BANNER_IMAGE = "/images/event/winter-banner.webp";
+const WINTER_BOARD_IMAGE = "/images/event/winter-board.webp";
+
+const TILE_IMAGES: Record<WinterTile["kind"], string> = {
+  start: "/images/event/winter-tile-start.webp",
+  coins: "/images/event/winter-tile-coins.webp",
+  potion: "/images/event/winter-tile-potion.webp",
+  again: "/images/event/winter-tile-again.webp",
+  forward: "/images/event/winter-tile-forward.webp",
+};
 
 function tileLabel(tile: WinterTile): string {
   switch (tile.kind) {
@@ -93,27 +110,38 @@ export function WinterBoardContent({
 
   return (
     <>
-      <Card padding="md" className="space-y-3">
-        <SectionHeading title="겨울 말판" />
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          {rolling
-            ? `주사위 굴리기는 ${rollingEnds}까지, 바퀴 보상과 교환소는 ${shopEnds}까지입니다.`
-            : `주사위 굴리기는 ${rollingEnds}에 끝났습니다. 바퀴 보상과 교환소는 ${shopEnds}까지 이용할 수 있습니다.`}
-        </p>
-        <dl className="grid grid-cols-3 gap-2 text-center text-sm font-semibold tabular-nums">
-          <div className={`${SURFACE_INSET} rounded-lg px-2 py-2`}>
-            <dt className="sr-only">보유 주사위</dt>
-            <dd>주사위 {view.dice.toLocaleString("ko-KR")}개</dd>
-          </div>
-          <div className={`${SURFACE_INSET} rounded-lg px-2 py-2 text-amber-700 dark:text-amber-300`}>
-            <dt className="sr-only">보유 겨울 주화</dt>
-            <dd>주화 {view.coins.toLocaleString("ko-KR")}개</dd>
-          </div>
-          <div className={`${SURFACE_INSET} rounded-lg px-2 py-2`}>
-            <dt className="sr-only">돈 바퀴 수</dt>
-            <dd>{view.laps.toLocaleString("ko-KR")}바퀴</dd>
-          </div>
-        </dl>
+      <Card padding="none" className="overflow-hidden">
+        <div className="relative aspect-[7/2] w-full">
+          <Image
+            src={WINTER_BANNER_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="(min-width: 720px) 672px, 100vw"
+            className="object-cover"
+          />
+        </div>
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            {rolling
+              ? `주사위 굴리기는 ${rollingEnds}까지, 바퀴 보상과 교환소는 ${shopEnds}까지입니다.`
+              : `주사위 굴리기는 ${rollingEnds}에 끝났습니다. 바퀴 보상과 교환소는 ${shopEnds}까지 이용할 수 있습니다.`}
+          </p>
+          <dl className="grid grid-cols-3 gap-2 text-center text-sm font-semibold tabular-nums">
+            <div className={`${SURFACE_INSET} whitespace-nowrap rounded-lg px-1 py-2`}>
+              <dt className="sr-only">보유 주사위</dt>
+              <dd>주사위 {view.dice.toLocaleString("ko-KR")}개</dd>
+            </div>
+            <div className={`${SURFACE_INSET} whitespace-nowrap rounded-lg px-1 py-2 text-amber-700 dark:text-amber-300`}>
+              <dt className="sr-only">보유 겨울 주화</dt>
+              <dd>주화 {view.coins.toLocaleString("ko-KR")}개</dd>
+            </div>
+            <div className={`${SURFACE_INSET} whitespace-nowrap rounded-lg px-1 py-2`}>
+              <dt className="sr-only">돈 바퀴 수</dt>
+              <dd>{view.laps.toLocaleString("ko-KR")}바퀴</dd>
+            </div>
+          </dl>
+        </div>
       </Card>
 
       <Card padding="sm">
@@ -127,9 +155,16 @@ export function WinterBoardContent({
                   key={index}
                   aria-current={current ? "true" : undefined}
                   style={{ gridColumn: cell.col, gridRow: cell.row }}
-                  className={`${current ? `${SURFACE_ACCENT} ring-2 ring-selected-line` : SURFACE_INSET} flex min-h-14 flex-col items-center justify-center rounded-lg px-1 py-1 text-center`}
+                  className={`${current ? `${SURFACE_ACCENT} ring-2 ring-selected-line` : SURFACE_INSET} relative flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-center`}
                 >
-                  <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <Image
+                    src={TILE_IMAGES[tile.kind]}
+                    alt=""
+                    width={36}
+                    height={36}
+                    className="size-8 sm:size-9"
+                  />
+                  <span className="absolute left-0.5 top-0.5 rounded bg-inherit px-0.5 text-xs leading-4 tabular-nums text-zinc-500 dark:text-zinc-400">
                     {index}
                   </span>
                   <span
@@ -139,10 +174,20 @@ export function WinterBoardContent({
                         : "text-zinc-800 dark:text-zinc-100"
                     }`}
                   >
-                    {tileLabel(tile)}
+                    {tile.kind === "forward" ? (
+                      <>
+                        <span aria-hidden="true">+{tile.steps}칸</span>
+                        <span className="sr-only">{tileLabel(tile)}</span>
+                      </>
+                    ) : (
+                      tileLabel(tile)
+                    )}
                   </span>
                   {current && (
-                    <span className="text-xs font-semibold text-selected">내 위치</span>
+                    <span className="absolute -top-2 right-0 text-selected">
+                      <MapPin size={20} weight="fill" aria-hidden="true" />
+                      <span className="sr-only">내 위치</span>
+                    </span>
                   )}
                 </li>
               );
@@ -150,62 +195,76 @@ export function WinterBoardContent({
           </ol>
           <div
             style={{ gridColumn: "2 / 5", gridRow: "2 / 9" }}
-            className="flex flex-col items-stretch justify-center gap-2 px-1"
+            className="relative overflow-hidden rounded-lg"
           >
-            {rolling ? (
-              <>
-                <Button
-                  variant="primary"
-                  size="md"
-                  fullWidth
-                  disabled={view.dice <= 0 || anyBusy}
-                  loading={busy === "roll"}
-                  onClick={onRoll}
-                >
-                  주사위 굴리기
-                </Button>
-                {view.dice > 1 && (
+            <Image
+              src={WINTER_BOARD_IMAGE}
+              alt=""
+              fill
+              sizes="(min-width: 480px) 264px, 55vw"
+              className="object-cover object-[35%_100%]"
+            />
+            <div
+              className={`${SURFACE_CARD} relative m-1.5 flex flex-col items-stretch gap-2 p-2`}
+            >
+              {rolling ? (
+                <>
                   <Button
-                    variant="secondary"
+                    variant="primary"
                     size="md"
                     fullWidth
-                    disabled={anyBusy}
-                    loading={busy === "roll_all"}
-                    onClick={onRollAll}
+                    disabled={view.dice <= 0 || anyBusy}
+                    loading={busy === "roll"}
+                    onClick={onRoll}
                   >
-                    모두 굴리기 ({view.dice.toLocaleString("ko-KR")}개)
+                    주사위 굴리기
                   </Button>
-                )}
-              </>
-            ) : (
-              <p className="text-center text-sm text-zinc-600 dark:text-zinc-300">
-                굴리기가 끝났습니다.
+                  {view.dice > 1 && (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      fullWidth
+                      disabled={anyBusy}
+                      loading={busy === "roll_all"}
+                      onClick={onRollAll}
+                    >
+                      모두 굴리기 ({view.dice.toLocaleString("ko-KR")}개)
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <p className="text-center text-sm text-zinc-600 dark:text-zinc-300">
+                  굴리기가 끝났습니다.
+                </p>
+              )}
+              {/* 결과가 없을 때는 자리를 차지하지 않되, 읽어 주는 영역은 계속 둔다. */}
+              <p
+                aria-live="polite"
+                className={
+                  lastResult
+                    ? "text-center text-sm font-medium text-zinc-800 dark:text-zinc-100"
+                    : "sr-only"
+                }
+              >
+                {lastResult ? resultSummary(lastResult) : ""}
               </p>
-            )}
-            <p
-              aria-live="polite"
-              className="min-h-10 text-center text-sm font-medium text-zinc-800 dark:text-zinc-100"
-            >
-              {lastResult ? resultSummary(lastResult) : ""}
-            </p>
-            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-              출발을 지날 때마다 주화 {WINTER_LAP_COINS}개
-            </p>
+            </div>
           </div>
         </div>
-        {rolling && (
-          <div className="mt-3 space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
-            {view.dice <= 0 && (
-              <p>
-                매일 접속하면 1개, 일일 퀘스트를 하나 완료할 때마다 1개(하루{" "}
-                {view.today.questDiceCap}개까지)를 받습니다.
-              </p>
-            )}
+        <div className="mt-3 space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
+          <p>출발을 지날 때마다 주화 {WINTER_LAP_COINS}개를 받습니다.</p>
+          {rolling && view.dice <= 0 && (
+            <p>
+              매일 접속하면 1개, 일일 퀘스트를 하나 완료할 때마다 1개(하루{" "}
+              {view.today.questDiceCap}개까지)를 받습니다.
+            </p>
+          )}
+          {rolling && (
             <p className="tabular-nums">
               {`오늘 받은 주사위: 접속 ${view.today.visitGranted ? 1 : 0}/1 · 일일 퀘스트 ${view.today.questDiceGranted}/${view.today.questDiceCap}`}
             </p>
-          </div>
-        )}
+          )}
+        </div>
       </Card>
 
       <Card padding="md" className="space-y-2">

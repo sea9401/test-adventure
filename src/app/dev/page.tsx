@@ -29,6 +29,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/fishing", title: "낚시터 — 반응 미니게임", desc: "낚시 PR-2 입질→챔질 반응 UI. 로컬 mock(서버 없이) 어획·어보 누적." },
   { href: "/dev/fishing-leaderboard", title: "주간 낚시 대회 — 종별 순위", desc: "낚시 PR-4 종별 top-10 + 본인 행. mock 데이터." },
   { href: "/dev/fishing-shop", title: "낚시 코인 상점 — 칭호 구매", desc: "낚시 PR-6 코인으로 칭호 구매. mock 코인/보유." },
+  { href: "/dev/winter-board", title: "겨울 이벤트 — 주사위 말판", desc: "배너·말판 삽화·칸 아이콘. mock 상태로 굴리기만 동작." },
   { href: "/dev/cooking-surplus", title: "주방 — 작물 떨이 교환", desc: "20개 단건 교환과 최대 수량 교환 확인 창. 옥수수 105개 mock." },
 ];
 

@@ -225,11 +225,11 @@ describe("unexplored service", () => {
     expect(result.snapshot.spentPoints).toBe(1);
   });
 
-  it("reorders which risk node fills the 120 cap for free and keeps the preset in sync", () => {
+  it("reorders which risk node fills the 130 cap for free and keeps the preset in sync", () => {
     const difficultyIds = UNEXPLORED_NODES.filter((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
     ).map((node) => node.id);
-    const selectedNodeIds = ["start", ...difficultyIds];
+    const selectedNodeIds = ["start", "deep-contract", ...difficultyIds];
     const lastId = difficultyIds.at(-1)!;
     const result = applyUnexploredMutation(character({
       unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds }),
@@ -242,8 +242,8 @@ describe("unexplored service", () => {
     expect(result.character.unexplored.nodePresets[0]).toEqual(
       result.character.unexplored.selectedNodeIds,
     );
-    expect(result.snapshot.difficulty).toBe(120);
-    expect(result.snapshot.effects.difficultyApplication[lastId]?.applied).toBeGreaterThan(0);
+    expect(result.snapshot.difficulty).toBe(130);
+    expect(result.snapshot.effects.difficultyApplication[lastId]).toEqual({ applied: 4, total: 4 });
 
     expect(
       applyUnexploredMutation(character({

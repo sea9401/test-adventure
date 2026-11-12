@@ -5,6 +5,13 @@ import {
 } from "./unexploredMonsterPools";
 import type { UnexploredPoolSelection } from "./unexploredEncounters";
 
+/** 난이도 노드를 하나도 찍지 않았을 때의 미개척지 난이도. */
+export const UNEXPLORED_BASE_DIFFICULTY = 95;
+/** 난이도 노드로 올릴 수 있는 미개척지 난이도 상한. */
+export const UNEXPLORED_MAX_DIFFICULTY = 130;
+const MAX_DIFFICULTY_INCREASE =
+  UNEXPLORED_MAX_DIFFICULTY - UNEXPLORED_BASE_DIFFICULTY;
+
 export const FRONT_UNEXPLORED_POOL_IDS = [
   "iron_legion",
   "mana_barrier",
@@ -805,7 +812,7 @@ export type UnexploredEffects = {
   poolLootPctByPool: Partial<Record<UnexploredPoolId, number>>;
   basePoolRewardPct: number;
   conversion: null | "gold" | "collector" | "armory";
-  /** 난이도를 올리는 노드별로 120단 상한 안에서 실제 반영된 난이도. 먼저 찍은 노드부터 채운다. */
+  /** 난이도를 올리는 노드별로 난이도 상한 안에서 실제 반영된 난이도. 먼저 찍은 노드부터 채운다. */
   difficultyApplication: Partial<Record<string, { applied: number; total: number }>>;
 };
 
@@ -862,8 +869,11 @@ export function deriveUnexploredEffects(
           break;
         }
         case "difficulty_reward": {
-          // 남은 난이도만큼 보상을 적용한다. 120단 뒤의 노드는 경로만 연결한다.
-          const applied = Math.min(effect.difficulty, Math.max(0, 25 - difficultyIncrease));
+          // 남은 난이도만큼 보상을 적용한다. 상한 뒤의 노드는 경로만 연결한다.
+          const applied = Math.min(
+            effect.difficulty,
+            Math.max(0, MAX_DIFFICULTY_INCREASE - difficultyIncrease),
+          );
           difficultyIncrease += applied;
           difficultyApplication[id] = { applied, total: effect.difficulty };
           const amount = Math.round(effect.amount * applied / effect.difficulty);
@@ -917,7 +927,10 @@ export function deriveUnexploredEffects(
             rewardPct.specialMaterial -= 50;
             rewardPct.rare -= 50;
           } else if (effect.effect === "contract") {
-            const applied = Math.min(5, Math.max(0, 25 - difficultyIncrease));
+            const applied = Math.min(
+              5,
+              Math.max(0, MAX_DIFFICULTY_INCREASE - difficultyIncrease),
+            );
             difficultyIncrease += applied;
             difficultyApplication[id] = { applied, total: 5 };
             rewardPct.gold += applied;
@@ -953,7 +966,10 @@ export function deriveUnexploredEffects(
   }
 
   return {
-    difficulty: Math.min(120, 95 + difficultyIncrease),
+    difficulty: Math.min(
+      UNEXPLORED_MAX_DIFFICULTY,
+      UNEXPLORED_BASE_DIFFICULTY + difficultyIncrease,
+    ),
     difficultyIncrease,
     encounterSelections,
     baseMinShare,
@@ -1126,7 +1142,7 @@ function raisesDifficulty(node: UnexploredNode): boolean {
 }
 
 /**
- * 120단 상한은 선택 목록 순서대로 채워지므로, 난이도 노드 하나를 다른 난이도 노드보다
+ * 난이도 상한은 선택 목록 순서대로 채워지므로, 난이도 노드 하나를 다른 난이도 노드보다
  * 먼저(first) 또는 가장 나중(last)으로 옮겨 어느 노드가 보상을 받을지 고른다.
  * 노드 구성과 총 난이도는 바뀌지 않는다.
  */

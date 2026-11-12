@@ -32,6 +32,16 @@ describe("unexplored simulation balance", () => {
     expect(unexploredRawSpd(119, "normal")).toBe(38);
   });
 
+  it("holds monster speed at the 120 values through 130", () => {
+    for (const band of UNEXPLORED_SPEED_BANDS) {
+      for (const difficulty of [121, 125, 130]) {
+        expect(unexploredRawSpd(difficulty, band), `${band}:${difficulty}`).toBe(
+          unexploredRawSpd(120, band),
+        );
+      }
+    }
+  });
+
   it("tapers speed growth after 100 without slowing a band down", () => {
     for (const band of UNEXPLORED_SPEED_BANDS) {
       const ratios = UNEXPLORED_SIMULATION_DIFFICULTIES.map((difficulty) =>
@@ -58,7 +68,7 @@ describe("unexplored simulation balance", () => {
 
   it("adds a continuous numerical pressure overlay only after 100", () => {
     expect(UNEXPLORED_SIMULATION_DIFFICULTIES).toEqual([
-      90, 95, 100, 105, 110, 115, 120,
+      90, 95, 100, 105, 110, 115, 120, 125, 130,
     ]);
     expect(unexploredHighDifficultyMultipliers(95)).toEqual({
       hp: 1,
@@ -79,6 +89,19 @@ describe("unexplored simulation balance", () => {
       hp: 7,
       atk: 4.5,
       def: 1.3,
+    });
+  });
+
+  it("extends the same pressure curve from 120 through 130", () => {
+    expect(unexploredHighDifficultyMultipliers(125)).toEqual({
+      hp: 10.921875,
+      atk: 6.5859375,
+      def: 1.4375,
+    });
+    expect(unexploredHighDifficultyMultipliers(130)).toEqual({
+      hp: 16.375,
+      atk: 9.4375,
+      def: 1.6,
     });
   });
 
@@ -123,6 +146,11 @@ describe("unexplored simulation balance", () => {
       atk: 1,
       def: 1,
     });
+    expect(unexploredResourceGrowthCompensation(130)).toEqual({
+      hp: 1,
+      atk: 1,
+      def: 1,
+    });
   });
 
   it("rejects unsupported unexplored difficulty values", () => {
@@ -132,8 +160,11 @@ describe("unexplored simulation balance", () => {
     expect(() => unexploredRawSpd(100.5, "normal")).toThrow(
       "Unsupported unexplored difficulty: 100.5",
     );
-    expect(() => unexploredHighDifficultyMultipliers(121)).toThrow(
-      "Unsupported unexplored difficulty: 121",
+    expect(() => unexploredHighDifficultyMultipliers(131)).toThrow(
+      "Unsupported unexplored difficulty: 131",
+    );
+    expect(() => unexploredRawSpd(131, "normal")).toThrow(
+      "Unsupported unexplored difficulty: 131",
     );
     expect(() => unexploredResourceGrowthCompensation(89)).toThrow(
       "Unsupported unexplored difficulty: 89",
@@ -168,7 +199,7 @@ describe("unexplored simulation balance", () => {
   it("reports every calibrated tempo in stable display order", () => {
     const rows = unexploredTempoRows();
 
-    expect(rows).toHaveLength(28);
+    expect(rows).toHaveLength(36);
     expect(rows[0]).toEqual({
       difficulty: 90,
       band: "slow",
@@ -176,7 +207,7 @@ describe("unexplored simulation balance", () => {
       playerActionsPerMonsterAction: 112 / 22,
     });
     expect(rows.at(-1)).toEqual({
-      difficulty: 120,
+      difficulty: 130,
       band: "extreme",
       rawSpd: 129,
       playerActionsPerMonsterAction: 25 / 22,

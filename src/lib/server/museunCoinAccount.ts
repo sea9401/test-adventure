@@ -69,9 +69,14 @@ export type MuseunCoinAccountStore = {
   getPaidLot(orderId: string): Promise<MuseunCoinPaidLotState | null>;
   insertPaidLot(lot: MuseunCoinPaidLotState): Promise<void>;
   updatePaidLot(next: MuseunCoinPaidLotState): Promise<void>;
+  getLedgerById(id: number): Promise<MuseunCoinLedgerRecord | null>;
   insertSpendAllocations(
     rows: Array<{ ledgerId: number; lotOrderId: string; coins: number }>,
   ): Promise<void>;
+  /** 한 지출이 로트에서 빠져나간 순서(FIFO)대로 돌려준다. */
+  listSpendAllocations(
+    ledgerId: number,
+  ): Promise<Array<{ lotOrderId: string; coins: number }>>;
   mirrorLegacyBalance(userId: string, coins: number): Promise<void>;
 };
 
@@ -332,6 +337,89 @@ export function createMuseunCoinAccountOperations(store: MuseunCoinAccountStore)
       };
     },
 
+    // 가격 인하 차액처럼 이미 끝난 지출의 일부를 되돌린다. 유료로 쓴 몫은 빠져나간 로트에
+    // 다시 채워 환불 대상 코인으로 남기고, 무료로 쓴 몫만 무료 코인으로 돌려준다. 유료 몫을
+    // 먼저 돌려주며, 한 지출은 한 번만 되돌릴 수 있다.
+    async restoreSpend(input: {
+      userId: string;
+      spendLedgerId: number;
+      coins: number;
+      kind: string;
+      sourceId?: string | null;
+      detail?: Record<string, unknown> | null;
+    }) {
+      requirePositiveCoins(input.coins);
+      const eventKey = `spend_restore:${input.spendLedgerId}`;
+      const account = await store.lockAccount(input.userId);
+      const duplicate = await duplicateBalance(account, eventKey);
+      if (duplicate) return { ...duplicate, freeRestored: 0, paidRestored: 0 };
+      const spend = await store.getLedgerById(input.spendLedgerId);
+      if (
+        !spend ||
+        spend.userId !== input.userId ||
+        spend.freeDelta > 0 ||
+        spend.paidDelta > 0
+      ) {
+        throw new Error("spend_ledger_not_found");
+      }
+      const paidSpent = -spend.paidDelta;
+      if (input.coins > paidSpent - spend.freeDelta) {
+        throw new Error("restore_exceeds_spend");
+      }
+      const paidRestored = Math.min(input.coins, paidSpent);
+      const freeRestored = input.coins - paidRestored;
+
+      const restoredLots: Array<{ orderId: string; coins: number }> = [];
+      let paidRemaining = paidRestored;
+      const allocations = await store.listSpendAllocations(input.spendLedgerId);
+      for (const allocation of [...allocations].reverse()) {
+        if (paidRemaining <= 0) break;
+        const coins = Math.min(allocation.coins, paidRemaining);
+        const lot = await store.getPaidLot(allocation.lotOrderId);
+        if (!lot || lot.userId !== input.userId) throw new Error("paid_lot_not_found");
+        if (lot.availableCoins + lot.heldCoins + coins > lot.grantedCoins) {
+          throw new Error("restore_exceeds_lot");
+        }
+        await store.updatePaidLot({
+          ...lot,
+          availableCoins: lot.availableCoins + coins,
+        });
+        restoredLots.push({ orderId: lot.orderId, coins });
+        paidRemaining -= coins;
+      }
+      if (paidRemaining > 0) throw new Error("spend_allocation_missing");
+
+      const next = {
+        ...account,
+        freeBalance: account.freeBalance + freeRestored,
+        paidBalance: account.paidBalance + paidRestored,
+      };
+      await store.insertLedger(
+        ledgerRow({
+          eventKey,
+          userId: input.userId,
+          kind: input.kind,
+          sourceId: input.sourceId,
+          freeDelta: freeRestored,
+          paidDelta: paidRestored,
+          account: next,
+          detail: {
+            ...input.detail,
+            spendLedgerId: input.spendLedgerId,
+            lots: restoredLots,
+          },
+        }),
+      );
+      await store.updateAccount(next);
+      await store.mirrorLegacyBalance(input.userId, toBalance(next).coins);
+      return {
+        ...toBalance(next),
+        freeRestored,
+        paidRestored,
+        duplicate: false as const,
+      };
+    },
+
     async holdRefund(input: {
       userId: string;
       orderId: string;
@@ -457,6 +545,28 @@ function paidLotState(row: typeof museunCoinPaidLots.$inferSelect): MuseunCoinPa
   };
 }
 
+function ledgerRecord(
+  row: typeof museunCoinLedger.$inferSelect,
+): MuseunCoinLedgerRecord | null {
+  if (!row.userId) return null;
+  return {
+    id: row.id,
+    eventKey: row.eventKey,
+    userId: row.userId,
+    kind: row.kind,
+    sourceId: row.sourceId,
+    freeDelta: row.freeDelta,
+    paidDelta: row.paidDelta,
+    freeBalanceAfter: row.freeBalanceAfter,
+    paidBalanceAfter: row.paidBalanceAfter,
+    detail:
+      row.detail && typeof row.detail === "object"
+        ? (row.detail as Record<string, unknown>)
+        : null,
+    createdAt: row.createdAt,
+  };
+}
+
 export function createDrizzleMuseunCoinAccountStore(
   tx: DbTransactionExecutor,
 ): MuseunCoinAccountStore {
@@ -519,23 +629,17 @@ export function createDrizzleMuseunCoinAccountStore(
           .where(eq(museunCoinLedger.eventKey, eventKey))
           .limit(1)
       )[0];
-      if (!row || !row.userId) return null;
-      return {
-        id: row.id,
-        eventKey: row.eventKey,
-        userId: row.userId,
-        kind: row.kind,
-        sourceId: row.sourceId,
-        freeDelta: row.freeDelta,
-        paidDelta: row.paidDelta,
-        freeBalanceAfter: row.freeBalanceAfter,
-        paidBalanceAfter: row.paidBalanceAfter,
-        detail:
-          row.detail && typeof row.detail === "object"
-            ? (row.detail as Record<string, unknown>)
-            : null,
-        createdAt: row.createdAt,
-      };
+      return row ? ledgerRecord(row) : null;
+    },
+    async getLedgerById(id) {
+      const row = (
+        await tx
+          .select()
+          .from(museunCoinLedger)
+          .where(eq(museunCoinLedger.id, id))
+          .limit(1)
+      )[0];
+      return row ? ledgerRecord(row) : null;
     },
     async insertLedger(row) {
       const inserted = (
@@ -599,6 +703,16 @@ export function createDrizzleMuseunCoinAccountStore(
     },
     async insertSpendAllocations(rows) {
       if (rows.length > 0) await tx.insert(museunCoinSpendAllocations).values(rows);
+    },
+    async listSpendAllocations(ledgerId) {
+      return tx
+        .select({
+          lotOrderId: museunCoinSpendAllocations.lotOrderId,
+          coins: museunCoinSpendAllocations.coins,
+        })
+        .from(museunCoinSpendAllocations)
+        .where(eq(museunCoinSpendAllocations.ledgerId, ledgerId))
+        .orderBy(asc(museunCoinSpendAllocations.id));
     },
     async mirrorLegacyBalance(userId, coins) {
       const wallet = await lockSaveForUpdate<Record<string, unknown>>(
@@ -717,4 +831,15 @@ export async function finalizePaidLotRefund(
   return createMuseunCoinAccountOperations(
     createDrizzleMuseunCoinAccountStore(tx),
   ).finalizeRefund(input);
+}
+
+export async function restoreMuseunCoinSpend(
+  tx: DbTransactionExecutor,
+  input: Parameters<
+    ReturnType<typeof createMuseunCoinAccountOperations>["restoreSpend"]
+  >[0],
+) {
+  return createMuseunCoinAccountOperations(
+    createDrizzleMuseunCoinAccountStore(tx),
+  ).restoreSpend(input);
 }

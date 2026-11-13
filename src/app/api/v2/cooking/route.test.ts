@@ -130,6 +130,7 @@ import { createCodexMasteryBatchRecorder } from "@/lib/server/codexMasteryServic
 import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { kstWeekMondayKey } from "@/lib/kst";
+import { COOKING_BRANCHES, cookingBranchCovers } from "@/adventure/v2/cooking/branch";
 
 const { festivalBonus } = vi.hoisted(() => ({
   festivalBonus: vi.fn(),
@@ -996,4 +997,237 @@ describe("/api/v2/cooking", () => {
     });
   });
 
+});
+
+describe("/api/v2/cooking 요리 특화", () => {
+  const DAY = 86_400_000;
+  const LEVEL_20_XP = cookingLevelXpThreshold(20);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    mocks.selectResults.length = 0;
+    mocks.insertResults.length = 0;
+    mocks.insertValues.mockClear();
+    mocks.ensureUser.mockResolvedValue("cook-user");
+    mocks.rateLimitCounts.clear();
+    vi.mocked(recordCodexMasteryGameplayBatch).mockClear();
+    seed();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function seedBaker(options: {
+    specialtyXp?: number;
+    branch?: unknown;
+    xp?: number;
+    farm?: Record<string, number>;
+    kitchen?: Record<string, number>;
+  } = {}) {
+    mocks.store.set("cooking.v2", {
+      ...emptyCookingState(NOW),
+      xp: options.xp ?? LEVEL_20_XP,
+      specialty: { field: "baking", xp: options.specialtyXp ?? 1_500 },
+      kitchenItems: options.kitchen ?? { "pantry:yeast": 20 },
+      ...(options.branch ? { branch: options.branch } : {}),
+    });
+    mocks.store.set("farm.v2", {
+      ...emptyFarmState(NOW),
+      inventory: options.farm ?? { wheat: 60, milk: 60, egg: 60 },
+    });
+  }
+
+  const savedCooking = () => mocks.store.get("cooking.v2") as ReturnType<typeof emptyCookingState>;
+  const savedFarm = () => mocks.store.get("farm.v2") as ReturnType<typeof emptyFarmState>;
+
+  it("전문 랭크 5가 되면 자기 분야의 특화를 고른다", async () => {
+    seedBaker();
+    const response = await post({ action: "choose_branch", branchId: "baking_bread" });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({ action: "choose_branch", branchId: "baking_bread", changed: false });
+    expect(json.branch).toEqual({
+      eligible: true,
+      current: "baking_bread",
+      rank: 1,
+      xp: 0,
+      nextRankXp: 1_000,
+      xpByBranch: {},
+      nextChangeAt: null,
+      masterpieceBonusPct: 2,
+    });
+    expect(savedCooking().branch).toEqual({ current: "baking_bread", xp: {}, changedAt: null });
+  });
+
+  it("특화 선택 조건과 변경 대기를 지킨다", async () => {
+    seedBaker({ specialtyXp: 1_499 });
+    const locked = await post({ action: "choose_branch", branchId: "baking_bread" });
+    expect(locked.status).toBe(409);
+    expect(await locked.json()).toEqual({ ok: false, error: "branch_locked" });
+
+    seedBaker();
+    const otherField = await post({ action: "choose_branch", branchId: "pot_soup" });
+    expect(otherField.status).toBe(400);
+    expect(await otherField.json()).toEqual({ ok: false, error: "invalid_branch" });
+
+    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 3_000 }, changedAt: null } });
+    const same = await post({ action: "choose_branch", branchId: "baking_bread" });
+    expect(same.status).toBe(409);
+    expect(await same.json()).toEqual({ ok: false, error: "branch_unchanged" });
+
+    const changed = await post({ action: "choose_branch", branchId: "baking_pastry" });
+    const changedJson = await changed.json();
+    expect(changed.status).toBe(200);
+    expect(changedJson.result).toMatchObject({ branchId: "baking_pastry", changed: true });
+    expect(changedJson.branch).toMatchObject({
+      current: "baking_pastry",
+      rank: 1,
+      xpByBranch: { baking_bread: 3_000 },
+      nextChangeAt: NOW + 14 * DAY,
+    });
+
+    const tooSoon = await post({ action: "choose_branch", branchId: "baking_bread" });
+    expect(tooSoon.status).toBe(409);
+    expect(await tooSoon.json()).toEqual({ ok: false, error: "branch_cooldown" });
+
+    vi.setSystemTime(NOW + 14 * DAY);
+    const back = await post({ action: "choose_branch", branchId: "baking_bread" });
+    expect(back.status).toBe(200);
+    expect((await back.json()).branch).toMatchObject({ current: "baking_bread", rank: 3 });
+  });
+
+  it("전용 요리를 만들면 재료를 쓰고 특화·전문 숙련이 함께 쌓인다", async () => {
+    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 990 }, changedAt: null } });
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    const response = await post({ action: "craft", recipeId: "branch_baking_bread_1", quantity: 2 });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({
+      action: "craft",
+      recipeId: "branch_baking_bread_1",
+      recipeName: "천천히 부풀린 시골 빵",
+      quantity: 2,
+      originator: false,
+      branchXpGained: 60,
+    });
+    expect(savedFarm().inventory).toEqual({ wheat: 36, milk: 36, egg: 36 });
+    expect(savedCooking().kitchenItems).toEqual({ "pantry:yeast": 14 });
+    expect(savedCooking().branch?.xp.baking_bread).toBe(1_050);
+    expect(savedCooking().specialty).toEqual({ field: "baking", xp: 1_560 });
+    expect(savedCooking().discoveredRecipeIds.some((id) => id.startsWith("branch_"))).toBe(false);
+    expect(json.branch).toMatchObject({ rank: 2, xp: 1_050 });
+    const foods = (mocks.store.get("inventory.v2") as { cookingFoods: Record<string, number> }).cookingFoods;
+    expect(foods).toEqual({ "food2:branch_baking_bread_1:normal:o0:s5": 2 });
+    expect(json.cookingFoodDefinitions["food2:branch_baking_bread_1:normal:o0:s5"]).toMatchObject({
+      recipe: { name: "천천히 부풀린 시골 빵", tier: 3 },
+      effect: { combatFlat: { maxMp: 420 }, primaryFlat: { int: 6 } },
+    });
+    // 전용 요리는 요리 도감 숙련을 쌓지 않는다.
+    const codexCalls = vi.mocked(recordCodexMasteryGameplayBatch).mock.calls.flatMap((call) => call[2]);
+    expect(codexCalls.filter((event) => event.category === "cooking")).toEqual([]);
+  });
+
+  it("전용 요리는 지금 고른 특화와 요구 랭크를 채워야 만든다", async () => {
+    const attempt = async (recipeId: string) => {
+      const response = await post({ action: "craft", recipeId, quantity: 1 });
+      return [response.status, (await response.json()).error];
+    };
+
+    seedBaker();
+    expect(await attempt("branch_baking_bread_1")).toEqual([409, "recipe_locked"]);
+
+    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 2_999, baking_pastry: 15_000 }, changedAt: null } });
+    expect(await attempt("branch_baking_bread_2")).toEqual([409, "recipe_locked"]);
+    // 숙련이 랭크 5여도 지금 고른 특화가 아니면 만들 수 없다.
+    expect(await attempt("branch_baking_pastry_1")).toEqual([409, "recipe_locked"]);
+    expect(await attempt("branch_hearth_grill_1")).toEqual([409, "recipe_locked"]);
+
+    seedBaker({ xp: cookingLevelXpThreshold(19), branch: { current: "baking_bread", xp: {}, changedAt: null } });
+    expect(await attempt("branch_baking_bread_1")).toEqual([409, "recipe_locked"]);
+
+    expect(savedFarm().inventory).toEqual({ wheat: 60, milk: 60, egg: 60 });
+    expect(mocks.store.get("inventory.v2")).toEqual({});
+  });
+
+  it("특화에 속한 기존 음식만 특화 숙련을 올린다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const covering = COOKING_BRANCHES.find((branch) => cookingBranchCovers(branch, recipe))!;
+    const other = COOKING_BRANCHES.find(
+      (branch) => branch.field === "baking" && branch.id !== covering.id,
+    )!;
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+
+    seedBaker({ branch: { current: covering.id, xp: {}, changedAt: null } });
+    const covered = await post({ action: "craft", recipeId: recipe.id, quantity: 3 });
+    expect((await covered.json()).result).toMatchObject({ branchXpGained: recipe.tier * 30 });
+    expect(savedCooking().branch?.xp[covering.id]).toBe(recipe.tier * 30);
+
+    seedBaker({ branch: { current: other.id, xp: {}, changedAt: null } });
+    const uncovered = await post({ action: "craft", recipeId: recipe.id, quantity: 3 });
+    expect((await uncovered.json()).result).toMatchObject({ branchXpGained: 0 });
+    expect(savedCooking().branch).toEqual({ current: other.id, xp: {}, changedAt: null });
+  });
+
+  it("특화 랭크만큼 걸작 확률이 오르고, 특화가 없으면 이전과 같다", async () => {
+    const recipe = COOKING_SECRET_RECIPE_BY_ID.get("rustic_bread")!;
+    const covering = COOKING_BRANCHES.find((branch) => cookingBranchCovers(branch, recipe))!;
+    // 난수 0.05 → 판정값 5. 랭크 5(+10%p)에서만 걸작이다.
+    vi.spyOn(Math, "random").mockReturnValue(0.05);
+
+    seedBaker({ branch: { current: covering.id, xp: { [covering.id]: 15_000 }, changedAt: null } });
+    const boosted = await post({ action: "craft", recipeId: recipe.id, quantity: 1 });
+    expect((await boosted.json()).result).toMatchObject({ quality: "masterpiece" });
+
+    seedBaker({ branch: { current: covering.id, xp: { [covering.id]: 1_000 }, changedAt: null } });
+    const rankTwo = await post({ action: "craft", recipeId: recipe.id, quantity: 1 });
+    expect((await rankTwo.json()).result).toMatchObject({ quality: "normal" });
+
+    seedBaker();
+    const plain = await post({ action: "craft", recipeId: recipe.id, quantity: 1 });
+    const plainJson = await plain.json();
+    expect(plainJson.result).toMatchObject({ quality: "normal", branchXpGained: 0 });
+    expect(savedCooking().branch).toBeUndefined();
+    expect(plainJson.branch).toMatchObject({ eligible: true, current: null, rank: 0, masterpieceBonusPct: 0 });
+  });
+
+  it("전용 요리의 조합을 연구해도 전용 요리가 발견되지 않는다", async () => {
+    seedBaker({
+      xp: cookingLevelXpThreshold(35),
+      branch: { current: "baking_bread", xp: {}, changedAt: null },
+    });
+    const response = await post({
+      action: "research",
+      method: "ferment",
+      ingredientIds: ["farm:wheat", "farm:milk", "farm:egg", "pantry:yeast"],
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(String(json.result.recipeId ?? "")).not.toMatch(/^branch_/);
+    expect(savedCooking().discoveredRecipeIds.some((id) => id.startsWith("branch_"))).toBe(false);
+  });
+
+  it("조회 응답에 특화 정보가 실리고 도감 총수는 그대로다", async () => {
+    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - DAY } });
+    const json = await (await GET()).json();
+
+    expect(json.recipeTotal).toBe(500);
+    expect(json.knownRecipes.some((recipe: { id: string }) => recipe.id.startsWith("branch_"))).toBe(false);
+    expect(json.branch).toEqual({
+      eligible: true,
+      current: "baking_bread",
+      rank: 4,
+      xp: 7_000,
+      nextRankXp: 15_000,
+      xpByBranch: { baking_bread: 7_000 },
+      nextChangeAt: NOW + 13 * DAY,
+      masterpieceBonusPct: 8,
+    });
+  });
 });

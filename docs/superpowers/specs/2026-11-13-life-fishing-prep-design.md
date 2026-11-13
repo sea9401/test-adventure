@@ -114,16 +114,18 @@ type ActiveBattlePreps = {
 
 ### 재료 정의 형태
 
-기존 `costs: Record<string, number>`는 `character.v2` 재료만 표현한다. 다음 형태로 넓힌다.
+기존 `costs: Record<string, number>`는 `character.v2` 재료만 표현한다. 이 필드는 그대로 두고 품목 정의에 선택 필드 두 개를 더한다.
 
 ```ts
-type BattlePrepCost =
-  | { kind: "material"; id: string; amount: number }           // character.v2 재료
-  | { kind: "catch"; id: FishingCatchItemId; amount: number }  // fishing-stock.v1
-  | { kind: "dangerCatch"; minRarity: "rare" | "epic"; amount: number };
+type BattlePrepItem = {
+  // 기존 필드
+  costs: Record<string, number>;                               // character.v2 재료
+  catchCosts?: Partial<Record<FishingCatchItemId, number>>;    // fishing-stock.v1
+  dangerCatchCost?: { minRarity: "rare" | "epic"; amount: number };
+};
 ```
 
-숫돌·보강재 8종의 재료는 `material` 종류로 옮기고 수치는 바꾸지 않는다. 제작 함수는 두 재고(재료, 어획물)를 받아 두 재고의 다음 값을 돌려준다.
+숫돌·보강재 8종의 정의는 바뀌지 않는다. 제작 함수는 두 재고(재료, 어획물)를 받아 두 재고의 다음 값을 돌려준다.
 
 ## 5. API
 

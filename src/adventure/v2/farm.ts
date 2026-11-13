@@ -20,6 +20,10 @@ import {
   normalizeLifeXp,
 } from "./lifeLevelProgression";
 import { farmingPost50Bonuses, farmingSeedReturnChancePct } from "./lifeLevelBonuses";
+import {
+  farmBreedingRareChancePct,
+  normalizeFarmBreedingStage,
+} from "./farmBreedingRules";
 
 export const FARM_SAVE_KEY = "farm.v2";
 
@@ -327,6 +331,8 @@ export type FarmState = {
     /** 추가 작물 1개를 100으로 두는 수확량 보너스 누적치. */
     yieldBonusRemainderPct: number;
   };
+  /** 작물별 품종 단계(0~6). 없는 작물은 0단계다. */
+  breeding?: Partial<Record<FarmCropId, number>>;
 };
 
 export type FarmHarvestResult = {
@@ -798,7 +804,19 @@ function parseFarmStateFields(raw: unknown, now = Date.now()): FarmState {
     deliveries: parseDeliveryState(value.deliveries),
     weekly: parseWeeklyState(value.weekly),
     stats,
+    ...parseBreeding(value.breeding),
   };
+}
+
+function parseBreeding(raw: unknown): Pick<FarmState, "breeding"> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const breeding: Partial<Record<FarmCropId, number>> = {};
+  for (const [cropId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isFarmCropId(cropId)) continue;
+    const stage = normalizeFarmBreedingStage(value);
+    if (stage > 0) breeding[cropId] = stage;
+  }
+  return Object.keys(breeding).length > 0 ? { breeding } : {};
 }
 
 export function parseFarmStateWithLevelMigration(
@@ -1721,7 +1739,12 @@ export function harvestPlot(
   const rareChance = Math.min(
     0.75,
     crop.rareChance +
-      Math.max(0, (options.rareChancePct ?? 0) + levelBonuses.rareChancePct) /
+      Math.max(
+        0,
+        (options.rareChancePct ?? 0) +
+          levelBonuses.rareChancePct +
+          farmBreedingRareChancePct(state.breeding?.[crop.id] ?? 0),
+      ) /
         100,
   );
   const pityReady = state.stats.rareMissStreak >= FARM_RARE_PITY_HARVESTS - 1;

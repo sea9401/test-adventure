@@ -1247,4 +1247,61 @@ describe("adventurer farm", () => {
       yieldBonusRemainderPct: 0,
     });
   });
+
+  it("품종 단계를 파싱하고 잘못된 값을 버린다", () => {
+    const parsed = parseFarmState(
+      {
+        ...emptyFarmState(1_000),
+        breeding: { wheat: 3, herb: 9, corn: -2, tomato: 1.7, dragonfruit: 4 },
+      },
+      1_000,
+    );
+
+    expect(parsed.breeding).toEqual({ wheat: 3, herb: 6, tomato: 1 });
+    expect(parseFarmState(emptyFarmState(1_000), 1_000).breeding).toBeUndefined();
+    expect(
+      parseFarmState({ ...emptyFarmState(1_000), breeding: [1, 2] }, 1_000).breeding,
+    ).toBeUndefined();
+  });
+
+  it("품종 필드가 없으면 수확 결과가 이전과 같다", () => {
+    const planted = plantCrop(
+      { ...emptyFarmState(1_000), seeds: { wheat: 1 } },
+      "plot-1",
+      "wheat",
+      1_000,
+    );
+    const harvest = (state: FarmState) => {
+      const rolls = [0.5, 0.049, 0.9];
+      return harvestPlot(state, "plot-1", 1_000 + FARM_CROPS.wheat.growMs, () => rolls.shift()!);
+    };
+
+    const plain = harvest(planted);
+    const emptyBreeding = harvest({ ...planted, breeding: {} });
+
+    expect(plain.result.rareItemId).toBe("golden_wheat");
+    expect(emptyBreeding.result).toEqual(plain.result);
+    expect(emptyBreeding.state).toEqual({ ...plain.state, breeding: {} });
+  });
+
+  it("품종 단계만큼 그 작물의 희귀 수확 확률이 오른다", () => {
+    const planted = plantCrop(
+      { ...emptyFarmState(1_000), seeds: { wheat: 1 } },
+      "plot-1",
+      "wheat",
+      1_000,
+    );
+    // 밀 기본 5%. 희귀 판정 난수 0.10 은 3단계(+6%p = 11%)에서만 성공한다.
+    const harvest = (state: FarmState) => {
+      const rolls = [0.5, 0.1, 0.9];
+      return harvestPlot(state, "plot-1", 1_000 + FARM_CROPS.wheat.growMs, () => rolls.shift()!);
+    };
+
+    expect(harvest(planted).result.rareItemId).toBeNull();
+    expect(harvest({ ...planted, breeding: { wheat: 2 } }).result.rareItemId).toBeNull();
+    expect(harvest({ ...planted, breeding: { herb: 6 } }).result.rareItemId).toBeNull();
+    const bred = harvest({ ...planted, breeding: { wheat: 3 } });
+    expect(bred.result.rareItemId).toBe("golden_wheat");
+    expect(bred.state.breeding).toEqual({ wheat: 3 });
+  });
 });

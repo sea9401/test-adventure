@@ -26,6 +26,7 @@ import {
   COOKING_EXPANSION_ROWS,
 } from "@/adventure/v2/cooking/expansion";
 import { COOKING_EXPANSION_ANSWERS } from "./expansion";
+import { COOKING_BRANCH_RECIPES } from "@/adventure/v2/cooking/branchRecipes";
 
 const SIMPLE_RECIPES = [
   ["fried_egg", "소금 간 계란후라이", "hearth", "fry", 1],
@@ -511,6 +512,19 @@ describe("hidden cooking recipe catalog", () => {
       expect(recipe.requiredLevel).toBeGreaterThanOrEqual(
         COOKING_METHOD_UNLOCK_LEVEL[recipe.method],
       );
+    }
+  });
+
+  it("특화 전용 요리는 id 로 조회되지만 연구 정답과 검증 대상에는 들어가지 않는다", () => {
+    expect(COOKING_SECRET_RECIPES).toHaveLength(500);
+    expect(validateCookingRecipeCatalog()).toEqual([]);
+    for (const dish of COOKING_BRANCH_RECIPES) {
+      expect(COOKING_SECRET_RECIPE_BY_ID.get(dish.id)).toBe(dish);
+      const found = findSecretRecipe(
+        dish.method,
+        dish.ingredients.map((ingredient) => ingredient.id),
+      );
+      expect(found?.discovery).not.toBe("branch");
     }
   });
 });

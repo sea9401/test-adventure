@@ -673,6 +673,26 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/battle-prep/v2_prep_fishoil_1.webp",
+      "sha256": "e5f3380631274c6278babeb803137fa2d5a73673dcac216fedc4c682f736d174",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_fishoil_2.webp",
+      "sha256": "746af40aaf8c835113cdbe8eb790fae31370656f119412070384cc5a509e0ad6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_fishoil_3.webp",
+      "sha256": "311837065e45255a32fdbc25e9c28e78d4b62c96b07f9361d91dcdb4b8facc43",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/battle-prep/v2_prep_fishoil_master.webp",
+      "sha256": "34a3cd9e1ec77e7378b7405ca4ec49f687ae2bb0a4b864d58d31bdb8ed263d9d",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/battle-prep/v2_prep_whetstone_1.webp",
       "sha256": "dc7c5ae2762437553761f9c35189778f7ec217e7ccb2e387206c800bf013da6a",
       "source": "operator-cleared-game-art"

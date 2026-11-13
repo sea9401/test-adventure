@@ -31,7 +31,7 @@ export const LIFE_MAJOR_PRODUCTS: Record<
   fishing: {
     id: LIFE_MAJOR_PRODUCT_ID.fishing,
     name: "명장 어획",
-    description: "낚시 명장만 낚을 수 있는 최상급 어획물. 명장 요리의 재료가 된다.",
+    description: "낚시 명장만 낚을 수 있는 최상급 어획물. 명장 요리와 명장의 어유의 재료가 된다.",
   },
 };
 

@@ -40,6 +40,15 @@ describe("인벤토리 전투 준비물", () => {
     expect(screen.getByText("방어구 손질 · 방어력·마법방어력 +90 · 최대 HP +1,400 · 24시간")).toBeTruthy();
   });
 
+  it("어유는 기력 보충 칸으로 표시한다", () => {
+    const onUse = vi.fn();
+    render(<BattlePrepSection materials={{ v2_prep_fishoil_2: 3 }} busy={null} onUse={onUse} />);
+
+    expect(screen.getByText("기력 보충 · 최대 MP +500 · 12시간")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "중급 어유 사용" }));
+    expect(onUse).toHaveBeenCalledWith("v2_prep_fishoil_2");
+  });
+
   it("하나도 없으면 아무것도 그리지 않는다", () => {
     const { container } = render(<BattlePrepSection materials={{ v2_timber: 5 }} busy={null} onUse={vi.fn()} />);
     expect(container.firstChild).toBeNull();

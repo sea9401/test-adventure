@@ -56,8 +56,8 @@
   고친다. 잠금 순서는 낚시 챔질 라우트와 같은 `fishing-stock.v1` → `character.v2`다. 숫돌·보강재 제작은
   `fishing-stock.v1`을 잠그지 않는다.
 - 숫돌·보강재 8종의 수치·재료·id는 바뀌지 않았다.
-- 아이콘 4종(`public/images/items/battle-prep/v2_prep_fishoil_{1,2,3,master}.webp`)이 아직 없다. 그림 파일 존재를
-  확인하는 테스트 하나가 이 때문에 실패한다. 배포 전에 추가해야 한다.
+- 아이콘 4종(`public/images/items/battle-prep/v2_prep_fishoil_{1,2,3,master}.webp`)을 추가했다. 출처는
+  `docs/asset-provenance-life-fishing-prep-2026-11-13.md`, 해시는 `docs/asset-rights.json`에 있다.
 
 ## 배포 전 확인
 

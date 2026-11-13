@@ -1028,4 +1028,13 @@ describe("최신 게임 안내서 내용", () => {
     expect(text).toContain("56.6%");
     expect(text).toContain("첫 행동 순서만 정합니다");
   });
+
+  it("대련장 스킬 설정 탭에서 스킬 장착과 스킬 패턴을 바로 고칠 수 있다고 안내한다", () => {
+    const text = renderToStaticMarkup(<ArenaContent />).replace(/<[^>]*>/g, "");
+
+    expect(text).toContain(
+      "대련장의 스킬 설정 탭에서 스킬 장착과 스킬 패턴을 바로 고칠 수 있습니다.",
+    );
+    expect(text).toContain("다음 대련부터 적용");
+  });
 });

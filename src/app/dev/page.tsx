@@ -32,6 +32,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/fishing-shop", title: "낚시 코인 상점 — 칭호 구매", desc: "낚시 PR-6 코인으로 칭호 구매. mock 코인/보유." },
   { href: "/dev/winter-board", title: "겨울 이벤트 — 주사위 말판", desc: "배너·말판 삽화·칸 아이콘. mock 상태로 굴리기만 동작." },
   { href: "/dev/cooking-surplus", title: "주방 — 작물 떨이 교환", desc: "20개 단건 교환과 최대 수량 교환 확인 창. 옥수수 105개 mock." },
+  { href: "/dev/farm-breeding", title: "농장 — 품종 개량", desc: "작물별 품종 단계·비용·명장 품종 잠금. mock 재고로 개량만 동작." },
 ];
 
 export default function DevIndexPage() {

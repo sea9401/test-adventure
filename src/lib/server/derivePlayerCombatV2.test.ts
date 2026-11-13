@@ -2567,4 +2567,25 @@ describe("전투 준비물", () => {
     const expired = { weapon: { itemId: "v2_prep_whetstone_3", expiresAt: Date.now() - 1 } };
     expect(derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: expired } })).toEqual(plain);
   });
+
+  it("어유는 최대 MP만 올리고 음식 최대 MP와 함께 더해진다", () => {
+    const vigor = { vigor: { itemId: "v2_prep_fishoil_3", expiresAt: future } };
+    const plain = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100 } })!;
+    const oiled = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: vigor } })!;
+    expect((oiled.player.maxMp ?? 0) - (plain.player.maxMp ?? 0)).toBe(800);
+    expect(oiled.player.atk).toBe(plain.player.atk);
+    expect(oiled.player.def).toBe(plain.player.def);
+    expect(oiled.maxHp).toBe(plain.maxHp);
+    const food = { recipeId: "flame_corn_stew", recipeName: "불꽃 옥수수 스튜", quality: "normal", effect: { combatFlat: { maxMp: 100 } }, expiresAt: future };
+    const both = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeFoodBuff: food, activeBattlePreps: vigor } })!;
+    expect((both.player.maxMp ?? 0) - (plain.player.maxMp ?? 0)).toBe(900);
+  });
+
+  it("어유도 음식을 제외하는 전투에서 빠지고 만료되면 무시한다", () => {
+    const plain = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100 } })!;
+    const vigor = { vigor: { itemId: "v2_prep_fishoil_master", expiresAt: future } };
+    expect(derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: vigor }, includeCookingBuff: false })).toEqual(plain);
+    const expired = { vigor: { itemId: "v2_prep_fishoil_master", expiresAt: Date.now() - 1 } };
+    expect(derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: expired } })).toEqual(plain);
+  });
 });

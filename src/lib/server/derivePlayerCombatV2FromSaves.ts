@@ -201,7 +201,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveBasicCritHastePct: passiveAgg.basicCritHastePct,
     passiveBasicCritChanceCap: passiveAgg.basicCritChanceCap,
   });
-  // 전투 준비물(숫돌·보강재)은 음식과 같은 범위에 적용되고, 음식을 제외하는 전투에서는 함께 빠진다.
+  // 전투 준비물(숫돌·보강재·어유)은 음식과 같은 범위에 적용되고, 음식을 제외하는 전투에서는 함께 빠진다.
   const prepFlat =
     saves.includeCookingBuff === false
       ? null
@@ -215,7 +215,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     def: (foodFlat?.def ?? 0) + (prepFlat?.def ?? 0),
     magicDef: (foodFlat?.magicDef ?? 0) + (prepFlat?.magicDef ?? 0),
     maxHp: (foodFlat?.maxHp ?? 0) + (prepFlat?.maxHp ?? 0),
-    maxMp: foodFlat?.maxMp ?? 0,
+    maxMp: (foodFlat?.maxMp ?? 0) + (prepFlat?.maxMp ?? 0),
     accuracy: foodFlat?.accuracy ?? 0,
   };
   const maxHp = derived.maxHp + flat.maxHp;

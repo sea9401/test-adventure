@@ -16,7 +16,7 @@ export const LIFE_MAJOR_PRODUCTS: Record<
   farming: {
     id: LIFE_MAJOR_PRODUCT_ID.farming,
     name: "명장 작물",
-    description: "농사 명장만 거둘 수 있는 최상급 작물. 명장 요리의 재료가 된다.",
+    description: "농사 명장만 거둘 수 있는 최상급 작물. 명장 요리와 명장 품종 개량의 재료가 된다.",
   },
   woodcutting: {
     id: LIFE_MAJOR_PRODUCT_ID.woodcutting,

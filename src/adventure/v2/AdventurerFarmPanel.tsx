@@ -12,6 +12,7 @@ import {
   Leaf,
   Package,
   PawPrint,
+  Plant,
   PottedPlant,
   Sparkle,
   X,
@@ -54,6 +55,8 @@ import {
 } from "./farmBatchActions";
 import { FarmRanchPanel } from "./FarmRanchPanel";
 import { FarmEndgameShopPanel } from "./FarmEndgameShopPanel";
+import { FarmBreedingPanel } from "./FarmBreedingPanel";
+import { TITLES } from "@/adventure/data/titles";
 import { useFarm } from "./useFarm";
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
@@ -61,7 +64,13 @@ import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
 
-type FarmSectionKey = "home" | "grow" | "ranch" | "delivery" | "shop";
+type FarmSectionKey =
+  | "home"
+  | "grow"
+  | "ranch"
+  | "delivery"
+  | "breeding"
+  | "shop";
 
 export function farmSectionFromHash(hash: string): FarmSectionKey | null {
   return hash === "#ranch" ? "ranch" : null;
@@ -116,6 +125,7 @@ export function AdventurerFarmPanel({
     busyShopItemId,
     busyEndgameShopItemId,
     busyPlotUpgrade,
+    busyBreedCropId,
     busyRanchFeedSlotId,
     busyRanchCollect,
     busyRanchUpgradeSlotId,
@@ -132,6 +142,7 @@ export function AdventurerFarmPanel({
     weeklyDeliveries,
     shopItems,
     endgameShop,
+    breedingInfo,
     clearNotice,
     refresh,
     plant,
@@ -147,6 +158,7 @@ export function AdventurerFarmPanel({
     buyShopItem,
     buyEndgameShopItem,
     buyPlotUpgrade,
+    breedCrop,
     feedRanchSlot,
     collectRanch,
     buyRanchSlot,
@@ -267,6 +279,11 @@ export function AdventurerFarmPanel({
           badge: deliverableCount > 0 ? deliverableCount : undefined,
         },
         {
+          key: "breeding",
+          label: "품종",
+          icon: <Plant size={16} weight="duotone" />,
+        },
+        {
           key: "shop",
           label: "상점",
           icon: <Sparkle size={16} weight="duotone" />,
@@ -327,6 +344,19 @@ export function AdventurerFarmPanel({
         id: notice.id,
         tone: "ok",
         text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation}개를 사용해 밭 ${result.plotCount}칸을 열었습니다.`,
+      };
+    }
+    if (notice.kind === "breed") {
+      const { result } = notice;
+      const titleText = result.grantedTitleIds
+        .map((titleId) => TITLES[titleId]?.name)
+        .filter(Boolean)
+        .map((name) => ` 칭호 ‘${name}’를 얻었습니다.`)
+        .join("");
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${result.cropName} 품종을 ${result.stage}단계로 개량했습니다. 희귀 수확 확률 +${result.rareChancePct}%p.${titleText}`,
       };
     }
     if (notice.kind === "fertilizer") {
@@ -606,6 +636,20 @@ export function AdventurerFarmPanel({
                 />
 
                 <InventoryPanel inventory={farm.inventory} />
+              </div>
+
+              <div
+                className={
+                  activeSection === "breeding" ? "space-y-4" : "hidden"
+                }
+              >
+                <FarmBreedingPanel
+                  farm={farm}
+                  crops={crops}
+                  info={breedingInfo}
+                  busyCropId={busyBreedCropId}
+                  onBreed={(cropId) => void breedCrop(cropId)}
+                />
               </div>
 
               <div

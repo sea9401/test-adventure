@@ -77,6 +77,18 @@ import {
 } from "@/adventure/v2/lifeMajor";
 import { LIFE_RECORD_PATH } from "@/adventure/v2/lifeMajorRules";
 import {
+  FARM_BREEDING_BASE_MAX_STAGE,
+  FARM_BREEDING_MASTER_STAGE,
+  FARM_BREEDING_STAGE_COSTS,
+  FARM_BREEDING_TITLE_TOTAL_STAGE,
+  farmBreedingRareChancePct,
+} from "@/adventure/v2/farmBreeding";
+import {
+  FARM_BREED_MASTER_TITLE_ID,
+  FARM_BREEDER_TITLE_ID,
+  TITLES,
+} from "@/adventure/data/titles";
+import {
   BATTLE_PREP_ITEMS,
   BATTLE_PREP_SLOT_NAME,
   battlePrepEffectText,
@@ -116,6 +128,12 @@ function battlePrepConditionText(item: BattlePrepItem): string {
     ? `${activity} 주전공 명장 ${LIFE_MAJOR_CRAFT_MIN_STAGE}단계`
     : `${activity} Lv.${item.requiredLevel}`;
 }
+const FARM_BREEDING_BASE_COSTS = FARM_BREEDING_STAGE_COSTS.slice(
+  0,
+  FARM_BREEDING_BASE_MAX_STAGE,
+);
+const FARM_BREEDING_MASTER_COST =
+  FARM_BREEDING_STAGE_COSTS[FARM_BREEDING_MASTER_STAGE - 1];
 const fishList = Object.values(FISH);
 const normalFishCount = fishList.filter((fish) => !fish.condition).length;
 const specialFishCount = fishList.length - normalFishCount;
@@ -284,6 +302,11 @@ export function PastimesContent() {
           {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 생활 공방의 제작 탭에서 만듭니다. 부전공으로는
           만들 수 없고, 다른 등급의 두 배인 {BATTLE_PREP_MASTER_HOURS}시간 지속됩니다.
         </li>
+        <li>
+          <Em>명장 품종</Em>: 농사 주전공 명장 {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 농장의 품종
+          탭에서 작물을 {FARM_BREEDING_MASTER_STAGE}단계로 올릴 수 있습니다. 부전공으로는 올릴 수
+          없고, 한 번 올린 단계는 전공을 바꿔도 유지됩니다.
+        </li>
       </UL>
 
       <H2>농장</H2>
@@ -343,6 +366,23 @@ export function PastimesContent() {
           밭 8칸과 목장 부지 1~5를 열면 <Em>농장주의 교환소</Em>가 열립니다. 이곳에서
           농장 증표 20개로 배합 사료 5개, 증표 24개로 유기질 거름 3개를 제한 없이
           교환하고 전용 칭호를 구매할 수 있습니다.
+        </li>
+        <li>
+          농장의 <Em>품종</Em> 탭에서 작물마다 품종을 개량합니다. 그 작물의 일반 작물과 희귀
+          작물을 써서 한 단계씩 올리며, {FARM_BREEDING_BASE_MAX_STAGE}단계까지 단계마다 그 작물의
+          희귀 수확 확률이 <Em>+{farmBreedingRareChancePct(1)}%p</Em> 오릅니다. 단계별 비용은 일반
+          작물이 수확 {FARM_BREEDING_BASE_COSTS.map((cost) => cost.harvests).join("·")}회분, 희귀
+          작물이 {FARM_BREEDING_BASE_COSTS.map((cost) => cost.rare).join("·")}개입니다. 수확 1회분은
+          그 작물의 기본 평균 수확량이며, 작물별 수량은 품종 탭에 표시됩니다.
+        </li>
+        <li>
+          {FARM_BREEDING_MASTER_STAGE}단계 명장 품종은 수확 {FARM_BREEDING_MASTER_COST.harvests}회분,
+          희귀 작물 {FARM_BREEDING_MASTER_COST.rare}개, 명장 작물{" "}
+          {FARM_BREEDING_MASTER_COST.masterCrop}개가 들고 희귀 수확 확률이 모두{" "}
+          <Em>+{farmBreedingRareChancePct(FARM_BREEDING_MASTER_STAGE)}%p</Em>가 됩니다. 품종 단계
+          합계가 {FARM_BREEDING_TITLE_TOTAL_STAGE}에 이르면 칭호 ‘{TITLES[FARM_BREEDER_TITLE_ID].name}’,
+          모든 작물을 {FARM_BREEDING_BASE_MAX_STAGE}단계 이상으로 올리면 ‘
+          {TITLES[FARM_BREED_MASTER_TITLE_ID].name}’를 받습니다.
         </li>
       </UL>
 

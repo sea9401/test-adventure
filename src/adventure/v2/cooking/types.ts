@@ -17,7 +17,8 @@ export type CookingMethod =
   | "brew"
   | "ferment";
 
-export type CookingDiscoveryClass = "basic" | "hidden" | "signature";
+/** "branch" 는 연구 대상이 아닌 특화 전용 요리다. */
+export type CookingDiscoveryClass = "basic" | "hidden" | "signature" | "branch";
 export type CookingIngredientKind =
   | "farm"
   | "fishing"

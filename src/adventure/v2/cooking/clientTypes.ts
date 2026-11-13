@@ -1,6 +1,7 @@
 import type { EquippedCookingBonuses } from "@/adventure/data/v2/v2Skills";
 import type { FarmItemDefinition, FarmItemInventory } from "../farm";
 import type { FishingCatchItem, FishingCatchItemId } from "../fishingStock";
+import type { CookingBranchId } from "./branch";
 import type { CookingDeliveryRequest } from "./delivery";
 import type { CookingFoodDefinitionMap, CookingFoodInventory } from "./foodShared";
 import type { CookingPantryItem, CookingProcessingRecipe } from "./kitchen";
@@ -55,6 +56,7 @@ export type CookingResponse = {
   cookingJobTier: number;
   cookingSkillBonuses: EquippedCookingBonuses;
   result?: Record<string, unknown>;
+  branch: CookingBranchView;
   signature: {
     unlocked: boolean;
     /** 요리의 전공 역할 — 잠긴 이유 안내용. */
@@ -63,6 +65,20 @@ export type CookingResponse = {
     requiredStage: number;
     products: { crop: number; catch: number };
   };
+};
+
+export type CookingBranchView = {
+  /** 전문 분야 랭크 5 여서 특화를 고를 수 있는지. */
+  eligible: boolean;
+  current: CookingBranchId | null;
+  /** 지금 고른 특화의 랭크. 고르지 않았으면 0. */
+  rank: number;
+  xp: number;
+  nextRankXp: number | null;
+  xpByBranch: Partial<Record<CookingBranchId, number>>;
+  /** 특화를 다시 바꿀 수 있는 시각. 지금 바꿀 수 있으면 null. */
+  nextChangeAt: number | null;
+  masterpieceBonusPct: number;
 };
 
 export type CookingMutationResult = { error: string } | undefined;

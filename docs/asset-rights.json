@@ -843,6 +843,216 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/items/cooking/branch_baking_bread_1.webp",
+      "sha256": "d6a8b3c993fc0bb0a1802036fc33ca75061f5f68759e47e94e5a80638caaba42",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_bread_2.webp",
+      "sha256": "ab6dd6776147af80c85d67631da57569581a83c3c45ea962ad119c7ef9c15b83",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_bread_3.webp",
+      "sha256": "9a109281a95de14d0bba738916353b34f22b1e00e601c64d57d774a58b321b7d",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_pastry_1.webp",
+      "sha256": "d51d8b0f2f53e3997be150c5f067aaca3ddb9dd067645e9efe0b67868f9b5f1c",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_pastry_2.webp",
+      "sha256": "f812a113c4862c7d9ee8b1eb77e1083a642037476aa39547e53a7f32758f4a56",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_pastry_3.webp",
+      "sha256": "55923111a8a4d212b8965986f0e76fa74dc84e9c2c15dbc87bb3fe19559df797",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_steamed_1.webp",
+      "sha256": "3615d6350f1fc5cf0fd3eeb1f2242f15f6eb7d34bf638c9f15f55837d2965cc6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_steamed_2.webp",
+      "sha256": "bba0db351e3ab853129a6a438c409f4c32371fafc9870597b8598a5af2844b04",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_baking_steamed_3.webp",
+      "sha256": "9272c5a25bfb993041edea035f417d9e2315975ca435cda6df9e6333288fa42b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_fry_1.webp",
+      "sha256": "469d5c35692bb28f7d5bd475c80a6e4ddd3ba7e2d556ebd8d239709e5ba182eb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_fry_2.webp",
+      "sha256": "10426d44c6eb35679d65ea878417fab7a986c95a0d0506ad1d25e7d61c7f2fd6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_fry_3.webp",
+      "sha256": "7f119f0c9e1249e3a755781dcaef7de5d63a68ac2a593538c39d20aa957c8c34",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_grill_1.webp",
+      "sha256": "048383a63b0e9d0ced71d8db188cc827687b6b19f7fc182df9728502139ca27b",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_grill_2.webp",
+      "sha256": "cb44eea88b7d1c415f392dd655929b4fb381d05dbc042ee695154391a17153b0",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_grill_3.webp",
+      "sha256": "bff34ee92e529ab26094dc49dfb61bc1ce508bee37d6e7107b9e8430a5df6013",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_stir_1.webp",
+      "sha256": "f41bbd3e16b61e6f3cd7507fb7622ce1db1e8e28813549e560f70b14e73cba17",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_stir_2.webp",
+      "sha256": "e2362fef7a2eacda7eb048a334ed9b4a1ad476ddc3099ba54ca8b38095ba7c18",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_hearth_stir_3.webp",
+      "sha256": "939532d06e2b5a2f6b3f50f7be31e0486021bf79483c9919c51aebaf4ac28c43",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_ferment_1.webp",
+      "sha256": "3166c561f8ca67845753a5d41d884f2e8da737138519d98951d8e957a99a7a76",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_ferment_2.webp",
+      "sha256": "30f21844fdf15ea17ddfa92c2fc1bd900aa71e24e9b48225c347adabc6ee46bc",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_ferment_3.webp",
+      "sha256": "14a005c73bf90c7e80db9e5e5515bdee7b181f2fdebcf67e00d9cce292ba7170",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_meal_1.webp",
+      "sha256": "451e31fd2850b4cfb9b754685f8b70e5913e1a50b6154bef878546d86b75d87a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_meal_2.webp",
+      "sha256": "d76312bfed5851c9a91bd72871221d8401b25ed9037ef008d437e642732fa81a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_meal_3.webp",
+      "sha256": "990ac5c4d18f630cb042b227c0611f8ddc5b7bada6d11d47f9c82a6e714139e8",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_tea_1.webp",
+      "sha256": "898e9debe4e55c6450e61091fcb402646621475e62b892e94fa394b3944752cb",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_tea_2.webp",
+      "sha256": "0a5e6ae0179826734ce5b06bfb87ceb349e33913b5bed6ce2879cf2741bc4043",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_medicinal_tea_3.webp",
+      "sha256": "2460b34431bc9a010c09aa3c76e088272f3036ae202334bbe20ae4e6be3f739e",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_pot_soup_1.webp",
+      "sha256": "d3ec4571b2cbf46533b65b573b8bc5425bac8c73e54d4199d0166353132e3f10",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_pot_soup_2.webp",
+      "sha256": "2ec3f2440af14323dcdc943d805f3bc556aa84f8a22eac6cbb1c387ea1c1616a",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_pot_soup_3.webp",
+      "sha256": "bdb2cf14ec9b159e769669f7ef67dde8a5d9c6878b9045139e0eab8127aa9ad2",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_pot_steam_1.webp",
+      "sha256": "449f56396f17cfd1efeeee9e27589298293be4ab7d119acd1634517210c11e95",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_pot_steam_2.webp",
+      "sha256": "096ea37206ad0c0788ba3fd45191cb4dec47af15714eb9084f32656f602afe85",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_pot_steam_3.webp",
+      "sha256": "1ac508e2d1fc26392cf8ddfb15b077bff6bc89c600981ee3f69d2f38c0f2b532",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_fire_1.webp",
+      "sha256": "5084a18bca2f81ceb00c73eb0622920f26636b690b5c1ad047d59c23891b92a7",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_fire_2.webp",
+      "sha256": "8cfb0b0954bb4bb887705bc689b41984511ae31b3c73771f7eea73309e2a8446",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_fire_3.webp",
+      "sha256": "060078d3303074165bf0276743fcd004e9a33fe41720e6c47fe3572f0da90f11",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_pickle_1.webp",
+      "sha256": "5e2432864f73299c830b4924c420da3074fb0f54afcd42ca5cb999f6e1e2d415",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_pickle_2.webp",
+      "sha256": "f400bc0ab801a8fe7395429113a5659130ccc26df3b8e9bae49e505025e15027",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_pickle_3.webp",
+      "sha256": "df914a8c9a7a4301f3ca18f8d9da2dac144e286c91f492aa6a6b281bbdda5184",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_stew_1.webp",
+      "sha256": "e442c5154287064d190a1140d9a1c107def794270e3afff8748527a974ec67df",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_stew_2.webp",
+      "sha256": "9d96bbc254cf72d28b1404e6ffe7df560a79dec86c73344140796259d5666464",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/items/cooking/branch_seafood_stew_3.webp",
+      "sha256": "4d06cb327316dd617e215dc57137c643a25705828bf4ee1d9cf31bc32f01bf75",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/items/cooking/butter_croissant.webp",
       "sha256": "f01807a3d351261bf723bff6e7b564506672bb9a59730d3ba82be5541158828b",
       "source": "operator-cleared-game-art"

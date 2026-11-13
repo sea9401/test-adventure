@@ -66,6 +66,7 @@ import {
 } from "@/adventure/v2/lifeFestival";
 import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/foodShared";
+import { CookingBranchManualSection } from "./pastimes-cooking-branch";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
@@ -435,6 +436,7 @@ export function PastimesContent() {
           장착 생활 스킬의 경험치·품질·재료 절약 보너스도 계속 적용됩니다.
         </li>
       </UL>
+      <CookingBranchManualSection />
 
       <H2>전투 준비물</H2>
       <P>

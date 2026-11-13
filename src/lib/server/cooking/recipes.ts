@@ -12,6 +12,7 @@ import type {
   CookingMethod,
   CookingRecipeSecret,
 } from "@/adventure/v2/cooking/types";
+import { COOKING_BRANCH_RECIPES } from "@/adventure/v2/cooking/branchRecipes";
 import { COOKING_EXPANSION_ANSWERS } from "./expansion";
 
 const INGREDIENT_POOLS: Record<CookingField, readonly CookingIngredientId[]> = {
@@ -316,8 +317,12 @@ export const COOKING_SECRET_RECIPES: readonly CookingRecipeSecret[] =
     };
   });
 
-export const COOKING_SECRET_RECIPE_BY_ID = new Map(
-  COOKING_SECRET_RECIPES.map((entry) => [entry.id, entry]),
+/** id 조회용 — 특화 전용 요리도 돌려준다. 연구 정답 표(BY_ANSWER)에는 넣지 않는다. */
+export const COOKING_SECRET_RECIPE_BY_ID = new Map<string, CookingRecipeSecret>(
+  [...COOKING_SECRET_RECIPES, ...COOKING_BRANCH_RECIPES].map((entry) => [
+    entry.id,
+    entry,
+  ]),
 );
 const COOKING_SECRET_RECIPE_BY_ANSWER = new Map(
   COOKING_SECRET_RECIPES.map((entry) => [

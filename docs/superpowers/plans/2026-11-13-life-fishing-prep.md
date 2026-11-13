@@ -16,7 +16,7 @@
 - 제작 조건: 낚시 Lv.1 / Lv.15 / Lv.25 / 낚시 주전공 명장 3단계(`lifeMajorCanCraft(state, "fishing")`, 부전공 불가).
 - 재료(1개): 초급 `catch_common` 3 + `catch_fresh` 1 / 중급 `catch_fresh` 3 + `catch_quality` 3 / 상급 `catch_quality` 4 + `catch_special` 1 + 위험 해역 희귀 이상 2 / 명장 `catch_special` 2 + `catch_legendary` 1 + 위험 해역 영웅 이상 2 + `v2_master_catch` 1.
 - 숫돌·보강재 8종의 수치·재료·id는 바꾸지 않는다.
-- 잠금 순서는 `character.v2` → `fishing-stock.v1`. `fishing-stock.v1`의 `daily`는 건드리지 않는다.
+- 어유 제작의 잠금 순서는 `fishing-stock.v1` → `character.v2`(낚시 챔질 라우트와 같다). `fishing-stock.v1`의 `daily`는 건드리지 않는다.
 - `derivePlayerCombatV2Pure.ts`는 줄을 늘리지 않는다(모듈 예산).
 - 클라이언트 컴포넌트에서 `@/adventure/v2/lifeMajor`를 값으로 import하지 않는다(화면 상수는 `lifeMajorRules.ts`).
 - 표면은 `surfaces.ts` 토큰만 쓴다. 플레이어 문구에 마크다운·대시·"v2"를 쓰지 않는다.
@@ -126,7 +126,7 @@ export function battlePrepCraftRows(args: {
 
 - 컨텍스트에 `levels.fishing`, `masterCraft.fishing`을 채운다.
 - GET: `fishing-stock.v1`을 읽어 `catchItems`로 넘긴다.
-- POST: `character.v2`를 잠근 뒤 요청 품목에 `catchCosts`가 있을 때만 `fishing-stock.v1`을 잠근다. 없으면 잠그지 않고 읽기만 한다(행 표시용). 저장은 `usesCatchStock`일 때만 `{ ...stock, items: crafted.catchItems }`.
+- POST: 요청 품목에 `catchCosts`가 있을 때만 `fishing-stock.v1`을 먼저 잠그고 `character.v2`를 잠근다. 없으면 `fishing-stock.v1`은 잠그지 않고 읽기만 한다(행 표시용). 저장은 `usesCatchStock`일 때만 `{ ...stock, items: crafted.catchItems }`.
 
 - [ ] **Step 1: 실패하는 테스트**
   - 낚시 Lv.25가 상급 어유 2개를 만들면 두 세이브가 정확히 줄고 `daily`는 그대로다.

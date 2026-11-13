@@ -76,7 +76,7 @@
 | 일반·신선한·고급·특급·전설의 어획물 | `fishing-stock.v1`의 `items` |
 | 위험 해역 어획물, 명장 어획, 완성된 어유 | `character.v2`의 `materials` |
 
-제작은 한 트랜잭션에서 `character.v2`를 먼저 잠그고 `fishing-stock.v1`을 잠근다. 길드 교역 납품(`guildTradeInventory.ts`)과 같은 순서다. `fishing-stock.v1`의 `daily`(하루 획득량 기록)는 건드리지 않고 `items`만 줄인다.
+어유 제작은 한 트랜잭션에서 `fishing-stock.v1`을 먼저 잠그고 `character.v2`를 잠근다. 낚시 챔질 라우트(`fishing/reel`)와 같은 순서다. 길드 교역 납품은 반대 순서지만, 낚시하면서 어유를 만드는 경우가 훨씬 흔하므로 챔질 쪽에 맞춘다. 숫돌·보강재 제작은 `fishing-stock.v1`을 잠그지 않는다. `fishing-stock.v1`의 `daily`(하루 획득량 기록)는 건드리지 않고 `items`만 줄인다.
 
 ## 3. 저장
 

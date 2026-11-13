@@ -20,7 +20,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { LifeWorkshopQuantityControls } from "./LifeWorkshopQuantityControls";
 
 const ENDPOINT = "/api/v2/life-workshop/battle-prep";
-const ACTIVITY_NAME: Record<BattlePrepActivity, string> = { mining: "채광", woodcutting: "벌목" };
+const ACTIVITY_NAME: Record<BattlePrepActivity, string> = { mining: "채광", woodcutting: "벌목", fishing: "낚시" };
 
 type Payload = { ok?: boolean; error?: string; crafted?: number; rows?: BattlePrepCraftRow[] };
 
@@ -41,7 +41,7 @@ function craftErrorText(error: string | undefined, row: BattlePrepCraftRow): str
   return "제작하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
-/** 생활 공방 제작 탭의 전투 준비물(숫돌·보강재) 묶음. 자기 데이터를 직접 불러온다. */
+/** 생활 공방 제작 탭의 전투 준비물(숫돌·보강재·어유) 묶음. 자기 데이터를 직접 불러온다. */
 export function BattlePrepCraftPanel({
   busy,
   onNotice,
@@ -103,7 +103,7 @@ export function BattlePrepCraftPanel({
     <Card padding="md">
       <h2 className="text-sm font-bold">전투 준비물</h2>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-        인벤토리 소모품 탭에서 사용합니다. 무기 손질과 방어구 손질은 음식과 함께 적용됩니다.
+        인벤토리 소모품 탭에서 사용합니다. 무기 손질, 방어구 손질, 기력 보충은 음식과 함께 적용됩니다.
       </p>
       {loadFailed ? (
         <div className="mt-3">
@@ -158,7 +158,7 @@ export function BattlePrepCraftPanel({
                                 cost.owned < cost.need ? "text-rose-600 dark:text-rose-400" : undefined
                               }
                             >
-                              {V2_MATERIALS[cost.id]?.name ?? cost.id} {cost.owned.toLocaleString()}/
+                              {cost.name ?? V2_MATERIALS[cost.id]?.name ?? cost.id} {cost.owned.toLocaleString()}/
                               {cost.need.toLocaleString()}
                             </span>
                           </span>

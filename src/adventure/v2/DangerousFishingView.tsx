@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
-import type {
-  DangerousBaitId,
-  DangerousDepthId,
-  DangerousZoneId,
+import {
+  DANGEROUS_DAILY_CATCH_CAP,
+  type DangerousBaitId,
+  type DangerousDepthId,
+  type DangerousZoneId,
 } from "@/adventure/data/v2/dangerousFishing";
 import type { DangerousFishingAction } from "./dangerousFishingEncounter";
 import { DangerousFishingEncounterPanel } from "./DangerousFishingEncounterPanel";
@@ -46,6 +47,7 @@ export function dangerousFishingErrorMessage(error: string): string {
     encounter_active: "진행 중인 조우를 먼저 마쳐 주세요.",
     voyage_active: "진행 중인 항해를 마치고 귀환한 뒤 거대어 개인 시도를 시작하세요.",
     insufficient_coins: "낚시 코인이 부족합니다.",
+    daily_catch_cap: `오늘 낚을 수 있는 ${DANGEROUS_DAILY_CATCH_CAP}마리를 모두 낚았습니다. 자정이 지나면 다시 낚을 수 있습니다.`,
   };
   return messages[error] ?? "요청을 처리하지 못했습니다. 상태를 확인하고 다시 시도해 주세요.";
 }

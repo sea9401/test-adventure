@@ -35,6 +35,12 @@ import {
 } from "@/lib/server/lifeMajor";
 import { LIFE_WORKSHOP_SAVE_KEY, emptyLifeWorkshopState, parseLifeWorkshopState } from "@/adventure/v2/lifeWorkshop";
 import { COOKING_PUBLIC_RECIPES, COOKING_PUBLIC_RECIPE_BY_ID } from "@/adventure/v2/cooking/catalog";
+import {
+  applyCookingBranchChoice,
+  applyCookingBranchCraft,
+  cookingBranchCraftContext,
+  cookingBranchView,
+} from "@/lib/server/cooking/branch";
 import { applyCookingDelivery, cookingRequests, cookingStandingDeliveryReward } from "@/adventure/v2/cooking/delivery";
 import { activeCookingBuff, addCookingFood, cookingFoodDefinition, cookingFoodDefinitions, cookingFoodId, parseCookingFoodId, parseCookingFoodInventory, removeCookingFood, type CookingFoodId, type CookingQuality } from "@/adventure/v2/cooking/food";
 import { COOKING_PANTRY_ITEMS, COOKING_PROCESSING_RECIPES, buyCookingPantryItem, processCookingIngredient, type CookingPantryItem, type CookingProcessingRecipe } from "@/adventure/v2/cooking/kitchen";
@@ -242,6 +248,7 @@ function cookingView(userId: string, now: number, values: {
     cookingJobName: job.jobId ? V2_JOB_CATALOG[job.jobId]?.name ?? job.jobId : null,
     cookingJobTier: job.tier,
     cookingSkillBonuses: equippedCookingBonuses(parseV2SkillsState(values.skillsRaw).equipped),
+    branch: cookingBranchView(cooking, now),
     signature: signatureView(values.lifeMajorRaw, values.character),
   };
 }
@@ -388,6 +395,7 @@ function rollCookingQuality(args: { jobTier: number; carefulChancePct: number; m
 type PostBody = {
   action?: unknown; recipeId?: unknown; requestId?: unknown; foodId?: unknown;
   method?: unknown; ingredientIds?: unknown; itemId?: unknown; field?: unknown; quantity?: unknown;
+  branchId?: unknown;
   usePrepSet?: unknown;
 };
 
@@ -405,7 +413,7 @@ export async function POST(req: Request) {
     windowMs: 60_000,
   });
   if (limited) return limited;
-  if (!["research", "craft", "buy_pantry", "process", "choose_specialty", "favorite", "deliver", "standing_delivery", "signature"].includes(action)) {
+  if (!["research", "craft", "buy_pantry", "process", "choose_specialty", "choose_branch", "favorite", "deliver", "standing_delivery", "signature"].includes(action)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const now = Date.now();
@@ -474,7 +482,14 @@ export async function POST(req: Request) {
         const recipe = COOKING_SECRET_RECIPE_BY_ID.get(recipeId);
         const quantity = positiveQuantity(body?.quantity ?? 1);
         const usePrepSet = body?.usePrepSet === true;
-        if (!recipe || !cooking.discoveredRecipeIds.includes(recipe.id) || cookingLevelForXp(cooking.xp) < recipe.requiredLevel) throw new Error("recipe_locked");
+        // 특화 전용 요리는 발견 대상이 아니다. 지금 고른 특화와 랭크로 만들 수 있는지 본다.
+        const branchContext = recipe ? cookingBranchCraftContext(cooking, recipe) : null;
+        const craftable = recipe && branchContext
+          ? recipe.discovery === "branch"
+            ? branchContext.allowed
+            : cooking.discoveredRecipeIds.includes(recipe.id)
+          : false;
+        if (!recipe || !branchContext || !craftable || cookingLevelForXp(cooking.xp) < recipe.requiredLevel) throw new Error("recipe_locked");
         const heldPrepSets = lifeWorkshop.crafting.balances[COOKING_PREP_SET_ID] ?? 0;
         if (usePrepSet && heldPrepSets < quantity) throw new Error("not_enough_cooking_prep_sets");
         const levelBonuses = cookingPost50Bonuses(cookingLevelForXp(cooking.xp));
@@ -514,6 +529,7 @@ export async function POST(req: Request) {
             + levelBonuses.masterpieceChancePct
             + festival.chancePct
             + majorBonusPct
+            + branchContext.masterpieceBonusPct
             + (usePrepSet ? COOKING_PREP_SET_MASTERPIECE_BONUS_PCT : 0),
         };
         const qualityCounts: Record<RolledCookingQuality, number> = {
@@ -542,9 +558,12 @@ export async function POST(req: Request) {
           specialty: cooking.specialty?.field === recipe.field ? { ...cooking.specialty, xp: cooking.specialty.xp + recipe.tier * 10 * quantity } : cooking.specialty,
           stats: { ...cooking.stats, dishesCooked: cooking.stats.dishesCooked + quantity, masterpiecesCooked: cooking.stats.masterpiecesCooked + qualityCounts.masterpiece },
         };
+        cooking = applyCookingBranchCraft(cooking, recipe, quantity);
         result = {
           action,
           recipeId,
+          recipeName: recipe.name,
+          branchXpGained: branchContext.branchXpPerDish * quantity,
           quantity,
           qualityCounts,
           ...(quantity === 1 && singleQuality && singleFoodId
@@ -582,6 +601,10 @@ export async function POST(req: Request) {
         if (!["hearth", "pot", "baking", "seafood", "medicinal"].includes(field)) throw new Error("invalid_specialty");
         cooking = chooseCookingSpecialty(cooking, field);
         result = { action, field };
+      } else if (action === "choose_branch") {
+        const changed = (cooking.branch?.current ?? null) !== null;
+        cooking = applyCookingBranchChoice(cooking, body?.branchId, now);
+        result = { action, branchId: cooking.branch?.current ?? null, changed };
       } else if (action === "favorite") {
         const recipeId = typeof body?.recipeId === "string" ? body.recipeId : "";
         if (!COOKING_PUBLIC_RECIPE_BY_ID.has(recipeId) || !cooking.discoveredRecipeIds.includes(recipeId)) throw new Error("recipe_locked");
@@ -671,7 +694,9 @@ export async function POST(req: Request) {
       let masteryGained = 0;
       let masteryAfter: number | null = null;
       const earnedXp = action === "craft" ? Math.max(0, Math.floor(Number(result.earnedXp) || 0)) : 0;
+      // 특화 전용 요리는 요리 도감에 없어 도감 숙련을 쌓지 않는다.
       const codexEvents: CodexMasteryGameplayEvent[] = action === "craft" && typeof result.recipeId === "string"
+        && COOKING_PUBLIC_RECIPE_BY_ID.get(result.recipeId)?.discovery !== "branch"
         ? [{ category: "cooking", entryId: result.recipeId, amount: Number(result.quantity) || 1, source: "cooking.complete" }]
         : [];
       if (job.jobId && earnedXp > 0) {
@@ -748,6 +773,7 @@ export async function POST(req: Request) {
       "not_enough_gold", "specialty_locked", "specialty_permanent", "delivery_completed",
       "food_not_eligible", "cooked_food_unavailable", "standing_delivery_limit",
       "signature_locked", "not_masterpiece", "not_enough_master_product",
+      "branch_locked", "branch_unchanged", "branch_cooldown",
     ]);
     if (code === "bad_request" || code.startsWith("invalid_")) return Response.json({ ok: false, error: code }, { status: 400 });
     if (conflict.has(code)) return Response.json({ ok: false, error: code }, { status: 409 });

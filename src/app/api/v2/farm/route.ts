@@ -20,6 +20,8 @@ import { LIFE_WORKSHOP_SAVE_KEY, parseLifeWorkshopState } from "@/adventure/v2/l
 import { farmEndgameShopView } from "@/adventure/v2/farmEndgameShop";
 import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import { settleRanch } from "@/adventure/v2/ranch";
+import { LIFE_MAJOR_SAVE_KEY } from "@/adventure/v2/lifeMajor";
+import { farmBreedingContextFromSaves } from "@/lib/server/farmBreeding";
 
 // GET /api/v2/farm — 모험가 농장 상태.
 export async function GET() {
@@ -29,11 +31,20 @@ export async function GET() {
   }
 
   const now = Date.now();
-  const [farmRaw, skillsRaw, workshopRaw, adventureLogRaw] = await Promise.all([
+  const [
+    farmRaw,
+    skillsRaw,
+    workshopRaw,
+    adventureLogRaw,
+    characterRaw,
+    lifeMajorRaw,
+  ] = await Promise.all([
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, "adventure-log.v2", {}),
+    readSave(db, userId, "character.v2", {}),
+    readSave(db, userId, LIFE_MAJOR_SAVE_KEY, {}),
   ]);
   const parsedFarm = normalizeFarmForDay(parseFarmState(farmRaw, now), now);
   const farm = { ...parsedFarm, ranch: settleRanch(parsedFarm.ranch, now) };
@@ -51,5 +62,6 @@ export async function GET() {
     shopItems: getFarmShopItems(),
     fertilizerBalance: workshop.crafting.balances.organic_fertilizer ?? 0,
     endgameShop: farmEndgameShopView(farm, ownedTitleIdsOf(adventureLogRaw)),
+    breeding: farmBreedingContextFromSaves(characterRaw, lifeMajorRaw),
   });
 }

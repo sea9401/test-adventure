@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { battlePrepCraftRows, craftBattlePrep } from "@/adventure/data/v2/battlePrep";
+import { battlePrepCraftRows, craftBattlePrep, type BattlePrepCatchItems } from "@/adventure/data/v2/battlePrep";
 import { ActiveBattlePrepBadges } from "@/adventure/v2/BattlePrepBadges";
 import { BattlePrepCraftPanel } from "@/adventure/v2/BattlePrepCraftPanel";
 import { CompactCharacterSummary } from "@/adventure/v2/CompactCharacterSummary";
@@ -12,8 +12,14 @@ import { PageShell } from "@/components/ui/PageShell";
 
 // 전투 준비물 미리보기 — 공방 제작 패널·인벤토리 사용 줄·캐릭터 요약 표시를 예시 데이터로 렌더.
 const CONTEXT = {
-  levels: { mining: 100, woodcutting: 25 },
-  masterCraft: { mining: true, woodcutting: false },
+  levels: { mining: 100, woodcutting: 25, fishing: 30 },
+  masterCraft: { mining: true, woodcutting: false, fishing: false },
+};
+const START_CATCH_ITEMS: BattlePrepCatchItems = {
+  catch_common: 53,
+  catch_fresh: 41,
+  catch_quality: 9,
+  catch_special: 2,
 };
 const START_MATERIALS: Record<string, number> = {
   v2_basic_ingot: 1_345,
@@ -27,6 +33,9 @@ const START_MATERIALS: Record<string, number> = {
   v2_processed_hardwood: 12,
   v2_prep_whetstone_3: 4,
   v2_prep_brace_1: 2,
+  v2_prep_fishoil_2: 3,
+  danger_catch_ironjaw_tuna: 3,
+  danger_catch_reef_maw_grouper: 2,
 };
 const ENDPOINT = "/api/v2/life-workshop/battle-prep";
 
@@ -39,21 +48,23 @@ export default function BattlePrepPreviewPage() {
   useEffect(() => {
     const original = window.fetch;
     let materials = { ...START_MATERIALS };
+    let catchItems = { ...START_CATCH_ITEMS };
     window.fetch = async (input, init) => {
       if (typeof input !== "string" || input !== ENDPOINT) return original(input, init);
       if (init?.method === "POST") {
         const body = JSON.parse(String(init.body)) as { itemId: string; quantity: number };
-        const result = craftBattlePrep({ materials, ...body, ...CONTEXT });
+        const result = craftBattlePrep({ materials, catchItems, ...body, ...CONTEXT });
         if (!result.ok) return Response.json({ ok: false, error: result.error }, { status: 409 });
         materials = result.materials;
+        catchItems = result.catchItems;
         return Response.json({
           ok: true,
           itemId: result.item.id,
           crafted: result.quantity,
-          rows: battlePrepCraftRows({ materials, ...CONTEXT }),
+          rows: battlePrepCraftRows({ materials, catchItems, ...CONTEXT }),
         });
       }
-      return Response.json({ ok: true, rows: battlePrepCraftRows({ materials, ...CONTEXT }) });
+      return Response.json({ ok: true, rows: battlePrepCraftRows({ materials, catchItems, ...CONTEXT }) });
     };
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 예시 응답을 연결한 뒤에 패널을 그린다.
     setReady(true);
@@ -65,6 +76,7 @@ export default function BattlePrepPreviewPage() {
   const active = {
     weapon: { itemId: "v2_prep_whetstone_master", expiresAt: now + 20 * 3_600_000 },
     armor: { itemId: "v2_prep_brace_3", expiresAt: now + 5 * 3_600_000 + 12 * 60_000 },
+    vigor: { itemId: "v2_prep_fishoil_2", expiresAt: now + 9 * 3_600_000 },
   };
 
   return (

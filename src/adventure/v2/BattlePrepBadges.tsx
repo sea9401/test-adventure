@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Sword } from "@phosphor-icons/react";
+import { Drop, Shield, Sword } from "@phosphor-icons/react";
 
 import {
   BATTLE_PREP_ITEM_BY_ID,
@@ -44,6 +44,8 @@ export function battlePrepBadgeRows(
   });
 }
 
+const SLOT_ICON: Record<BattlePrepSlot, typeof Sword> = { weapon: Sword, armor: Shield, vigor: Drop };
+
 export function BattlePrepIcon({
   slot,
   size,
@@ -53,7 +55,7 @@ export function BattlePrepIcon({
   size: number;
   className?: string;
 }) {
-  const Icon = slot === "weapon" ? Sword : Shield;
+  const Icon = SLOT_ICON[slot];
   return <Icon size={size} weight="duotone" className={className} aria-hidden />;
 }
 

@@ -35,6 +35,7 @@ import {
   type FarmEndgameShopPurchaseResult,
   type FarmEndgameShopView,
 } from "./farmEndgameShop";
+import type { FarmBreedingContext, FarmBreedingResult } from "./farmBreeding";
 
 type FarmResponse = {
   ok: boolean;
@@ -64,6 +65,8 @@ type FarmResponse = {
   ranchUpgradeResult?: FarmRanchUpgradeResult;
   endgameShop?: FarmEndgameShopView;
   endgameShopResult?: FarmEndgameShopPurchaseResult;
+  breeding?: FarmBreedingContext;
+  breedResult?: FarmBreedingResult;
   levelCurveMigrated?: boolean;
 };
 
@@ -77,6 +80,7 @@ export type FarmClientState = {
   busyShopItemId: string | null;
   busyEndgameShopItemId: string | null;
   busyPlotUpgrade: boolean;
+  busyBreedCropId: FarmCropId | null;
   busyRanchFeedSlotId: RanchFeedTarget | null;
   busyRanchCollect: boolean;
   busyRanchUpgradeSlotId: RanchSlotId | null;
@@ -96,6 +100,7 @@ export type FarmClientState = {
   weeklyDeliveries: FarmWeeklyDeliveryRequest[];
   shopItems: FarmShopItem[];
   endgameShop: FarmEndgameShopView | null;
+  breedingInfo: FarmBreedingContext;
   lastResult: FarmHarvestResult | null;
   lastDeliveryResult: FarmDeliveryResult | null;
   lastSpecialDeliveryResult: FarmSpecialDeliveryResult | null;
@@ -118,6 +123,7 @@ export type FarmClientState = {
   buyShopItem: (itemId: string) => Promise<void>;
   buyEndgameShopItem: (itemId: string) => Promise<void>;
   buyPlotUpgrade: () => Promise<void>;
+  breedCrop: (cropId: FarmCropId) => Promise<void>;
   feedRanchSlot: (slotId: RanchFeedTarget, amount: number) => Promise<void>;
   collectRanch: () => Promise<void>;
   buyRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
@@ -134,6 +140,7 @@ export type FarmNotice =
   | { id: number; kind: "shop"; result: FarmShopPurchaseResult }
   | { id: number; kind: "endgameShop"; result: FarmEndgameShopPurchaseResult }
   | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult }
+  | { id: number; kind: "breed"; result: FarmBreedingResult }
   | { id: number; kind: "fertilizer"; reducedMs: number }
   | { id: number; kind: "uproot" }
   | { id: number; kind: "batchPlant"; count: number; cropName: string }
@@ -194,6 +201,11 @@ export function useFarm(): FarmClientState {
   >([]);
   const [shopItems, setShopItems] = useState<FarmShopItem[]>([]);
   const [endgameShop, setEndgameShop] = useState<FarmEndgameShopView | null>(null);
+  const [breedingInfo, setBreedingInfo] = useState<FarmBreedingContext>({
+    masterUnlocked: false,
+    masterCropHeld: 0,
+  });
+  const [busyBreedCropId, setBusyBreedCropId] = useState<FarmCropId | null>(null);
   const [lastResult, setLastResult] = useState<FarmHarvestResult | null>(null);
   const [lastDeliveryResult, setLastDeliveryResult] =
     useState<FarmDeliveryResult | null>(null);
@@ -293,6 +305,10 @@ export function useFarm(): FarmClientState {
         kind: "endgameShop",
         result: data.endgameShopResult,
       });
+    }
+    if (data.breeding) setBreedingInfo(data.breeding);
+    if (data.breedResult) {
+      setNotice({ id: Date.now(), kind: "breed", result: data.breedResult });
     }
     if (data.plotUpgradeResult) {
       setLastPlotUpgradeResult(data.plotUpgradeResult);
@@ -617,6 +633,27 @@ export function useFarm(): FarmClientState {
     }
   }, [apply, reportError]);
 
+  const breedCrop = useCallback(
+    async (cropId: FarmCropId) => {
+      setBusyBreedCropId(cropId);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/breed", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ cropId }),
+        });
+        const data = (await res.json()) as FarmResponse;
+        apply(data);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyBreedCropId(null);
+      }
+    },
+    [apply, reportError],
+  );
+
   const feedRanchSlot = useCallback(
     async (slotId: RanchFeedTarget, amount: number) => {
       setBusyRanchFeedSlotId(slotId);
@@ -747,6 +784,7 @@ export function useFarm(): FarmClientState {
     busyShopItemId,
     busyEndgameShopItemId,
     busyPlotUpgrade,
+    busyBreedCropId,
     busyRanchFeedSlotId,
     busyRanchCollect,
     busyRanchUpgradeSlotId,
@@ -766,6 +804,7 @@ export function useFarm(): FarmClientState {
     weeklyDeliveries,
     shopItems,
     endgameShop,
+    breedingInfo,
     lastResult,
     lastDeliveryResult,
     lastSpecialDeliveryResult,
@@ -788,6 +827,7 @@ export function useFarm(): FarmClientState {
     buyShopItem,
     buyEndgameShopItem,
     buyPlotUpgrade,
+    breedCrop,
     feedRanchSlot,
     collectRanch,
     buyRanchSlot,
@@ -835,6 +875,11 @@ export function farmErrorMessage(error: unknown): string {
       endgame_shop_locked: "밭과 유료 축사를 모두 열면 농장주의 교환소를 이용할 수 있습니다.",
       already_owned: "이미 보유한 칭호입니다.",
       shop_item_not_found: "교환 상품 정보를 찾을 수 없습니다.",
+      breeding_max: "이미 최고 단계입니다.",
+      breeding_master_locked: "명장 품종은 농사 주전공 명장 3단계부터 올릴 수 있습니다.",
+      not_enough_crops: "작물이 부족합니다.",
+      not_enough_rare_crops: "희귀 작물이 부족합니다.",
+      not_enough_master_crop: "명장 작물이 부족합니다.",
       rate_limited: "요청이 너무 많아 잠시 멈췄습니다. 잠시 후 다시 시도해 주세요.",
     }[message] ?? "요청에 실패했습니다."
   );

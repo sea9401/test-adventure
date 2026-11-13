@@ -39,6 +39,7 @@ import {
 import {
   DANGEROUS_FISHING_SAVE_KEY,
   DANGEROUS_REALTIME_FINISH_GRACE_MS,
+  dangerousDailyCatchCapReached,
   parseDangerousFishingState,
   recoverExpiredRealtimeBossAttempt,
   recoverExpiredRealtimeVoyageEncounter,
@@ -66,6 +67,7 @@ import {
 } from "@/lib/server/savesKv";
 import {
   caughtSize,
+  dailyCatchCapFailure,
   dangerousRealtimeEncounterView,
   pickFish,
   prepareDangerousFishingCatchFromLockedSaves,
@@ -301,6 +303,10 @@ export async function startRealtimeEncounterInTx(
   }
   if (!state.voyage) return fail("no_voyage", 409);
   if (state.voyage.encounter) return fail("encounter_active", 409);
+  // 한도 확인은 사고 판정과 미끼 소비보다 먼저 한다.
+  if (dangerousDailyCatchCapReached(state, args.now)) {
+    return dailyCatchCapFailure();
+  }
 
   const progress = parseFishingProgression(saves[FISHING_PROGRESS_KEY]);
   const skills = parseV2SkillsState(saves["skills.v2"]);

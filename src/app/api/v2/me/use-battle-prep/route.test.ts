@@ -77,6 +77,24 @@ describe("전투 준비물 사용", () => {
     });
   });
 
+  it("어유를 쓰면 기력 보충 칸만 바뀌고 다른 칸은 유지된다", async () => {
+    mocks.store.set("character.v2", {
+      materials: { v2_prep_fishoil_3: 2 },
+      activeBattlePreps: { weapon: { itemId: "v2_prep_whetstone_2", expiresAt: NOW + 1_000 } },
+    });
+
+    const response = await POST(request("v2_prep_fishoil_3"));
+
+    expect(await response.json()).toMatchObject({ ok: true, slot: "vigor", expiresAt: NOW + 12 * HOUR, owned: 1 });
+    expect(mocks.store.get("character.v2")).toEqual({
+      materials: { v2_prep_fishoil_3: 1 },
+      activeBattlePreps: {
+        weapon: { itemId: "v2_prep_whetstone_2", expiresAt: NOW + 1_000 },
+        vigor: { itemId: "v2_prep_fishoil_3", expiresAt: NOW + 12 * HOUR },
+      },
+    });
+  });
+
   it("미보유는 409, 모르는 품목은 400이고 세이브를 바꾸지 않는다", async () => {
     const before = { materials: { v2_prep_brace_1: 1 } };
     mocks.store.set("character.v2", before);

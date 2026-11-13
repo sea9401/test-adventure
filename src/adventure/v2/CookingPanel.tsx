@@ -13,6 +13,8 @@ import { CookingResearchPanel } from "./cooking/CookingResearchPanel";
 import { CookingCodexPanel } from "./cooking/CookingCodexPanel";
 import { CookingPublicDiscoveryPanel } from "./cooking/CookingPublicDiscoveryPanel";
 import { CookingSpecialtyPanel } from "./cooking/CookingSpecialtyPanel";
+import { CookingBranchPanel } from "./cooking/CookingBranchPanel";
+import { COOKING_BRANCH_BY_ID, type CookingBranchId } from "./cooking/branch";
 import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
 import type { CookingMutation, CookingResponse } from "./cooking/clientTypes";
@@ -48,6 +50,10 @@ const ERROR_TEXT: Record<string, string> = {
   signature_locked: "요리 주전공 명장 3단계부터 명장 요리를 만들 수 있습니다.",
   not_masterpiece: "걸작 요리만 명장 요리로 만들 수 있습니다.",
   not_enough_master_product: "필요한 명장 산물이 부족합니다.",
+  branch_locked: "전문 분야 랭크 5가 되어야 특화를 고를 수 있습니다.",
+  invalid_branch: "자기 전문 분야의 특화만 고를 수 있습니다.",
+  branch_unchanged: "이미 고른 특화입니다.",
+  branch_cooldown: "특화를 바꾼 지 14일이 지나야 다시 바꿀 수 있습니다.",
 };
 
 export function cookingErrorText(code: string): string {
@@ -113,7 +119,13 @@ export function cookingResultMessage(data: CookingResponse): string {
     const failedDishCount = Math.max(0, Math.floor(Number(result.failedDishCount) || 0));
     return `조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +${earnedXp.toLocaleString("ko-KR")} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
   }
-  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? "요리"} ${Number(result.quantity) || 1}개 완성 · ${cookingQualityResultText(result)}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
+  if (result.action === "choose_branch") {
+    const branchName = COOKING_BRANCH_BY_ID.get(result.branchId as CookingBranchId)?.name ?? "";
+    return result.changed
+      ? `${branchName} 특화로 바꿨습니다. 14일 뒤에 다시 바꿀 수 있습니다.`
+      : `${branchName} 특화를 골랐습니다.`;
+  }
+  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? (typeof result.recipeName === "string" ? result.recipeName : "요리")} ${Number(result.quantity) || 1}개 완성 · ${cookingQualityResultText(result)}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
   if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;
@@ -149,7 +161,10 @@ export function CookingWorkspace({ data, section, onSectionChange, busy, mutate 
     {section === "research" ? <CookingResearchPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "codex" ? <CookingCodexPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "public" ? <CookingPublicDiscoveryPanel discoveries={data.publicDiscoveries} /> : null}
-    {section === "specialty" ? <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} /> : null}
+    {section === "specialty" ? <div className="space-y-4">
+      <CookingSpecialtyPanel data={data} busy={busy} mutate={mutate} />
+      <CookingBranchPanel data={data} busy={busy} mutate={mutate} />
+    </div> : null}
     {section === "delivery" ? <CookingDeliveryPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "processing" ? <CookingProcessingPanel data={data} busy={busy} mutate={mutate} /> : null}
     {section === "signature" ? <CookingSignaturePanel data={data} busy={busy} mutate={mutate} /> : null}

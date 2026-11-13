@@ -172,6 +172,30 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain(`${V2_JOB_LIST.length}개 중 ${V2_JOB_LIST.length}개`);
   });
 
+  it("어유의 칸·효과·재료·제작 조건을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("낚시 어획물로 어유를 만듭니다");
+    expect(html).toContain("무기 손질·방어구 손질·기력 보충에 하나씩");
+    for (const text of [
+      "초급 어유",
+      "기력 보충",
+      "최대 MP +250",
+      "최대 MP +1,100",
+      "일반 어획물 3, 신선한 어획물 1",
+      "고급 어획물 4, 특급 어획물 1, 위험 해역 희귀 이상 어획물 2",
+      "특급 어획물 2, 전설의 어획물 1, 위험 해역 영웅 이상 어획물 2, 명장 어획 1",
+      "낚시 Lv.15",
+      "낚시 Lv.25",
+      "낚시 주전공 명장 3단계",
+    ]) {
+      expect(html, text).toContain(text);
+    }
+    expect(html).toContain("희귀·영웅·전설 등급 어획물을 어종과 상관없이 합쳐서 냅니다");
+    expect(html).toContain("어유는 낚시 주전공");
+    expect(html).toContain("상급 어유와 명장의 어유의 재료로도 씁니다");
+  });
+
   it("전투 준비물의 칸·효과·재료·제작 조건을 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 
@@ -182,7 +206,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("마력 합금 20");
     expect(html).toContain("채광 Lv.35");
     expect(html).toContain("벌목 주전공 명장 3단계");
-    expect(html).toContain("음식 효과는 무기 손질·방어구 손질과 함께 적용됩니다.");
+    expect(html).toContain("음식 효과는 무기 손질·방어구 손질·기력 보충과 함께 적용됩니다.");
     expect(html).toContain("준비물은 거래소에서 거래할 수 있습니다.");
     expect(html).not.toMatch(/v2_prep_/);
   });
@@ -478,6 +502,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("15코인");
     expect(html).toContain("농장 씨앗 주머니");
     expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
+  });
+
+  it("위험 해역의 하루 어획 한도와 초기화 시각을 안내한다", () => {
+    const text = renderToStaticMarkup(<PastimesContent />).replace(/<[^>]+>/g, "");
+
+    expect(text).toContain("하루에 150마리까지 낚을");
+    expect(text).toContain("매일 자정에 초기화");
+    expect(text).toContain("진행 중인 항해의 귀환만 할 수 있습니다");
+    expect(text).toContain("거대어 제압은 이 한도에 들어가지 않습니다");
   });
 
   it("일반 낚시와 위험 해역 실시간 조작을 구분해 안내한다", () => {

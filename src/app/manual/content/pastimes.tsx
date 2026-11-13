@@ -25,6 +25,7 @@ import {
   FISHING_CATCH_COIN_BY_TIER,
   FISHING_CATCH_COIN_DAILY_CAP,
 } from "@/lib/server/fishing/coins";
+import { DANGEROUS_DAILY_CATCH_CAP } from "@/adventure/data/v2/dangerousFishing";
 import { DANGEROUS_FISHING_UNLOCK_LEVEL } from "@/adventure/v2/dangerousFishingHeritage";
 import { DANGEROUS_REALTIME_TICK_MS } from "@/adventure/v2/dangerousFishingRealtime";
 import {
@@ -65,6 +66,7 @@ import {
 } from "@/adventure/v2/lifeFestival";
 import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/foodShared";
+import { CookingBranchManualSection } from "./pastimes-cooking-branch";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
@@ -76,11 +78,25 @@ import {
 } from "@/adventure/v2/lifeMajor";
 import { LIFE_RECORD_PATH } from "@/adventure/v2/lifeMajorRules";
 import {
+  FARM_BREEDING_BASE_MAX_STAGE,
+  FARM_BREEDING_MASTER_STAGE,
+  FARM_BREEDING_STAGE_COSTS,
+  FARM_BREEDING_TITLE_TOTAL_STAGE,
+  farmBreedingRareChancePct,
+} from "@/adventure/v2/farmBreeding";
+import {
+  FARM_BREED_MASTER_TITLE_ID,
+  FARM_BREEDER_TITLE_ID,
+  TITLES,
+} from "@/adventure/data/titles";
+import {
   BATTLE_PREP_ITEMS,
   BATTLE_PREP_SLOT_NAME,
   battlePrepEffectText,
+  dangerCatchCostName,
   type BattlePrepItem,
 } from "@/adventure/data/v2/battlePrep";
+import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
@@ -88,18 +104,37 @@ const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
 const BATTLE_PREP_MASTER_HOURS =
   Math.max(...BATTLE_PREP_ITEMS.map((item) => item.durationMs)) / 3_600_000;
 
-function battlePrepCostText(costs: Record<string, number>): string {
-  return Object.entries(costs)
-    .map(([id, amount]) => `${V2_MATERIALS[id]?.name ?? id} ${amount}`)
-    .join(", ");
+function battlePrepCostText(item: BattlePrepItem): string {
+  return [
+    ...FISHING_CATCH_ITEM_LIST.flatMap((entry) => {
+      const amount = item.catchCosts?.[entry.id];
+      return amount ? [`${entry.name} ${amount}`] : [];
+    }),
+    ...(item.dangerCatchCost
+      ? [`${dangerCatchCostName(item.dangerCatchCost.minRarity)} ${item.dangerCatchCost.amount}`]
+      : []),
+    ...Object.entries(item.costs).map(([id, amount]) => `${V2_MATERIALS[id]?.name ?? id} ${amount}`),
+  ].join(", ");
 }
 
+const BATTLE_PREP_ACTIVITY_NAME: Record<BattlePrepItem["activity"], string> = {
+  mining: "채광",
+  woodcutting: "벌목",
+  fishing: "낚시",
+};
+
 function battlePrepConditionText(item: BattlePrepItem): string {
-  const activity = item.activity === "mining" ? "채광" : "벌목";
+  const activity = BATTLE_PREP_ACTIVITY_NAME[item.activity];
   return item.requiresMajor
     ? `${activity} 주전공 명장 ${LIFE_MAJOR_CRAFT_MIN_STAGE}단계`
     : `${activity} Lv.${item.requiredLevel}`;
 }
+const FARM_BREEDING_BASE_COSTS = FARM_BREEDING_STAGE_COSTS.slice(
+  0,
+  FARM_BREEDING_BASE_MAX_STAGE,
+);
+const FARM_BREEDING_MASTER_COST =
+  FARM_BREEDING_STAGE_COSTS[FARM_BREEDING_MASTER_STAGE - 1];
 const fishList = Object.values(FISH);
 const normalFishCount = fishList.filter((fish) => !fish.condition).length;
 const specialFishCount = fishList.length - normalFishCount;
@@ -263,9 +298,15 @@ export function PastimesContent() {
           강화석과 함께 쓸 수 있고, 하락하지 않는 단계에서는 쓸 수 없습니다.
         </li>
         <li>
-          <Em>명장의 숫돌·명장의 보강재</Em>: 숫돌은 채광 주전공, 보강재는 벌목 주전공 명장{" "}
+          <Em>명장의 숫돌·명장의 보강재·명장의 어유</Em>: 숫돌은 채광 주전공, 보강재는 벌목 주전공,
+          어유는 낚시 주전공 명장{" "}
           {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 생활 공방의 제작 탭에서 만듭니다. 부전공으로는
           만들 수 없고, 다른 등급의 두 배인 {BATTLE_PREP_MASTER_HOURS}시간 지속됩니다.
+        </li>
+        <li>
+          <Em>명장 품종</Em>: 농사 주전공 명장 {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 농장의 품종
+          탭에서 작물을 {FARM_BREEDING_MASTER_STAGE}단계로 올릴 수 있습니다. 부전공으로는 올릴 수
+          없고, 한 번 올린 단계는 전공을 바꿔도 유지됩니다.
         </li>
       </UL>
 
@@ -327,6 +368,23 @@ export function PastimesContent() {
           농장 증표 20개로 배합 사료 5개, 증표 24개로 유기질 거름 3개를 제한 없이
           교환하고 전용 칭호를 구매할 수 있습니다.
         </li>
+        <li>
+          농장의 <Em>품종</Em> 탭에서 작물마다 품종을 개량합니다. 그 작물의 일반 작물과 희귀
+          작물을 써서 한 단계씩 올리며, {FARM_BREEDING_BASE_MAX_STAGE}단계까지 단계마다 그 작물의
+          희귀 수확 확률이 <Em>+{farmBreedingRareChancePct(1)}%p</Em> 오릅니다. 단계별 비용은 일반
+          작물이 수확 {FARM_BREEDING_BASE_COSTS.map((cost) => cost.harvests).join("·")}회분, 희귀
+          작물이 {FARM_BREEDING_BASE_COSTS.map((cost) => cost.rare).join("·")}개입니다. 수확 1회분은
+          그 작물의 기본 평균 수확량이며, 작물별 수량은 품종 탭에 표시됩니다.
+        </li>
+        <li>
+          {FARM_BREEDING_MASTER_STAGE}단계 명장 품종은 수확 {FARM_BREEDING_MASTER_COST.harvests}회분,
+          희귀 작물 {FARM_BREEDING_MASTER_COST.rare}개, 명장 작물{" "}
+          {FARM_BREEDING_MASTER_COST.masterCrop}개가 들고 희귀 수확 확률이 모두{" "}
+          <Em>+{farmBreedingRareChancePct(FARM_BREEDING_MASTER_STAGE)}%p</Em>가 됩니다. 품종 단계
+          합계가 {FARM_BREEDING_TITLE_TOTAL_STAGE}에 이르면 칭호 ‘{TITLES[FARM_BREEDER_TITLE_ID].name}’,
+          모든 작물을 {FARM_BREEDING_BASE_MAX_STAGE}단계 이상으로 올리면 ‘
+          {TITLES[FARM_BREED_MASTER_TITLE_ID].name}’를 받습니다.
+        </li>
       </UL>
 
       <P>생활 숙련도 랭킹에는 농사 레벨이 50을 넘어도 실제 레벨을 합산합니다.</P>
@@ -353,7 +411,7 @@ export function PastimesContent() {
           같은 음식과 다른 음식 모두 새로 사용한 시점부터 12시간으로 교체되며 시간은 누적되지 않습니다.
           적용 중인 효과는 모험 탭의 캐릭터 간략 정보에서 확인할 수 있습니다. 음식 효과는 <Em>사냥 PvE 전용</Em>이며
           아레나·챔피언십·거점전·훈련 대련·스탯 합계 랭킹에는 반영되지 않습니다.
-          음식 효과는 무기 손질·방어구 손질과 함께 적용됩니다.
+          음식 효과는 무기 손질·방어구 손질·기력 보충과 함께 적용됩니다.
         </li>
         <li>
           음식 효과는 공격력·방어력·HP·MP 같은 고정 수치, 소규모 주 능력치, 사냥 경험치·골드,
@@ -378,11 +436,13 @@ export function PastimesContent() {
           장착 생활 스킬의 경험치·품질·재료 절약 보너스도 계속 적용됩니다.
         </li>
       </UL>
+      <CookingBranchManualSection />
 
       <H2>전투 준비물</H2>
       <P>
-        생활 공방의 제작 탭에서 벌목·채광 가공재로 숫돌과 보강재를 만듭니다. 인벤토리의 소모품
-        탭에서 사용하며, 무기 손질과 방어구 손질에 하나씩 음식과 함께 적용됩니다.
+        생활 공방의 제작 탭에서 벌목·채광 가공재로 숫돌과 보강재를, 낚시 어획물로 어유를 만듭니다.
+        인벤토리의 소모품 탭에서 사용하며, 무기 손질·방어구 손질·기력 보충에 하나씩 음식과 함께
+        적용됩니다.
       </P>
       <P>
         같은 칸에 다시 쓰면 새로 쓴 것으로 바뀌고 시간은 합쳐지지 않습니다. 효과는 사냥 전용이며
@@ -395,11 +455,15 @@ export function PastimesContent() {
           BATTLE_PREP_SLOT_NAME[item.slot],
           battlePrepEffectText(item.effect),
           `${item.durationMs / 3_600_000}시간`,
-          battlePrepCostText(item.costs),
+          battlePrepCostText(item),
           battlePrepConditionText(item),
         ])}
         caption="준비물은 거래소에서 거래할 수 있습니다."
       />
+      <P>
+        위험 해역 희귀 이상 어획물은 위험 해역에서 낚은 희귀·영웅·전설 등급 어획물을 어종과 상관없이 합쳐서 냅니다.
+        낮은 등급부터 쓰이고, 영웅 이상은 영웅·전설 등급만 받습니다.
+      </P>
 
       <H2>벌목과 채광</H2>
       <P>
@@ -570,6 +634,13 @@ export function PastimesContent() {
         <li>
           포획한 재료는 먼저 <Em>귀환 전 화물</Em>에 쌓입니다. <Em>안전 귀환</Em>을
           마쳐야 거래 가능한 재료로 확정되며, 안전 귀환 자체에는 사고 판정이 없습니다.
+          안전 귀환한 희귀 등급 이상 어획물은 상급 어유와 명장의 어유의 재료로도 씁니다.
+        </li>
+        <li>
+          위험 해역에서는 하루에 <Em>{DANGEROUS_DAILY_CATCH_CAP}마리</Em>까지 낚을
+          수 있습니다. 한도는 매일 자정에 초기화되며, 한도에 닿으면 새 출항과 새
+          낚시가 막히고 진행 중인 항해의 귀환만 할 수 있습니다. 거대어 제압은 이
+          한도에 들어가지 않습니다.
         </li>
         <li>
           위험도 0~2에는 사고가 없습니다. 다음 투척 시 위험도 3은 <Em>12%</Em>,

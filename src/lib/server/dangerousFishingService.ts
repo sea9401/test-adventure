@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import {
   DANGEROUS_BAITS,
+  DANGEROUS_DAILY_CATCH_CAP,
   DANGEROUS_DEPTHS,
   DANGEROUS_FISH,
   DANGEROUS_LINES,
@@ -51,6 +52,7 @@ import {
 import {
   applyDangerousAccidentAndReturn,
   DANGEROUS_FISHING_SAVE_KEY,
+  dangerousDailyCatchCapReached,
   dangerousRiskPreview,
   parseDangerousFishingState,
   recoverExpiredRealtimeBossAttempt,
@@ -123,6 +125,13 @@ type CharacterSave = Record<string, unknown> & {
 
 function fail(error: string, status: number, detail = {}): ServiceError {
   return { ok: false, error, status, ...detail };
+}
+
+/** 하루 어획 한도에 닿았을 때의 공통 거부 응답. 출항과 낚시 시작이 함께 쓴다. */
+export function dailyCatchCapFailure(): ServiceError {
+  return fail("daily_catch_cap", 409, {
+    dailyCatchCap: DANGEROUS_DAILY_CATCH_CAP,
+  });
 }
 
 export function dangerousRealtimeEncounterView(
@@ -339,6 +348,9 @@ export async function startVoyageInTx(
   const zone = DANGEROUS_ZONES[args.zoneId];
   if (fishingLevel < zone.unlockLevel) {
     return fail("zone_level_locked", 403, { requiredLevel: zone.unlockLevel });
+  }
+  if (dangerousDailyCatchCapReached(dangerous, args.now)) {
+    return dailyCatchCapFailure();
   }
   const risk = Math.min(
     5,
@@ -564,6 +576,10 @@ export async function startEncounterInTx(
   }
   if (!state.voyage) return fail("no_voyage", 409);
   if (state.voyage.encounter) return fail("encounter_active", 409);
+  // 한도 확인은 사고 판정과 미끼 소비보다 먼저 한다.
+  if (dangerousDailyCatchCapReached(state, args.now)) {
+    return dailyCatchCapFailure();
+  }
 
   const progress = parseFishingProgression(saves[FISHING_PROGRESS_KEY]);
   const skills = parseV2SkillsState(saves["skills.v2"]);

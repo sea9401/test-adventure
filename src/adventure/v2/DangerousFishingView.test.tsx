@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DANGEROUS_BAITS,
+  DANGEROUS_DAILY_CATCH_CAP,
   DANGEROUS_DEPTHS,
   DANGEROUS_FISH,
   DANGEROUS_LINES,
@@ -656,6 +657,107 @@ describe("위험 해역 개인 화면", () => {
     expect(html).toContain("전설 어종(거대어 제외) 출현 가중치 +100%");
     expect(html).toContain("시작 어체력 10% 감소");
     expect(html).toContain("모든 행동 장력 충격 12% 감소");
+  });
+
+  describe("하루 어획 한도", () => {
+    // model()의 now(1_800_000_000_000)는 한국 시간 2027-01-15다.
+    const TODAY = "2027-01-15";
+
+    function sailing(dailyCatch: { date: string; caught: number }) {
+      return model({
+        state: {
+          ...emptyDangerousFishingState(),
+          dailyCatch,
+          bossAttempt: null,
+          voyage: {
+            id: "voyage-1",
+            zoneId: "storm_trench",
+            depthId: "midwater",
+            risk: 2,
+            startedAt: 1_799_999_000_000,
+            encounter: null,
+            cargo: [],
+          },
+        },
+      });
+    }
+
+    function renderView(viewModel: DangerousFishingViewModel) {
+      render(
+        <DangerousFishingView
+          model={viewModel}
+          boss={null}
+          loading={false}
+          busy={null}
+          error={null}
+          {...handlers}
+        />,
+      );
+    }
+
+    it("항해 중에는 오늘 낚은 수와 한도를 보여 주고 한도 전에는 낚시를 막지 않는다", () => {
+      renderView(sailing({ date: TODAY, caught: 12 }));
+      expect(screen.getByText(`오늘 어획 12/${DANGEROUS_DAILY_CATCH_CAP}`)).toBeTruthy();
+      expect(
+        (screen.getByRole("button", { name: "낚시 준비" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false);
+    });
+
+    it("다른 날의 기록은 0마리로 보여 준다", () => {
+      renderView(sailing({ date: "2027-01-14", caught: DANGEROUS_DAILY_CATCH_CAP }));
+      expect(screen.getByText(`오늘 어획 0/${DANGEROUS_DAILY_CATCH_CAP}`)).toBeTruthy();
+      expect(
+        (screen.getByRole("button", { name: "낚시 준비" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false);
+    });
+
+    it("항해 중 한도에 닿으면 낚시 준비를 막고 귀환과 초기화 시각을 안내한다", () => {
+      renderView(sailing({ date: TODAY, caught: DANGEROUS_DAILY_CATCH_CAP }));
+      expect(
+        (screen.getByRole("button", { name: "낚시 준비" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+      expect(
+        screen.getByText(
+          `오늘 낚을 수 있는 ${DANGEROUS_DAILY_CATCH_CAP}마리를 모두 낚았습니다. 화물은 귀환하면 확정되고, 자정이 지나면 다시 낚을 수 있습니다.`,
+        ),
+      ).toBeTruthy();
+      expect(
+        (screen.getByRole("button", { name: "안전 귀환" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false);
+    });
+
+    it("출항 전 한도에 닿아 있으면 출항을 막고 이유를 버튼에 적는다", () => {
+      renderView(
+        model({
+          state: {
+            ...emptyDangerousFishingState(),
+            dailyCatch: { date: TODAY, caught: DANGEROUS_DAILY_CATCH_CAP },
+            voyage: null,
+            bossAttempt: null,
+          },
+        }),
+      );
+      expect(
+        screen.getByText(
+          `오늘 어획 ${DANGEROUS_DAILY_CATCH_CAP}/${DANGEROUS_DAILY_CATCH_CAP}`,
+        ),
+      ).toBeTruthy();
+      const depart = screen.getByRole("button", {
+        name: "오늘 어획 한도 도달",
+      }) as HTMLButtonElement;
+      expect(depart.disabled).toBe(true);
+      expect(screen.queryByRole("button", { name: "출항하기" })).toBeNull();
+    });
+
+    it("서버가 한도로 거부하면 한도와 초기화 시각을 알려 준다", () => {
+      expect(dangerousFishingErrorMessage("daily_catch_cap")).toBe(
+        `오늘 낚을 수 있는 ${DANGEROUS_DAILY_CATCH_CAP}마리를 모두 낚았습니다. 자정이 지나면 다시 낚을 수 있습니다.`,
+      );
+    });
   });
 
   it("일반 조우는 준비와 실제 시작을 분리하고 두 번째 입력에서만 시작한다", async () => {

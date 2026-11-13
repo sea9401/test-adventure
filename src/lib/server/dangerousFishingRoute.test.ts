@@ -144,10 +144,12 @@ import {
 } from "@/adventure/v2/autoGathering";
 import {
   DANGEROUS_BOSSES,
+  DANGEROUS_DAILY_CATCH_CAP,
   DANGEROUS_FISH,
   isDangerousFishId,
 } from "@/adventure/data/v2/dangerousFishing";
 import { pickFish } from "@/lib/server/dangerousFishingService";
+import { kstDayKey } from "@/lib/kst";
 
 const NOW = 1_800_100_000_000;
 
@@ -2186,6 +2188,154 @@ describe("위험 해역 개인 Route Handler", () => {
     );
     expect(equip.status).toBe(200);
     expect(savedDangerousState().loadout.reelId).toBe("current_reel");
+  });
+
+  describe("하루 어획 한도", () => {
+    const TODAY = kstDayKey(new Date(NOW));
+
+    function setDailyCatch(date: string, caught: number) {
+      store.set(DANGEROUS_FISHING_SAVE_KEY, {
+        ...savedDangerousState(),
+        dailyCatch: { date, caught },
+      });
+    }
+
+    it("한도에 닿으면 새 낚시를 409로 막고 미끼·화물·위험 판정을 건드리지 않는다", async () => {
+      await startVoyage();
+      const sailing = savedDangerousState();
+      if (!sailing.voyage) throw new Error("voyage missing");
+      store.set(DANGEROUS_FISHING_SAVE_KEY, {
+        ...sailing,
+        baitCounts: { luminous_bait: 2 },
+        dailyCatch: { date: TODAY, caught: DANGEROUS_DAILY_CATCH_CAP },
+        voyage: {
+          ...sailing.voyage,
+          risk: 5,
+          cargo: [
+            {
+              fishId: "ironjaw_tuna",
+              materialId: "danger_catch_ironjaw_tuna",
+              quantity: 4,
+              totalValue: 840,
+            },
+          ],
+        },
+      });
+      // 사고 판정이 돌면 반드시 사고가 나는 굴림이다.
+      vi.mocked(Math.random).mockReturnValue(0);
+      const before = savedDangerousState();
+
+      for (const action of ["start", "start_realtime"] as const) {
+        const response = await ENCOUNTER(
+          request("encounter", { action, baitId: "luminous_bait" }),
+        );
+        expect(response.status).toBe(409);
+        await expect(response.json()).resolves.toMatchObject({
+          ok: false,
+          error: "daily_catch_cap",
+          dailyCatchCap: DANGEROUS_DAILY_CATCH_CAP,
+        });
+      }
+      expect(savedDangerousState()).toEqual(before);
+    });
+
+    it("한도에 닿으면 새 출항도 막지만 진행 중인 항해의 귀환은 허용한다", async () => {
+      setDailyCatch(TODAY, DANGEROUS_DAILY_CATCH_CAP);
+      const blocked = await startVoyage();
+      expect(blocked.status).toBe(409);
+      await expect(blocked.json()).resolves.toMatchObject({
+        ok: false,
+        error: "daily_catch_cap",
+        dailyCatchCap: DANGEROUS_DAILY_CATCH_CAP,
+      });
+      expect(savedDangerousState().voyage).toBeNull();
+
+      setDailyCatch(TODAY, DANGEROUS_DAILY_CATCH_CAP - 1);
+      expect((await startVoyage()).status).toBe(200);
+      setDailyCatch(TODAY, DANGEROUS_DAILY_CATCH_CAP);
+      const returned = await VOYAGE(request("voyage", { action: "return" }));
+      expect(returned.status).toBe(200);
+      expect(savedDangerousState().voyage).toBeNull();
+    });
+
+    it("어제 채운 한도는 오늘 낚시를 막지 않는다", async () => {
+      setDailyCatch("2000-01-01", DANGEROUS_DAILY_CATCH_CAP);
+      expect((await startVoyage()).status).toBe(200);
+      const response = await ENCOUNTER(
+        request("encounter", { action: "start", baitId: "basic_bait" }),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("마지막 한 마리를 잡으면 수량이 한도가 되고 다음 낚시부터 막힌다", async () => {
+      await startVoyage();
+      setDailyCatch(TODAY, DANGEROUS_DAILY_CATCH_CAP - 1);
+      await ENCOUNTER(
+        request("encounter", { action: "start", baitId: "basic_bait" }),
+      );
+      const state = savedDangerousState();
+      if (!state.voyage?.encounter) throw new Error("encounter fixture missing");
+      const encounter = {
+        ...state.voyage.encounter,
+        behaviorPattern: ["turn"],
+        stamina: 5,
+        distance: 5,
+        nextActionAt: NOW,
+      };
+      store.set(DANGEROUS_FISHING_SAVE_KEY, {
+        ...state,
+        voyage: { ...state.voyage, encounter },
+      });
+
+      const caught = await ENCOUNTER(
+        request("encounter", {
+          action: "reel",
+          encounterId: encounter.id,
+          revision: encounter.revision,
+        }),
+      );
+      expect(caught.status).toBe(200);
+      const caughtJson = await caught.json();
+      expect(caughtJson).toMatchObject({
+        event: "caught",
+        state: { dailyCatch: { date: TODAY, caught: DANGEROUS_DAILY_CATCH_CAP } },
+      });
+      expect(savedDangerousState().dailyCatch).toEqual({
+        date: TODAY,
+        caught: DANGEROUS_DAILY_CATCH_CAP,
+      });
+
+      const next = await ENCOUNTER(
+        request("encounter", { action: "start_realtime", baitId: "basic_bait" }),
+      );
+      expect(next.status).toBe(409);
+      await expect(next.json()).resolves.toMatchObject({
+        error: "daily_catch_cap",
+      });
+    });
+
+    it("실시간 낚시의 어획도 같은 수량에 더한다", async () => {
+      await startVoyage();
+      setDailyCatch(TODAY, 7);
+      const encounter = await startRealtime();
+      const transcript = responsiveTranscript(encounter);
+      expect(transcript.state.status).toBe("caught");
+      vi.mocked(Date.now).mockReturnValue(
+        encounter.startedAt + transcript.clientTick * 50,
+      );
+      const response = await finishRealtime(encounter, transcript, "daily-cap-finish");
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ event: "caught" });
+      expect(savedDangerousState().dailyCatch).toEqual({ date: TODAY, caught: 8 });
+    });
+
+    it("상태 조회는 오늘 수량을 그대로 내려 준다", async () => {
+      setDailyCatch(TODAY, 42);
+      const response = await STATUS();
+      await expect(response.json()).resolves.toMatchObject({
+        state: { dailyCatch: { date: TODAY, caught: 42 } },
+      });
+    });
   });
 
   it("없는 항해 상태도 스타터 세트로 조회한다", async () => {

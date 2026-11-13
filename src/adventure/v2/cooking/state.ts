@@ -10,6 +10,7 @@ import {
   COOKING_PUBLIC_RECIPE_BY_ID,
 } from "./catalog";
 export { cookingSpecialtyRank } from "./specialty";
+import { parseCookingBranchState, type CookingBranchState } from "./branch";
 import type { CookingField } from "./types";
 import { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
 export { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
@@ -72,6 +73,8 @@ export type CookingStateV2 = {
     milestones: number[];
   };
   ingredientReductionRemainderBps?: Record<string, number>;
+  /** 요리 특화. 고른 적도 쌓은 숙련도 없으면 필드가 없다. */
+  branch?: CookingBranchState;
 };
 
 const safeInt = (value: unknown, maximum = Number.MAX_SAFE_INTEGER) =>
@@ -177,7 +180,10 @@ export function parseCookingState(
         : []),
     ]),
   ).filter((id): id is string =>
-    typeof id === "string" && COOKING_PUBLIC_RECIPE_BY_ID.has(id),
+    typeof id === "string" &&
+    COOKING_PUBLIC_RECIPE_BY_ID.has(id) &&
+    // 특화 전용 요리는 발견 대상이 아니다. 만들 수 있는지는 특화와 랭크로 판정한다.
+    COOKING_PUBLIC_RECIPE_BY_ID.get(id)?.discovery !== "branch",
   );
   const favoriteRecipeIds = Array.from(
     new Set(Array.isArray(source.favoriteRecipeIds) ? source.favoriteRecipeIds : []),
@@ -210,6 +216,12 @@ export function parseCookingState(
         return id.length <= 100 && parsed > 0 ? [[id, parsed]] : [];
       }),
   );
+  const specialty = parseSpecialty(source.specialty);
+  const branch = parseCookingBranchState(source.branch, specialty?.field ?? null);
+  const hasBranch =
+    branch.current !== null ||
+    branch.changedAt !== null ||
+    Object.keys(branch.xp).length > 0;
   return {
     version: 2,
     levelCurveVersion: normalized.levelCurveVersion,
@@ -217,7 +229,7 @@ export function parseCookingState(
     discoveredRecipeIds: discovered,
     favoriteRecipeIds,
     researchScore: safeInt(source.researchScore, 100_000_000),
-    specialty: parseSpecialty(source.specialty),
+    specialty,
     kitchenItems,
     stats: {
       dishesCooked: safeInt(source.stats?.dishesCooked),
@@ -253,6 +265,7 @@ export function parseCookingState(
     ...(Object.keys(ingredientReductionRemainderBps).length > 0
       ? { ingredientReductionRemainderBps }
       : {}),
+    ...(hasBranch ? { branch } : {}),
   };
 }
 

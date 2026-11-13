@@ -14,8 +14,8 @@ afterEach(() => {
 });
 
 const CONTEXT = {
-  levels: { mining: 25, woodcutting: 100 },
-  masterCraft: { mining: false, woodcutting: false },
+  levels: { mining: 25, woodcutting: 100, fishing: 20 },
+  masterCraft: { mining: false, woodcutting: false, fishing: false },
 };
 
 function json(body: unknown, status = 200) {
@@ -40,7 +40,7 @@ describe("생활 공방 전투 준비물 패널", () => {
     expect(source).not.toMatch(/from "\.\/lifeMajor"/);
   });
 
-  it("칸별로 8행을 보여 주고 막힌 이유와 재료 보유량을 알려 준다", async () => {
+  it("칸별로 12행을 보여 주고 막힌 이유와 재료 보유량을 알려 준다", async () => {
     stubFetch(() =>
       json({ ok: true, rows: battlePrepCraftRows({ materials: { v2_processed_softwood: 95 }, ...CONTEXT }) }),
     );
@@ -50,7 +50,8 @@ describe("생활 공방 전투 준비물 패널", () => {
     expect(screen.getByRole("heading", { name: "전투 준비물" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "무기 손질" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "방어구 손질" })).toBeTruthy();
-    expect(screen.getAllByRole("listitem")).toHaveLength(8);
+    expect(screen.getByRole("heading", { name: "기력 보충" })).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
     expect(row("상급 숫돌").textContent).toContain("채광 Lv.35부터 제작할 수 있습니다.");
     expect(row("명장의 보강재").textContent).toContain("벌목 주전공 명장 3단계부터 제작할 수 있습니다.");
     expect(row("초급 보강재").textContent).toContain("다듬은 목재 95/40");
@@ -109,5 +110,32 @@ describe("생활 공방 전투 준비물 패널", () => {
 
     expect(await screen.findByRole("button", { name: /다시/ })).toBeTruthy();
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  });
+});
+
+describe("생활 공방 전투 준비물 패널 — 어유", () => {
+  it("어획물 재고와 위험 해역 묶음 재료를 이름으로 보여 주고 낚시 조건을 안내한다", async () => {
+    stubFetch(() =>
+      json({
+        ok: true,
+        rows: battlePrepCraftRows({
+          materials: { danger_catch_ironjaw_tuna: 9, danger_catch_reef_maw_grouper: 5 },
+          catchItems: { catch_common: 7, catch_fresh: 6, catch_quality: 3 },
+          ...CONTEXT,
+        }),
+      }),
+    );
+    render(<BattlePrepCraftPanel busy={false} onNotice={vi.fn()} />);
+
+    await screen.findByText("초급 어유");
+    expect(screen.getByText(/무기 손질, 방어구 손질, 기력 보충은 음식과 함께 적용됩니다\./)).toBeTruthy();
+    expect(row("초급 어유").textContent).toContain("일반 어획물 7/3 · 신선한 어획물 6/1");
+    expect(row("초급 어유").textContent).toContain("최대 MP +250 · 12시간");
+    expect(screen.getByLabelText("초급 어유 제작 수량")).toBeTruthy();
+    expect(row("중급 어유").textContent).toContain("신선한 어획물 6/3 · 고급 어획물 3/3");
+    expect(row("상급 어유").textContent).toContain("낚시 Lv.25부터 제작할 수 있습니다.");
+    expect(row("상급 어유").textContent).toContain("위험 해역 희귀 이상 어획물 14/2");
+    expect(row("명장의 어유").textContent).toContain("낚시 주전공 명장 3단계부터 제작할 수 있습니다.");
+    expect(row("명장의 어유").textContent).toContain("위험 해역 영웅 이상 어획물 5/2 · 명장 어획 0/1");
   });
 });

@@ -10,6 +10,7 @@ import type {
 import { COOKING_METHOD_UNLOCK_LEVEL } from "./types";
 import { COOKING_EXPANSION_ROWS } from "./expansion";
 import { effectForCookingExpansion } from "./expansion/effects";
+import { COOKING_BRANCH_RECIPES } from "./branchRecipes";
 
 type Tier = CookingRecipePublic["tier"];
 type RecipeRow = readonly [
@@ -290,6 +291,27 @@ export const SIMPLE_COOKING_RECIPE_IDS = simple.map((entry) => entry.id);
 export const EXPANSION_COOKING_RECIPE_IDS = expansion.map((entry) => entry.id);
 export const COOKING_LEGACY_RECIPE_INDEX_BY_ID: ReadonlyMap<string, number> =
   new Map(legacyRecipes.map((entry, index) => [entry.id, index]));
+/** 특화 전용 요리의 공개 필드. 연구 대상 목록(COOKING_PUBLIC_RECIPES)과 도감 총수에는 넣지 않는다. */
+const branchPublicRecipes: readonly CookingRecipePublic[] =
+  COOKING_BRANCH_RECIPES.map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    icon: entry.icon,
+    imageSrc: entry.imageSrc,
+    field: entry.field,
+    method: entry.method,
+    tier: entry.tier,
+    requiredLevel: entry.requiredLevel,
+    discovery: entry.discovery,
+    effect: entry.effect,
+    effectTags: entry.effectTags,
+    description: entry.description,
+  }));
+
+/** id 조회용 — 연구 대상 500종과 특화 전용 요리를 모두 돌려준다. */
 export const COOKING_PUBLIC_RECIPE_BY_ID = new Map(
-  COOKING_PUBLIC_RECIPES.map((entry) => [entry.id, entry]),
+  [...COOKING_PUBLIC_RECIPES, ...branchPublicRecipes].map((entry) => [
+    entry.id,
+    entry,
+  ]),
 );

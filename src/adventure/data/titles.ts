@@ -19,6 +19,8 @@ export const ECOLOGICAL_RESEARCHER_TITLE_ID = "ecological_researcher";
 export const EARTH_WITNESS_TITLE_ID = "earth_witness";
 export const FARM_BOUNTIFUL_HAND_TITLE_ID = "farm_bountiful_hand";
 export const FARM_GOLDEN_FIELDS_OWNER_TITLE_ID = "farm_golden_fields_owner";
+export const FARM_BREEDER_TITLE_ID = "farm_breeder";
+export const FARM_BREED_MASTER_TITLE_ID = "farm_breed_master";
 export const LIFE_FESTIVAL_REGULAR_TITLE_ID = "life_festival_regular";
 export const LIFE_FESTIVAL_MASTER_TITLE_ID = "life_festival_master";
 export const LIFE_FESTIVAL_LEGEND_TITLE_ID = "life_festival_legend";
@@ -124,6 +126,20 @@ export const TITLES: Record<TitleId, Title> = {
     name: "황금 들판의 주인",
     description: "끝없이 이어진 황금빛 들판을 가꾼 대농장주.",
     condition: "농장주의 교환소에서 농장 증표 5,000개로 구매",
+    category: "collection",
+  },
+  [FARM_BREEDER_TITLE_ID]: {
+    id: FARM_BREEDER_TITLE_ID,
+    name: "육종가",
+    description: "여러 작물의 품종을 꾸준히 가려 뽑은 농부.",
+    condition: "품종 단계 합계 22 달성",
+    category: "collection",
+  },
+  [FARM_BREED_MASTER_TITLE_ID]: {
+    id: FARM_BREED_MASTER_TITLE_ID,
+    name: "품종의 대가",
+    description: "밭의 모든 작물을 가장 좋은 품종으로 길러 낸 농부.",
+    condition: "모든 작물 품종 5단계 달성",
     category: "collection",
   },
   [LIFE_FESTIVAL_REGULAR_TITLE_ID]: {

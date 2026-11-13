@@ -1215,7 +1215,7 @@ describe("/api/v2/cooking 요리 특화", () => {
 
   it("조회 응답에 특화 정보가 실리고 도감 총수는 그대로다", async () => {
     seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - DAY } });
-    const json = await (await GET()).json();
+    const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
 
     expect(json.recipeTotal).toBe(500);
     expect(json.knownRecipes.some((recipe: { id: string }) => recipe.id.startsWith("branch_"))).toBe(false);

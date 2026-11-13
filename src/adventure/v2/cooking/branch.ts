@@ -52,7 +52,7 @@ export const COOKING_BRANCH_UNLOCK_SPECIALTY_XP = 1_500;
 export const COOKING_BRANCH_CHANGE_COOLDOWN_MS = 14 * 86_400_000;
 export const COOKING_BRANCH_MAX_RANK = 5;
 /** 인덱스 = 랭크 − 1 의 누적 특화 숙련. */
-export const COOKING_BRANCH_RANK_XP = [0, 1_000, 3_000, 7_000, 15_000] as const;
+export const COOKING_BRANCH_RANK_XP: readonly number[] = [0, 1_000, 3_000, 7_000, 15_000];
 export const COOKING_BRANCH_MASTERPIECE_PCT_PER_RANK = 2;
 /** 전용 요리가 열리는 랭크. */
 export const COOKING_BRANCH_DISH_RANKS = [1, 3, 5] as const;

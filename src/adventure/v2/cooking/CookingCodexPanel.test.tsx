@@ -23,6 +23,7 @@ function codexFixture(recipeCount: number): CookingResponse {
     now,
     cooking,
     level: 1,
+    branch: { eligible: false, current: null, rank: 0, xp: 0, nextRankXp: null, xpByBranch: {}, nextChangeAt: null, masterpieceBonusPct: 0 },
     signature: { unlocked: false, role: null, stage: 0, requiredStage: 3, products: { crop: 0, catch: 0 } },
     currentLevelXp: cookingLevelXpThreshold(1),
     nextLevelXp: cookingLevelXpThreshold(2),

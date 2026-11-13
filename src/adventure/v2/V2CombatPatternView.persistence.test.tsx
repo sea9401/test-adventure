@@ -186,3 +186,61 @@ describe("결투가 패턴 저장과 화면 재진입 (#687)", () => {
     expect(requests).toEqual([]);
   });
 });
+
+describe("편집 직후 화면을 떠날 때 (#852)", () => {
+  const reordered = {
+    blocks: [savedPattern.blocks[1], savedPattern.blocks[0], ...savedPattern.blocks.slice(2)],
+  };
+
+  it("저장 대기 중에 화면을 떠나면 고친 패턴을 바로 저장한다", async () => {
+    const { requests } = serveSkills();
+    const view = await openEditor();
+
+    fireEvent.click(within(patternRows()[0]).getByRole("button", { name: "↓" }));
+    expect(requests).toEqual([]);
+    view.unmount();
+
+    expect(requests).toEqual([
+      { url: "/api/v2/me/combat-pattern", body: reordered },
+    ]);
+  });
+
+  it("고치지 않았으면 화면을 떠날 때 저장하지 않는다", async () => {
+    const { requests } = serveSkills();
+    const view = await openEditor();
+
+    view.unmount();
+
+    expect(requests).toEqual([]);
+  });
+
+  it("저장이 끝난 뒤 떠나면 같은 패턴을 다시 보내지 않는다", async () => {
+    const { requests } = serveSkills();
+    const view = await openEditor();
+
+    fireEvent.click(within(patternRows()[0]).getByRole("button", { name: "↓" }));
+    await screen.findByText("✓ 저장됨", {}, { timeout: 2000 });
+    view.unmount();
+
+    expect(requests).toHaveLength(1);
+  });
+
+  it("스킬을 고르지 않은 블록이 있으면 떠날 때도 저장하지 않는다", async () => {
+    const addBlock = async () => {
+      const view = render(<V2CombatPatternView onBack={vi.fn()} embedded />);
+      await screen.findByText("블록이 없으면 기본 공격만 사용합니다");
+      fireEvent.click(screen.getByRole("button", { name: "블록 추가" }));
+      return view;
+    };
+
+    const complete = serveSkills({ equipped: [], pattern: null });
+    (await addBlock()).unmount();
+    expect(complete.requests).toHaveLength(1);
+
+    const incomplete = serveSkills({ equipped: [], pattern: null });
+    const view = await addBlock();
+    fireEvent.click(screen.getByRole("radio", { name: "특정 스킬" }));
+    view.unmount();
+    expect(incomplete.requests).toEqual([]);
+  });
+});

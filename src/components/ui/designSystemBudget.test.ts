@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 //   기준: 2026-10-03 화면 구성 개편 3단계(나머지 화면·PC 2단) 후 실측.
 const BUDGET = {
   /** 색 바탕 + 흰 글자를 손으로 칠한 문자열. 주 행동은 Button/buttonClassName을 쓴다. */
-  handPaintedButtons: 235,
+  handPaintedButtons: 234,
   /** 12px 미만 글씨 클래스. 새 코드는 text-xs(12px) 이상을 쓴다. */
   tinyText: 1196,
 };

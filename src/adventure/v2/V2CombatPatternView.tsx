@@ -1103,6 +1103,27 @@ export function V2CombatPatternView({
     return () => clearTimeout(t);
   }, [saveState, blocks, loading, setMsg]);
 
+  // 저장 대기(디바운스) 중에 화면을 떠나면 위 타이머가 지워져 편집이 사라진다. 떠날 때 바로 보낸다.
+  //   스킬을 안 고른 블록이 있으면 위 자동 저장과 같은 이유로 보내지 않는다.
+  const unsavedBlocksRef = useRef<V2CombatBlock[] | null>(null);
+  useEffect(() => {
+    unsavedBlocksRef.current = !loading && saveState === "pending" ? blocks : null;
+  }, [saveState, blocks, loading]);
+  useEffect(
+    () => () => {
+      const unsaved = unsavedBlocksRef.current;
+      if (!unsaved) return;
+      if (unsaved.some((b) => actionSkillIds(b.action).some((skillId) => !skillId))) return;
+      void fetch("/api/v2/me/combat-pattern", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ blocks: unsaved }),
+        keepalive: true,
+      }).catch(() => {});
+    },
+    [],
+  );
+
   // 프리셋 라이브러리 전체를 서버에 영속(항목 추가/삭제 후 호출). 성공 시 정규화된 결과로 동기화.
   const persistPresets = useCallback(
     async (next: V2CombatPreset[]): Promise<boolean> => {

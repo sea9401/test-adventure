@@ -10,7 +10,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 import { InventoryItemIcon } from "./InventoryItemIcon";
 
-/** 소모품 탭의 전투 준비물(숫돌·보강재). 보유한 품목만 보여 주고, 하나도 없으면 그리지 않는다. */
+/** 소모품 탭의 전투 준비물(숫돌·보강재·어유). 보유한 품목만 보여 주고, 하나도 없으면 그리지 않는다. */
 export function BattlePrepSection({
   materials,
   busy,

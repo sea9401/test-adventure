@@ -25,6 +25,7 @@ import {
   FISHING_CATCH_COIN_BY_TIER,
   FISHING_CATCH_COIN_DAILY_CAP,
 } from "@/lib/server/fishing/coins";
+import { DANGEROUS_DAILY_CATCH_CAP } from "@/adventure/data/v2/dangerousFishing";
 import { DANGEROUS_FISHING_UNLOCK_LEVEL } from "@/adventure/v2/dangerousFishingHeritage";
 import { DANGEROUS_REALTIME_TICK_MS } from "@/adventure/v2/dangerousFishingRealtime";
 import {
@@ -570,6 +571,12 @@ export function PastimesContent() {
         <li>
           포획한 재료는 먼저 <Em>귀환 전 화물</Em>에 쌓입니다. <Em>안전 귀환</Em>을
           마쳐야 거래 가능한 재료로 확정되며, 안전 귀환 자체에는 사고 판정이 없습니다.
+        </li>
+        <li>
+          위험 해역에서는 하루에 <Em>{DANGEROUS_DAILY_CATCH_CAP}마리</Em>까지 낚을
+          수 있습니다. 한도는 매일 자정에 초기화되며, 한도에 닿으면 새 출항과 새
+          낚시가 막히고 진행 중인 항해의 귀환만 할 수 있습니다. 거대어 제압은 이
+          한도에 들어가지 않습니다.
         </li>
         <li>
           위험도 0~2에는 사고가 없습니다. 다음 투척 시 위험도 3은 <Em>12%</Em>,

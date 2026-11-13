@@ -202,6 +202,9 @@ export const DANGEROUS_DEPTHS: Record<DangerousDepthId, DangerousDepth> = {
   },
 };
 
+/** 위험 해역에서 하루(한국 시간 자정 기준)에 낚을 수 있는 물고기 수. 거대어 제압은 세지 않는다. */
+export const DANGEROUS_DAILY_CATCH_CAP = 150;
+
 export const DANGEROUS_FISH: Record<DangerousFishId, DangerousFish> = {
   razor_sardine: {
     id: "razor_sardine",

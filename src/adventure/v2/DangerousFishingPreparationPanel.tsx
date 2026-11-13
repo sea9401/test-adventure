@@ -3,11 +3,13 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
-import type {
-  DangerousBaitId,
-  DangerousDepthId,
-  DangerousZoneId,
+import {
+  DANGEROUS_DAILY_CATCH_CAP,
+  type DangerousBaitId,
+  type DangerousDepthId,
+  type DangerousZoneId,
 } from "@/adventure/data/v2/dangerousFishing";
+import { dangerousDailyCatchCount } from "./dangerousFishingState";
 import type { DangerousFishingViewModel } from "./useDangerousFishing";
 import {
   dangerousBaitAttractionCopy,
@@ -45,6 +47,14 @@ export function DangerousFishingPreparationPanel({
   onCancelEncounter: () => void;
   onOpenShop?: () => void;
 }) {
+  const caughtToday = dangerousDailyCatchCount(model.state, model.now);
+  const dailyCapReached = caughtToday >= DANGEROUS_DAILY_CATCH_CAP;
+  const dailyCatchLabel = (
+    <p className="shrink-0 text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300">
+      오늘 어획 {caughtToday}/{DANGEROUS_DAILY_CATCH_CAP}
+    </p>
+  );
+
   if (model.state.voyage && encounterPrepared) {
     const bait = model.catalogs.baits[baitId];
     const count = model.state.baitCounts[bait.id] ?? 0;
@@ -105,7 +115,10 @@ export function DangerousFishingPreparationPanel({
     return (
       <section className={`${SURFACE_CARD} space-y-3 p-4`}>
         <div>
-          <h2 className="font-bold">다음 어획</h2>
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-bold">다음 어획</h2>
+            {dailyCatchLabel}
+          </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             선택한 수심의 어종이 가장 자주 나오지만, 다른 수심을 선호하는 어종도 낮은 확률로 출현합니다.
           </p>
@@ -145,8 +158,18 @@ export function DangerousFishingPreparationPanel({
             );
           })}
         </div>
+        {dailyCapReached ? (
+          <p className="text-xs leading-5 text-amber-700 dark:text-amber-300">
+            오늘 낚을 수 있는 {DANGEROUS_DAILY_CATCH_CAP}마리를 모두 낚았습니다. 화물은 귀환하면 확정되고, 자정이 지나면 다시 낚을 수 있습니다.
+          </p>
+        ) : null}
         <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <Button fullWidth variant="info" disabled={busy} onClick={onPrepareEncounter}>
+          <Button
+            fullWidth
+            variant="info"
+            disabled={busy || dailyCapReached}
+            onClick={onPrepareEncounter}
+          >
             낚시 준비
           </Button>
           {onOpenShop ? (
@@ -172,7 +195,10 @@ export function DangerousFishingPreparationPanel({
   return (
     <section className={`${SURFACE_CARD} space-y-4 p-4`}>
       <div>
-        <h2 className="font-bold">출항 준비</h2>
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="font-bold">출항 준비</h2>
+          {dailyCatchLabel}
+        </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           해역과 수심이 깊을수록 사고 위험과 희귀 어종 기회가 커집니다.
         </p>
@@ -265,10 +291,14 @@ export function DangerousFishingPreparationPanel({
       <Button
         fullWidth
         variant="danger"
-        disabled={busy || model.activeAutoActivity !== null}
+        disabled={busy || model.activeAutoActivity !== null || dailyCapReached}
         onClick={onStartVoyage}
       >
-        {model.activeAutoActivity ? "자동 채집 정산 필요" : "출항하기"}
+        {model.activeAutoActivity
+          ? "자동 채집 정산 필요"
+          : dailyCapReached
+            ? "오늘 어획 한도 도달"
+            : "출항하기"}
       </Button>
     </section>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DANGEROUS_BOSSES,
+  DANGEROUS_DAILY_CATCH_CAP,
   DANGEROUS_FISH,
   DANGEROUS_LINES,
   DANGEROUS_REELS,
@@ -23,6 +24,8 @@ import {
 import { dangerousRealtimeModifiers } from "./dangerousFishingRealtimeModifiers";
 import {
   applyDangerousAccidentAndReturn,
+  dangerousDailyCatchCapReached,
+  dangerousDailyCatchCount,
   dangerousRiskPreview,
   emptyDangerousFishingState,
   parseDangerousFishingState,
@@ -896,6 +899,7 @@ describe("위험 해역 저장 상태", () => {
       resolvedEncounterIds: [],
       gearEnhancements: { rods: {}, reels: {}, lines: {} },
       realtimeCompletions: [],
+      dailyCatch: { date: "", caught: 0 },
       voyage: null,
     });
   });
@@ -1298,5 +1302,107 @@ describe("위험 해역 저장 상태", () => {
     });
     expect(result.state.voyage).toBeNull();
     expect(result.state.codex).toEqual(state.codex);
+  });
+});
+
+describe("위험 해역 하루 어획 한도", () => {
+  // 2026-11-13 12:00 KST
+  const NOON = Date.UTC(2026, 10, 13, 3, 0, 0);
+  const NEXT_DAY = NOON + 24 * 3600_000;
+
+  function caughtOnce(state: DangerousFishingState, now: number, quantity = 1) {
+    const started = startPersonalEncounter(
+      { ...state, voyage: state.voyage ? { ...state.voyage, encounter: null } : null },
+      { ...encounter(), id: `daily-${now}-${state.dailyCatch.caught}` },
+    );
+    const active = started.ok ? started.state.voyage?.encounter : null;
+    if (!started.ok || !active || isDangerousRealtimeEncounter(active)) {
+      throw new Error("fixture encounter did not start");
+    }
+    return resolvePersonalEncounter(
+      started.state,
+      { event: "caught", encounter: { ...active, status: "caught" as const } },
+      now,
+      { fishId: "ironjaw_tuna", sizeCm: 142, quantity },
+    );
+  }
+
+  it("한도는 하루 150마리다", () => {
+    expect(DANGEROUS_DAILY_CATCH_CAP).toBe(150);
+  });
+
+  it("기록이 없는 기존 저장값은 0마리로 읽고 손상된 값은 정규화한다", () => {
+    const { dailyCatch: _dailyCatch, ...legacy } = emptyDangerousFishingState();
+    expect(parseDangerousFishingState(legacy).dailyCatch).toEqual({
+      date: "",
+      caught: 0,
+    });
+    expect(
+      parseDangerousFishingState({
+        ...legacy,
+        dailyCatch: { date: 20261113, caught: -4 },
+      }).dailyCatch,
+    ).toEqual({ date: "", caught: 0 });
+    expect(
+      parseDangerousFishingState({
+        ...legacy,
+        dailyCatch: { date: "2026-11-13", caught: 12.9 },
+      }).dailyCatch,
+    ).toEqual({ date: "2026-11-13", caught: 12 });
+  });
+
+  it("어획 성공은 그날 수량을 올리고 날짜가 바뀌면 새로 센다", () => {
+    const first = caughtOnce(voyageState(), NOON);
+    expect(first.outcome).toBe("caught");
+    expect(first.state.dailyCatch).toEqual({ date: "2026-11-13", caught: 1 });
+
+    const second = caughtOnce(first.state, NOON + 60_000, 2);
+    expect(second.state.dailyCatch).toEqual({ date: "2026-11-13", caught: 3 });
+    expect(dangerousDailyCatchCount(second.state, NOON + 120_000)).toBe(3);
+
+    expect(dangerousDailyCatchCount(second.state, NEXT_DAY)).toBe(0);
+    const nextDay = caughtOnce(second.state, NEXT_DAY);
+    expect(nextDay.state.dailyCatch).toEqual({ date: "2026-11-14", caught: 1 });
+  });
+
+  it("날짜는 한국 시간 자정에 바뀐다", () => {
+    const beforeMidnight = Date.UTC(2026, 10, 13, 14, 59, 59);
+    const state = {
+      ...emptyDangerousFishingState(),
+      dailyCatch: { date: "2026-11-13", caught: DANGEROUS_DAILY_CATCH_CAP },
+    };
+    expect(dangerousDailyCatchCapReached(state, beforeMidnight)).toBe(true);
+    expect(dangerousDailyCatchCapReached(state, beforeMidnight + 1_000)).toBe(false);
+  });
+
+  it("실패한 조우는 수량을 올리지 않는다", () => {
+    const started = startPersonalEncounter(voyageState(), encounter());
+    const active = started.ok ? started.state.voyage?.encounter : null;
+    if (!started.ok || !active || isDangerousRealtimeEncounter(active)) {
+      throw new Error("fixture encounter did not start");
+    }
+    const failed = resolvePersonalEncounter(
+      started.state,
+      { event: "line_broken", encounter: { ...active, status: "failed" as const } },
+      NOON,
+    );
+    expect(failed.outcome).toBe("failed");
+    expect(failed.state.dailyCatch).toEqual({ date: "", caught: 0 });
+  });
+
+  it("한도 미만이면 막지 않고 한도에 닿으면 막는다", () => {
+    const base = emptyDangerousFishingState();
+    expect(
+      dangerousDailyCatchCapReached(
+        { ...base, dailyCatch: { date: "2026-11-13", caught: DANGEROUS_DAILY_CATCH_CAP - 1 } },
+        NOON,
+      ),
+    ).toBe(false);
+    expect(
+      dangerousDailyCatchCapReached(
+        { ...base, dailyCatch: { date: "2026-11-13", caught: DANGEROUS_DAILY_CATCH_CAP } },
+        NOON,
+      ),
+    ).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import {
   DANGEROUS_BOSSES,
+  DANGEROUS_DAILY_CATCH_CAP,
   DANGEROUS_FISH,
   dangerousCatchMaterialId,
   isDangerousBaitId,
@@ -31,6 +32,7 @@ import type {
   DangerousV1StoredEncounter,
 } from "./dangerousFishingEncounter";
 import { isDangerousRealtimeEncounter } from "./dangerousFishingEncounter";
+import { kstDayKey } from "@/lib/kst";
 import {
   DANGEROUS_REALTIME_LEGACY_BALANCE_REVISION,
   dangerousRealtimeTargetCalibration,
@@ -84,6 +86,12 @@ export type DangerousGearEnhancements = {
   lines: Partial<Record<DangerousLineId, number>>;
 };
 
+/** 하루 어획 수 기록. `date`는 한국 시간 날짜 키이고, 다른 날짜의 기록은 0마리로 읽는다. */
+export type DangerousDailyCatch = {
+  date: string;
+  caught: number;
+};
+
 export type DangerousFishingVoyage = {
   id: string;
   zoneId: DangerousZoneId;
@@ -115,6 +123,7 @@ export type DangerousFishingState = {
   resolvedEncounterIds: string[];
   gearEnhancements: DangerousGearEnhancements;
   realtimeCompletions: DangerousRealtimeCompletion[];
+  dailyCatch: DangerousDailyCatch;
   voyage: DangerousFishingVoyage | null;
 };
 
@@ -156,6 +165,7 @@ export function emptyDangerousFishingState(): DangerousFishingState {
     resolvedEncounterIds: [],
     gearEnhancements: { rods: {}, reels: {}, lines: {} },
     realtimeCompletions: [],
+    dailyCatch: { date: "", caught: 0 },
     voyage: null,
   };
 }
@@ -816,6 +826,33 @@ function parseRealtimeCompletions(raw: unknown): DangerousRealtimeCompletion[] {
   return completions.slice(-32);
 }
 
+function parseDailyCatch(raw: unknown): DangerousDailyCatch {
+  const value = objectRecord(raw);
+  const date =
+    typeof value?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.date)
+      ? value.date
+      : "";
+  if (!date) return { date: "", caught: 0 };
+  return { date, caught: nonNegativeSafeInt(value?.caught) };
+}
+
+/** `now` 시각의 한국 시간 날짜에 낚은 수. 날짜가 다르면 0이다. */
+export function dangerousDailyCatchCount(
+  state: Pick<DangerousFishingState, "dailyCatch">,
+  now: number,
+): number {
+  return state.dailyCatch.date === kstDayKey(new Date(now))
+    ? state.dailyCatch.caught
+    : 0;
+}
+
+export function dangerousDailyCatchCapReached(
+  state: Pick<DangerousFishingState, "dailyCatch">,
+  now: number,
+): boolean {
+  return dangerousDailyCatchCount(state, now) >= DANGEROUS_DAILY_CATCH_CAP;
+}
+
 export function parseDangerousFishingState(raw: unknown): DangerousFishingState {
   const fallback = emptyDangerousFishingState();
   const value = objectRecord(raw);
@@ -892,6 +929,7 @@ export function parseDangerousFishingState(raw: unknown): DangerousFishingState 
     resolvedEncounterIds,
     gearEnhancements,
     realtimeCompletions: parseRealtimeCompletions(value.realtimeCompletions),
+    dailyCatch: parseDailyCatch(value.dailyCatch),
     voyage: parseVoyage(value.voyage, realtimeContext),
   };
 }
@@ -1155,10 +1193,18 @@ export function resolvePersonalEncounter(
       ? Math.max(0, safeInt(now))
       : (previousCodex?.bestCaughtAt ?? Math.max(0, safeInt(now))),
   };
+  const caughtAt = Math.max(0, safeInt(now));
   return {
     state: {
       ...state,
       codex: { ...state.codex, [caught.fishId]: codexEntry },
+      dailyCatch: {
+        date: kstDayKey(new Date(caughtAt)),
+        caught: saturatingSafeAdd(
+          dangerousDailyCatchCount(state, caughtAt),
+          quantity,
+        ),
+      },
       resolvedEncounterIds,
       voyage: {
         ...clearedVoyage,

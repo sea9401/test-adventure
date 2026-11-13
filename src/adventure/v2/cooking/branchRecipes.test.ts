@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import sharp from "sharp";
 import { FARM_CROPS, FARM_ITEMS } from "../farm";
 import { FISHING_CATCH_ITEMS } from "../fishingStock";
 import { COOKING_BRANCHES, COOKING_BRANCH_BY_ID, cookingBranchCovers } from "./branch";
@@ -232,5 +235,26 @@ describe("요리 특화 전용 요리", () => {
     expect(
       cookingFoodDefinition("food2:branch_baking_steamed_3:masterpiece:o0:s5")?.effect,
     ).toEqual({ huntGoldPct: 15, primaryFlat: { luk: 20 } });
+  });
+
+  it("전용 요리마다 256x256 투명 배경 그림이 있다", async () => {
+    const missing = COOKING_BRANCH_RECIPES.filter(
+      (dish) => !existsSync(path.join(process.cwd(), "public", dish.imageSrc)),
+    ).map((dish) => dish.imageSrc);
+    expect(missing).toEqual([]);
+
+    for (const dish of COOKING_BRANCH_RECIPES) {
+      const image = sharp(path.join(process.cwd(), "public", dish.imageSrc));
+      expect(await image.metadata()).toMatchObject({
+        format: "webp",
+        width: 256,
+        height: 256,
+        hasAlpha: true,
+      });
+      // 네 모서리는 투명해야 한다(배경이 남지 않았는지).
+      const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const alphaAt = (x: number, y: number) => data[(y * info.width + x) * 4 + 3];
+      expect([alphaAt(0, 0), alphaAt(255, 0), alphaAt(0, 255), alphaAt(255, 255)]).toEqual([0, 0, 0, 0]);
+    }
   });
 });

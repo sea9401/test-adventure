@@ -480,6 +480,15 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("같은 날 살 때마다 가격이 오릅니다");
   });
 
+  it("위험 해역의 하루 어획 한도와 초기화 시각을 안내한다", () => {
+    const text = renderToStaticMarkup(<PastimesContent />).replace(/<[^>]+>/g, "");
+
+    expect(text).toContain("하루에 150마리까지 낚을");
+    expect(text).toContain("매일 자정에 초기화");
+    expect(text).toContain("진행 중인 항해의 귀환만 할 수 있습니다");
+    expect(text).toContain("거대어 제압은 이 한도에 들어가지 않습니다");
+  });
+
   it("일반 낚시와 위험 해역 실시간 조작을 구분해 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 

@@ -38,7 +38,10 @@ import {
 } from "@/adventure/data/v2/unexploredBosses";
 import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPools";
 import { UNEXPLORED_ACHIEVEMENTS } from "@/adventure/data/v2/unexploredProgression";
-import { UNEXPLORED_MAX_DIFFICULTY } from "@/adventure/data/v2/unexploredTree";
+import {
+  UNEXPLORED_MAX_DIFFICULTY,
+  UNEXPLORED_MIN_DIFFICULTY_CAP,
+} from "@/adventure/data/v2/unexploredTree";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import {
   buildUnexploredTreeModel,
@@ -55,6 +58,11 @@ import { ItemSearchInput } from "./ItemSearchInput";
 const CRAFTING_LOCKED_TEXT =
   "우두머리의 흔적 노드를 활성화하면 제작할 수 있습니다.";
 
+const DIFFICULTY_CAP_OPTIONS = Array.from(
+  { length: UNEXPLORED_MAX_DIFFICULTY - UNEXPLORED_MIN_DIFFICULTY_CAP + 1 },
+  (_, index) => UNEXPLORED_MIN_DIFFICULTY_CAP + index,
+);
+
 const ERROR_TEXT: Record<string, string> = {
   invalid_preset: "선택할 수 없는 프리셋입니다.",
   preset_changed: "다른 화면에서 프리셋이 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
@@ -68,6 +76,7 @@ const ERROR_TEXT: Record<string, string> = {
   start_required: "탐사 시작 노드는 반환할 수 없습니다.",
   would_disconnect: "반환하면 활성 경로가 끊어집니다.",
   not_difficulty_node: "난이도를 올리는 노드만 반영 순서를 바꿀 수 있습니다.",
+  invalid_difficulty_cap: "고를 수 없는 최대 난이도입니다.",
   insufficient_gold: "노드 반환에 필요한 골드가 부족합니다.",
   boss_node_required: CRAFTING_LOCKED_TEXT,
   insufficient_trace: "소환석 제작에 필요한 흔적이 부족합니다.",
@@ -201,6 +210,7 @@ export function V2UnexploredTreeView({
     mutation:
       | { action: "activate_path" | "refund_path"; nodeId: string }
       | { action: "difficulty_order"; nodeId: string; placement: "first" | "last" }
+      | { action: "difficulty_cap"; cap: number }
       | { action: "reset" }
       | { action: "switch_preset"; presetIndex: UnexploredPresetIndex },
     nodeCount = 1,
@@ -255,7 +265,9 @@ export function V2UnexploredTreeView({
               ? `✓ 탐사 노드 ${nodeCount.toLocaleString()}개를 반환했습니다.`
               : mutation.action === "difficulty_order"
                 ? "✓ 난이도 반영 순서를 바꿨습니다."
-                : "✓ 탐사망을 초기화했습니다.",
+                : mutation.action === "difficulty_cap"
+                  ? `✓ 최대 난이도를 ${body.snapshot.difficultyCap}단으로 바꿨습니다.`
+                  : "✓ 탐사망을 초기화했습니다.",
         "success",
       );
     } catch (error) {
@@ -458,6 +470,7 @@ export function V2UnexploredTreeView({
   const selectedCapNotice = unexploredDifficultyCapNotice(
     model.selectedDifficultyApplication,
     selected?.state === "active",
+    model.difficultyCap,
   );
   const cappedNodeCount = model.nodes.filter(isDifficultyCapped).length;
   const searching = nodeSearch.trim().length > 0;
@@ -494,7 +507,7 @@ export function V2UnexploredTreeView({
         onSelect={(presetIndex) => void mutate({ action: "switch_preset", presetIndex })}
       />
 
-      <section className={`${SURFACE_ACCENT} grid gap-3 p-4 sm:grid-cols-3`}>
+      <section className={`${SURFACE_ACCENT} grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4`}>
         <div>
           <p className="text-xs font-medium text-amber-800 dark:text-amber-200">탐사 포인트</p>
           <p className="text-lg font-bold">{snapshot.spentPoints} / {snapshot.earnedPoints}</p>
@@ -510,6 +523,35 @@ export function V2UnexploredTreeView({
         <div>
           <p className="text-xs font-medium text-amber-800 dark:text-amber-200">현재 사냥터</p>
           <p className="text-lg font-bold">난이도 {snapshot.difficulty}</p>
+        </div>
+        <div>
+          <label
+            htmlFor="unexplored-difficulty-cap"
+            className="text-xs font-medium text-amber-800 dark:text-amber-200"
+          >
+            최대 난이도
+          </label>
+          <select
+            id="unexplored-difficulty-cap"
+            aria-describedby="unexplored-difficulty-cap-hint"
+            value={snapshot.difficultyCap}
+            disabled={busy || !snapshot.eligible}
+            onChange={(event) => void mutate({
+              action: "difficulty_cap",
+              cap: Number(event.target.value),
+            })}
+            className="mt-0.5 block min-h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+          >
+            {DIFFICULTY_CAP_OPTIONS.map((cap) => (
+              <option key={cap} value={cap}>{cap}단</option>
+            ))}
+          </select>
+          <p
+            id="unexplored-difficulty-cap-hint"
+            className="mt-1 text-xs text-zinc-600 dark:text-zinc-300"
+          >
+            이 단수를 넘긴 난이도 노드는 경로만 연결합니다.
+          </p>
         </div>
       </section>
 
@@ -691,7 +733,7 @@ export function V2UnexploredTreeView({
                         : node.planState === "refund"
                           ? " · 반환 대기"
                           : ""
-                    }${capped ? ` · ${UNEXPLORED_MAX_DIFFICULTY}단 초과로 보상 덜 반영` : ""}${
+                    }${capped ? ` · ${model.difficultyCap}단 초과로 보상 덜 반영` : ""}${
                       searchMatch ? " · 검색 일치" : ""
                     }`}
                     onClick={() => setSelectedNodeId(node.id)}
@@ -827,7 +869,7 @@ export function V2UnexploredTreeView({
                     (effect.kind === "deep" && effect.effect === "contract"),
                   ) && (
                     <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                      난이도는 먼저 찍은 노드부터 {UNEXPLORED_MAX_DIFFICULTY}단까지 반영됩니다. {UNEXPLORED_MAX_DIFFICULTY}단을 넘겨 찍은 노드는 경로만 연결하고 보상은 적용되지 않습니다.
+                      난이도는 먼저 찍은 노드부터 {model.difficultyCap}단까지 반영됩니다. {model.difficultyCap}단을 넘겨 찍은 노드는 경로만 연결하고 보상은 적용되지 않습니다.
                     </p>
                   )}
                   {model.selectedDifficultyOrder && (
@@ -942,7 +984,7 @@ export function V2UnexploredTreeView({
             <h3 className="mb-2 font-bold">현재 보상 보정</h3>
             {cappedNodeCount > 0 && (
               <p className="mb-2 text-xs text-amber-700 dark:text-amber-300">
-                {UNEXPLORED_MAX_DIFFICULTY}단을 넘겨 보상이 덜 반영된 난이도 노드 {cappedNodeCount}개 (점선 테두리)
+                {model.difficultyCap}단을 넘겨 보상이 덜 반영된 난이도 노드 {cappedNodeCount}개 (점선 테두리)
               </p>
             )}
             <div className="grid grid-cols-2 gap-2">

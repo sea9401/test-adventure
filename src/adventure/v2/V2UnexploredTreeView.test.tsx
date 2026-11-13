@@ -54,6 +54,7 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   nodePresets: [["start", "inner-0-0"], [], []],
   difficulty: 95,
   difficultyIncrease: 0,
+  difficultyCap: 130,
   encounterShares: [{ kind: "base", share: 100 }],
   rewardSummary: {
     gold: 0,
@@ -360,6 +361,52 @@ describe("V2UnexploredTreeView", () => {
         expectedPresetIndex: 0,
       }),
     })));
+  });
+
+  it("최대 난이도를 고르면 변경을 요청하고 안내 문구가 고른 단수를 따른다", async () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selectedNodeIds = [
+      ...new Set(difficultyIds.flatMap((id) => shortestUnexploredPath(id))),
+    ];
+    const initialSnapshot = {
+      ...SNAPSHOT,
+      earnedPoints: 160,
+      spentPoints: selectedNodeIds.length,
+      selectedNodeIds,
+      difficulty: 130,
+      difficultyIncrease: 35,
+    };
+    const fetchMock = vi.fn(async () => Response.json({
+      ok: true,
+      snapshot: { ...initialSnapshot, difficulty: 120, difficultyIncrease: 25, difficultyCap: 120 },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(
+      <V2UnexploredTreeView initialSnapshot={initialSnapshot} onBack={vi.fn()} />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "최대 난이도" }) as HTMLSelectElement;
+    expect(select.value).toBe("130");
+    expect([...select.options].map((option) => option.value)).toEqual(
+      ["120", "121", "122", "123", "124", "125", "126", "127", "128", "129", "130"],
+    );
+    expect(screen.queryByText(/보상이 덜 반영된 난이도 노드/)).toBeNull();
+
+    fireEvent.change(select, { target: { value: "120" } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v2/unexplored", expect.objectContaining({
+      body: JSON.stringify({
+        action: "difficulty_cap",
+        cap: 120,
+        expectedPresetIndex: 0,
+      }),
+    })));
+    await waitFor(() => expect(select.value).toBe("120"));
+    expect(screen.getByText(/120단을 넘겨 보상이 덜 반영된 난이도 노드/)).toBeTruthy();
+
+    fireEvent.click(container.querySelector(`[data-unexplored-node="${difficultyIds.at(-1)!}"]`)!);
+    expect(screen.getByText(/120단을 넘겨 찍은 노드라 난이도와 보상이 적용되지 않고/)).toBeTruthy();
   });
 
   it("특화 노드를 선택하면 연결 몬스터와 획득 가능한 전용 아이템을 표시한다", () => {

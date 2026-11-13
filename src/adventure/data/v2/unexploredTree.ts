@@ -9,8 +9,18 @@ import type { UnexploredPoolSelection } from "./unexploredEncounters";
 export const UNEXPLORED_BASE_DIFFICULTY = 95;
 /** 난이도 노드로 올릴 수 있는 미개척지 난이도 상한. */
 export const UNEXPLORED_MAX_DIFFICULTY = 130;
-const MAX_DIFFICULTY_INCREASE =
-  UNEXPLORED_MAX_DIFFICULTY - UNEXPLORED_BASE_DIFFICULTY;
+/** 이용자가 고를 수 있는 최대 난이도의 하한. 이보다 낮추면 난이도 노드를 위험 없이 경로로만 쓸 수 있다. */
+export const UNEXPLORED_MIN_DIFFICULTY_CAP = 120;
+
+/** 이용자가 고를 수 있는 최대 난이도인지. */
+export function isUnexploredDifficultyCap(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= UNEXPLORED_MIN_DIFFICULTY_CAP &&
+    value <= UNEXPLORED_MAX_DIFFICULTY
+  );
+}
 
 export const FRONT_UNEXPLORED_POOL_IDS = [
   "iron_legion",
@@ -812,7 +822,9 @@ export type UnexploredEffects = {
   poolLootPctByPool: Partial<Record<UnexploredPoolId, number>>;
   basePoolRewardPct: number;
   conversion: null | "gold" | "collector" | "armory";
-  /** 난이도를 올리는 노드별로 난이도 상한 안에서 실제 반영된 난이도. 먼저 찍은 노드부터 채운다. */
+  /** 이번 계산에 쓴 최대 난이도. 이용자가 고른 값이며 고르지 않았으면 기본 상한이다. */
+  difficultyCap: number;
+  /** 난이도를 올리는 노드별로 최대 난이도 안에서 실제 반영된 난이도. 먼저 찍은 노드부터 채운다. */
   difficultyApplication: Partial<Record<string, { applied: number; total: number }>>;
 };
 
@@ -826,7 +838,12 @@ function addRecordValue<K extends string>(
 
 export function deriveUnexploredEffects(
   nodeIds: readonly string[],
+  requestedDifficultyCap: number = UNEXPLORED_MAX_DIFFICULTY,
 ): UnexploredEffects {
+  const difficultyCap = isUnexploredDifficultyCap(requestedDifficultyCap)
+    ? requestedDifficultyCap
+    : UNEXPLORED_MAX_DIFFICULTY;
+  const maxDifficultyIncrease = difficultyCap - UNEXPLORED_BASE_DIFFICULTY;
   const selected = new Set(nodeIds.filter(isUnexploredNodeId));
   const rewardPct: UnexploredRewardPercentages = {
     gold: 0,
@@ -872,7 +889,7 @@ export function deriveUnexploredEffects(
           // 남은 난이도만큼 보상을 적용한다. 상한 뒤의 노드는 경로만 연결한다.
           const applied = Math.min(
             effect.difficulty,
-            Math.max(0, MAX_DIFFICULTY_INCREASE - difficultyIncrease),
+            Math.max(0, maxDifficultyIncrease - difficultyIncrease),
           );
           difficultyIncrease += applied;
           difficultyApplication[id] = { applied, total: effect.difficulty };
@@ -929,7 +946,7 @@ export function deriveUnexploredEffects(
           } else if (effect.effect === "contract") {
             const applied = Math.min(
               5,
-              Math.max(0, MAX_DIFFICULTY_INCREASE - difficultyIncrease),
+              Math.max(0, maxDifficultyIncrease - difficultyIncrease),
             );
             difficultyIncrease += applied;
             difficultyApplication[id] = { applied, total: 5 };
@@ -967,10 +984,11 @@ export function deriveUnexploredEffects(
 
   return {
     difficulty: Math.min(
-      UNEXPLORED_MAX_DIFFICULTY,
+      difficultyCap,
       UNEXPLORED_BASE_DIFFICULTY + difficultyIncrease,
     ),
     difficultyIncrease,
+    difficultyCap,
     encounterSelections,
     baseMinShare,
     rewardPct,

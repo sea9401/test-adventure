@@ -5,6 +5,7 @@ import {
   canUseUnexplored,
   emptyUnexploredSave,
   parseUnexploredSave,
+  unexploredDifficultyCap,
   unexploredEarnedPoints,
 } from "./unexploredState";
 import { UNEXPLORED_BOSS_IDS } from "./unexploredBosses";
@@ -32,6 +33,25 @@ describe("unexplored save", () => {
         equipmentCraftReceipts: {},
       }),
     ).toEqual(emptyUnexploredSave());
+  });
+
+  it("프리셋마다 고른 최대 난이도를 보존하고 잘못된 값은 기본 상한으로 되돌린다", () => {
+    expect(emptyUnexploredSave().difficultyCaps).toEqual([130, 130, 130]);
+    expect(unexploredDifficultyCap(emptyUnexploredSave())).toBe(130);
+
+    const save = parseUnexploredSave({
+      activePresetIndex: 1,
+      difficultyCaps: [120, 125, 119],
+    });
+    expect(save.difficultyCaps).toEqual([120, 125, 130]);
+    expect(unexploredDifficultyCap(save)).toBe(125);
+
+    expect(
+      parseUnexploredSave({ difficultyCaps: ["120", 140, 121.5] }).difficultyCaps,
+    ).toEqual([130, 130, 130]);
+    expect(parseUnexploredSave({ difficultyCaps: 120 }).difficultyCaps).toEqual([
+      130, 130, 130,
+    ]);
   });
 
   it("keeps only known unique nodes and achievements", () => {

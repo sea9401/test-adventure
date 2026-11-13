@@ -27,6 +27,7 @@ function snapshot(
     nodePresets: [["start", "inner-0-0"], [], []],
     difficulty: 95,
     difficultyIncrease: 0,
+    difficultyCap: 130,
     encounterShares: [{ kind: "base", share: 100 }],
     rewardSummary: {
       gold: 0,
@@ -459,6 +460,43 @@ describe("unexplored tree model", () => {
     ).toBeNull();
   });
 
+  it("고른 최대 난이도에 맞춰 노드별 반영분과 활성화 미리보기를 계산한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const lastId = difficultyIds.at(-1)!;
+    const allButLast = [
+      ...new Set(difficultyIds.slice(0, -1).flatMap((id) => shortestUnexploredPath(id))),
+    ].filter((id) => id !== lastId);
+    const cappedSnapshot = snapshot({
+      earnedPoints: 160,
+      spentPoints: allButLast.length,
+      selectedNodeIds: allButLast,
+      difficulty: 120,
+      difficultyCap: 120,
+    });
+
+    const model = buildUnexploredTreeModel(cappedSnapshot, lastId);
+    const appliedTotal = model.nodes.reduce(
+      (sum, node) => sum + (node.difficultyApplication?.applied ?? 0),
+      0,
+    );
+    expect(appliedTotal).toBe(25);
+    expect(model.plan?.error).toBeNull();
+    expect(model.previewDifficulty).toBe(120);
+    expect(model.selectedDifficultyApplication).toEqual({ applied: 0, total: 4 });
+
+    // 같은 구성이라도 최대 난이도를 낮추지 않으면 전부 반영되어 순서 변경을 제안하지 않는다.
+    const fullModel = buildUnexploredTreeModel(
+      { ...cappedSnapshot, difficulty: 126, difficultyCap: 130 },
+      difficultyIds[0],
+    );
+    expect(fullModel.selectedDifficultyOrder).toBeNull();
+    expect(
+      buildUnexploredTreeModel(cappedSnapshot, difficultyIds[0]).selectedDifficultyOrder,
+    ).toBe("last");
+  });
+
   it("상한 전에는 활성화할 위험 노드의 난이도가 전부 반영된다고 미리 보여 준다", () => {
     const targetId = UNEXPLORED_NODES.find((node) =>
       node.effects.some((effect) => effect.kind === "difficulty_reward"),
@@ -495,6 +533,9 @@ describe("unexploredDifficultyCapNotice", () => {
   it("미적용과 일부 적용을 활성 여부에 맞춰 안내한다", () => {
     expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, true)).toContain("130단을 넘겨 찍은 노드라");
     expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, false)).toContain("지금 찍으면 130단 상한에 걸려");
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, true, 120)).toContain("120단을 넘겨 찍은 노드라");
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, true, 120)).toContain("이 노드부터 120단을 채웁니다");
+    expect(unexploredDifficultyCapNotice({ applied: 0, total: 4 }, false, 120)).toContain("지금 찍으면 120단 상한에 걸려");
     expect(unexploredDifficultyCapNotice({ applied: 1, total: 3 }, true)).toBe(
       "난이도 +3 중 +1만 반영되어 보상도 1/3만 적용됩니다.",
     );

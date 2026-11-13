@@ -32,6 +32,7 @@ function snapshot(): UnexploredClientSnapshot {
     nodePresets: [[], [], []],
     difficulty: 95,
     difficultyIncrease: 0,
+    difficultyCap: 130,
     encounterShares: [{ kind: "base", share: 100 }],
     rewardSummary: {
       gold: 0,

@@ -19,6 +19,7 @@ import { parseUnexploredTraces } from "@/adventure/data/v2/unexploredRewards";
 import {
   canChangeUnexploredNodes,
   parseUnexploredSave,
+  unexploredDifficultyCap,
   type UnexploredSave,
 } from "@/adventure/data/v2/unexploredState";
 import {
@@ -85,7 +86,10 @@ export function prepareUnexploredHunt(
     return { ok: false, error: "start_required" };
   }
 
-  const effects = deriveUnexploredEffects(save.selectedNodeIds);
+  const effects = deriveUnexploredEffects(
+    save.selectedNodeIds,
+    unexploredDifficultyCap(save),
+  );
   const encounterShares = unexploredEncounterShares(
     effects.encounterSelections,
     { baseMinShare: effects.baseMinShare },

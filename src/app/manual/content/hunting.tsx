@@ -1,5 +1,10 @@
 import { EMBLEM_BOSS_DROP_COUNT, EMBLEM_DIFFICULTIES, EMBLEM_DROP_CHANCE, EMBLEM_GRADE_PCT, EMBLEM_GROWTH_MAX, EMBLEM_FUSION_CHANCE, type EmblemGrade } from "@/adventure/data/v2/emblems";
 import { UNEXPLORED_BOSSES } from "@/adventure/data/v2/unexploredBosses";
+import {
+  UNEXPLORED_BASE_DIFFICULTY,
+  UNEXPLORED_MAX_DIFFICULTY,
+  UNEXPLORED_MIN_DIFFICULTY_CAP,
+} from "@/adventure/data/v2/unexploredTree";
 import { unexploredBossUniqueEffectOf } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
@@ -403,15 +408,17 @@ export function HuntingContent() {
           }),
         )}
       />
-      <H2>난이도 노드와 130단 상한</H2>
+      <H2>난이도 노드와 최대 난이도</H2>
       <P>
-        난이도를 올리고 보상을 주는 노드는 기본 95단에서 최대 130단까지만 반영됩니다.
-        먼저 찍은 노드부터 난이도를 채우고, 130단을 넘겨 찍은 노드는 경로만 연결하며
+        난이도를 올리고 보상을 주는 노드는 기본 {UNEXPLORED_BASE_DIFFICULTY}단에서 최대 {UNEXPLORED_MAX_DIFFICULTY}단까지만 반영됩니다.
+        최대 난이도는 탐사망 위쪽에서 {UNEXPLORED_MIN_DIFFICULTY_CAP}단부터 {UNEXPLORED_MAX_DIFFICULTY}단 사이로 직접 고를 수 있고,
+        프리셋마다 따로 기억합니다. 바꾸는 데 골드는 들지 않습니다.
+        먼저 찍은 노드부터 난이도를 채우고, 최대 난이도를 넘겨 찍은 노드는 경로만 연결하며
         보상은 적용되지 않습니다. 이런 노드는 탐사망에서 점선 테두리로 표시됩니다.
         반영 순서는 노드 상세에서 바꿀 수 있습니다. 점선 노드에서 <Em>먼저 반영</Em>을 누르면
         그 노드부터 채우고, 반영된 노드에서 <Em>후순위로 미루기</Em>를 누르면 가장 나중에 채웁니다.
         노드를 반환하지 않으므로 골드가 들지 않습니다.
-        난이도가 붙지 않은 보상 노드는 130단에서도 그대로 쌓입니다.
+        난이도가 붙지 않은 보상 노드는 최대 난이도에서도 그대로 쌓입니다.
       </P>
     </>
   );

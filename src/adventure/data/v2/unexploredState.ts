@@ -8,6 +8,8 @@ import {
   type UnexploredBossId,
 } from "./unexploredBosses";
 import {
+  UNEXPLORED_MAX_DIFFICULTY,
+  isUnexploredDifficultyCap,
   isUnexploredNodeId,
   type UnexploredNodeId,
 } from "./unexploredTree";
@@ -52,6 +54,8 @@ export type UnexploredEquipmentCraftReceipt = {
 export const UNEXPLORED_PRESET_INDEXES = [0, 1, 2] as const;
 export type UnexploredPresetIndex = (typeof UNEXPLORED_PRESET_INDEXES)[number];
 export type UnexploredNodePresets = [UnexploredNodeId[], UnexploredNodeId[], UnexploredNodeId[]];
+/** 프리셋마다 이용자가 고른 최대 난이도. */
+export type UnexploredDifficultyCaps = [number, number, number];
 
 export function isUnexploredPresetIndex(value: unknown): value is UnexploredPresetIndex {
   return value === 0 || value === 1 || value === 2;
@@ -65,6 +69,7 @@ export type UnexploredSave = {
   selectedNodeIds: UnexploredNodeId[];
   activePresetIndex: UnexploredPresetIndex;
   nodePresets: UnexploredNodePresets;
+  difficultyCaps: UnexploredDifficultyCaps;
   traces: UnexploredTraceState;
   craftReceipts: UnexploredCraftReceipt[];
   equipmentCraftReceipts: UnexploredEquipmentCraftReceipt[];
@@ -179,6 +184,20 @@ function parseEquipmentCraftReceipts(
   return [...latestByRequestId.values()].slice(-MAX_CRAFT_RECEIPTS);
 }
 
+function parseDifficultyCaps(raw: unknown): UnexploredDifficultyCaps {
+  const source = Array.isArray(raw) ? raw : [];
+  const cap = (value: unknown) =>
+    isUnexploredDifficultyCap(value) ? value : UNEXPLORED_MAX_DIFFICULTY;
+  return [cap(source[0]), cap(source[1]), cap(source[2])];
+}
+
+/** 지금 쓰는 프리셋에 적용되는 최대 난이도. */
+export function unexploredDifficultyCap(
+  save: Pick<UnexploredSave, "activePresetIndex" | "difficultyCaps">,
+): number {
+  return save.difficultyCaps[save.activePresetIndex];
+}
+
 export function emptyUnexploredSave(): UnexploredSave {
   return {
     explorationXp: 0,
@@ -188,6 +207,11 @@ export function emptyUnexploredSave(): UnexploredSave {
     selectedNodeIds: [],
     activePresetIndex: 0,
     nodePresets: [[], [], []],
+    difficultyCaps: [
+      UNEXPLORED_MAX_DIFFICULTY,
+      UNEXPLORED_MAX_DIFFICULTY,
+      UNEXPLORED_MAX_DIFFICULTY,
+    ],
     traces: {},
     craftReceipts: [],
     equipmentCraftReceipts: [],
@@ -228,6 +252,7 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     selectedNodeIds,
     activePresetIndex,
     nodePresets,
+    difficultyCaps: parseDifficultyCaps(source.difficultyCaps),
     traces: parseUnexploredTraces(source.traces),
     craftReceipts: parseCraftReceipts(source.craftReceipts),
     equipmentCraftReceipts: parseEquipmentCraftReceipts(

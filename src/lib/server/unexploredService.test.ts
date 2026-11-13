@@ -259,6 +259,68 @@ describe("unexplored service", () => {
     ).toMatchObject({ ok: false, error: "level_required" });
   });
 
+  it("최대 난이도를 골드 없이 바꾸고 프리셋마다 따로 기억한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const selectedNodeIds = ["start", ...difficultyIds];
+    const start = character({
+      unexplored: parseUnexploredSave({ xpPoints: 30, selectedNodeIds }),
+    });
+    expect(unexploredSnapshot(start)).toMatchObject({
+      difficulty: 130,
+      difficultyCap: 130,
+    });
+
+    const lowered = applyUnexploredMutation(start, {
+      action: "difficulty_cap",
+      cap: 120,
+    });
+    expect(lowered.ok).toBe(true);
+    if (!lowered.ok) return;
+    expect(lowered.character.gold).toBe(1_000_000);
+    expect(lowered.character.unexplored.difficultyCaps).toEqual([120, 130, 130]);
+    expect(lowered.character.unexplored.selectedNodeIds).toEqual(selectedNodeIds);
+    expect(lowered.snapshot).toMatchObject({
+      difficulty: 120,
+      difficultyIncrease: 25,
+      difficultyCap: 120,
+    });
+    expect(lowered.snapshot.rewardSummary.specialMaterial).toBeLessThan(
+      unexploredSnapshot(start).rewardSummary.specialMaterial,
+    );
+
+    const switched = applyUnexploredMutation(lowered.character, {
+      action: "switch_preset",
+      presetIndex: 1,
+    });
+    expect(switched.ok).toBe(true);
+    if (!switched.ok) return;
+    expect(switched.snapshot.difficultyCap).toBe(130);
+    const back = applyUnexploredMutation(switched.character, {
+      action: "switch_preset",
+      presetIndex: 0,
+      expectedPresetIndex: 1,
+    });
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    expect(back.snapshot).toMatchObject({ difficulty: 120, difficultyCap: 120 });
+  });
+
+  it("고를 수 없는 최대 난이도와 100레벨 미만의 변경을 거절한다", () => {
+    for (const cap of [119, 131, 124.5]) {
+      expect(
+        applyUnexploredMutation(character(), { action: "difficulty_cap", cap }),
+      ).toEqual({ ok: false, error: "invalid_difficulty_cap" });
+    }
+    expect(
+      applyUnexploredMutation(character({ level: 99 }), {
+        action: "difficulty_cap",
+        cap: 120,
+      }),
+    ).toEqual({ ok: false, error: "level_required" });
+  });
+
   it("catalogue fixture still contains nodes used by the service tests", () => {
     expect(UNEXPLORED_NODES.some((node) => node.id === "sector-medium-5")).toBe(true);
   });

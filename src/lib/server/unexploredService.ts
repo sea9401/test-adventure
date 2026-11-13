@@ -2,6 +2,7 @@ import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { unexploredEncounterShares } from "@/adventure/data/v2/unexploredEncounters";
 import {
   deriveUnexploredEffects,
+  isUnexploredDifficultyCap,
   unexploredActivationError,
   unexploredActivationPath,
   unexploredDifficultyReorder,
@@ -12,7 +13,9 @@ import {
   canChangeUnexploredNodes,
   isUnexploredPresetIndex,
   parseUnexploredSave,
+  unexploredDifficultyCap,
   unexploredEarnedPoints,
+  type UnexploredDifficultyCaps,
   type UnexploredSave,
   type UnexploredPresetIndex,
 } from "@/adventure/data/v2/unexploredState";
@@ -39,6 +42,7 @@ export type UnexploredMutation = (
   | { action: "refund"; nodeId: string }
   | { action: "refund_path"; nodeId: string }
   | { action: "difficulty_order"; nodeId: string; placement: "first" | "last" }
+  | { action: "difficulty_cap"; cap: number }
   | { action: "reset" }
   | { action: "switch_preset"; presetIndex: UnexploredPresetIndex }
 ) & { expectedPresetIndex?: UnexploredPresetIndex };
@@ -56,6 +60,7 @@ export type UnexploredMutationError =
   | "start_required"
   | "would_disconnect"
   | "not_difficulty_node"
+  | "invalid_difficulty_cap"
   | "insufficient_gold";
 
 function normalizedLevel(value: unknown): number {
@@ -76,7 +81,10 @@ function normalizedMaterials(raw: unknown): Record<string, number> {
 export function unexploredSnapshot(character: UnexploredCharacterSave) {
   const level = normalizedLevel(character.level);
   const save = parseUnexploredSave(character.unexplored);
-  const effects = deriveUnexploredEffects(save.selectedNodeIds);
+  const effects = deriveUnexploredEffects(
+    save.selectedNodeIds,
+    unexploredDifficultyCap(save),
+  );
   const currentXpPoint = Math.max(save.xpPoints, level >= 100 ? 1 : 0);
   const nextPointCost = currentXpPoint >= 30
     ? 0
@@ -95,6 +103,7 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     nodePresets: save.nodePresets,
     difficulty: effects.difficulty,
     difficultyIncrease: effects.difficultyIncrease,
+    difficultyCap: effects.difficultyCap,
     encounterShares: unexploredEncounterShares(effects.encounterSelections, {
       baseMinShare: effects.baseMinShare,
     }),
@@ -221,6 +230,15 @@ export function applyUnexploredMutation(
       ...save,
       selectedNodeIds: plan.nodeIds,
     });
+  }
+
+  if (mutation.action === "difficulty_cap") {
+    if (!isUnexploredDifficultyCap(mutation.cap)) {
+      return { ok: false, error: "invalid_difficulty_cap" };
+    }
+    const difficultyCaps: UnexploredDifficultyCaps = [...save.difficultyCaps];
+    difficultyCaps[save.activePresetIndex] = mutation.cap;
+    return successfulMutation(character, { ...save, difficultyCaps });
   }
 
   if (mutation.action === "refund") {

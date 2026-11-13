@@ -17,6 +17,7 @@ describe("미개척지 전투 화면 모델", () => {
       nodePresets: [["start"], [], []],
       difficulty: 105,
       difficultyIncrease: 10,
+      difficultyCap: 130,
       encounterShares: [
         { kind: "base", share: 60 },
         { kind: "pool", poolId: "iron_legion", share: 40 },

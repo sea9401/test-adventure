@@ -4,7 +4,10 @@ import {
   FRONT_UNEXPLORED_POOL_IDS,
   UNEXPLORED_EDGES,
   UNEXPLORED_NODES,
+  UNEXPLORED_MAX_DIFFICULTY,
+  UNEXPLORED_MIN_DIFFICULTY_CAP,
   deriveUnexploredEffects,
+  isUnexploredDifficultyCap,
   shortestUnexploredPath,
   unexploredActivationPath,
   unexploredActivationError,
@@ -275,6 +278,64 @@ describe("unexplored tree catalogue", () => {
     });
     expect(effects.traceExtraChancePct).toBe(10 + 20 + 26);
     expect(effects.rewardPct.specialMaterial).toBe(10 + 20 + 35 + 15);
+  });
+
+  it("고른 최대 난이도까지만 난이도와 보상을 반영하고 넘긴 노드는 경로만 잇는다", () => {
+    const difficultyNodeIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const full = deriveUnexploredEffects(difficultyNodeIds);
+    const capped = deriveUnexploredEffects(difficultyNodeIds, 120);
+
+    expect(full.difficulty).toBe(130);
+    expect(full.difficultyCap).toBe(130);
+    expect(capped.difficulty).toBe(120);
+    expect(capped.difficultyIncrease).toBe(25);
+    expect(capped.difficultyCap).toBe(120);
+    const appliedTotal = Object.values(capped.difficultyApplication).reduce(
+      (sum, application) => sum + application!.applied,
+      0,
+    );
+    expect(appliedTotal).toBe(25);
+    expect(capped.difficultyApplication[difficultyNodeIds.at(-1)!]).toMatchObject({
+      applied: 0,
+    });
+    expect(capped.rewardPct.specialMaterial).toBeLessThan(
+      full.rewardPct.specialMaterial,
+    );
+  });
+
+  it("위험한 계약도 고른 최대 난이도 안에서만 반영한다", () => {
+    const difficultyNodeIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const effects = deriveUnexploredEffects(
+      [...difficultyNodeIds, "deep-contract"],
+      123,
+    );
+
+    expect(effects.difficulty).toBe(123);
+    expect(effects.difficultyApplication["deep-contract"]).toEqual({
+      applied: 0,
+      total: 5,
+    });
+  });
+
+  it("고를 수 없는 최대 난이도는 기본 상한으로 계산한다", () => {
+    const difficultyNodeIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+
+    expect(UNEXPLORED_MIN_DIFFICULTY_CAP).toBe(120);
+    for (const cap of [119, 131, 124.5, Number.NaN]) {
+      expect(isUnexploredDifficultyCap(cap)).toBe(false);
+      expect(deriveUnexploredEffects(difficultyNodeIds, cap).difficulty).toBe(
+        UNEXPLORED_MAX_DIFFICULTY,
+      );
+    }
+    expect(isUnexploredDifficultyCap(120)).toBe(true);
+    expect(isUnexploredDifficultyCap(130)).toBe(true);
+    expect(isUnexploredDifficultyCap("125")).toBe(false);
   });
 
   it("rejects a second conversion node and permits route nodes at difficulty 130", () => {

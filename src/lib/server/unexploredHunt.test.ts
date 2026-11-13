@@ -20,6 +20,7 @@ function character(selectedNodeIds: string[], level = 100) {
       selectedNodeIds,
       activePresetIndex: 0,
       nodePresets: [selectedNodeIds, [], []],
+      difficultyCaps: [130, 130, 130],
       traces: {},
       craftReceipts: [],
       equipmentCraftReceipts: [],
@@ -69,6 +70,26 @@ describe("unexplored hunt server authority", () => {
     expect(prepared.difficulty).toBe(130);
     expect(prepared.runtime.difficulty).toBe(130);
     expect(prepared.runtime.monster.hp).toBeGreaterThan(0);
+  });
+
+  it("고른 최대 난이도로 몬스터와 보상 보정을 준비한다", () => {
+    const difficultyIds = UNEXPLORED_NODES.filter((node) =>
+      node.effects.some((effect) => effect.kind === "difficulty_reward"),
+    ).map((node) => node.id);
+    const base = character(["start", ...difficultyIds]);
+    const capped = prepareUnexploredHunt(
+      { ...base, unexplored: { ...base.unexplored, difficultyCaps: [120, 130, 130] } },
+      () => 0,
+    );
+    const full = prepareUnexploredHunt(base, () => 0);
+
+    expect(capped.ok && full.ok).toBe(true);
+    if (!capped.ok || !full.ok) return;
+    expect(full.difficulty).toBe(130);
+    expect(capped.difficulty).toBe(120);
+    expect(capped.runtime.difficulty).toBe(120);
+    expect(capped.effects.difficultyIncrease).toBe(25);
+    expect(capped.runtime.monster.hp).toBeLessThan(full.runtime.monster.hp);
   });
 
   it("ignores client depth by deriving difficulty and encounter shares from nodes", () => {

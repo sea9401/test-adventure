@@ -82,6 +82,9 @@ function parseMutation(raw: unknown): UnexploredMutation | null {
       expectedPresetIndex,
     };
   }
+  if (source.action === "difficulty_cap" && typeof source.cap === "number") {
+    return { action: "difficulty_cap", cap: source.cap, expectedPresetIndex };
+  }
 
   if (
     (
@@ -99,7 +102,9 @@ function parseMutation(raw: unknown): UnexploredMutation | null {
 }
 
 function mutationStatus(error: UnexploredMutationError): number {
-  return error === "unknown_node" ? 400 : 409;
+  return error === "unknown_node" || error === "invalid_difficulty_cap"
+    ? 400
+    : 409;
 }
 
 export async function POST(req: Request) {

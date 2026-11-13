@@ -272,6 +272,35 @@ describe("/api/v2/unexplored", () => {
     expect(upsertSave).toHaveBeenCalledOnce();
   });
 
+  it("고른 최대 난이도를 저장하고 범위를 벗어난 값은 저장하지 않는다", async () => {
+    mocks.saves.set("character.v2", {
+      level: 100,
+      gold: 1_000_000,
+      unexplored: { xpPoints: 30, selectedNodeIds: ["start", "deep-contract"] },
+    });
+
+    const malformed = await POST(request({ action: "difficulty_cap", cap: "120" }));
+    expect(malformed.status).toBe(400);
+    const outOfRange = await POST(request({ action: "difficulty_cap", cap: 95 }));
+    expect(outOfRange.status).toBe(400);
+    await expect(outOfRange.json()).resolves.toEqual({
+      ok: false,
+      error: "invalid_difficulty_cap",
+    });
+    expect(upsertSave).not.toHaveBeenCalled();
+
+    const response = await POST(request({ action: "difficulty_cap", cap: 124 }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      snapshot: { gold: 1_000_000, difficultyCap: 124 },
+    });
+    expect(upsertSave).toHaveBeenCalledOnce();
+    expect(vi.mocked(upsertSave).mock.calls[0][3]).toMatchObject({
+      unexplored: { difficultyCaps: [124, 130, 130] },
+    });
+  });
+
   it("does not persist a rejected mutation", async () => {
     const response = await POST(request({ action: "activate", nodeId: "deep-boss" }));
     expect(response.status).toBe(409);

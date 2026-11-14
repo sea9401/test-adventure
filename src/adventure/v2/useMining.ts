@@ -20,6 +20,10 @@ import {
 import { useGameActivityState } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import {
+  parseGatheringSiteUpkeep,
+  type GatheringSiteUpkeepState,
+} from "./gatheringSiteUpkeep";
 
 import {
   parseAutoActivity,
@@ -98,6 +102,7 @@ export function useMining(): MiningHandlers {
   const [autoLoading, setAutoLoading] = useState(false);
   const [activeAutoActivity, setActiveAutoActivity] =
     useState<AutoGatheringActivity | null>(null);
+  const [siteUpkeep, setSiteUpkeep] = useState<GatheringSiteUpkeepState>({});
 
   useEffect(() => {
     let alive = true;
@@ -119,6 +124,7 @@ export function useMining(): MiningHandlers {
           }),
         );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
+        setSiteUpkeep(parseGatheringSiteUpkeep(json.siteUpkeep));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -299,6 +305,7 @@ export function useMining(): MiningHandlers {
     autoResult,
     autoLoading,
     activeAutoActivity,
+    siteUpkeep,
     startAuto,
     claimAuto,
     cancelAuto,

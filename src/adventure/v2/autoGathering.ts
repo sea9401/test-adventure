@@ -79,8 +79,8 @@ export type AutoGatheringSessionView = {
   materialId: string;
   startedAt: number;
   readyAt: number;
-  /** 시작할 때 굳힌 작업 시간. */
-  durationMs: number;
+  /** 시작할 때 굳힌 작업 시간. 없으면 계획의 기본 시간이다. */
+  durationMs?: number;
   attempts: number;
 };
 

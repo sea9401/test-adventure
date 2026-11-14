@@ -4,22 +4,15 @@ import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 import {
   GATHERING_SITES,
-  type GatheringSiteActivity,
   type GatheringSiteUpkeepContext,
   type GatheringSiteUpkeepState,
+  type GatheringSiteUpkeepView,
 } from "@/adventure/v2/gatheringSiteUpkeep";
 import {
   LIFE_MAJOR_PRODUCT_ID,
   lifeMajorCanCraft,
   parseLifeMajorState,
 } from "@/adventure/v2/lifeMajor";
-
-export type GatheringSiteUpkeepView = {
-  stages: GatheringSiteUpkeepState;
-  /** 정비에 쓰는 재료의 보유량. 없는 재료는 싣지 않는다. */
-  materials: Record<string, number>;
-  masterUnlocked: Record<GatheringSiteActivity, boolean>;
-};
 
 /** 정비에 쓰는 재료: 원자재 12종, 채광 부산물 3종, 명장 합금·목재. */
 const UPKEEP_MATERIAL_IDS: readonly string[] = [

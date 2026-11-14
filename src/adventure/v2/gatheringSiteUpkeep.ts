@@ -185,6 +185,14 @@ export type GatheringSiteUpkeepContext = {
   masterUnlocked: Record<GatheringSiteActivity, boolean>;
 };
 
+/** 정비 현황 — 조회·정비 응답과 화면이 함께 쓴다. */
+export type GatheringSiteUpkeepView = {
+  stages: GatheringSiteUpkeepState;
+  /** 정비에 쓰는 재료의 보유량. 없는 재료는 싣지 않는다. */
+  materials: Record<string, number>;
+  masterUnlocked: Record<GatheringSiteActivity, boolean>;
+};
+
 export type GatheringSiteBlockReason =
   | "upkeep_max"
   | "upkeep_master_locked"

@@ -38,6 +38,8 @@ describe("자동 생활 작업 상태와 시각 보정", () => {
       materialId: "v2_pine_log",
       startedAt: 8_980_000,
       readyAt: 9_120_000,
+      // 작업 시간이 실려 오지 않으면 계획의 기본 시간이다.
+      durationMs: 30 * 60_000,
       attempts: 20,
     });
   });

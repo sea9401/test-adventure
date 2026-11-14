@@ -48,6 +48,17 @@ export const AUTO_GATHERING_PLANS: Record<
   },
 };
 export const AUTO_GATHERING_PLAN_LIST = Object.values(AUTO_GATHERING_PLANS);
+/** 정비한 채집지에서 느긋한 작업이 가질 수 있는 가장 긴 시간. 이보다 긴 값은 받지 않는다. */
+export const AUTO_GATHERING_EXTENDED_MAX_DURATION_MS = 4 * 60 * 60 * 1_000;
+
+/** 작업 시간 표시 — "30분", "2시간", "2시간 12분". */
+export function autoGatheringDurationLabel(durationMs: number): string {
+  const totalMinutes = Math.max(0, Math.round(durationMs / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}분`;
+  return minutes === 0 ? `${hours}시간` : `${hours}시간 ${minutes}분`;
+}
 export const WOODCUTTING_AUTO_KEY = "woodcutting-auto.v1";
 export const MINING_AUTO_KEY = "mining-auto.v1";
 
@@ -68,6 +79,8 @@ export type AutoGatheringSessionView = {
   materialId: string;
   startedAt: number;
   readyAt: number;
+  /** 시작할 때 굳힌 작업 시간. */
+  durationMs: number;
   attempts: number;
 };
 
@@ -117,6 +130,7 @@ export function parseAutoGatheringSessionView(
     materialId: String(item.materialId ?? ""),
     startedAt: correctTimestamp(startedAt),
     readyAt: correctTimestamp(readyAt),
+    durationMs: sessionDurationMs(item.durationMs, item.planId),
     attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
   };
 }
@@ -207,6 +221,8 @@ export type AutoGatheringSession = {
   materialId: string;
   startedAt: number;
   readyAt: number;
+  /** 시작할 때 굳힌 작업 시간. 정비 단계가 나중에 바뀌어도 진행 중인 작업은 그대로다. */
+  durationMs: number;
   cycleDurationMs: number;
   attempts: number;
   successRate: number;
@@ -274,6 +290,17 @@ export function autoGatheringPlan(value: unknown): AutoGatheringPlan {
   ];
 }
 
+/** 저장된 작업 시간. 이 필드가 없던 세이브는 계획의 기본 시간으로 읽는다. */
+function sessionDurationMs(raw: unknown, planId: unknown): number {
+  const plan = autoGatheringPlan(planId);
+  const value = Number(raw);
+  return Number.isFinite(value) &&
+    value >= plan.durationMs &&
+    value <= AUTO_GATHERING_EXTENDED_MAX_DURATION_MS
+    ? Math.floor(value)
+    : plan.durationMs;
+}
+
 export function autoGatheringAttempts(
   cycleDurationMs: number,
   durationMs = AUTO_GATHERING_DURATION_MS,
@@ -295,6 +322,8 @@ export function createAutoGatheringSession(args: {
   sourceName: string;
   materialId: string;
   planId?: AutoGatheringPlanId;
+  /** 채집지 정비 단계에 따른 느긋한 작업 시간. 느긋한 작업에만 쓰인다. */
+  extendedDurationMs?: number;
   now: number;
   cycleDurationMs: number;
   successRate: number;
@@ -311,6 +340,10 @@ export function createAutoGatheringSession(args: {
   environmentByproductMultiplier?: number;
 }): AutoGatheringSession {
   const plan = autoGatheringPlan(args.planId);
+  const durationMs =
+    plan.id === "extended"
+      ? sessionDurationMs(args.extendedDurationMs, plan.id)
+      : plan.durationMs;
   const cycleDurationMs = Math.max(
     1_000,
     Math.floor(finiteNumber(args.cycleDurationMs, 1_000)),
@@ -326,9 +359,10 @@ export function createAutoGatheringSession(args: {
     sourceName: args.sourceName,
     materialId: args.materialId,
     startedAt: args.now,
-    readyAt: args.now + plan.durationMs,
+    readyAt: args.now + durationMs,
+    durationMs,
     cycleDurationMs,
-    attempts: autoGatheringAttempts(cycleDurationMs, plan.durationMs),
+    attempts: autoGatheringAttempts(cycleDurationMs, durationMs),
     successRate: Math.round(successRate * 1_000_000) / 1_000_000,
     materialEfficiency: plan.materialEfficiency,
     xpEfficiency: plan.xpEfficiency,
@@ -407,6 +441,7 @@ export function parseAutoGatheringState(raw: unknown): AutoGatheringState {
       materialId: session.materialId,
       startedAt: Math.floor(startedAt),
       readyAt: Math.floor(readyAt),
+      durationMs: sessionDurationMs(session.durationMs, session.planId),
       cycleDurationMs: Math.max(1_000, Math.floor(cycleDurationMs)),
       attempts: Math.max(1, Math.floor(attempts)),
       successRate: Math.min(1, Math.max(0, finiteNumber(session.successRate))),

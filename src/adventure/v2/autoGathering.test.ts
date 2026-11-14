@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTO_GATHERING_DURATION_MS,
+  autoGatheringDurationLabel,
+  parseAutoGatheringSessionView,
   autoGatheringCompletedAttempts,
   beginAutoGathering,
   cancelAutoGathering,
@@ -210,5 +212,80 @@ describe("자동 생활 작업", () => {
       session: null,
       remainders: state.remainders,
     });
+  });
+});
+
+describe("정비한 채집지의 느긋한 작업 시간", () => {
+  const HOUR = 60 * 60_000;
+  const base = {
+    sessionId: "upkeep-auto",
+    sourceId: "iron",
+    sourceName: "철 광맥",
+    materialId: "v2_iron_ore",
+    now: 1_000,
+    cycleDurationMs: 9_000,
+    successRate: 0.9,
+    baseXp: 5,
+  };
+
+  it("느긋한 작업만 넘겨받은 시간으로 길어지고 작업 횟수가 시간에 비례한다", () => {
+    const extended = createAutoGatheringSession({
+      ...base,
+      planId: "extended",
+      extendedDurationMs: 3 * HOUR,
+    });
+    expect(extended).toMatchObject({
+      planId: "extended",
+      readyAt: 1_000 + 3 * HOUR,
+      durationMs: 3 * HOUR,
+      attempts: 1_200,
+      successRate: 0.72,
+      materialEfficiency: 0.6,
+    });
+
+    const standard = createAutoGatheringSession({
+      ...base,
+      planId: "standard",
+      extendedDurationMs: 3 * HOUR,
+    });
+    expect(standard.readyAt).toBe(1_000 + AUTO_GATHERING_DURATION_MS);
+    expect(standard.durationMs).toBe(AUTO_GATHERING_DURATION_MS);
+    expect(standard.attempts).toBe(200);
+  });
+
+  it("기본 시간보다 짧거나 4시간보다 긴 값은 무시한다", () => {
+    for (const extendedDurationMs of [HOUR, 4 * HOUR + 1, Number.NaN, -5]) {
+      const session = createAutoGatheringSession({ ...base, planId: "extended", extendedDurationMs });
+      expect(session.readyAt).toBe(1_000 + 2 * HOUR);
+      expect(session.durationMs).toBe(2 * HOUR);
+    }
+  });
+
+  it("굳힌 작업 시간은 저장했다 읽어도 남고, 없던 세이브는 계획 시간으로 읽는다", () => {
+    const session = createAutoGatheringSession({
+      ...base,
+      planId: "extended",
+      extendedDurationMs: 156 * 60_000,
+    });
+    const reloaded = parseAutoGatheringState(
+      JSON.parse(JSON.stringify(beginAutoGathering(emptyAutoGatheringState(), session))),
+    );
+    expect(reloaded.session?.durationMs).toBe(156 * 60_000);
+    expect(reloaded.session?.readyAt).toBe(session.readyAt);
+
+    const { durationMs: _dropped, ...legacy } = session;
+    void _dropped;
+    expect(parseAutoGatheringState({ session: legacy }).session?.durationMs).toBe(2 * HOUR);
+
+    const view = parseAutoGatheringSessionView(session);
+    expect(view?.durationMs).toBe(156 * 60_000);
+    expect(parseAutoGatheringSessionView(legacy)?.durationMs).toBe(2 * HOUR);
+  });
+
+  it("작업 시간을 시간과 분으로 적는다", () => {
+    expect(autoGatheringDurationLabel(30 * 60_000)).toBe("30분");
+    expect(autoGatheringDurationLabel(2 * HOUR)).toBe("2시간");
+    expect(autoGatheringDurationLabel(132 * 60_000)).toBe("2시간 12분");
+    expect(autoGatheringDurationLabel(210 * 60_000)).toBe("3시간 30분");
   });
 });

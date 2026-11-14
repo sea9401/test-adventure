@@ -1,3 +1,7 @@
+import {
+  gatheringSiteExtendedDurationMs,
+  gatheringSiteStage,
+} from "@/adventure/v2/gatheringSiteUpkeep";
 import { randomUUID } from "node:crypto";
 import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
 import {
@@ -201,6 +205,9 @@ export async function POST(req: Request) {
       sourceName: tree.name,
       materialId: tree.materialId,
       planId: body.planId,
+      extendedDurationMs: gatheringSiteExtendedDurationMs(
+        gatheringSiteStage(workshop.siteUpkeep ?? {}, treeId),
+      ),
       now,
       cycleDurationMs: cycleDurationMs + WOODCUTTING_TREE_FALL_MS,
       successRate,

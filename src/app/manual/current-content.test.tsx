@@ -238,6 +238,23 @@ describe("최신 게임 안내서 내용", () => {
     }
   });
 
+  it("채집지 정비의 보상·비용·명장 정비·칭호를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("채집지 정비");
+    expect(html).toContain("느긋한 자동 작업 시간");
+    expect(html).toContain("3시간 30분");
+    expect(html).toContain("2시간 12분");
+    expect(html).toContain("단단한 돌 200");
+    expect(html).toContain("원석 보석 600");
+    // 철 광맥 1단계와 편백나무숲 6단계의 원자재 수량.
+    expect(html).toContain("1,920");
+    expect(html).toContain("13,200");
+    expect(html).toContain("채광, 숲이면 벌목 주전공");
+    expect(html).toContain("개척자");
+    expect(html).toContain("산과 숲의 주인");
+  });
+
   it("생활 축제의 주간 테마·반복 납품 체감·순위 보상·증표 유지를 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 

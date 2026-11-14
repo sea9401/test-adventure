@@ -781,7 +781,7 @@ describe("/api/v2/cooking", () => {
     expect((mocks.store.get("cooking.v2") as { xp: number }).xp).toBe(expectedXp);
   });
 
-  it("전문 분야는 조건 달성 후 고르고, 바꾸면 숙련을 남긴 채 7일 동안 다시 바꿀 수 없다", async () => {
+  it("전문 분야는 조건 달성 후 고르고, 바꾸면 숙련을 남긴 채 1일 동안 다시 바꿀 수 없다", async () => {
     const hidden = [
       "tomato_salad", "herb_omelet", "egg_fried_rice", "herb_roasted_pork", "crispy_pork_cutlet",
       "soy_pork_rice_bowl", "soy_braised_eggs", "onion_steak", "golden_corn_fritters", "tomato_pork_skewers",
@@ -1026,7 +1026,7 @@ describe("/api/v2/cooking", () => {
 });
 
 describe("/api/v2/cooking 요리 특화", () => {
-  const DAY = 86_400_000;
+  const HOUR = 3_600_000;
   const LEVEL_20_XP = cookingLevelXpThreshold(20);
 
   beforeEach(() => {
@@ -1240,7 +1240,7 @@ describe("/api/v2/cooking 요리 특화", () => {
   });
 
   it("조회 응답에 특화 정보가 실리고 도감 총수는 그대로다", async () => {
-    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - DAY } });
+    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - HOUR } });
     const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
 
     expect(json.recipeTotal).toBe(500);
@@ -1252,7 +1252,7 @@ describe("/api/v2/cooking 요리 특화", () => {
       xp: 7_000,
       nextRankXp: 15_000,
       xpByBranch: { baking_bread: 7_000 },
-      nextChangeAt: NOW - DAY + COOKING_BRANCH_CHANGE_COOLDOWN_MS,
+      nextChangeAt: NOW - HOUR + COOKING_BRANCH_CHANGE_COOLDOWN_MS,
       masterpieceBonusPct: 8,
     });
   });

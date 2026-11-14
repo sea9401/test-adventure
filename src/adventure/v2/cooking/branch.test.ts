@@ -77,7 +77,7 @@ describe("요리 특화 규칙", () => {
 
   it("상수", () => {
     expect(COOKING_BRANCH_UNLOCK_SPECIALTY_XP).toBe(1_500);
-    expect(COOKING_BRANCH_CHANGE_COOLDOWN_MS).toBe(7 * DAY);
+    expect(COOKING_BRANCH_CHANGE_COOLDOWN_MS).toBe(DAY);
     expect(COOKING_BRANCH_MAX_RANK).toBe(5);
     expect(COOKING_BRANCH_RANK_XP).toEqual([0, 1_000, 3_000, 7_000, 15_000]);
     expect(COOKING_BRANCH_DISH_RANKS).toEqual([1, 3, 5]);
@@ -160,7 +160,7 @@ describe("요리 특화 규칙", () => {
     expect(choose(BAKER, "baking_bread")).toBe("no_error");
   });
 
-  it("처음 고를 때는 대기가 없고 바꾸면 7일을 기다린다", () => {
+  it("처음 고를 때는 대기가 없고 바꾸면 1일을 기다린다", () => {
     const first = chooseCookingBranch({
       state: emptyCookingBranchState(),
       specialty: BAKER,
@@ -182,20 +182,20 @@ describe("요리 특화 규칙", () => {
       now: NOW + 1,
     });
     expect(changed).toEqual({ current: "baking_pastry", xp: { baking_bread: 3_000 }, changedAt: NOW + 1 });
-    expect(cookingBranchNextChangeAt(changed)).toBe(NOW + 1 + 7 * DAY);
+    expect(cookingBranchNextChangeAt(changed)).toBe(NOW + 1 + DAY);
     expect(cookingBranchRank(changed)).toBe(1);
 
     const tooSoon = () =>
-      chooseCookingBranch({ state: changed, specialty: BAKER, branchId: "baking_bread", now: NOW + 7 * DAY });
+      chooseCookingBranch({ state: changed, specialty: BAKER, branchId: "baking_bread", now: NOW + DAY });
     expect(errorCode(tooSoon)).toBe("branch_cooldown");
     const back = chooseCookingBranch({
       state: changed,
       specialty: BAKER,
       branchId: "baking_bread",
-      now: NOW + 1 + 7 * DAY,
+      now: NOW + 1 + DAY,
     });
     expect(back.current).toBe("baking_bread");
-    expect(back.changedAt).toBe(NOW + 1 + 7 * DAY);
+    expect(back.changedAt).toBe(NOW + 1 + DAY);
     // 돌아오면 쌓아 둔 숙련을 이어 쓴다.
     expect(cookingBranchRank(back)).toBe(3);
   });

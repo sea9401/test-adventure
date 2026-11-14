@@ -73,8 +73,8 @@ describe("cooking v2 state", () => {
     );
   });
 
-  it("전문 분야를 바꾸면 분야별 숙련이 남고 고른 특화가 풀리며 7일 동안 다시 바꿀 수 없다", () => {
-    expect(COOKING_SPECIALTY_CHANGE_COOLDOWN_MS).toBe(7 * 86_400_000);
+  it("전문 분야를 바꾸면 분야별 숙련이 남고 고른 특화가 풀리며 1일 동안 다시 바꿀 수 없다", () => {
+    expect(COOKING_SPECIALTY_CHANGE_COOLDOWN_MS).toBe(86_400_000);
     const hearth = parseCookingState(
       {
         ...emptyCookingState(NOW),

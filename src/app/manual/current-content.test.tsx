@@ -229,7 +229,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("생활 전공과 명장 단계");
     expect(html).toContain("주전공");
     expect(html).toContain("부전공");
-    expect(html).toContain("7일 동안 다시 바꿀 수 없습니다");
+    expect(html).toContain("1일 동안 다시 바꿀 수 없습니다");
     expect(html).toContain("전공 고르기 버튼");
     expect(html).toContain("명장 10단계");
     expect(html).toContain("캐릭터 &gt; 내 정보 &gt; 생활 기록");

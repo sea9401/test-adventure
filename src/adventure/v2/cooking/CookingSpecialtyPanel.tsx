@@ -8,19 +8,12 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import { COOKING_SPECIALTY_CHANGE_COOLDOWN_MS, cookingSpecialtyRank } from "./specialty";
 import { COOKING_FIELD_NAMES, type CookingField } from "./types";
+import { formatCookingChangeTime } from "./clientDisplay";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 
 const FIELDS = Object.keys(COOKING_FIELD_NAMES) as CookingField[];
 const COOLDOWN_DAYS = COOKING_SPECIALTY_CHANGE_COOLDOWN_MS / 86_400_000;
 const FIELD_BUTTON_CLASS = `${SURFACE_INSET} min-h-10 px-3 py-3 text-sm font-bold text-zinc-800 disabled:cursor-not-allowed disabled:text-zinc-400 dark:text-zinc-100 dark:disabled:text-zinc-500`;
-
-function formatChangeDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString("ko-KR", {
-    month: "long",
-    day: "numeric",
-    timeZone: "Asia/Seoul",
-  });
-}
 
 export function CookingSpecialtyPanel({
   data,
@@ -76,7 +69,7 @@ export function CookingSpecialtyPanel({
             </h4>
             <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
               {coolingDown && nextChangeAt !== null
-                ? `${formatChangeDate(nextChangeAt)}부터 변경할 수 있습니다.`
+                ? `${formatCookingChangeTime(nextChangeAt)}부터 변경할 수 있습니다.`
                 : "숙련은 분야마다 따로 남습니다. 분야를 바꾸면 고른 특화는 풀립니다."}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-4">

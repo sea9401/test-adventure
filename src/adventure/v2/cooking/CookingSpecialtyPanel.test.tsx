@@ -82,7 +82,7 @@ describe("CookingSpecialtyPanel 전문 분야 선택", () => {
     expect(browserConfirm).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "약선 전문을 선택할까요?" })).toBeTruthy();
     expect(
-      screen.getByText("나중에 바꿀 수 있지만, 바꾼 뒤에는 7일 동안 다시 바꿀 수 없습니다."),
+      screen.getByText("나중에 바꿀 수 있지만, 바꾼 뒤에는 1일 동안 다시 바꿀 수 없습니다."),
     ).toBeTruthy();
     expect(mutate).not.toHaveBeenCalled();
 
@@ -117,7 +117,7 @@ describe("CookingSpecialtyPanel 전문 분야 변경", () => {
     fireEvent.click(screen.getByRole("button", { name: "화덕 · 숙련 0" }));
 
     const dialog = screen.getByRole("dialog", { name: "화덕 전문으로 바꿀까요?" });
-    expect(dialog.textContent).toContain("7일 동안 다시 바꿀 수 없습니다");
+    expect(dialog.textContent).toContain("1일 동안 다시 바꿀 수 없습니다");
     expect(dialog.textContent).toContain("냄비 숙련 17,460은 그대로 남고");
     expect(dialog.textContent).toContain("고른 특화는 풀립니다");
     expect(dialog.textContent).toContain("화덕 숙련은 0부터 쌓습니다");
@@ -139,15 +139,15 @@ describe("CookingSpecialtyPanel 전문 분야 변경", () => {
     expect(screen.getByRole("dialog").textContent).toContain("제과 숙련은 1,800에서 이어 쌓습니다");
   });
 
-  it("바꾼 지 7일이 안 됐으면 변경을 막고 가능한 날짜를 알린다", () => {
+  it("바꾼 지 1일이 안 됐으면 변경을 막고 가능한 시각을 알린다", () => {
     render(
       <CookingSpecialtyPanel
-        data={selectedSpecialtyFixture(300, { specialtyChangedAt: NOW - 86_400_000 })}
+        data={selectedSpecialtyFixture(300, { specialtyChangedAt: NOW - 3_600_000 })}
         busy={false}
         mutate={vi.fn(async () => undefined)}
       />,
     );
-    expect(screen.getByText("11월 20일부터 변경할 수 있습니다.")).toBeTruthy();
+    expect(screen.getByText("11월 15일 11:00부터 변경할 수 있습니다.")).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "화덕 · 숙련 0" }) as HTMLButtonElement).disabled,
     ).toBe(true);

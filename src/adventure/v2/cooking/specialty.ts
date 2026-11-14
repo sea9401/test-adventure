@@ -8,4 +8,4 @@ export function cookingSpecialtyRank(xp: number): 1 | 2 | 3 | 4 | 5 {
 }
 
 /** 주 전문 분야를 바꾼 뒤 다시 바꿀 수 있을 때까지의 대기. 처음 고를 때는 대기가 없다. */
-export const COOKING_SPECIALTY_CHANGE_COOLDOWN_MS = 7 * 86_400_000;
+export const COOKING_SPECIALTY_CHANGE_COOLDOWN_MS = 86_400_000;

@@ -102,7 +102,7 @@ describe("생활 전공 카드", () => {
     render(<LifeMajorCard />);
     await screen.findByLabelText("주전공");
     expect(screen.getByText(/전공을 바꿔도 쌓은 명장 단계는 생활별로 남습니다/)).toBeTruthy();
-    expect(screen.getByText(/7일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
+    expect(screen.getByText(/1일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
   });
 
   it("명장 요리를 어디서 어떤 조건으로 만드는지 알려 준다", async () => {

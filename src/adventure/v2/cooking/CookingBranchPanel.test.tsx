@@ -7,7 +7,7 @@ import { CookingBranchPanel } from "./CookingBranchPanel";
 import type { CookingBranchView, CookingResponse } from "./clientTypes";
 
 const NOW = Date.parse("2026-11-13T12:00:00+09:00");
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
 
 afterEach(() => {
   cleanup();
@@ -202,7 +202,7 @@ describe("요리 특화 패널", () => {
     expect(pastry.getByText("쌓아 둔 숙련 1,200 · 랭크 2")).toBeTruthy();
     fireEvent.click(pastry.getByRole("button", { name: "제과 특화 선택" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/7일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
+    expect(within(dialog).getByText(/1일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "변경" }));
     await waitFor(() =>
       expect(mutate).toHaveBeenCalledWith({ action: "choose_branch", branchId: "baking_pastry" }),
@@ -211,10 +211,10 @@ describe("요리 특화 패널", () => {
 
     renderPanel(
       fixture({
-        branch: { current: "baking_bread", rank: 1, xp: 0, nextRankXp: 1_000, masterpieceBonusPct: 2, nextChangeAt: NOW + 13 * DAY },
+        branch: { current: "baking_bread", rank: 1, xp: 0, nextRankXp: 1_000, masterpieceBonusPct: 2, nextChangeAt: NOW + 5 * HOUR },
       }),
     );
-    expect(screen.getByText("11월 26일부터 변경할 수 있습니다.")).toBeTruthy();
+    expect(screen.getByText("11월 13일 17:00부터 변경할 수 있습니다.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "특화 변경" }) as HTMLButtonElement).disabled).toBe(true);
   });
 

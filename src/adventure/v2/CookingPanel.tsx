@@ -14,12 +14,17 @@ import { CookingCodexPanel } from "./cooking/CookingCodexPanel";
 import { CookingPublicDiscoveryPanel } from "./cooking/CookingPublicDiscoveryPanel";
 import { CookingSpecialtyPanel } from "./cooking/CookingSpecialtyPanel";
 import { CookingBranchPanel } from "./cooking/CookingBranchPanel";
-import { COOKING_BRANCH_BY_ID, type CookingBranchId } from "./cooking/branch";
+import {
+  COOKING_BRANCH_BY_ID,
+  COOKING_BRANCH_CHANGE_COOLDOWN_MS,
+  type CookingBranchId,
+} from "./cooking/branch";
 import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
 import type { CookingMutation, CookingResponse } from "./cooking/clientTypes";
 import { cookingQualityName, type CookingQuality } from "./cooking/foodShared";
 import { CookingSignaturePanel } from "./cooking/CookingSignaturePanel";
+import { COOKING_SPECIALTY_CHANGE_COOLDOWN_MS } from "./cooking/specialty";
 import { COOKING_FIELD_NAMES } from "./cooking/types";
 
 export { SurplusCropLabel } from "./SurplusExchangePanel";
@@ -41,7 +46,8 @@ const ERROR_TEXT: Record<string, string> = {
   not_enough_cooking_prep_sets: "요리 준비 세트가 조리 수량보다 부족합니다.",
   not_enough_gold: "골드가 부족합니다.",
   specialty_locked: "요리 Lv 20과 숨은 레시피 10종 발견이 필요합니다.",
-  specialty_permanent: "주 전문 분야는 이미 확정되어 변경할 수 없습니다.",
+  specialty_unchanged: "이미 고른 전문 분야입니다.",
+  specialty_cooldown: `전문 분야를 바꾼 지 ${COOKING_SPECIALTY_CHANGE_COOLDOWN_MS / 86_400_000}일이 지나야 다시 바꿀 수 있습니다.`,
   food_not_eligible: "이 납품 조건에 맞지 않는 음식입니다.",
   delivery_completed: "이미 완료한 납품 요청입니다.",
   cooked_food_unavailable: "선택한 완성 음식을 보유하고 있지 않습니다.",
@@ -53,7 +59,7 @@ const ERROR_TEXT: Record<string, string> = {
   branch_locked: "전문 분야 랭크 5가 되어야 특화를 고를 수 있습니다.",
   invalid_branch: "자기 전문 분야의 특화만 고를 수 있습니다.",
   branch_unchanged: "이미 고른 특화입니다.",
-  branch_cooldown: "특화를 바꾼 지 14일이 지나야 다시 바꿀 수 있습니다.",
+  branch_cooldown: `특화를 바꾼 지 ${COOKING_BRANCH_CHANGE_COOLDOWN_MS / 86_400_000}일이 지나야 다시 바꿀 수 있습니다.`,
 };
 
 export function cookingErrorText(code: string): string {
@@ -122,11 +128,16 @@ export function cookingResultMessage(data: CookingResponse): string {
   if (result.action === "choose_branch") {
     const branchName = COOKING_BRANCH_BY_ID.get(result.branchId as CookingBranchId)?.name ?? "";
     return result.changed
-      ? `${branchName} 특화로 바꿨습니다. 14일 뒤에 다시 바꿀 수 있습니다.`
+      ? `${branchName} 특화로 바꿨습니다. ${COOKING_BRANCH_CHANGE_COOLDOWN_MS / 86_400_000}일 뒤에 다시 바꿀 수 있습니다.`
       : `${branchName} 특화를 골랐습니다.`;
   }
   if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? (typeof result.recipeName === "string" ? result.recipeName : "요리")} ${Number(result.quantity) || 1}개 완성 · ${cookingQualityResultText(result)}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
-  if (result.action === "choose_specialty") return `${COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES]} 전문 분야를 영구 확정했습니다.`;
+  if (result.action === "choose_specialty") {
+    const fieldName = COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES];
+    return result.changed
+      ? `${fieldName} 전문으로 바꿨습니다. ${COOKING_SPECIALTY_CHANGE_COOLDOWN_MS / 86_400_000}일 뒤에 다시 바꿀 수 있습니다.`
+      : `${fieldName} 전문 분야를 골랐습니다.`;
+  }
   if (result.action === "deliver") return result.completedNow ? "납품 목표를 달성해 보상을 받았습니다." : `납품 점수 +${Number(result.scoreAdded) || 0}`;
   if (result.action === "standing_delivery") return `상시 납품 완료 · ${Number(result.gold).toLocaleString()}골드`;
   if (result.action === "signature") return `${String(result.recipeName ?? "요리")} 명장 요리를 만들었습니다.`;

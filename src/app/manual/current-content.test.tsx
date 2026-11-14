@@ -229,7 +229,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("생활 전공과 명장 단계");
     expect(html).toContain("주전공");
     expect(html).toContain("부전공");
-    expect(html).toContain("30일");
+    expect(html).toContain("7일 동안 다시 바꿀 수 없습니다");
+    expect(html).toContain("전공 고르기 버튼");
     expect(html).toContain("명장 10단계");
     expect(html).toContain("캐릭터 &gt; 내 정보 &gt; 생활 기록");
     expect(html).toContain("Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다");
@@ -461,7 +462,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(pastimes).toContain("총 <strong");
     expect(pastimes).toContain("정확히 <strong");
     expect(pastimes).toContain("성능 +10%");
-    expect(pastimes).toContain("영구 선택");
+    expect(pastimes).toContain("주 전문 분야를 고를 수 있습니다. 분야는 바꿀 수");
+    expect(pastimes).not.toContain("영구 선택");
   });
 
   it("농장 후반 교환소의 해금과 반복 상품을 안내한다", () => {

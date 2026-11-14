@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { COOKING_BRANCH_CHANGE_COOLDOWN_MS } from "@/adventure/v2/cooking/branch";
 import { COOKING_BRANCH_RECIPE_BY_ID } from "@/adventure/v2/cooking/branchRecipes";
 import {
   emptyCookingState,
@@ -158,11 +159,11 @@ describe("요리 특화 서버 판정", () => {
       xp: 3_400,
       nextRankXp: 7_000,
       xpByBranch: { baking_bread: 3_400, baking_pastry: 20 },
-      nextChangeAt: NOW + 13 * DAY,
+      nextChangeAt: NOW - DAY + COOKING_BRANCH_CHANGE_COOLDOWN_MS,
       masterpieceBonusPct: 6,
     });
     // 대기가 끝났으면 null.
-    expect(cookingBranchView(state, NOW + 13 * DAY).nextChangeAt).toBeNull();
+    expect(cookingBranchView(state, NOW - DAY + COOKING_BRANCH_CHANGE_COOLDOWN_MS).nextChangeAt).toBeNull();
     const maxed = cook({ branch: { current: "baking_bread", xp: { baking_bread: 15_000 }, changedAt: null } });
     expect(cookingBranchView(maxed, NOW)).toMatchObject({ rank: 5, nextRankXp: null, masterpieceBonusPct: 10 });
   });

@@ -124,7 +124,7 @@ describe("개편 요리 연구실", () => {
     ["research", "레시피 연구"],
     ["codex", "요리 도감"],
     ["public", "공개 발견 요리"],
-    ["specialty", "한 번 정하면 변경하거나 초기화할 수 없습니다"],
+    ["specialty", "7일 동안 다시 바꿀 수 없습니다"],
     ["delivery", "조건 납품"],
     ["processing", "주방 상점"],
   ] as const)("%s 화면을 렌더링한다", (section, text) => {

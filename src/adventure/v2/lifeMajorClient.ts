@@ -1,12 +1,13 @@
 // 생활 전공 화면이 쓰는 요청·오류 문구. 응답 모양은 /api/v2/life-major 와 같다.
 
 import type { LifeMajorActivity, LifeMajorView } from "./lifeMajor";
+import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
 
 const ERROR_LABELS: Record<string, string> = {
   not_level_100: "Lv.100을 달성한 생활만 전공으로 고를 수 있습니다.",
   same_activity: "주전공과 부전공은 서로 다른 생활이어야 합니다.",
   major_required: "부전공을 고르려면 주전공을 먼저 정해 주세요.",
-  change_cooldown: "전공은 30일에 한 번만 바꿀 수 있습니다.",
+  change_cooldown: `전공은 ${LIFE_MAJOR_CHANGE_COOLDOWN_MS / 86_400_000}일에 한 번만 바꿀 수 있습니다.`,
   invalid_activity: "고를 수 없는 생활입니다.",
   catalyst_locked: "채광 주전공 명장 3단계부터 단련 촉매를 만들 수 있습니다.",
   not_enough_master_product: "명장 합금이나 명장 목재가 부족합니다.",

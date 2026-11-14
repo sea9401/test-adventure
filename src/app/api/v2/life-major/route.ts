@@ -1,5 +1,5 @@
 // GET  /api/v2/life-major — 생활 전공·명장 단계 현황
-// POST /api/v2/life-major — { major, minor } 전공 지정·변경(처음 채우기 무료, 변경은 30일 쿨다운)
+// POST /api/v2/life-major — { major, minor } 전공 지정·변경(처음 채우기 무료, 변경은 7일 쿨다운)
 
 import { db } from "@/db";
 import {

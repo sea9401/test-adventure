@@ -202,7 +202,7 @@ describe("요리 특화 패널", () => {
     expect(pastry.getByText("쌓아 둔 숙련 1,200 · 랭크 2")).toBeTruthy();
     fireEvent.click(pastry.getByRole("button", { name: "제과 특화 선택" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/14일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
+    expect(within(dialog).getByText(/7일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "변경" }));
     await waitFor(() =>
       expect(mutate).toHaveBeenCalledWith({ action: "choose_branch", branchId: "baking_pastry" }),

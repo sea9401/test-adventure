@@ -21,6 +21,8 @@ export const FARM_BOUNTIFUL_HAND_TITLE_ID = "farm_bountiful_hand";
 export const FARM_GOLDEN_FIELDS_OWNER_TITLE_ID = "farm_golden_fields_owner";
 export const FARM_BREEDER_TITLE_ID = "farm_breeder";
 export const FARM_BREED_MASTER_TITLE_ID = "farm_breed_master";
+export const GATHERING_PIONEER_TITLE_ID = "gathering_pioneer";
+export const GATHERING_SITE_MASTER_TITLE_ID = "gathering_site_master";
 export const LIFE_FESTIVAL_REGULAR_TITLE_ID = "life_festival_regular";
 export const LIFE_FESTIVAL_MASTER_TITLE_ID = "life_festival_master";
 export const LIFE_FESTIVAL_LEGEND_TITLE_ID = "life_festival_legend";
@@ -140,6 +142,20 @@ export const TITLES: Record<TitleId, Title> = {
     name: "품종의 대가",
     description: "밭의 모든 작물을 가장 좋은 품종으로 길러 낸 농부.",
     condition: "모든 작물 품종 5단계 달성",
+    category: "collection",
+  },
+  [GATHERING_PIONEER_TITLE_ID]: {
+    id: GATHERING_PIONEER_TITLE_ID,
+    name: "개척자",
+    description: "광맥과 숲을 오래 머물 수 있는 일터로 다듬어 온 사람.",
+    condition: "채집지 정비 단계 합계 24 달성",
+    category: "collection",
+  },
+  [GATHERING_SITE_MASTER_TITLE_ID]: {
+    id: GATHERING_SITE_MASTER_TITLE_ID,
+    name: "산과 숲의 주인",
+    description: "모든 광맥과 숲을 빈틈없이 정비해 낸 사람.",
+    condition: "모든 채집지 정비 5단계 달성",
     category: "collection",
   },
   [LIFE_FESTIVAL_REGULAR_TITLE_ID]: {

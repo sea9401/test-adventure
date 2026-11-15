@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   farmBatchOutcomeText,
+  farmReplantOutcomeText,
+  runFarmHarvestAndReplant,
   runFarmPlotBatch,
 } from "./farmBatchActions";
 
@@ -182,4 +184,81 @@ describe("farmBatchOutcomeText", () => {
 
 it("일괄 수확 알림에 반환한 씨앗 합계를 표시한다", () => {
   expect(farmBatchOutcomeText("harvest", 3, null, undefined, 135, 2)).toContain("씨앗 2개 반환");
+});
+
+describe("runFarmHarvestAndReplant", () => {
+  function fakeRequest(options: { failHarvestAt?: string; plantable?: Record<string, number> } = {}) {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const request = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      calls.push({ url: String(input), body });
+      if (String(input).endsWith("/harvest")) {
+        if (body.plotId === options.failHarvestAt) {
+          return Response.json({ ok: false, error: "rate_limited" }, { status: 429 });
+        }
+        return Response.json({ ok: true, result: { farmingXpGained: 10, seedReturned: 1 } });
+      }
+      const plotIds = body.plotIds as string[];
+      const limit = options.plantable?.[String(body.cropId)] ?? plotIds.length;
+      return Response.json({
+        ok: true,
+        result: {
+          planted: Math.min(limit, plotIds.length),
+          stoppedError: limit < plotIds.length ? "not_enough_seeds" : null,
+        },
+      });
+    });
+    return { calls, request };
+  }
+
+  const plots = [
+    { plotId: "p1", cropId: "wheat" },
+    { plotId: "p2", cropId: "corn" },
+    { plotId: "p3", cropId: "wheat" },
+  ];
+
+  it("모두 수확한 뒤 작물별로 묶어 같은 작물을 다시 심는다", async () => {
+    const { calls, request } = fakeRequest();
+    const onSuccess = vi.fn();
+    const result = await runFarmHarvestAndReplant({ plots, request, onSuccess });
+
+    expect(calls.map((call) => [call.url, call.body])).toEqual([
+      ["/api/v2/farm/harvest", { plotId: "p1" }],
+      ["/api/v2/farm/harvest", { plotId: "p2" }],
+      ["/api/v2/farm/harvest", { plotId: "p3" }],
+      ["/api/v2/farm/plant", { plotIds: ["p1", "p3"], cropId: "wheat" }],
+      ["/api/v2/farm/plant", { plotIds: ["p2"], cropId: "corn" }],
+    ]);
+    expect(result).toEqual({
+      harvested: 3,
+      planted: 3,
+      error: null,
+      farmingXpGained: 30,
+      seedsReturned: 3,
+    });
+    expect(onSuccess).toHaveBeenCalledTimes(5);
+  });
+
+  it("수확이 중간에 멈추면 수확한 칸만 다시 심고 사유를 돌려준다", async () => {
+    const { calls, request } = fakeRequest({ failHarvestAt: "p3" });
+    const result = await runFarmHarvestAndReplant({ plots, request, onSuccess: vi.fn() });
+    expect(calls.at(-2)).toEqual({ url: "/api/v2/farm/plant", body: { plotIds: ["p1"], cropId: "wheat" } });
+    expect(calls.at(-1)).toEqual({ url: "/api/v2/farm/plant", body: { plotIds: ["p2"], cropId: "corn" } });
+    expect(result).toMatchObject({ harvested: 2, planted: 2, error: "rate_limited" });
+  });
+
+  it("씨앗이 모자라면 심은 칸 수만 세고 사유를 남긴다", async () => {
+    const { request } = fakeRequest({ plantable: { wheat: 1 } });
+    const result = await runFarmHarvestAndReplant({ plots, request, onSuccess: vi.fn() });
+    expect(result).toMatchObject({ harvested: 3, planted: 2, error: "not_enough_seeds" });
+  });
+
+  it("결과를 한 문장으로 적는다", () => {
+    expect(farmReplantOutcomeText({ harvested: 12, planted: 12, farmingXpGained: 340, seedsReturned: 2 })).toBe(
+      "12칸을 수확하고 12칸에 다시 심었습니다. 씨앗 2개 반환. 농사 XP +340.",
+    );
+    expect(farmReplantOutcomeText({ harvested: 12, planted: 9, farmingXpGained: 0, seedsReturned: 0 })).toBe(
+      "12칸을 수확하고 9칸에 다시 심었습니다. 씨앗이 모자라 3칸은 비어 있습니다.",
+    );
+  });
 });

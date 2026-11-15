@@ -24,8 +24,10 @@ import type {
 import { FARM_CROPS } from "./farm";
 import {
   farmBatchOutcomeText,
+  runFarmHarvestAndReplant,
   runFarmPlotBatch,
   type FarmBatchAction,
+  type FarmBusyBatchAction,
 } from "./farmBatchActions";
 import type { RanchAnimalId, RanchFeedTarget, RanchSlotId } from "./ranch";
 import { useSystemToast } from "./RewardToastProvider";
@@ -67,13 +69,17 @@ type FarmResponse = {
   endgameShopResult?: FarmEndgameShopPurchaseResult;
   breeding?: FarmBreedingContext;
   breedResult?: FarmBreedingResult;
+  /** 생활 명성. 농장 조회 응답에만 실린다. */
+  lifeRenown?: number;
   levelCurveMigrated?: boolean;
 };
 
 export type FarmClientState = {
   loading: boolean;
   busyPlotId: string | null;
-  busyPlotAction: FarmBatchAction | null;
+  busyPlotAction: FarmBusyBatchAction | null;
+  /** 생활 명성. "수확하고 다시 심기" 편의가 열렸는지 판단한다. */
+  lifeRenown: number;
   busyDeliveryId: string | null;
   busySpecialDeliveryId: string | null;
   busyWeeklyDeliveryId: string | null;
@@ -116,6 +122,10 @@ export type FarmClientState = {
   uproot: (plotId: string) => Promise<void>;
   plantAll: (plotIds: readonly string[], cropId: FarmCropId) => Promise<void>;
   harvestAll: (plotIds: readonly string[]) => Promise<void>;
+  /** 다 자란 칸을 수확하고 같은 작물을 다시 심는다. */
+  harvestAndReplant: (
+    plots: ReadonlyArray<{ plotId: string; cropId: FarmCropId }>,
+  ) => Promise<void>;
   fertilizeAll: (plotIds: readonly string[]) => Promise<void>;
   deliver: (requestId: string) => Promise<void>;
   deliverSpecial: (requestId: string, count?: number) => Promise<void>;
@@ -152,6 +162,14 @@ export type FarmNotice =
       seedsReturned: number;
     }
   | { id: number; kind: "batchFertilizer"; count: number }
+  | {
+      id: number;
+      kind: "batchReplant";
+      harvested: number;
+      planted: number;
+      farmingXpGained: number;
+      seedsReturned: number;
+    }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
   | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
   | { id: number; kind: "ranchUpgrade"; result: FarmRanchUpgradeResult }
@@ -162,7 +180,8 @@ export function useFarm(): FarmClientState {
   const [loading, setLoading] = useState(true);
   const [busyPlotId, setBusyPlotId] = useState<string | null>(null);
   const [busyPlotAction, setBusyPlotAction] =
-    useState<FarmBatchAction | null>(null);
+    useState<FarmBusyBatchAction | null>(null);
+  const [lifeRenown, setLifeRenown] = useState(0);
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
   const [busySpecialDeliveryId, setBusySpecialDeliveryId] = useState<
     string | null
@@ -307,6 +326,9 @@ export function useFarm(): FarmClientState {
       });
     }
     if (data.breeding) setBreedingInfo(data.breeding);
+    if (typeof data.lifeRenown === "number") {
+      setLifeRenown(Math.max(0, Math.floor(data.lifeRenown)));
+    }
     if (data.breedResult) {
       setNotice({ id: Date.now(), kind: "breed", result: data.breedResult });
     }
@@ -511,6 +533,42 @@ export function useFarm(): FarmClientState {
   const fertilizeAll = useCallback(
     (plotIds: readonly string[]) => runBatch("fertilize", plotIds),
     [runBatch],
+  );
+
+  const harvestAndReplant = useCallback(
+    async (plots: ReadonlyArray<{ plotId: string; cropId: FarmCropId }>) => {
+      if (plots.length === 0) return;
+      setBusyPlotAction("replant");
+      setError(null);
+      try {
+        const outcome = await runFarmHarvestAndReplant<FarmResponse>({
+          plots,
+          onSuccess: (data) => apply(data, { suppressActionNotice: true }),
+        });
+        // 씨앗 부족은 실패가 아니라 결과 문장에서 알린다.
+        if (outcome.error && outcome.error !== "not_enough_seeds" && outcome.harvested === 0) {
+          const message =
+            sharedNetworkLimitMessage(new Error(outcome.error)) ??
+            farmErrorMessage(new Error(outcome.error));
+          setError(message);
+          setNotice({ id: Date.now(), kind: "error", text: message });
+        } else {
+          setNotice({
+            id: Date.now(),
+            kind: "batchReplant",
+            harvested: outcome.harvested,
+            planted: outcome.planted,
+            farmingXpGained: outcome.farmingXpGained,
+            seedsReturned: outcome.seedsReturned,
+          });
+        }
+      } catch (batchError) {
+        reportError(batchError);
+      } finally {
+        setBusyPlotAction(null);
+      }
+    },
+    [apply, reportError],
   );
 
   const deliver = useCallback(
@@ -778,6 +836,7 @@ export function useFarm(): FarmClientState {
     loading,
     busyPlotId,
     busyPlotAction,
+    lifeRenown,
     busyDeliveryId,
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
@@ -820,6 +879,7 @@ export function useFarm(): FarmClientState {
     uproot,
     plantAll,
     harvestAll,
+    harvestAndReplant,
     fertilizeAll,
     deliver,
     deliverSpecial,

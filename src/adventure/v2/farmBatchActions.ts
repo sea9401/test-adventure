@@ -1,4 +1,6 @@
 export type FarmBatchAction = "plant" | "harvest" | "fertilize";
+/** 화면이 "진행 중"으로 표시하는 일괄 작업. replant = 수확하고 다시 심기. */
+export type FarmBusyBatchAction = FarmBatchAction | "replant";
 
 type FarmBatchResponse = {
   ok: boolean;
@@ -135,4 +137,66 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
   }
 
   return { completed, error: null, farmingXpGained, seedsReturned };
+}
+
+export type FarmReplantOutcome = {
+  harvested: number;
+  planted: number;
+  /** 수확이나 심기가 중간에 멈춘 사유. 끝까지 했으면 null. */
+  error: string | null;
+  farmingXpGained: number;
+  seedsReturned: number;
+};
+
+/**
+ * 다 자란 밭을 모두 수확하고, 수확한 칸에 같은 작물을 다시 심는다.
+ * 수확은 칸마다, 심기는 작물별로 묶어 요청한다. 수확이 멈추면 그때까지 수확한 칸만 심는다.
+ */
+export async function runFarmHarvestAndReplant<T extends FarmBatchResponse>({
+  plots,
+  onSuccess,
+  request = fetch,
+}: {
+  plots: ReadonlyArray<{ plotId: string; cropId: string }>;
+  onSuccess: (data: T) => void;
+  request?: typeof fetch;
+}): Promise<FarmReplantOutcome> {
+  const harvest = await runFarmPlotBatch<T>({
+    action: "harvest",
+    plotIds: plots.map((plot) => plot.plotId),
+    onSuccess,
+    request,
+  });
+  const plotIdsByCrop = new Map<string, string[]>();
+  for (const plot of plots.slice(0, harvest.completed)) {
+    plotIdsByCrop.set(plot.cropId, [...(plotIdsByCrop.get(plot.cropId) ?? []), plot.plotId]);
+  }
+  let planted = 0;
+  let error = harvest.error;
+  for (const [cropId, plotIds] of plotIdsByCrop) {
+    const plant = await runFarmPlotBatch<T>({ action: "plant", plotIds, cropId, onSuccess, request });
+    planted += plant.completed;
+    error ??= plant.error;
+  }
+  return {
+    harvested: harvest.completed,
+    planted,
+    error,
+    farmingXpGained: harvest.farmingXpGained,
+    seedsReturned: harvest.seedsReturned,
+  };
+}
+
+export function farmReplantOutcomeText(
+  outcome: Pick<FarmReplantOutcome, "harvested" | "planted" | "farmingXpGained" | "seedsReturned">,
+): string {
+  const parts = [`${outcome.harvested}칸을 수확하고 ${outcome.planted}칸에 다시 심었습니다.`];
+  if (outcome.planted < outcome.harvested) {
+    parts.push(`씨앗이 모자라 ${outcome.harvested - outcome.planted}칸은 비어 있습니다.`);
+  }
+  if (outcome.seedsReturned > 0) parts.push(`씨앗 ${outcome.seedsReturned}개 반환.`);
+  if (outcome.farmingXpGained > 0) {
+    parts.push(`농사 XP +${outcome.farmingXpGained.toLocaleString("ko-KR")}.`);
+  }
+  return parts.join(" ");
 }

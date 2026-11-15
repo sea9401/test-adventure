@@ -102,7 +102,7 @@ describe("생활 전공 카드", () => {
     render(<LifeMajorCard />);
     await screen.findByLabelText("주전공");
     expect(screen.getByText(/전공을 바꿔도 쌓은 명장 단계는 생활별로 남습니다/)).toBeTruthy();
-    expect(screen.getByText(/30일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
+    expect(screen.getByText(/1일 동안 다시 바꿀 수 없습니다/)).toBeTruthy();
   });
 
   it("명장 요리를 어디서 어떤 조건으로 만드는지 알려 준다", async () => {
@@ -179,9 +179,35 @@ describe("활동 화면 전공 표시", () => {
     await screen.findByText(/주전공 · 명장 3단계/);
   });
 
-  it("전공이 아니면 그리지 않는다", async () => {
+  it("Lv.100인데 주전공이 비어 있으면 고를 수 있다고 알리고 생활 기록으로 보낸다", async () => {
+    render(<LifeMajorBadge activity="farming" />);
+    await screen.findByText("Lv.100 달성 · 주전공으로 고를 수 있습니다");
+    expect(screen.getByRole("link", { name: "전공 고르기" }).getAttribute("href")).toBe("/character/life");
+  });
+
+  it("주전공만 정했으면 다른 Lv.100 생활에 부전공으로 고를 수 있다고 알린다", async () => {
+    current = view({
+      major: "mining",
+      activities: view().activities.map((entry) =>
+        entry.id === "mining" ? { ...entry, role: "major" as const } : entry,
+      ),
+    });
+    render(<LifeMajorBadge activity="farming" />);
+    await screen.findByText("Lv.100 달성 · 부전공으로 고를 수 있습니다");
+  });
+
+  it("주전공과 부전공이 다 찼으면 전공이 아닌 생활에는 그리지 않는다", async () => {
+    current = view({ major: "mining", minor: "fishing" });
     const { container } = render(<LifeMajorBadge activity="farming" />);
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("Lv.100이 아닌 생활에는 그리지 않는다", async () => {
+    const { container } = render(<LifeMajorBadge activity="woodcutting" />);
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    await Promise.resolve();
     expect(container.innerHTML).toBe("");
   });
 });

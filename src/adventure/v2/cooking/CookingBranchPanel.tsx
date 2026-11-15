@@ -14,6 +14,7 @@ import {
   type CookingBranch,
 } from "./branch";
 import { cookingBranchRecipesFor, type CookingBranchRecipe } from "./branchRecipes";
+import { formatCookingChangeTime } from "./clientDisplay";
 import type { CookingMutation, CookingResponse } from "./clientTypes";
 import { cookingEffectText } from "./foodShared";
 import { COOKING_METHOD_NAMES, type CookingIngredientId } from "./types";
@@ -22,14 +23,6 @@ const COOLDOWN_DAYS = COOKING_BRANCH_CHANGE_COOLDOWN_MS / 86_400_000;
 const MAX_QUANTITY = 20;
 const ENOUGH_CLASS = "text-zinc-600 dark:text-zinc-300";
 const SHORT_CLASS = "text-rose-600 dark:text-rose-400";
-
-function formatChangeDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString("ko-KR", {
-    month: "long",
-    day: "numeric",
-    timeZone: "Asia/Seoul",
-  });
-}
 
 function branchMethodText(branch: CookingBranch): string {
   return `${branch.methods.map((method) => COOKING_METHOD_NAMES[method]).join("·")} 요리`;
@@ -121,7 +114,7 @@ export function CookingBranchPanel({
             </p>
             {view.nextChangeAt !== null ? (
               <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                {formatChangeDate(view.nextChangeAt)}부터 변경할 수 있습니다.
+                {formatCookingChangeTime(view.nextChangeAt)}부터 변경할 수 있습니다.
               </p>
             ) : null}
           </div>

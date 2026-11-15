@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { GameDialogHost } from "@/components/ui/GameDialogHost";
 import { CookingBranchPanel } from "@/adventure/v2/cooking/CookingBranchPanel";
+import { CookingSpecialtyPanel } from "@/adventure/v2/cooking/CookingSpecialtyPanel";
+import { LifeMajorBadge } from "@/adventure/v2/LifeMajorBadge";
 import {
   cookingBranchMasterpieceBonusPct,
   cookingBranchNextRankXp,
@@ -14,14 +16,27 @@ import type {
   CookingMutation,
   CookingResponse,
 } from "@/adventure/v2/cooking/clientTypes";
+import type { CookingField } from "@/adventure/v2/cooking/types";
+
+type SpecialtyPreview = {
+  field: CookingField;
+  xp: number;
+  reserve: Partial<Record<CookingField, number>>;
+  changedAt?: number;
+};
 
 const PREVIEW_NOW = Date.parse("2026-11-13T12:00:00+09:00");
 
-function previewData(branch: CookingBranchView): CookingResponse {
+function previewData(branch: CookingBranchView, specialty: SpecialtyPreview): CookingResponse {
   return {
     now: PREVIEW_NOW,
     level: 62,
-    cooking: { specialty: { field: "baking", xp: 7_210 } },
+    cooking: {
+      specialty: { field: specialty.field, xp: specialty.xp },
+      specialtyReserve: specialty.reserve,
+      ...(specialty.changedAt === undefined ? {} : { specialtyChangedAt: specialty.changedAt }),
+    },
+    knownRecipes: [],
     branch,
     farmItems: { wheat: 17_864, milk: 256, egg: 550, potato: 12, sugarcane: 261, strawberry: 131, cacao: 248, golden_wheat: 13 },
     fishingItems: {},
@@ -65,12 +80,27 @@ function viewFor(current: CookingBranchId | null, xpByBranch: CookingBranchView[
   };
 }
 
-// 개발 전용 — 주방의 특화 화면을 로그인 없이 확인한다. 선택과 제작은 화면 안 mock 상태에만 적용된다.
+// 개발 전용 — 주방의 전문 분야·특화 화면을 로그인 없이 확인한다. 선택과 제작은 화면 안 mock 상태에만 적용된다.
 export default function CookingBranchPreview() {
   const [view, setView] = useState<CookingBranchView>(() =>
     viewFor("baking_bread", { baking_bread: 3_400, baking_pastry: 1_200 }),
   );
+  const [specialty, setSpecialty] = useState<SpecialtyPreview>({
+    field: "baking",
+    xp: 7_210,
+    reserve: { hearth: 17_460 },
+  });
   const mutate: CookingMutation = async (body) => {
+    if (body.action === "choose_specialty") {
+      const field = body.field as CookingField;
+      setSpecialty((current) => {
+        const reserve = { ...current.reserve, [current.field]: current.xp };
+        const xp = reserve[field] ?? 0;
+        delete reserve[field];
+        return { field, xp, reserve, changedAt: PREVIEW_NOW };
+      });
+      setView((current) => viewFor(null, current.xpByBranch));
+    }
     if (body.action === "choose_branch") {
       setView((current) => viewFor(body.branchId as CookingBranchId, current.xpByBranch));
     }
@@ -87,7 +117,9 @@ export default function CookingBranchPreview() {
       >
         고르기 전 상태로
       </button>
-      <CookingBranchPanel data={previewData(view)} busy={false} mutate={mutate} />
+      <LifeMajorBadge activity="cooking" />
+      <CookingSpecialtyPanel data={previewData(view, specialty)} busy={false} mutate={mutate} />
+      <CookingBranchPanel data={previewData(view, specialty)} busy={false} mutate={mutate} />
     </main>
   );
 }

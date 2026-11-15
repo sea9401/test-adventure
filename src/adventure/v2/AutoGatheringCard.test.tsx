@@ -143,4 +143,71 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain("3시간 자동 벌목");
     expect(html).not.toContain("2시간 자동 벌목");
   });
+
+  const readySession = {
+    sessionId: "auto-ready",
+    planId: "extended" as const,
+    sourceId: "iron",
+    sourceName: "철 광맥",
+    materialId: "v2_iron_ore",
+    spotId: "iron_quarry",
+    startedAt: 0,
+    readyAt: 1,
+    durationMs: 2 * 60 * 60_000,
+    attempts: 800,
+  };
+
+  it("편의가 열려 있고 정산할 수 있으면 보상을 받고 바로 다시 시작하는 버튼을 보여 준다", () => {
+    const base = {
+      activityName: "채광" as const,
+      spotId: "copper_gallery",
+      result: null,
+      loading: false,
+      blockedByActivity: null,
+      buttonVariant: "warning" as const,
+      onStart: vi.fn(async () => {}),
+      onClaim: vi.fn(async () => {}),
+      onCancel: vi.fn(async () => {}),
+    };
+    const unlocked = renderToStaticMarkup(
+      <AutoGatheringCard {...base} session={readySession} onRestart={vi.fn(async () => {})} />,
+    );
+    expect(unlocked).toContain("보상 받고 다시 시작");
+    expect(unlocked).toContain("자동 작업 보상 받기");
+
+    // 편의가 잠겨 있으면 버튼이 없다.
+    expect(renderToStaticMarkup(<AutoGatheringCard {...base} session={readySession} />)).not.toContain(
+      "보상 받고 다시 시작",
+    );
+    // 아직 진행 중이면 버튼이 없다.
+    expect(
+      renderToStaticMarkup(
+        <AutoGatheringCard
+          {...base}
+          session={{ ...readySession, readyAt: Date.now() + 60_000 }}
+          onRestart={vi.fn(async () => {})}
+        />,
+      ),
+    ).not.toContain("보상 받고 다시 시작");
+  });
+
+  it("다시 시작한 뒤에는 새 작업과 함께 방금 정산한 결과를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        activityName="채광"
+        spotId="iron_quarry"
+        session={{ ...readySession, readyAt: Date.now() + 60_000 }}
+        result={{ attempts: 800, successes: 600, materialName: "철광석", materialsGained: 430, xpGained: 2_100 }}
+        loading={false}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        onStart={vi.fn(async () => {})}
+        onClaim={vi.fn(async () => {})}
+        onCancel={vi.fn(async () => {})}
+      />,
+    );
+    expect(html).toContain("남은 시간");
+    expect(html).toContain("자동 채광 정산 완료");
+    expect(html).toContain("철광석 +430");
+  });
 });

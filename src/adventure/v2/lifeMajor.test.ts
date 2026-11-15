@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { farmingLevelXpThreshold } from "./farm";
 import {
+  LIFE_PERKS,
+  LIFE_PERK_COOKING_CRAFT_LIMIT,
+  LIFE_PERK_PROCESS_BATCH_LIMIT,
+  lifePerkUnlocked,
+} from "./lifeMajorRules";
+import {
   addLifeMajorXp,
   assignLifeMajors,
   LIFE_MAJOR_GRAND_TITLE_GRADE,
@@ -12,6 +18,7 @@ import {
   lifeMajorGrandGradeTotal,
   lifeMajorGrandGradeXp,
   lifeMajorView,
+  lifeRenown,
   LIFE_MAJOR_ACTIVITIES,
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_PRODUCT_ID,
@@ -283,5 +290,40 @@ describe("명장 제작 조건", () => {
     for (const field of ["hearth", "pot", "baking", "medicinal"] as const) {
       expect(signatureIngredientFor(field)).toBe(LIFE_MAJOR_PRODUCT_ID.farming);
     }
+  });
+});
+
+describe("생활 명성과 편의 해금", () => {
+  it("명성은 다섯 생활의 명장 단계와 거장 등급을 모두 더한다", () => {
+    expect(lifeRenown(state({}))).toBe(0);
+    const current = state({
+      major: "mining",
+      minor: "farming",
+      masteryXp: {
+        mining: lifeMajorStageXp("mining", 10) + lifeMajorGrandGradeXp("mining") * 3,
+        farming: lifeMajorStageXp("farming", 6),
+        // 전공에서 뺀 생활의 단계도 센다.
+        cooking: lifeMajorStageXp("cooking", 2),
+      },
+    });
+    expect(lifeRenown(current)).toBe(10 + 3 + 6 + 2);
+    expect(lifeMajorView(current, ALL_100).renown).toBe(21);
+  });
+
+  it("명성 5·10·20·30에서 편의가 하나씩 열린다", () => {
+    expect(LIFE_PERKS.map((perk) => [perk.id, perk.renown])).toEqual([
+      ["auto_restart", 5],
+      ["farm_replant", 10],
+      ["bulk_processing", 20],
+      ["collect_all", 30],
+    ]);
+    expect(lifePerkUnlocked(4, "auto_restart")).toBe(false);
+    expect(lifePerkUnlocked(5, "auto_restart")).toBe(true);
+    expect(lifePerkUnlocked(19, "bulk_processing")).toBe(false);
+    expect(lifePerkUnlocked(20, "bulk_processing")).toBe(true);
+    expect(lifePerkUnlocked(29, "collect_all")).toBe(false);
+    expect(lifePerkUnlocked(Number.NaN, "auto_restart")).toBe(false);
+    expect(LIFE_PERK_PROCESS_BATCH_LIMIT).toBe(300);
+    expect(LIFE_PERK_COOKING_CRAFT_LIMIT).toBe(50);
   });
 });

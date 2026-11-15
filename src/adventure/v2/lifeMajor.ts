@@ -186,6 +186,20 @@ export function lifeMajorGrandGradeTotal(state: LifeMajorState): number {
   );
 }
 
+/** 생활 명성 — 다섯 생활의 명장 단계와 거장 등급 합계. 전공에서 뺀 생활도 센다. */
+export function lifeRenown(state: LifeMajorState): number {
+  return LIFE_MAJOR_ACTIVITIES.reduce(
+    (total, activity) =>
+      total + lifeMajorStage(state, activity) + lifeMajorGrandGrade(state, activity),
+    0,
+  );
+}
+
+/** 저장된 전공 세이브에서 바로 명성을 읽는다(상태 조회 라우트용). */
+export function lifeRenownFromSave(raw: unknown): number {
+  return lifeRenown(parseLifeMajorState(raw));
+}
+
 /** 지금 거장 등급으로 조건을 채운 칭호. 지급 여부는 호출하는 쪽이 보유 칭호와 견줘 정한다. */
 export function lifeMajorGrandEarnedTitleIds(state: LifeMajorState): string[] {
   const titleIds: string[] = LIFE_MAJOR_ACTIVITIES.filter(
@@ -338,6 +352,8 @@ export type LifeMajorCraftingView = {
 };
 
 export type LifeMajorView = {
+  /** 생활 명성 — 편의 해금 조건. */
+  renown: number;
   major: LifeMajorActivity | null;
   minor: LifeMajorActivity | null;
   nextChangeAt: number | null;
@@ -363,6 +379,7 @@ export function lifeMajorView(
       wood: held(LIFE_MAJOR_PRODUCT_ID.woodcutting),
       catalysts: held(TEMPERING_CATALYST.id),
     },
+    renown: lifeRenown(state),
     major: state.major,
     minor: state.minor,
     nextChangeAt: lifeMajorNextChangeAt(state),

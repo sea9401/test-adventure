@@ -59,6 +59,7 @@ export function AutoGatheringCard({
   onStart,
   onClaim,
   onCancel,
+  onRestart,
 }: {
   activityName: "벌목" | "채광";
   spotId: string;
@@ -72,6 +73,8 @@ export function AutoGatheringCard({
   onStart: (spotId: string, planId: AutoGatheringPlanId) => Promise<void>;
   onClaim: () => Promise<void>;
   onCancel: () => Promise<void>;
+  /** 보상을 받고 같은 채집지에서 같은 작업을 다시 시작한다. 편의가 열렸을 때만 넘긴다. */
+  onRestart?: () => Promise<void>;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [planId, setPlanId] = useState<AutoGatheringPlanId>("standard");
@@ -167,7 +170,9 @@ export function AutoGatheringCard({
             예상 작업 {session.attempts.toLocaleString()}회
           </div>
         </div>
-      ) : result ? (
+      ) : null}
+
+      {result ? (
         <div className={`${SURFACE_INSET} p-3 text-center text-xs`}>
           <div className="font-bold">자동 {activityName} 정산 완료</div>
           <div className="mt-1 font-semibold">
@@ -223,6 +228,25 @@ export function AutoGatheringCard({
                 ? "자동 작업 보상 받기"
                 : `자동 ${activityName} 진행 중`}
           </Button>
+          {ready && onRestart ? (
+            <Button
+              disabled={loading}
+              onClick={() => {
+                setError(null);
+                void onRestart().catch((caught: unknown) => {
+                  setError(
+                    sharedNetworkLimitMessage(caught) ??
+                      `자동 ${activityName}을 다시 시작하지 못했습니다. 받은 보상은 정산되었는지 확인해 주세요.`,
+                  );
+                });
+              }}
+              variant="secondary"
+              size="md"
+              fullWidth
+            >
+              보상 받고 다시 시작
+            </Button>
+          ) : null}
           {!ready ? (
             <Button
               disabled={loading}

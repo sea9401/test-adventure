@@ -84,6 +84,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const [activeAutoActivity, setActiveAutoActivity] =
     useState<AutoGatheringActivity | null>(null);
   const [siteUpkeep, setSiteUpkeep] = useState<GatheringSiteUpkeepState>({});
+  const [lifeRenown, setLifeRenown] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -109,6 +110,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
         );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
         setSiteUpkeep(parseGatheringSiteUpkeep(json.siteUpkeep));
+        setLifeRenown(Math.max(0, Math.floor(Number(json.lifeRenown) || 0)));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -227,6 +229,8 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const startAuto = useCallback(async (
     spotId: WoodcuttingSpotId,
     planId: AutoGatheringPlanId,
+    // 정산 직후 다시 시작할 때는 방금 받은 정산 결과를 화면에 남긴다.
+    keepResult = false,
   ): Promise<void> => {
     setAutoLoading(true);
     try {
@@ -242,7 +246,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       });
       setAutoSession(session);
       setActiveAutoActivity("woodcutting");
-      setAutoResult(null);
+      if (!keepResult) setAutoResult(null);
       setAutoGathering(
         session
           ? {
@@ -305,6 +309,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     autoLoading,
     activeAutoActivity,
     siteUpkeep,
+    lifeRenown,
     startAuto,
     claimAuto,
     cancelAuto,

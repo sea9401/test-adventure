@@ -20,6 +20,7 @@ import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_GRAND_TITLE_GRADE,
   LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
+  LIFE_PERKS,
 } from "./lifeMajorRules";
 import {
   craftTemperingCatalyst,
@@ -207,6 +208,37 @@ export function LifeMajorCard() {
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           명장 10단계 뒤에도 전공 생활의 경험치가 쌓여 거장 등급이 상한 없이 오릅니다. 생활별 거장 {LIFE_MAJOR_GRAND_TITLE_GRADE}등급과 합계 {LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE}등급에서 칭호를 받고, 생활 숙련도 랭킹에서 순위가 같을 때 합계가 높은 쪽이 앞섭니다.
         </p>
+      </div>
+
+      <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+          생활 명성 {view.renown.toLocaleString("ko-KR")}
+        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          다섯 생활의 명장 단계와 거장 등급을 더한 값입니다. 명성이 오르면 반복 조작을 줄이는 편의가 열립니다.
+        </p>
+        <ul aria-label="편의 해금" className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
+          {LIFE_PERKS.map((perk) => {
+            const unlocked = view.renown >= perk.renown;
+            return (
+              <li key={perk.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{perk.name}</p>
+                  <p className="text-zinc-600 dark:text-zinc-300">{perk.description}</p>
+                </div>
+                <span
+                  className={
+                    unlocked
+                      ? "font-semibold text-emerald-700 dark:text-emerald-300"
+                      : "tabular-nums text-zinc-500 dark:text-zinc-400"
+                  }
+                >
+                  {unlocked ? "열림" : `명성 ${perk.renown}`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       <ul className="space-y-1.5">

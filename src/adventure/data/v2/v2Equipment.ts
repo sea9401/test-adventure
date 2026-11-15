@@ -2475,18 +2475,28 @@ export function removeInstance(
   return { owned: next, removed };
 }
 
-// 개체 잠금 토글 — iid 의 locked 설정. true 만 유지(false 는 키 제거 → 세이브 클린).
-// 못 찾으면 원본 그대로. 잠금 = 일괄/실수 판매 방지.
-export function setInstanceLock(
+/** 잠금 요청 한 번에 받는 장비 수 상한. */
+export const MAX_BULK_LOCK_COUNT = 500;
+
+// 개체 잠금 설정 — 잠금 = 일괄/실수 판매 방지. true 만 유지(false 는 키 제거 → 세이브 클린).
+// 여러 개체를 한 번에 잠그거나 풀 수 있고(건의 #859), 보유하지 않은 iid 는 건너뛴다.
+// matchedCount = 보유한 대상 수, changedCount = 그중 잠금 상태가 실제로 바뀐 수.
+export function setInstancesLock(
   owned: V2EquipInstance[],
-  iid: string,
+  iids: readonly string[],
   locked: boolean,
-): V2EquipInstance[] {
-  return owned.map((i) => {
-    if (i.iid !== iid) return i;
+): { owned: V2EquipInstance[]; matchedCount: number; changedCount: number } {
+  const targets = new Set(iids);
+  let matchedCount = 0;
+  let changedCount = 0;
+  const nextOwned = owned.map((i) => {
+    if (!targets.has(i.iid)) return i;
+    matchedCount += 1;
+    if ((i.locked === true) !== locked) changedCount += 1;
     if (locked) return { ...i, locked: true };
     const next = { ...i };
     delete next.locked;
     return next;
   });
+  return { owned: nextOwned, matchedCount, changedCount };
 }

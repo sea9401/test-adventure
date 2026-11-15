@@ -125,12 +125,12 @@ describe("POST /api/v2/life-major", () => {
   it("쿨다운 중 변경은 409 change_cooldown 과 다음 변경 시각", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     seedLevels();
-    mocks.store.set(LIFE_MAJOR_SAVE_KEY, { major: "farming", lastChangedAt: NOW - 86_400_000 });
+    mocks.store.set(LIFE_MAJOR_SAVE_KEY, { major: "farming", lastChangedAt: NOW - 3_600_000 });
     const response = await post({ major: "mining", minor: null });
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
       error: "change_cooldown",
-      nextChangeAt: NOW - 86_400_000 + LIFE_MAJOR_CHANGE_COOLDOWN_MS,
+      nextChangeAt: NOW - 3_600_000 + LIFE_MAJOR_CHANGE_COOLDOWN_MS,
     });
   });
 

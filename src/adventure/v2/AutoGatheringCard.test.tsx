@@ -93,4 +93,54 @@ describe("AutoGatheringCard", () => {
     );
     expect(html).toContain("남은 시간 2:00:00");
   });
+
+  it("정비한 채집지에서는 느긋한 작업 시간을 그 단계에 맞게 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        activityName="채광"
+        spotId="iron_quarry"
+        extendedDurationMs={156 * 60_000}
+        session={null}
+        result={null}
+        loading={false}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        onStart={vi.fn(async () => {})}
+        onClaim={vi.fn(async () => {})}
+        onCancel={vi.fn(async () => {})}
+      />,
+    );
+    expect(html).toContain("2시간 36분");
+    expect(html).toContain("30분 자동 채광 시작");
+  });
+
+  it("진행 중인 작업은 시작할 때 굳힌 시간을 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        activityName="벌목"
+        spotId="pine_grove"
+        extendedDurationMs={2 * 60 * 60_000}
+        session={{
+          sessionId: "auto-wood",
+          planId: "extended",
+          sourceId: "pine",
+          sourceName: "소나무",
+          materialId: "v2_timber",
+          startedAt: 0,
+          readyAt: 3 * 60 * 60_000,
+          durationMs: 3 * 60 * 60_000,
+          attempts: 1_200,
+        }}
+        result={null}
+        loading={false}
+        blockedByActivity={null}
+        buttonVariant="success"
+        onStart={vi.fn(async () => {})}
+        onClaim={vi.fn(async () => {})}
+        onCancel={vi.fn(async () => {})}
+      />,
+    );
+    expect(html).toContain("3시간 자동 벌목");
+    expect(html).not.toContain("2시간 자동 벌목");
+  });
 });

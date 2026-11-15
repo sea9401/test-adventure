@@ -10,6 +10,7 @@ import {
   COOKING_PUBLIC_RECIPE_BY_ID,
 } from "./catalog";
 export { cookingSpecialtyRank } from "./specialty";
+import { COOKING_SPECIALTY_CHANGE_COOLDOWN_MS } from "./specialty";
 import { parseCookingBranchState, type CookingBranchState } from "./branch";
 import type { CookingField } from "./types";
 import { COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "./constants";
@@ -48,6 +49,10 @@ export type CookingStateV2 = {
   favoriteRecipeIds: string[];
   researchScore: number;
   specialty: CookingSpecialty | null;
+  /** 지금 고르지 않은 분야에 남겨 둔 전문 숙련. 분야를 바꾼 적이 없으면 필드가 없다. */
+  specialtyReserve?: Partial<Record<CookingField, number>>;
+  /** 마지막으로 전문 분야를 "바꾼" 시각. 처음 고를 때는 두지 않는다. */
+  specialtyChangedAt?: number;
   kitchenItems: Partial<Record<CookingKitchenItemId, number>>;
   stats: {
     dishesCooked: number;
@@ -144,19 +149,28 @@ export function cookingLevelForXp(xp: number): number {
   return extendedLifeLevelForXp(xp, legacyCookingLevelXpThreshold);
 }
 
+const COOKING_FIELDS: readonly CookingField[] = ["hearth", "pot", "baking", "seafood", "medicinal"];
+const SPECIALTY_XP_MAX = 10_000_000;
+
 function parseSpecialty(raw: unknown): CookingSpecialty | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as Partial<CookingSpecialty>;
-  if (
-    value.field !== "hearth" &&
-    value.field !== "pot" &&
-    value.field !== "baking" &&
-    value.field !== "seafood" &&
-    value.field !== "medicinal"
-  ) {
-    return null;
+  if (!COOKING_FIELDS.includes(value.field as CookingField)) return null;
+  return { field: value.field as CookingField, xp: safeInt(value.xp, SPECIALTY_XP_MAX) };
+}
+
+function parseSpecialtyReserve(
+  raw: unknown,
+  current: CookingField | null,
+): Partial<Record<CookingField, number>> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const reserve: Partial<Record<CookingField, number>> = {};
+  for (const field of COOKING_FIELDS) {
+    if (field === current) continue;
+    const xp = safeInt((raw as Record<string, unknown>)[field], SPECIALTY_XP_MAX);
+    if (xp > 0) reserve[field] = xp;
   }
-  return { field: value.field, xp: safeInt(value.xp, 10_000_000) };
+  return reserve;
 }
 
 export function parseCookingState(
@@ -217,6 +231,11 @@ export function parseCookingState(
       }),
   );
   const specialty = parseSpecialty(source.specialty);
+  const specialtyReserve = parseSpecialtyReserve(source.specialtyReserve, specialty?.field ?? null);
+  const specialtyChangedAt =
+    typeof source.specialtyChangedAt === "number" && Number.isFinite(source.specialtyChangedAt)
+      ? source.specialtyChangedAt
+      : null;
   const branch = parseCookingBranchState(source.branch, specialty?.field ?? null);
   const hasBranch =
     branch.current !== null ||
@@ -230,6 +249,8 @@ export function parseCookingState(
     favoriteRecipeIds,
     researchScore: safeInt(source.researchScore, 100_000_000),
     specialty,
+    ...(Object.keys(specialtyReserve).length > 0 ? { specialtyReserve } : {}),
+    ...(specialty && specialtyChangedAt !== null ? { specialtyChangedAt } : {}),
     kitchenItems,
     stats: {
       dishesCooked: safeInt(source.stats?.dishesCooked),
@@ -269,16 +290,46 @@ export function parseCookingState(
   };
 }
 
+/** 전문 분야를 다시 바꿀 수 있는 시각. 바꾼 적이 없으면 null. 지났는지는 호출하는 쪽이 now 와 견준다. */
+export function cookingSpecialtyNextChangeAt(state: CookingStateV2): number | null {
+  return state.specialtyChangedAt === undefined
+    ? null
+    : state.specialtyChangedAt + COOKING_SPECIALTY_CHANGE_COOLDOWN_MS;
+}
+
+/**
+ * 주 전문 분야를 고르거나 바꾼다. 처음 고를 때는 조건(Lv 20·숨은 발견 10종)만 보고 대기가 없다.
+ * 바꾸면 쓰던 분야의 숙련은 남겨 두고, 새 분야는 남겨 둔 숙련(없으면 0)에서 이어 가며,
+ * 고른 특화는 풀린다(특화 숙련은 남는다).
+ */
 export function chooseCookingSpecialty(
   state: CookingStateV2,
   field: CookingField,
+  now: number,
 ): CookingStateV2 {
-  if (state.specialty) throw new Error("specialty_permanent");
-  const hiddenDiscoveries = state.discoveredRecipeIds.filter(
-    (id) => COOKING_PUBLIC_RECIPE_BY_ID.get(id)?.discovery !== "basic",
-  ).length;
-  if (cookingLevelForXp(state.xp) < 20 || hiddenDiscoveries < 10) {
-    throw new Error("specialty_locked");
+  if (!state.specialty) {
+    const hiddenDiscoveries = state.discoveredRecipeIds.filter(
+      (id) => COOKING_PUBLIC_RECIPE_BY_ID.get(id)?.discovery !== "basic",
+    ).length;
+    if (cookingLevelForXp(state.xp) < 20 || hiddenDiscoveries < 10) {
+      throw new Error("specialty_locked");
+    }
+    return { ...state, specialty: { field, xp: 0 } };
   }
-  return { ...state, specialty: { field, xp: 0 } };
+  if (state.specialty.field === field) throw new Error("specialty_unchanged");
+  const nextChangeAt = cookingSpecialtyNextChangeAt(state);
+  if (nextChangeAt !== null && now < nextChangeAt) throw new Error("specialty_cooldown");
+  const reserve = { ...state.specialtyReserve };
+  const resumedXp = reserve[field] ?? 0;
+  delete reserve[field];
+  if (state.specialty.xp > 0) reserve[state.specialty.field] = state.specialty.xp;
+  const next: CookingStateV2 = {
+    ...state,
+    specialty: { field, xp: resumedXp },
+    specialtyChangedAt: now,
+  };
+  if (Object.keys(reserve).length > 0) next.specialtyReserve = reserve;
+  else delete next.specialtyReserve;
+  if (state.branch) next.branch = { ...state.branch, current: null };
+  return next;
 }

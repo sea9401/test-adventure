@@ -40,13 +40,17 @@ vi.mock("@/lib/server/jobSpRollout", () => ({
 }));
 
 import {
+  currentJobSpBudget,
   reconcileV2EquippedSkills,
   reconcileV2EquippedSkillsWithResult,
   sanitizeCombatLoadout,
 } from "@/lib/server/v2Skills";
+import { TIER7_COMBAT_JOB_IDS } from "@/adventure/data/v2/tier7Jobs";
 import type { DbExecutor } from "@/lib/server/savesKv";
+import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
 import {
   V2_JOB_LIST,
+  jobUnlockSpBonus,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -345,6 +349,42 @@ describe("v2Skills — SP 열매 보너스 예산", () => {
       { farmingLevel: 10 },
     );
     expect(combat.equipped).toEqual([...FARMING_UNLOCK_LOADOUT]);
+  });
+});
+
+describe("v2Skills — 전투 프리셋 화면의 최대 SP", () => {
+  // 건의 #856: 7차는 체감 구간에서 빠져 하나당 +1인데, 프리셋 화면 한도만 체감식에 넣어 적게 보였다.
+  it("7차 전직 하나마다 최대 SP가 1씩 늘어난다", () => {
+    const { proficiency, context } = fullyUnlocked();
+    const character = { class: "warrior", level: 100 };
+    const withoutTier7 = currentJobSpBudget(character, proficiency, 0, context);
+
+    proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
+    const withTier7 = currentJobSpBudget(character, proficiency, 0, context);
+
+    expect(TIER7_COMBAT_JOB_IDS.length).toBeGreaterThan(1);
+    expect(withTier7 - withoutTier7).toBe(TIER7_COMBAT_JOB_IDS.length);
+  });
+
+  it("스킬 화면이 쓰는 한도와 같다", () => {
+    const { proficiency, context } = fullyUnlocked();
+    proficiency.jobHistory = [...TIER7_COMBAT_JOB_IDS];
+
+    expect(
+      currentJobSpBudget(
+        { class: "warrior", level: 100 },
+        proficiency,
+        0,
+        context,
+      ),
+    ).toBe(
+      calcSpBudget(
+        proficiency.groups,
+        0,
+        0,
+        jobUnlockSpBonus(proficiency, context),
+      ),
+    );
   });
 });
 

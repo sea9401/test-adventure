@@ -49,7 +49,7 @@ export const COOKING_BRANCH_BY_ID: ReadonlyMap<CookingBranchId, CookingBranch> =
 
 /** 특화를 고를 수 있는 전문 숙련(전문 분야 랭크 5). */
 export const COOKING_BRANCH_UNLOCK_SPECIALTY_XP = 1_500;
-export const COOKING_BRANCH_CHANGE_COOLDOWN_MS = 14 * 86_400_000;
+export const COOKING_BRANCH_CHANGE_COOLDOWN_MS = 86_400_000;
 export const COOKING_BRANCH_MAX_RANK = 5;
 /** 인덱스 = 랭크 − 1 의 누적 특화 숙련. */
 export const COOKING_BRANCH_RANK_XP: readonly number[] = [0, 1_000, 3_000, 7_000, 15_000];

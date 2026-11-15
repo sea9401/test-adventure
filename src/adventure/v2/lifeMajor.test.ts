@@ -129,18 +129,19 @@ describe("전공 지정과 변경", () => {
     expect(result).toEqual({ state: expect.objectContaining({ minor: "mining", lastChangedAt: NOW - DAY }) });
   });
 
-  it("변경·맞바꿈·해제는 30일 쿨다운을 따른다", () => {
+  it("변경·맞바꿈·해제는 1일 쿨다운을 따른다", () => {
+    expect(LIFE_MAJOR_CHANGE_COOLDOWN_MS).toBe(DAY);
     const current = state({ major: "farming", minor: "fishing", lastChangedAt: null });
     const changed = assignLifeMajors(current, { major: "mining", minor: "fishing" }, ALL_100, NOW);
     expect(changed).toEqual({ state: expect.objectContaining({ major: "mining", lastChangedAt: NOW }) });
     if ("error" in changed) return;
 
-    const day29 = NOW + 29 * DAY;
-    expect(assignLifeMajors(changed.state, { major: "fishing", minor: "mining" }, ALL_100, day29)).toEqual({ error: "change_cooldown" });
-    expect(assignLifeMajors(changed.state, { major: "mining", minor: null }, ALL_100, day29)).toEqual({ error: "change_cooldown" });
-    const day30 = NOW + LIFE_MAJOR_CHANGE_COOLDOWN_MS;
-    expect(assignLifeMajors(changed.state, { major: "fishing", minor: "mining" }, ALL_100, day30)).toEqual({
-      state: expect.objectContaining({ major: "fishing", minor: "mining", lastChangedAt: day30 }),
+    const lastLockedMoment = NOW + LIFE_MAJOR_CHANGE_COOLDOWN_MS - 1;
+    expect(assignLifeMajors(changed.state, { major: "fishing", minor: "mining" }, ALL_100, lastLockedMoment)).toEqual({ error: "change_cooldown" });
+    expect(assignLifeMajors(changed.state, { major: "mining", minor: null }, ALL_100, lastLockedMoment)).toEqual({ error: "change_cooldown" });
+    const firstFreeMoment = NOW + LIFE_MAJOR_CHANGE_COOLDOWN_MS;
+    expect(assignLifeMajors(changed.state, { major: "fishing", minor: "mining" }, ALL_100, firstFreeMoment)).toEqual({
+      state: expect.objectContaining({ major: "fishing", minor: "mining", lastChangedAt: firstFreeMoment }),
     });
   });
 

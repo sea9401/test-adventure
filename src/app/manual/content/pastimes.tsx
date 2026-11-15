@@ -54,6 +54,7 @@ import {
 import { COOKING_PUBLIC_RECIPES } from "@/adventure/v2/cooking/catalog";
 import { COOKING_BUFF_DURATION_MS } from "@/adventure/v2/cooking/food";
 import { COOKING_DAILY_REQUEST_COUNT, COOKING_STANDING_DELIVERY_DAILY_LIMIT } from "@/adventure/v2/cooking/state";
+import { COOKING_SPECIALTY_CHANGE_COOLDOWN_MS } from "@/adventure/v2/cooking/specialty";
 import {
   LIFE_FESTIVAL_DELIVERY_TIMES_MAX,
   LIFE_FESTIVAL_RANK_REWARDS,
@@ -67,6 +68,7 @@ import {
 import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/foodShared";
 import { CookingBranchManualSection } from "./pastimes-cooking-branch";
+import { GatheringUpkeepManualSection } from "./pastimes-gathering-upkeep";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
@@ -256,7 +258,8 @@ export function PastimesContent() {
       <P>
         Lv.100을 달성한 생활 중 <Em>주전공 1개</Em>와 <Em>부전공 1개</Em>를{" "}
         <Em>{LIFE_RECORD_PATH}</Em>에서 고를 수 있습니다. 생활 기록은 레벨과 상관없이 언제든
-        열 수 있고, Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다. 고르지 않은 생활은
+        열 수 있고, Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다. 전공 칸이 비어 있으면
+        Lv.100 생활 화면 위쪽의 전공 고르기 버튼으로도 갈 수 있습니다. 고르지 않은 생활은
         지금과 똑같이 이용할 수 있습니다.
       </P>
       <UL>
@@ -426,7 +429,9 @@ export function PastimesContent() {
         </li>
         <li>
           서버에서 가장 먼저 숨은 레시피를 발견한 개발자는 해당 음식을 만들 때 <Em>성능 +10%</Em>를 받습니다.
-          요리 Lv 20과 숨은 레시피 10종 발견 후에는 주 전문 분야를 한 번 영구 선택할 수 있습니다.
+          요리 Lv 20과 숨은 레시피 10종 발견 후에는 주 전문 분야를 고를 수 있습니다. 분야는 바꿀 수
+          있지만, 바꾼 뒤에는 {COOKING_SPECIALTY_CHANGE_COOLDOWN_MS / 86_400_000}일 동안 다시 바꿀 수
+          없습니다. 전문 숙련은 분야마다 따로 남고, 분야를 바꾸면 고른 특화는 풀립니다.
           전문 숙련 랭크에 따라 해당 분야 음식에 +1~5%가 붙습니다. 원조·전문·품질 보너스는 합산 최대 135%이며,
           음식에 제작 시점 기록으로 남아 거래 후에도 유지됩니다.
         </li>
@@ -515,6 +520,8 @@ export function PastimesContent() {
           수령할 수 있습니다.
         </li>
       </UL>
+
+      <GatheringUpkeepManualSection />
 
       <H2>낚시</H2>
       <UL>

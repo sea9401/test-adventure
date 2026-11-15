@@ -229,13 +229,31 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("생활 전공과 명장 단계");
     expect(html).toContain("주전공");
     expect(html).toContain("부전공");
-    expect(html).toContain("30일");
+    expect(html).toContain("1일 동안 다시 바꿀 수 없습니다");
+    expect(html).toContain("전공 고르기 버튼");
     expect(html).toContain("명장 10단계");
     expect(html).toContain("캐릭터 &gt; 내 정보 &gt; 생활 기록");
     expect(html).toContain("Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다");
     for (const name of ["명장 작물", "명장 목재", "명장 합금", "명장 어획"]) {
       expect(html).toContain(name);
     }
+  });
+
+  it("채집지 정비의 보상·비용·명장 정비·칭호를 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+
+    expect(html).toContain("채집지 정비");
+    expect(html).toContain("느긋한 자동 작업 시간");
+    expect(html).toContain("3시간 30분");
+    expect(html).toContain("2시간 12분");
+    expect(html).toContain("단단한 돌 200");
+    expect(html).toContain("원석 보석 600");
+    // 철 광맥 1단계와 편백나무숲 6단계의 원자재 수량.
+    expect(html).toContain("1,920");
+    expect(html).toContain("13,200");
+    expect(html).toContain("채광, 숲이면 벌목 주전공");
+    expect(html).toContain("개척자");
+    expect(html).toContain("산과 숲의 주인");
   });
 
   it("생활 축제의 주간 테마·반복 납품 체감·순위 보상·증표 유지를 안내한다", () => {
@@ -461,7 +479,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(pastimes).toContain("총 <strong");
     expect(pastimes).toContain("정확히 <strong");
     expect(pastimes).toContain("성능 +10%");
-    expect(pastimes).toContain("영구 선택");
+    expect(pastimes).toContain("주 전문 분야를 고를 수 있습니다. 분야는 바꿀 수");
+    expect(pastimes).not.toContain("영구 선택");
   });
 
   it("농장 후반 교환소의 해금과 반복 상품을 안내한다", () => {

@@ -29,3 +29,17 @@ export function cookingResearchIngredients(data: CookingResponse): CookingIngred
   ];
   return [...farm, ...fishing, ...kitchen].filter((id) => cookingIngredientCount(data, id) > 0);
 }
+
+const CHANGE_TIME_FORMAT = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "long",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** 전문 분야·특화를 다시 바꿀 수 있는 시각(한국 시간). 대기가 하루라 날짜만으로는 언제부터인지 알 수 없다. */
+export function formatCookingChangeTime(timestamp: number): string {
+  return CHANGE_TIME_FORMAT.format(new Date(timestamp));
+}

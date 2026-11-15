@@ -7,6 +7,7 @@ import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { confirmGameAction } from "@/components/ui/gameDialog";
 import {
   AUTO_GATHERING_PLAN_LIST,
+  autoGatheringDurationLabel,
   autoGatheringPlan,
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
@@ -49,6 +50,7 @@ function successRateAdjustmentLabel(multiplier: number): string {
 export function AutoGatheringCard({
   activityName,
   spotId,
+  extendedDurationMs,
   session,
   result,
   loading,
@@ -60,6 +62,8 @@ export function AutoGatheringCard({
 }: {
   activityName: "벌목" | "채광";
   spotId: string;
+  /** 고른 채집지의 정비 단계에 따른 느긋한 작업 시간. 없으면 계획의 기본 시간이다. */
+  extendedDurationMs?: number;
   session: AutoGatheringSessionView | null;
   result: AutoGatheringResultView | null;
   loading: boolean;
@@ -74,6 +78,16 @@ export function AutoGatheringCard({
   const [error, setError] = useState<string | null>(null);
   const ready = Boolean(session && now >= session.readyAt);
   const activePlan = autoGatheringPlan(session?.planId ?? planId);
+  const planDurationLabel = (id: AutoGatheringPlanId) => {
+    const plan = autoGatheringPlan(id);
+    return autoGatheringDurationLabel(
+      id === "extended" ? Math.max(plan.durationMs, extendedDurationMs ?? 0) : plan.durationMs,
+    );
+  };
+  // 진행 중인 작업은 시작할 때 굳힌 시간을 쓴다. 그 뒤에 정비해도 길어지지 않는다.
+  const activeDurationLabel = session
+    ? autoGatheringDurationLabel(session.durationMs ?? activePlan.durationMs)
+    : planDurationLabel(planId);
   const blockedActivityName =
     blockedByActivity === "woodcutting"
       ? "벌목"
@@ -92,7 +106,7 @@ export function AutoGatheringCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-extrabold">
-            {activePlan.durationLabel} 자동 {activityName}
+            {activeDurationLabel} 자동 {activityName}
           </div>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             재료 효율 {activePlan.materialEfficiency * 100}% ·{" "}
@@ -101,7 +115,7 @@ export function AutoGatheringCard({
           </div>
         </div>
         <span className="shrink-0 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-1 text-[10px] font-bold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
-          {activePlan.durationLabel}
+          {activeDurationLabel}
         </span>
       </div>
 
@@ -122,7 +136,7 @@ export function AutoGatheringCard({
                     : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
                 }`}
               >
-                <span className="block font-bold">{plan.durationLabel}</span>
+                <span className="block font-bold">{planDurationLabel(plan.id)}</span>
                 <span className="mt-0.5 block text-[10px] text-zinc-500 dark:text-zinc-400">
                   {plan.label} · 재료 {plan.materialEfficiency * 100}% ·{" "}
                   {successRateAdjustmentLabel(plan.successRateMultiplier)}
@@ -248,7 +262,7 @@ export function AutoGatheringCard({
         >
           {loading
             ? "처리 중…"
-            : `${activePlan.durationLabel} 자동 ${activityName} 시작`}
+            : `${activeDurationLabel} 자동 ${activityName} 시작`}
         </Button>
       )}
     </Card>

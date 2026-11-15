@@ -1,3 +1,7 @@
+import {
+  gatheringSiteExtendedDurationMs,
+  gatheringSiteStage,
+} from "@/adventure/v2/gatheringSiteUpkeep";
 import { randomUUID } from "node:crypto";
 import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
 import {
@@ -189,6 +193,9 @@ export async function POST(req: Request) {
       sourceName: node.name,
       materialId: node.materialId,
       planId: body.planId,
+      extendedDurationMs: gatheringSiteExtendedDurationMs(
+        gatheringSiteStage(workshop.siteUpkeep ?? {}, nodeId),
+      ),
       now,
       cycleDurationMs: cycleDurationMs + MINING_SETTLE_MS,
       successRate,

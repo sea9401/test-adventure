@@ -395,6 +395,56 @@ describe("개인 랭킹", () => {
     ]);
   });
 
+  it("탐사 등급은 등급이 높은 순으로, 0등급 계정은 빼고 순위를 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-me",
+          name: "막오른탐사가",
+          avatar: "female1",
+          unexplored_save: { xpPoints: 30, explorationXp: 15_000 * 3 + 10, explorationProgressVersion: 2 },
+        },
+        {
+          user_id: "u-top",
+          name: "오래걸은탐사가",
+          avatar: "male1",
+          unexplored_save: { xpPoints: 30, explorationXp: 15_000 * 12, explorationProgressVersion: 2 },
+        },
+        {
+          user_id: "u-zero",
+          name: "막상한에닿음",
+          avatar: "male1",
+          unexplored_save: { xpPoints: 30, explorationXp: 14_999, explorationProgressVersion: 2 },
+        },
+        {
+          user_id: "u-same",
+          name: "같은등급앞선사람",
+          avatar: "male1",
+          unexplored_save: { xpPoints: 30, explorationXp: 15_000 * 3 + 500, explorationProgressVersion: 2 },
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=explorationGrade"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      json.list.map((entry: { name: string; explorationGrade: number; rank: number }) => [
+        entry.rank,
+        entry.name,
+        entry.explorationGrade,
+      ]),
+    ).toEqual([
+      [1, "오래걸은탐사가", 12],
+      [2, "같은등급앞선사람", 3],
+      [3, "막오른탐사가", 3],
+    ]);
+    expect(json.me).toMatchObject({ rank: 3, explorationGrade: 3 });
+  });
+
   it("달성 조건과 수령 기록을 합산해 업적 점수 순위를 매긴다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

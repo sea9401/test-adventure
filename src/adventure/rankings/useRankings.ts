@@ -15,6 +15,7 @@ export type RankingMetric =
   | "lifeMastery"
   | "codexCompletion"
   | "masteryTower"
+  | "explorationGrade"
   | "achievementScore"
   | "guild";
 
@@ -35,6 +36,8 @@ export type RankingEntry = {
   codexCollected: number;
   codexTotal: number;
   masteryTowerFloor: number;
+  /** 미개척지 탐사 등급. 탐사 등급 탭에서만 0보다 크다. */
+  explorationGrade?: number;
   achievementScore: number;
   achievementCompleted: number;
   weekHighest: number;
@@ -60,6 +63,8 @@ export type RankingMe = {
   codexCollected: number;
   codexTotal: number;
   masteryTowerFloor: number;
+  /** 미개척지 탐사 등급. 탐사 등급 탭에서만 0보다 크다. */
+  explorationGrade?: number;
   achievementScore: number;
   achievementCompleted: number;
   weekHighest: number;

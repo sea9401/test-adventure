@@ -6,6 +6,15 @@ import {
   UNEXPLORED_MIN_DIFFICULTY_CAP,
 } from "@/adventure/data/v2/unexploredTree";
 import { unexploredBossUniqueEffectOf } from "@/adventure/data/v2/unexploredBossUniqueEffects";
+import {
+  EXPLORATION_GRADE_TITLE_IDS,
+  EXPLORATION_GRADE_XP,
+  EXPLORATION_MAX_XP_POINTS,
+  UNEXPLORED_PRESET_UNLOCK_GRADES,
+  UNEXPLORED_TRACE_CAP_TIERS,
+  nextExplorationGradePointGrade,
+} from "@/adventure/data/v2/unexploredGrade";
+import { TITLES } from "@/adventure/data/titles";
 import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
   HUNT_COST,
@@ -101,6 +110,19 @@ function rareMapRewardText(def: RareMapKind) {
     .filter(Boolean)
     .join(", ");
 }
+
+// 탐사 등급 보상표 — 수치는 unexploredGrade.ts 의 상수에서 읽는다.
+const EXPLORATION_GRADE_POINT_GRADES = (() => {
+  const grades: number[] = [];
+  let grade = 0;
+  for (let count = 0; count < 5; count += 1) {
+    grade = nextExplorationGradePointGrade(grade);
+    grades.push(grade);
+  }
+  return grades;
+})();
+const PRESET_UNLOCK_GRADES = UNEXPLORED_PRESET_UNLOCK_GRADES.filter((grade) => grade > 0);
+const TRACE_CAP_UPGRADES = UNEXPLORED_TRACE_CAP_TIERS.filter((tier) => tier.grade > 0);
 
 export function HuntingContent() {
   return (
@@ -420,6 +442,41 @@ export function HuntingContent() {
         노드를 반환하지 않으므로 골드가 들지 않습니다.
         난이도가 붙지 않은 보상 노드는 최대 난이도에서도 그대로 쌓입니다.
       </P>
+      <H2>탐사 등급</H2>
+      <P>
+        탐사 경험치로 받는 탐사 포인트 {EXPLORATION_MAX_XP_POINTS}개를 모두 채운 뒤에도 탐사 경험치는
+        계속 쌓여 <Em>탐사 등급</Em>이 오릅니다. 탐사 경험치는 지금처럼 100레벨 사냥에서 이길 때마다
+        1씩 쌓이고, {EXPLORATION_GRADE_XP.toLocaleString()}마다 1등급입니다. 등급에는 상한이 없고
+        재전직해도 남습니다. 등급과 다음 등급까지의 경험치는 캐릭터 → 개척 노드 위쪽에서 확인합니다.
+      </P>
+      <Table
+        head={["보상", "받는 등급", "내용"]}
+        rows={[
+          [
+            "탐사 포인트 +1",
+            `${EXPLORATION_GRADE_POINT_GRADES.join(" · ")} …`,
+            "받을 때마다 다음 간격이 5등급씩 늘어납니다. 모든 프리셋에 함께 적용됩니다.",
+          ],
+          [
+            "탐사망 프리셋 칸",
+            PRESET_UNLOCK_GRADES.map((grade) => `${grade}등급`).join(" · "),
+            `기본 ${UNEXPLORED_PRESET_UNLOCK_GRADES.length - PRESET_UNLOCK_GRADES.length}칸에서 한 칸씩 늘어납니다.`,
+          ],
+          [
+            "흔적 보관 상한",
+            TRACE_CAP_UPGRADES.map((tier) => `${tier.grade}등급`).join(" · "),
+            `군마다 ${UNEXPLORED_TRACE_CAP_TIERS[0].cap.toLocaleString()}개에서 ${TRACE_CAP_UPGRADES.map((tier) => `${tier.cap.toLocaleString()}개`).join(", ")}로 늘어납니다.`,
+          ],
+          [
+            "칭호",
+            Object.keys(EXPLORATION_GRADE_TITLE_IDS).map((grade) => `${grade}등급`).join(" · "),
+            Object.values(EXPLORATION_GRADE_TITLE_IDS)
+              .map((titleId) => TITLES[titleId]?.name ?? titleId)
+              .join(", "),
+          ],
+        ]}
+        caption="등급이 오르면 알림으로 알려 드립니다. 랭킹의 탐사 등급 탭에서 순위를 볼 수 있습니다."
+      />
     </>
   );
 }

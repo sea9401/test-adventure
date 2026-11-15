@@ -55,7 +55,7 @@
 
 - 탐사망 위쪽 진행 카드: 30포인트 전에는 지금처럼 다음 포인트까지의 경험치를, 30포인트 뒤에는 탐사 등급과
   다음 등급까지의 경험치, 다음 추가 포인트를 받는 등급을 보여 준다.
-- 프리셋: 다섯 칸을 모두 보여 주고 잠긴 칸에는 "탐사 등급 10"처럼 조건을 적는다.
+- 프리셋: 다섯 칸을 모두 보여 주고 잠긴 칸에는 "탐사 10등급"처럼 조건을 적는다.
 - 흔적 보관함: 지금 보관 상한을 적는다.
 - 알림, 칭호 도감, 랭킹 탭, 안내서(사냥 항목)에 반영한다.
 
@@ -66,7 +66,7 @@
 - `GET/POST /api/v2/unexplored` 스냅샷에 `explorationGrade`, `gradeXp`, `gradeXpCost`, `gradeBonusPoints`,
   `nextGradePointGrade`, `presetSlotCount`, `presetUnlockGrades`, `traceCap`을 더한다.
 - `switch_preset`이 잠긴 칸을 가리키면 `preset_locked`를 돌려준다.
-- 사냥 응답 `exploration`에 `gradesGained`, `grade`를 더한다.
+- 사냥 응답은 바꾸지 않는다. 등급 상승은 알림으로 알린다.
 - 랭킹 `metric=explorationGrade`.
 - DB 마이그레이션은 없다.
 

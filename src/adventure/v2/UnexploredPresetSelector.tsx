@@ -35,7 +35,7 @@ export function UnexploredPresetSelector({
               key={index}
               aria-label={
                 locked
-                  ? `프리셋 ${index + 1}, 탐사 등급 ${requiredGrade} 필요`
+                  ? `프리셋 ${index + 1}, 탐사 ${requiredGrade}등급 필요`
                   : `프리셋 ${index + 1}`
               }
               aria-pressed={active}
@@ -47,7 +47,7 @@ export function UnexploredPresetSelector({
               <span>프리셋 {index + 1}</span>
               {locked ? (
                 <>
-                  <span className="text-xs">탐사 등급 {requiredGrade}</span>
+                  <span className="whitespace-nowrap text-xs">탐사 {requiredGrade}등급</span>
                   <span className="text-xs">잠김</span>
                 </>
               ) : (

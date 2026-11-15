@@ -495,6 +495,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).not.toContain("지정된 사냥터의 최심부");
   });
 
+  it("사냥 항목이 미개척지 탐사 등급의 조건과 보상을 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("탐사 등급");
+    expect(hunting).toContain("15,000");
+    expect(hunting).toContain("5 · 15 · 30 · 50 · 75");
+    expect(hunting).toContain("10등급 · 40등급");
+    expect(hunting).toContain("3,500개");
+    expect(hunting).toContain("5,000개");
+    expect(hunting).toContain("미개척지 길잡이");
+  });
+
   it("사냥 패배 위험 골드와 지역 세금 폐지를 모순 없이 안내한다", () => {
     const combat = renderToStaticMarkup(<CombatContent />);
     const hunting = renderToStaticMarkup(<HuntingContent />);

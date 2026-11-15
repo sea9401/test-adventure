@@ -73,7 +73,7 @@ describe("/api/v2/unexplored", () => {
     await expect(response.json()).resolves.toMatchObject({
       snapshot: {
         activePresetIndex: 1, gold: 1_000_000,
-        selectedNodeIds: [], nodePresets: [["start", "inner-0-0"], [], []],
+        selectedNodeIds: [], nodePresets: [["start", "inner-0-0"], [], [], [], []],
       },
     });
     const switched = mocks.saves.get("character.v2");
@@ -87,17 +87,25 @@ describe("/api/v2/unexplored", () => {
     const edit = await POST(request({ action: "activate", nodeId: "start", expectedPresetIndex: 1 }));
     expect(edit.status).toBe(200);
     await expect(edit.json()).resolves.toMatchObject({
-      snapshot: { nodePresets: [["start", "inner-0-0"], ["start"], []] },
+      snapshot: { nodePresets: [["start", "inner-0-0"], ["start"], [], [], []] },
     });
   });
 
-  it.each([-1, 3, 0.5, "1", null, {}, []].map((index) => ({ index })))("rejects malformed preset indexes: $index", async ({ index }) => {
+  it.each([-1, 5, 0.5, "1", null, {}, []].map((index) => ({ index })))("rejects malformed preset indexes: $index", async ({ index }) => {
     for (const body of [
       { action: "switch_preset", presetIndex: index },
       { action: "reset", expectedPresetIndex: index },
     ]) {
       expect((await POST(request(body))).status).toBe(400);
     }
+    expect(upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("탐사 등급이 모자란 프리셋 칸으로는 전환하지 않고 저장도 하지 않는다", async () => {
+    const response = await POST(request({ action: "switch_preset", presetIndex: 3 }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ ok: false, error: "preset_locked" });
     expect(upsertSave).not.toHaveBeenCalled();
   });
 
@@ -109,7 +117,7 @@ describe("/api/v2/unexplored", () => {
     }));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      snapshot: { activePresetIndex: 2, selectedNodeIds: [], nodePresets: [[], [], []] },
+      snapshot: { activePresetIndex: 2, selectedNodeIds: [], nodePresets: [[], [], [], [], []] },
     });
   });
 
@@ -297,7 +305,7 @@ describe("/api/v2/unexplored", () => {
     });
     expect(upsertSave).toHaveBeenCalledOnce();
     expect(vi.mocked(upsertSave).mock.calls[0][3]).toMatchObject({
-      unexplored: { difficultyCaps: [124, 130, 130] },
+      unexplored: { difficultyCaps: [124, 130, 130, 130, 130] },
     });
   });
 

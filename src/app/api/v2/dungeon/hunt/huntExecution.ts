@@ -1042,24 +1042,15 @@ async function runOneHuntPhased(
           acquiredIds: droppedUniques,
         }
       : undefined;
+    const killArgs = [enemyName, now, uniqueEquipment, explorationTitleIds] as const;
     if (ctx.batchState) {
       ctx.batchState.adventureLog = applyHuntAdventureProgress(
         ctx.batchState.adventureLog ?? {},
-        enemyName,
-        now,
-        uniqueEquipment,
-        explorationTitleIds,
+        ...killArgs,
       );
       ctx.batchState.adventureLogDirty = true;
     } else {
-      await recordMonsterKill(
-        tx,
-        userId,
-        enemyName,
-        now,
-        uniqueEquipment,
-        explorationTitleIds,
-      );
+      await recordMonsterKill(tx, userId, ...killArgs);
     }
   }
 
@@ -1214,8 +1205,6 @@ async function runOneHuntPhased(
                 xpAfter: explorationGrant.save.explorationXp,
                 xpPoints: explorationGrant.save.xpPoints,
                 pointsGained: explorationGrant.pointsGained,
-                gradesGained: explorationGrant.gradesGained,
-                grade: explorationGrade(explorationGrant.save),
               },
             }
           : {}),

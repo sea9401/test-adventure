@@ -39,6 +39,7 @@ import {
 const TABS: { key: RankingMetric; label: string }[] = [
   { key: "combatPower", label: "스탯 합계" },
   { key: "masteryTower", label: "숙련의 탑" },
+  { key: "explorationGrade", label: "탐사 등급" },
   { key: "achievementScore", label: "업적" },
   { key: "level", label: "숙련도" },
   { key: "lifeMastery", label: "생활 숙련도" },
@@ -92,6 +93,14 @@ export function RankingsView() {
         </>
       )}
       {metric === "masteryTower" && <MasteryTowerMetricPill />}
+      {metric === "explorationGrade" && (
+        <Card as="section" padding="sm">
+          <p className="text-xs text-zinc-600 dark:text-zinc-300">
+            미개척지 탐사 포인트 30개를 채운 뒤 쌓는 탐사 등급 순위입니다. 등급이 같으면 탐사
+            경험치가 많은 순입니다.
+          </p>
+        </Card>
+      )}
       {metric === "achievementScore" && <AchievementMetricPill />}
 
       {metric === "guild" ? (
@@ -499,6 +508,8 @@ function RankingRow({
               ({entry.achievementCompleted}개)
             </span>
           </>
+        ) : metric === "explorationGrade" ? (
+          <>탐사 {(entry.explorationGrade ?? 0).toLocaleString()}등급</>
         ) : (
           <>최고 {entry.masteryTowerFloor.toLocaleString()}층</>
         )}

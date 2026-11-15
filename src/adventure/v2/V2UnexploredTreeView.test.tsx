@@ -149,10 +149,10 @@ describe("V2UnexploredTreeView", () => {
     const fourth = within(presets).getByRole("button", { name: "프리셋 4" }) as HTMLButtonElement;
     expect(fourth.disabled).toBe(false);
     const fifth = within(presets).getByRole("button", {
-      name: "프리셋 5, 탐사 등급 40 필요",
+      name: "프리셋 5, 탐사 40등급 필요",
     }) as HTMLButtonElement;
     expect(fifth.disabled).toBe(true);
-    expect(within(fifth).getByText("탐사 등급 40")).toBeTruthy();
+    expect(within(fifth).getByText("탐사 40등급")).toBeTruthy();
     fireEvent.click(fifth);
     expect(fetchMock).not.toHaveBeenCalled();
   });

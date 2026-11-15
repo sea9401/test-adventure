@@ -72,16 +72,16 @@ export function PeddlerCargoPicker({
       />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <p className="min-w-0 flex-1 text-sm tabular-nums">
-          <span
+        <div className="min-w-0 flex-1 text-sm tabular-nums">
+          <p
             className={`font-semibold ${
               over ? "text-rose-600 dark:text-rose-400" : "text-zinc-900 dark:text-zinc-100"
             }`}
           >
             적재 {formatNumber(totals.points)} / {formatNumber(route.capacity)}점
-          </span>
-          <span className="ml-3 text-zinc-700 dark:text-zinc-200">받을 증표 {formatNumber(tokens)}개</span>
-        </p>
+          </p>
+          <p className="text-zinc-700 dark:text-zinc-200">받을 증표 {formatNumber(tokens)}개</p>
+        </div>
         <div className="flex shrink-0 gap-1.5">
           <Button
             variant="primary"

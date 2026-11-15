@@ -473,6 +473,27 @@ describe("개인 랭킹", () => {
     expect(json.me).toMatchObject({ rank: 3, deepStage: 7 });
   });
 
+  it("개인 보스 위험도는 보스별 최고 위험도 합계가 높은 순으로 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        { user_id: "u-me", name: "한보스만", avatar: "female1", unexplored_save: { bossRisk: { tracking_weapon: 9 } } },
+        { user_id: "u-top", name: "여러보스", avatar: "male1", unexplored_save: { bossRisk: { tracking_weapon: 6, glacial_colossus: 7 } } },
+        { user_id: "u-zero", name: "위험도없음", avatar: "male1", unexplored_save: { achievementIds: ["defeat_tracking_weapon"] } },
+      ],
+    });
+
+    const response = await GET(new Request("http://localhost/api/rankings?metric=bossRisk"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      json.list.map((entry: { rank: number; name: string; deepStage: number }) => [entry.rank, entry.name, entry.deepStage]),
+    ).toEqual([
+      [1, "여러보스", 13],
+      [2, "한보스만", 9],
+    ]);
+  });
+
   it("달성 조건과 수령 기록을 합산해 업적 점수 순위를 매긴다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

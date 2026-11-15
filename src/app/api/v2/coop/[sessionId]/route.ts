@@ -12,6 +12,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import {
   COOP_BOSSES,
   coopBossForBattle,
+  coopBossRiskTier,
   coopTierForRatio,
   parseCoopBossKindId,
   parseCoopVisibility,
@@ -154,6 +155,8 @@ export async function GET(_req: Request, { params }: Ctx) {
     const bossDef = COOP_BOSSES[kind];
     const { monster } = coopBossForBattle(bossDef, session.hp, {
       conditionalEnrageWeakened: session.hardEnrageWeakened,
+      sharedMaxHp: session.maxHp,
+      riskTier: coopBossRiskTier(session.mechanicState),
     });
     const player = combat.player;
     const bossEvaRating = Math.max(0, monster.evasionPct ?? 0) *

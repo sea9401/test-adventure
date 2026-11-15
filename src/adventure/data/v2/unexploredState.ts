@@ -18,6 +18,10 @@ import {
   explorationGrade,
   explorationGradeBonusPoints,
 } from "./unexploredGrade";
+import {
+  parseBossRiskRecord,
+  type UnexploredBossRiskRecord,
+} from "./unexploredBossRisk";
 import type { V2EquipmentId } from "./v2Equipment";
 
 type UnexploredBossAchievementId = `defeat_${UnexploredBossId}`;
@@ -80,6 +84,8 @@ export type UnexploredSave = {
   traces: UnexploredTraceState;
   craftReceipts: UnexploredCraftReceipt[];
   equipmentCraftReceipts: UnexploredEquipmentCraftReceipt[];
+  /** 개인 보스별 최고 처치 위험도(unexploredBossRisk.ts). */
+  bossRisk: UnexploredBossRiskRecord;
 };
 
 const achievementIdSet = new Set<string>(UNEXPLORED_ACHIEVEMENT_IDS);
@@ -218,6 +224,7 @@ export function emptyUnexploredSave(): UnexploredSave {
     traces: {},
     craftReceipts: [],
     equipmentCraftReceipts: [],
+    bossRisk: {},
   };
 }
 
@@ -259,6 +266,7 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     equipmentCraftReceipts: parseEquipmentCraftReceipts(
       source.equipmentCraftReceipts,
     ),
+    bossRisk: parseBossRiskRecord(source.bossRisk),
   };
 }
 

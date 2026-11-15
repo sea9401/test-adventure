@@ -50,7 +50,7 @@ const TABS: { key: RankingMetric; label: string }[] = [
 ];
 
 /** 심층 단계 탭 안에서 고르는 던전. 탭 키는 stormDeep 하나만 쓴다. */
-export type DeepStageRankingMetric = "stormDeep" | "sanctuaryDeep";
+export type DeepStageRankingMetric = "stormDeep" | "sanctuaryDeep" | "bossRisk";
 
 export function effectiveRankingMetric<M extends RankingMetric>(
   metric: M,
@@ -72,13 +72,16 @@ export function DeepStageRankingControls({
         options={[
           { key: "stormDeep", label: "폭풍 원정" },
           { key: "sanctuaryDeep", label: "태초의 성소" },
+          { key: "bossRisk", label: "개인 보스" },
         ]}
         value={dungeon}
         onChange={onChange}
         ariaLabel="심층 단계 던전"
       />
       <p className="text-xs text-zinc-600 dark:text-zinc-300">
-        던전별로 실전으로 완주한 가장 높은 심층 단계 순위입니다. 단계가 같으면 먼저 도달한 순입니다.
+        {dungeon === "bossRisk"
+          ? "미개척지 개인 보스 여섯 종의 최고 처치 위험도를 더한 순위입니다."
+          : "던전별로 실전으로 완주한 가장 높은 심층 단계 순위입니다. 단계가 같으면 먼저 도달한 순입니다."}
       </p>
     </Card>
   );
@@ -553,6 +556,8 @@ function RankingRow({
           <>탐사 {(entry.explorationGrade ?? 0).toLocaleString()}등급</>
         ) : metric === "stormDeep" || metric === "sanctuaryDeep" ? (
           <>심층 {(entry.deepStage ?? 0).toLocaleString()}단계</>
+        ) : metric === "bossRisk" ? (
+          <>위험도 합계 {(entry.deepStage ?? 0).toLocaleString()}</>
         ) : (
           <>최고 {entry.masteryTowerFloor.toLocaleString()}층</>
         )}

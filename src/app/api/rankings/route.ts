@@ -54,6 +54,7 @@ import {
 } from "@/adventure/data/v2/unexploredGrade";
 import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
 import { parseDeepProgress } from "@/adventure/data/v2/dungeonDeepStage";
+import { parseBossRiskRecord, totalBossRisk } from "@/adventure/data/v2/unexploredBossRisk";
 import { SANCTUARY_SAVE_KEY } from "@/adventure/data/v2/sanctuaryDungeon";
 import { STORM_EXPEDITION_SAVE_KEY } from "@/adventure/data/v2/stormExpedition";
 import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
@@ -150,6 +151,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "explorationGrade") return fetchExplorationGradeRows();
   if (metric === "stormDeep") return fetchDeepStageRows(STORM_EXPEDITION_SAVE_KEY);
   if (metric === "sanctuaryDeep") return fetchDeepStageRows(SANCTUARY_SAVE_KEY);
+  if (metric === "bossRisk") return fetchBossRiskRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
   // level 탭 = "총 직업 숙련도"(cum_level) 순. API metric 키는 호환을 위해 level 유지.
   // cumLevel 은 재전직으로 리셋되지 않는 직군 숙련도라 장기 성장 진행이 그대로 반영된다.
@@ -769,6 +771,58 @@ async function fetchExplorationGradeRows(): Promise<RankRow[]> {
       combatPower: 0,
       ...EMPTY_NEW_METRICS,
       explorationGrade: r.explorationGrade,
+      weekHighest: 0,
+      challengeHighest: 0,
+      rank: index + 1,
+    }));
+}
+
+// 미개척지 개인 보스 위험도 순위. 보스별 최고 처치 위험도의 합계가 높은 순이다.
+// 값은 심층 단계 탭과 같은 deepStage 칸에 싣는다.
+async function fetchBossRiskRows(): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      u.id AS user_id,
+      u.banned_until AS "bannedUntil",
+      COALESCE(u.game_name, p.value->>'name') AS name,
+      p.value->>'gender' AS avatar,
+      c.value->'unexplored' AS unexplored_save
+    FROM users u
+    INNER JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
+    LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
+      AND jsonb_typeof(c.value->'unexplored'->'bossRisk') = 'object'
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string;
+    bannedUntil: Date | string | null;
+    name: string;
+    avatar: string | null;
+    unexplored_save: unknown;
+  };
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
+    .map((r) => ({
+      userId: String(r.user_id),
+      name: String(r.name),
+      avatar: rankingAvatar(r.avatar),
+      total: totalBossRisk(
+        parseBossRiskRecord((r.unexplored_save as { bossRisk?: unknown } | null)?.bossRisk),
+      ),
+    }))
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total || a.userId.localeCompare(b.userId))
+    .map((r, index) => ({
+      userId: r.userId,
+      name: r.name,
+      avatar: r.avatar,
+      level: 1,
+      cumLevel: 0,
+      paragonLevel: 0,
+      fame: 0,
+      combatPower: 0,
+      ...EMPTY_NEW_METRICS,
+      deepStage: r.total,
       weekHighest: 0,
       challengeHighest: 0,
       rank: index + 1,

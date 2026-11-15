@@ -18,6 +18,7 @@ export type RankingMetric =
   | "explorationGrade"
   | "stormDeep"
   | "sanctuaryDeep"
+  | "bossRisk"
   | "achievementScore"
   | "guild";
 

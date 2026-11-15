@@ -8,6 +8,7 @@
 // TITLE_CATEGORY_ORDER 에도 등록.
 
 import { DEEP_STAGE_TITLE_IDS } from "./v2/dungeonDeepStage";
+import { UNEXPLORED_BOSS_RISK_TITLE_IDS } from "./v2/unexploredBossRisk";
 import { EXPLORATION_GRADE_TITLE_IDS } from "./v2/unexploredGrade";
 
 export type TitleId = string;
@@ -268,6 +269,20 @@ export const TITLES: Record<TitleId, Title> = {
     name: "태초의 끝을 본 자",
     description: "태초의 성소 끝이라 여긴 곳을 넘어선 사람.",
     condition: "태초의 성소 심층 30단계 완주",
+    category: "battle",
+  },
+  [UNEXPLORED_BOSS_RISK_TITLE_IDS[30]]: {
+    id: UNEXPLORED_BOSS_RISK_TITLE_IDS[30],
+    name: "위험을 좇는 자",
+    description: "더 위험한 우두머리를 골라 불러내는 사람.",
+    condition: "미개척지 개인 보스 위험도 합계 30 달성",
+    category: "battle",
+  },
+  [UNEXPLORED_BOSS_RISK_TITLE_IDS[60]]: {
+    id: UNEXPLORED_BOSS_RISK_TITLE_IDS[60],
+    name: "위험의 끝에 선 자",
+    description: "여섯 우두머리를 모두 깊은 위험 속에서 쓰러뜨린 사람.",
+    condition: "미개척지 개인 보스 위험도 합계 60 달성",
     category: "battle",
   },
   [EXPLORATION_GRADE_TITLE_IDS[10]]: {

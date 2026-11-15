@@ -57,3 +57,17 @@ describe("개인 보스 위험도", () => {
     expect(unexploredBossRiskTitleIds(61)).toHaveLength(2);
   });
 });
+
+describe("개인 보스 위험도 칭호", () => {
+  it("합계 30·60 칭호가 칭호 목록에 있다", async () => {
+    const { TITLES } = await import("@/adventure/data/titles");
+    expect(TITLES[UNEXPLORED_BOSS_RISK_TITLE_IDS[30]]).toMatchObject({
+      name: "위험을 좇는 자",
+      condition: "미개척지 개인 보스 위험도 합계 30 달성",
+    });
+    expect(TITLES[UNEXPLORED_BOSS_RISK_TITLE_IDS[60]]).toMatchObject({
+      name: "위험의 끝에 선 자",
+      condition: "미개척지 개인 보스 위험도 합계 60 달성",
+    });
+  });
+});

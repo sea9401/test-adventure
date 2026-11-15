@@ -498,7 +498,7 @@ export function V2StormExpeditionView() {
     setResumePlan(plan);
     setAutoplay({ kind: "resume" });
     if (runResult.kind === "stale") void refresh();
-  }, [autoplayLocked, refresh, requestAction, status]);
+  }, [autoplayLocked, deepStage, refresh, requestAction, status]);
 
   const stopAutoplay = useCallback(() => {
     stopAutoplayRef.current = true;

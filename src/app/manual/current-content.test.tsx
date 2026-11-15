@@ -505,7 +505,8 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("완벽한 보석");
     expect(hunting).toContain("5,000,000 G");
     expect(hunting).toContain("폭풍 심층 항해자");
-    expect(hunting).not.toContain("재련석");
+    // 재련 기능이 꺼져 있어 교환소 표에는 재련석이 없다.
+    expect(hunting).not.toMatch(/재련석 \d+개<\/td>/);
   });
 
   it("사냥 항목이 미개척지 탐사 등급의 조건과 보상을 적는다", () => {

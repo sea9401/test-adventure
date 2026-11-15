@@ -42,7 +42,8 @@ export async function GET() {
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
   ]);
   const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
-  const toolTier = parseLifeWorkshopState(workshopRaw).tools.mining;
+  const workshop = parseLifeWorkshopState(workshopRaw);
+  const toolTier = workshop.tools.mining;
   const autoState = parseAutoGatheringState(autoRaw);
   return Response.json({
     ok: true,
@@ -53,6 +54,7 @@ export async function GET() {
     durationReductionPct:
       bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier],
     autoSession: autoState.session,
+    siteUpkeep: workshop.siteUpkeep ?? {},
     activeAutoActivity: activeAutoGatheringActivity({
       woodcutting: parseAutoGatheringState(woodcuttingAutoRaw),
       mining: autoState,

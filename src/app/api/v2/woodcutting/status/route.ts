@@ -41,7 +41,8 @@ export async function GET() {
   const bonuses = equippedWoodcuttingBonuses(
     parseV2SkillsState(skillsRaw).equipped,
   );
-  const toolTier = parseLifeWorkshopState(workshopRaw).tools.woodcutting;
+  const workshop = parseLifeWorkshopState(workshopRaw);
+  const toolTier = workshop.tools.woodcutting;
 
   const autoState = parseAutoGatheringState(autoRaw);
   return Response.json({
@@ -54,6 +55,7 @@ export async function GET() {
     durationReductionPct:
       bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier],
     autoSession: autoState.session,
+    siteUpkeep: workshop.siteUpkeep ?? {},
     activeAutoActivity: activeAutoGatheringActivity({
       woodcutting: autoState,
       mining: parseAutoGatheringState(miningAutoRaw),

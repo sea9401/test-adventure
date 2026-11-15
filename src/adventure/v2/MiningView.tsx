@@ -37,6 +37,11 @@ import {
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
+import {
+  gatheringSiteExtendedDurationMs,
+  gatheringSiteStage,
+  type GatheringSiteUpkeepState,
+} from "./gatheringSiteUpkeep";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
@@ -94,6 +99,8 @@ export type MiningHandlers = {
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
   activeAutoActivity: AutoGatheringActivity | null;
+  /** 채집지 정비 단계. 자동 채집 카드가 느긋한 작업 시간을 보여 줄 때 쓴다. */
+  siteUpkeep?: GatheringSiteUpkeepState;
   startAuto: (
     spotId: MiningSpotId,
     planId: AutoGatheringPlanId,
@@ -476,6 +483,7 @@ export function MiningView({
   autoResult,
   autoLoading,
   activeAutoActivity,
+  siteUpkeep,
   startAuto,
   claimAuto,
   cancelAuto,
@@ -657,6 +665,9 @@ export function MiningView({
         <AutoGatheringCard
           activityName="채광"
           spotId={spotId}
+          extendedDurationMs={gatheringSiteExtendedDurationMs(
+            gatheringSiteStage(siteUpkeep ?? {}, selectedSpot.nodeId),
+          )}
           session={autoSession}
           result={autoResult}
           loading={autoLoading}

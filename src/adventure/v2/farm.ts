@@ -1,3 +1,4 @@
+import { RANCH_RARE_ITEM_REPUTATION } from "./ranchLineageRules";
 import {
   addRanchFeed,
   collectRanchProducts,
@@ -150,7 +151,11 @@ export type FarmItemId =
   | "compound_feed"
   | "egg"
   | "milk"
-  | "pork";
+  | "pork"
+  // 목장 희귀 산물 — 혈통 등급이 있는 칸에서 수거할 때 나온다.
+  | "golden_egg"
+  | "rich_milk"
+  | "black_pork";
 
 export type FarmItemDefinition = {
   name: string;
@@ -277,6 +282,10 @@ export const FARM_ITEMS: Record<FarmItemId, FarmItemDefinition> = {
     icon: "🥩",
     imageSrc: "/images/items/farm/pork.webp",
   },
+  // 목장 희귀 산물은 그림이 아직 없어 기호로 표시한다.
+  golden_egg: { name: "황금 달걀", icon: "🥚" },
+  rich_milk: { name: "진한 우유", icon: "🥛" },
+  black_pork: { name: "흑돼지고기", icon: "🥩" },
 };
 
 export type FarmCrop = {
@@ -1014,6 +1023,31 @@ export function getFarmSpecialDeliveryRequests(): FarmSpecialDeliveryRequest[] {
       rewardSeeds: {},
       rewardReputation: 5 + index,
     })),
+    // 목장 희귀 산물 — 혈통 등급이 있는 칸에서 나온다.
+    {
+      id: "rare-golden_egg",
+      title: "황금 달걀 연구 납품",
+      note: "혈통 좋은 닭이 낳은 황금 달걀을 제과 길드가 사 갑니다.",
+      requiredItems: { golden_egg: 1 },
+      rewardSeeds: {},
+      rewardReputation: RANCH_RARE_ITEM_REPUTATION.golden_egg,
+    },
+    {
+      id: "rare-rich_milk",
+      title: "진한 우유 연구 납품",
+      note: "혈통 좋은 소에서 짠 진한 우유를 치즈 공방이 사 갑니다.",
+      requiredItems: { rich_milk: 1 },
+      rewardSeeds: {},
+      rewardReputation: RANCH_RARE_ITEM_REPUTATION.rich_milk,
+    },
+    {
+      id: "rare-black_pork",
+      title: "흑돼지고기 연구 납품",
+      note: "혈통 좋은 돼지의 흑돼지고기를 여관 주방이 사 갑니다.",
+      requiredItems: { black_pork: 1 },
+      rewardSeeds: {},
+      rewardReputation: RANCH_RARE_ITEM_REPUTATION.black_pork,
+    },
   ];
 }
 
@@ -1443,10 +1477,12 @@ export function feedFarmRanch(
 export function collectFarmRanch(
   state: FarmState,
   now = Date.now(),
+  rng: () => number = Math.random,
 ): { state: FarmState; result: FarmRanchCollectResult } {
-  const collected = collectRanchProducts(state.ranch, now);
+  const collected = collectRanchProducts(state.ranch, now, rng);
   const inventory = { ...state.inventory };
-  for (const [itemId, amount] of Object.entries(collected.items)) {
+  const gained = { ...collected.items, ...collected.rareItems };
+  for (const [itemId, amount] of Object.entries(gained)) {
     setPositiveCount(
       inventory,
       itemId as FarmItemId,
@@ -1466,7 +1502,7 @@ export function collectFarmRanch(
       stats: { ...state.stats, farmingXp },
     },
     result: {
-      items: collected.items,
+      items: gained,
       farmingXpGained: collected.farmingXp,
       farmingXp,
       farmingLevel: farmingLevelForXp(farmingXp),

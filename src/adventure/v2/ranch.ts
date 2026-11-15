@@ -1,3 +1,11 @@
+import {
+  RANCH_RARE_ITEM_ID,
+  normalizeRanchLineage,
+  ranchLineageRareChancePct,
+  type RanchLineage,
+  type RanchRareItemId,
+} from "./ranchLineageRules";
+
 const HOUR = 60 * 60 * 1000;
 
 export type RanchAnimalId = "chicken" | "cow" | "pig";
@@ -153,11 +161,15 @@ export type RanchState = {
   version: 3;
   slots: Record<RanchSlotId, RanchSlotState>;
   stats: RanchStats;
+  /** 칸별 혈통. 보통 등급에 실패 기록도 없는 칸은 싣지 않고, 그런 칸뿐이면 필드가 없다. */
+  lineage?: Partial<Record<RanchSlotId, RanchLineage>>;
 };
 
 export type RanchCollection = {
   ranch: RanchState;
   items: Partial<Record<RanchProductItemId, number>>;
+  /** 혈통 등급에 따라 함께 나온 희귀 산물. */
+  rareItems: Partial<Record<RanchRareItemId, number>>;
   farmingXp: number;
   cycles: Record<RanchAnimalId, number>;
 };
@@ -400,7 +412,49 @@ export function parseRanchState(raw: unknown, now = Date.now()): RanchState {
     ? slots["slot-1"]
     : emptySlotState(true, "chicken", safeTimestamp);
 
-  return { version: 3, slots, stats: parseStats(source.stats) };
+  const lineage = parseLineage((raw as { lineage?: unknown }).lineage, slots);
+  return {
+    version: 3,
+    slots,
+    stats: parseStats(source.stats),
+    ...(Object.keys(lineage).length > 0 ? { lineage } : {}),
+  };
+}
+
+/** 동물이 있는 열린 칸의 혈통만 남긴다. 보통 등급에 실패 기록도 없으면 저장하지 않는다. */
+function parseLineage(
+  raw: unknown,
+  slots: Record<RanchSlotId, RanchSlotState>,
+): Partial<Record<RanchSlotId, RanchLineage>> {
+  const lineage: Partial<Record<RanchSlotId, RanchLineage>> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return lineage;
+  for (const definition of RANCH_SLOT_DEFINITIONS) {
+    const slot = slots[definition.id];
+    if (!slot.unlocked || !slot.animalId) continue;
+    const value = normalizeRanchLineage((raw as Record<string, unknown>)[definition.id]);
+    // 최고 등급에는 더 쌓을 실패가 없다.
+    const fails = value.grade >= 4 ? 0 : value.fails;
+    if (value.grade > 0 || fails > 0) lineage[definition.id] = { grade: value.grade, fails };
+  }
+  return lineage;
+}
+
+export function ranchSlotLineage(state: RanchState, slotId: RanchSlotId): RanchLineage {
+  return state.lineage?.[slotId] ?? { grade: 0, fails: 0 };
+}
+
+/** 한 칸의 혈통을 바꾼 목장 상태. 보통 등급에 실패도 없으면 그 칸의 기록을 지운다. */
+export function withRanchSlotLineage(
+  state: RanchState,
+  slotId: RanchSlotId,
+  next: RanchLineage | null,
+): RanchState {
+  const lineage = { ...state.lineage };
+  if (next && (next.grade > 0 || next.fails > 0)) lineage[slotId] = next;
+  else delete lineage[slotId];
+  const { lineage: _previous, ...rest } = state;
+  void _previous;
+  return Object.keys(lineage).length > 0 ? { ...rest, lineage } : rest;
 }
 
 export function ranchFeedPlan(state: RanchState, feedOwned: number, now = Date.now()) {
@@ -540,10 +594,12 @@ export function addRanchFeed(
 export function collectRanchProducts(
   state: RanchState,
   now = Date.now(),
+  rng: () => number = Math.random,
 ): RanchCollection {
   const settled = settleRanch(state, now);
   const slots = { ...settled.slots };
   const items: Partial<Record<RanchProductItemId, number>> = {};
+  const rareItems: Partial<Record<RanchRareItemId, number>> = {};
   const cycles: Record<RanchAnimalId, number> = { chicken: 0, cow: 0, pig: 0 };
   let farmingXp = 0;
 
@@ -554,6 +610,18 @@ export function collectRanchProducts(
     items[animal.outputItemId] =
       (items[animal.outputItemId] ?? 0) + slot.readyItems;
     cycles[animal.id] += slot.readyCycles;
+    // 혈통 등급이 있는 칸은 주기마다 희귀 산물을 굴린다.
+    const rareChance = ranchLineageRareChancePct(ranchSlotLineage(settled, slotDefinition.id).grade) / 100;
+    if (rareChance > 0) {
+      let rare = 0;
+      for (let cycle = 0; cycle < slot.readyCycles; cycle += 1) {
+        if (rng() < rareChance) rare += 1;
+      }
+      if (rare > 0) {
+        const rareId = RANCH_RARE_ITEM_ID[animal.id];
+        rareItems[rareId] = (rareItems[rareId] ?? 0) + rare;
+      }
+    }
     farmingXp += slot.readyCycles * animal.xpPerCycle;
     slots[slotDefinition.id] = { ...slot, readyItems: 0, readyCycles: 0 };
   }
@@ -571,6 +639,7 @@ export function collectRanchProducts(
       },
     },
     items,
+    rareItems,
     farmingXp,
     cycles,
   };
@@ -642,17 +711,22 @@ export function rebuildRanchSlot(
   }
 
   return {
-    ranch: {
-      ...settled,
-      slots: {
-        ...settled.slots,
-        [slotId]: {
-          ...emptySlotState(true, animalId, safeNow(now)),
-          shipmentStartedAt:
-            animal.mode === "shipment" ? [safeNow(now)] : [],
+    // 동물을 바꾸면 그 칸의 혈통은 보통으로 돌아간다.
+    ranch: withRanchSlotLineage(
+      {
+        ...settled,
+        slots: {
+          ...settled.slots,
+          [slotId]: {
+            ...emptySlotState(true, animalId, safeNow(now)),
+            shipmentStartedAt:
+              animal.mode === "shipment" ? [safeNow(now)] : [],
+          },
         },
       },
-    },
+      slotId,
+      null,
+    ),
     costReputation: RANCH_REBUILD_COSTS[animalId],
   };
 }
@@ -674,10 +748,18 @@ export function swapRanchSlots(
   if (!from.unlocked || !from.animalId || !to.unlocked || !to.animalId) {
     throw new RanchError("slot_locked");
   }
-  return {
-    ...settled,
-    slots: { ...settled.slots, [fromSlotId]: to, [toSlotId]: from },
-  };
+  // 혈통은 가축을 따라간다.
+  const fromLineage = settled.lineage?.[fromSlotId] ?? null;
+  const toLineage = settled.lineage?.[toSlotId] ?? null;
+  return withRanchSlotLineage(
+    withRanchSlotLineage(
+      { ...settled, slots: { ...settled.slots, [fromSlotId]: to, [toSlotId]: from } },
+      fromSlotId,
+      toLineage,
+    ),
+    toSlotId,
+    fromLineage,
+  );
 }
 
 export function ranchReadySlotCount(state: RanchState): number {

@@ -247,6 +247,21 @@ describe("최신 게임 안내서 내용", () => {
     }
   });
 
+  it("목장 혈통의 등급·교배 확률·비용·희귀 산물을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+    expect(html).toContain("목장 혈통");
+    for (const name of ["보통", "우량", "특급", "명품", "명장 혈통"]) {
+      expect(html).toContain(name);
+    }
+    expect(html).toContain("달걀 60, 배합 사료 20");
+    expect(html).toContain("돼지고기 20, 배합 사료 20");
+    for (const name of ["황금 달걀", "진한 우유", "흑돼지고기"]) {
+      expect(html).toContain(name);
+    }
+    expect(html).toContain("+0.5%p");
+    expect(html).toContain("명장 작물 2개가 더 듭니다");
+  });
+
   it("보석 세공의 확률·조건과 마법부여 줄 고정을 안내한다", () => {
     const pastimes = renderToStaticMarkup(<PastimesContent />);
     expect(pastimes).toContain("보석 세공");

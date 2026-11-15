@@ -64,6 +64,7 @@ import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { ranchBreedNoticeText } from "./RanchLineageRow";
 import { lifePerkUnlocked } from "./lifeMajorRules";
 
 type FarmSectionKey =
@@ -129,6 +130,7 @@ export function AdventurerFarmPanel({
     busyPlotUpgrade,
     busyBreedCropId,
     busyRanchFeedSlotId,
+    busyRanchBreedSlotId,
     busyRanchCollect,
     busyRanchUpgradeSlotId,
     busyRanchRebuildSlotId,
@@ -165,6 +167,7 @@ export function AdventurerFarmPanel({
     breedCrop,
     feedRanchSlot,
     collectRanch,
+    breedRanchSlot,
     buyRanchSlot,
     rebuildRanchSlot,
     swapRanchSlots,
@@ -425,6 +428,13 @@ export function AdventurerFarmPanel({
           : `배합 사료 ${notice.result.amount}개를 넣었습니다. 남은 사료 ${notice.result.feedRemaining}개.`,
       };
     }
+    if (notice.kind === "ranchBreed") {
+      return {
+        id: notice.id,
+        tone: notice.result.success ? "ok" : "warn",
+        text: ranchBreedNoticeText(notice.result),
+      };
+    }
     if (notice.kind === "ranchCollect") {
       const rewards = Object.entries(notice.result.items)
         .filter(([, amount]) => (amount ?? 0) > 0)
@@ -622,6 +632,9 @@ export function AdventurerFarmPanel({
                   onRebuild={(slotId, animalId) => void rebuildRanchSlot(slotId, animalId)}
                   busySwap={busyRanchSwap}
                   onSwap={(fromSlotId, toSlotId) => void swapRanchSlots(fromSlotId, toSlotId)}
+                  breedingInfo={breedingInfo}
+                  busyBreedSlotId={busyRanchBreedSlotId}
+                  onBreed={(slotId) => void breedRanchSlot(slotId)}
                   onOpenLifeWorkshop={onOpenLifeWorkshop}
                 />
               </div>

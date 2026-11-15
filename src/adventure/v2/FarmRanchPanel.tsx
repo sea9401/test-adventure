@@ -17,11 +17,14 @@ import {
   RANCH_REBUILD_COSTS,
   RANCH_SLOT_DEFINITIONS,
   ranchFeedPlan,
+  ranchSlotLineage,
   type RanchAnimalDefinition,
   type RanchAnimalId,
   type RanchFeedTarget,
   type RanchSlotId,
 } from "./ranch";
+import { RanchLineageRow } from "./RanchLineageRow";
+import type { RanchBreedContext } from "./ranchLineage";
 
 const RANCH_ANIMAL_IDS = ["chicken", "cow", "pig"] as const;
 
@@ -100,6 +103,9 @@ export function FarmRanchPanel({
   onRebuild,
   busySwap = false,
   onSwap,
+  breedingInfo = { masterUnlocked: false, masterCropHeld: 0 },
+  busyBreedSlotId = null,
+  onBreed,
   onOpenLifeWorkshop,
 }: {
   farm: FarmState;
@@ -115,6 +121,11 @@ export function FarmRanchPanel({
   onRebuild: (slotId: RanchSlotId, animalId: RanchAnimalId) => void;
   busySwap?: boolean;
   onSwap?: (fromSlotId: RanchSlotId, toSlotId: RanchSlotId) => void;
+  /** 명장 혈통 교배 조건(농사 주전공 명장 3단계)과 명장 작물 보유량. */
+  breedingInfo?: RanchBreedContext;
+  busyBreedSlotId?: RanchSlotId | null;
+  /** 넘기면 부지마다 혈통과 교배 버튼을 보여 준다. */
+  onBreed?: (slotId: RanchSlotId) => void;
   onOpenLifeWorkshop: () => void;
 }) {
   const [feedAmounts, setFeedAmounts] = useState<
@@ -396,6 +407,19 @@ export function FarmRanchPanel({
                     </div>
                   </div>
                 </div>
+
+                {onBreed ? (
+                  <RanchLineageRow
+                    slotLabel={`부지 ${index + 1}`}
+                    animalId={animal.id}
+                    lineage={ranchSlotLineage(farm.ranch, slotDefinition.id)}
+                    inventory={farm.inventory}
+                    context={breedingInfo}
+                    busy={busyBreedSlotId === slotDefinition.id}
+                    anyBusy={busyBreedSlotId !== null}
+                    onBreed={() => onBreed(slotDefinition.id)}
+                  />
+                ) : null}
 
                 {animal.mode === "shipment" ? (
                   <>

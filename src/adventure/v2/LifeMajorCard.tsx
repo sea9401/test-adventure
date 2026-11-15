@@ -11,6 +11,7 @@ import {
   FARM_BREEDING_STAGE_COSTS,
 } from "./farmBreedingRules";
 import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
+import { RANCH_LINEAGE_MASTER_CROP_COST } from "./ranchLineageRules";
 import {
   GATHERING_SITE_MASTER_PRODUCT_COUNT,
   GATHERING_SITE_MASTER_STAGE,
@@ -193,6 +194,13 @@ export function LifeMajorCard() {
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">명장 품종</p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           농사 주전공 명장 {view.crafting.requiredStage}단계부터 농장의 품종 탭에서 작물을 {FARM_BREEDING_MASTER_STAGE}단계로 올릴 수 있습니다. 명장 작물 {FARM_BREEDING_STAGE_COSTS[FARM_BREEDING_MASTER_STAGE - 1].masterCrop}개가 듭니다.
+        </p>
+      </div>
+
+      <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">명장 혈통</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          농사 주전공 명장 {view.crafting.requiredStage}단계부터 목장에서 명품 혈통의 가축을 명장 혈통으로 교배할 수 있습니다. 교배마다 명장 작물 {RANCH_LINEAGE_MASTER_CROP_COST}개가 더 듭니다.
         </p>
       </div>
 

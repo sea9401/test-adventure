@@ -30,6 +30,7 @@ import {
   type FarmBusyBatchAction,
 } from "./farmBatchActions";
 import type { RanchAnimalId, RanchFeedTarget, RanchSlotId } from "./ranch";
+import type { RanchBreedResult } from "./ranchLineage";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
 import {
@@ -63,6 +64,7 @@ type FarmResponse = {
   uprootedPlotId?: string;
   ranchFeedResult?: FarmRanchFeedResult;
   ranchCollectResult?: FarmRanchCollectResult;
+  ranchBreedResult?: RanchBreedResult;
   ranchRebuildResult?: FarmRanchRebuildResult;
   ranchUpgradeResult?: FarmRanchUpgradeResult;
   endgameShop?: FarmEndgameShopView;
@@ -88,6 +90,7 @@ export type FarmClientState = {
   busyPlotUpgrade: boolean;
   busyBreedCropId: FarmCropId | null;
   busyRanchFeedSlotId: RanchFeedTarget | null;
+  busyRanchBreedSlotId: RanchSlotId | null;
   busyRanchCollect: boolean;
   busyRanchUpgradeSlotId: RanchSlotId | null;
   busyRanchRebuildSlotId: RanchSlotId | null;
@@ -136,6 +139,8 @@ export type FarmClientState = {
   breedCrop: (cropId: FarmCropId) => Promise<void>;
   feedRanchSlot: (slotId: RanchFeedTarget, amount: number) => Promise<void>;
   collectRanch: () => Promise<void>;
+  /** 그 칸의 가축을 교배해 혈통 등급을 올려 본다. */
+  breedRanchSlot: (slotId: RanchSlotId) => Promise<void>;
   buyRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
   rebuildRanchSlot: (slotId: RanchSlotId, animalId: RanchAnimalId) => Promise<void>;
   swapRanchSlots: (fromSlotId: RanchSlotId, toSlotId: RanchSlotId) => Promise<void>;
@@ -172,6 +177,7 @@ export type FarmNotice =
     }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
   | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
+  | { id: number; kind: "ranchBreed"; result: RanchBreedResult }
   | { id: number; kind: "ranchUpgrade"; result: FarmRanchUpgradeResult }
   | { id: number; kind: "ranchRebuild"; result: FarmRanchRebuildResult };
 
@@ -194,6 +200,8 @@ export function useFarm(): FarmClientState {
     null,
   );
   const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
+  const [busyRanchBreedSlotId, setBusyRanchBreedSlotId] =
+    useState<RanchSlotId | null>(null);
   const [busyRanchFeedSlotId, setBusyRanchFeedSlotId] =
     useState<RanchFeedTarget | null>(null);
   const [busyRanchCollect, setBusyRanchCollect] = useState(false);
@@ -346,6 +354,9 @@ export function useFarm(): FarmClientState {
         kind: "ranchFeed",
         result: data.ranchFeedResult,
       });
+    }
+    if (data.ranchBreedResult) {
+      setNotice({ id: Date.now(), kind: "ranchBreed", result: data.ranchBreedResult });
     }
     if (data.ranchCollectResult) {
       setNotice({
@@ -749,6 +760,27 @@ export function useFarm(): FarmClientState {
     }
   }, [apply, reportError]);
 
+  const breedRanchSlot = useCallback(
+    async (slotId: RanchSlotId) => {
+      setBusyRanchBreedSlotId(slotId);
+      setError(null);
+      try {
+        const res = await fetch("/api/v2/farm/ranch/breed", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slotId }),
+        });
+        const data = (await res.json()) as FarmResponse;
+        apply(data);
+      } catch (e) {
+        reportError(e);
+      } finally {
+        setBusyRanchBreedSlotId(null);
+      }
+    },
+    [apply, reportError],
+  );
+
   const buyRanchSlot = useCallback(
     async (slotId: RanchSlotId, animalId: RanchAnimalId) => {
       setBusyRanchUpgradeSlotId(slotId);
@@ -845,6 +877,7 @@ export function useFarm(): FarmClientState {
     busyPlotUpgrade,
     busyBreedCropId,
     busyRanchFeedSlotId,
+    busyRanchBreedSlotId,
     busyRanchCollect,
     busyRanchUpgradeSlotId,
     busyRanchRebuildSlotId,
@@ -890,6 +923,7 @@ export function useFarm(): FarmClientState {
     breedCrop,
     feedRanchSlot,
     collectRanch,
+    breedRanchSlot,
     buyRanchSlot,
     rebuildRanchSlot,
     swapRanchSlots,
@@ -919,6 +953,9 @@ export function farmErrorMessage(error: unknown): string {
       already_fertilized: "이번 파종에는 이미 거름을 사용했습니다.",
       already_ready: "이미 수확할 수 있는 작물에는 이 작업을 할 수 없습니다.",
       ranch_locked: "씨앗 선별을 배우면 목장을 이용할 수 있습니다.",
+      lineage_max: "이미 최고 혈통입니다.",
+      lineage_master_locked: "명장 혈통 교배는 농사 주전공 명장 3단계부터 할 수 있습니다.",
+      not_enough_ranch_products: "교배에 쓸 목장 산물이 모자랍니다.",
       slot_locked: "아직 열리지 않았거나 앞 부지를 먼저 열어야 합니다.",
       feed_capacity: "이 축사에는 사료가 이미 가득 차 있습니다.",
       not_enough_feed: "보유한 배합 사료가 부족합니다.",

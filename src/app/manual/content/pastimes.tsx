@@ -70,6 +70,7 @@ import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/fo
 import { CookingBranchManualSection } from "./pastimes-cooking-branch";
 import { GatheringUpkeepManualSection } from "./pastimes-gathering-upkeep";
 import { GemCuttingManualSection } from "./pastimes-gem-cutting";
+import { RanchLineageManualSection } from "./pastimes-ranch-lineage";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
@@ -544,6 +545,7 @@ export function PastimesContent() {
 
       <GatheringUpkeepManualSection />
       <GemCuttingManualSection />
+      <RanchLineageManualSection />
 
       <H2>낚시</H2>
       <UL>

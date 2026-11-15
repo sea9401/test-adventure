@@ -35,6 +35,7 @@ export const V2_NOTIFICATION_TYPES = [
   "auction_won",
   "auction_unsold",
   "master_product",
+  "grand_grade",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -104,10 +105,22 @@ export function masterProductNotificationText(
   return `명장 산물 ${payload.name} ${payload.count.toLocaleString("ko-KR")}개를 얻었습니다.`;
 }
 
+// grand_grade — 생활 전공의 거장 등급 상승. name 은 생활 이름 스냅샷.
+export type GrandGradeNotificationPayload = {
+  activity: string;
+  name: string;
+  grade: number;
+};
+
+export function grandGradeNotificationText(payload: GrandGradeNotificationPayload): string {
+  return `${payload.name} 거장 ${payload.grade.toLocaleString("ko-KR")}등급에 올랐습니다.`;
+}
+
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
   | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload
+  | GrandGradeNotificationPayload
   | GuildKickedNotificationPayload
   | GuildDisbandedNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.

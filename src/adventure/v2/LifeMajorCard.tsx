@@ -16,7 +16,11 @@ import {
   GATHERING_SITE_MASTER_STAGE,
 } from "./gatheringSiteUpkeep";
 import type { LifeMajorActivity, LifeMajorActivityView, LifeMajorView } from "./lifeMajor";
-import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
+import {
+  LIFE_MAJOR_CHANGE_COOLDOWN_MS,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
+} from "./lifeMajorRules";
 import {
   craftTemperingCatalyst,
   fetchLifeMajorView,
@@ -198,6 +202,13 @@ export function LifeMajorCard() {
         </p>
       </div>
 
+      <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">거장 등급</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          명장 10단계 뒤에도 전공 생활의 경험치가 쌓여 거장 등급이 상한 없이 오릅니다. 생활별 거장 {LIFE_MAJOR_GRAND_TITLE_GRADE}등급과 합계 {LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE}등급에서 칭호를 받고, 생활 숙련도 랭킹에서 순위가 같을 때 합계가 높은 쪽이 앞섭니다.
+        </p>
+      </div>
+
       <ul className="space-y-1.5">
         {view.activities.filter((entry) => entry.role || entry.stage > 0).map((entry) => (
           <MajorRow key={entry.id} entry={entry} />
@@ -248,8 +259,9 @@ function CatalystRow({
 }
 
 function MajorRow({ entry }: { entry: LifeMajorActivityView }) {
+  // 10단계 뒤에는 막대가 다음 거장 등급까지의 진행도를 보여 준다.
   const progress = entry.capped
-    ? 100
+    ? Math.min(100, (entry.grandXpInto / Math.max(1, entry.grandXpForNext)) * 100)
     : Math.min(100, (entry.stageXpInto / Math.max(1, entry.stageXpForNext)) * 100);
   return (
     <li className={`${SURFACE_INSET} p-2.5`}>
@@ -261,12 +273,20 @@ function MajorRow({ entry }: { entry: LifeMajorActivityView }) {
           </span>
         ) : null}
         <span className="ml-auto font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
-          명장 {entry.stage}단계
+          {entry.capped
+            ? `명장 ${entry.stage}단계 · 거장 ${entry.grandGrade.toLocaleString("ko-KR")}등급`
+            : `명장 ${entry.stage}단계`}
         </span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div className="h-full rounded-full bg-amber-500" style={{ width: `${progress}%` }} />
       </div>
+      {entry.capped ? (
+        <p className="mt-1.5 text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+          다음 등급까지 {entry.grandXpInto.toLocaleString("ko-KR")} /{" "}
+          {entry.grandXpForNext.toLocaleString("ko-KR")}
+        </p>
+      ) : null}
       {entry.role ? (
         <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-300">
           {entry.effectText ? <span>{entry.effectText}</span> : null}

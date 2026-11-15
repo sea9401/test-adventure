@@ -4,6 +4,11 @@ const mocks = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   upsertSave: vi.fn(),
   insertNotificationWith: vi.fn(async () => undefined),
+  grantTitleIfMissingInTx: vi.fn(async () => true),
+}));
+
+vi.mock("@/lib/server/grantTitle", () => ({
+  grantTitleIfMissingInTx: mocks.grantTitleIfMissingInTx,
 }));
 
 vi.mock("@/lib/server/v2Notifications", () => ({
@@ -25,6 +30,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 import {
   LIFE_MAJOR_PRODUCT_ID,
   LIFE_MAJOR_SAVE_KEY,
+  lifeMajorGrandGradeXp,
   lifeMajorStageXp,
 } from "@/adventure/v2/lifeMajor";
 import { applyLifeMajorProgress, readLifeMajorState } from "./lifeMajor";
@@ -42,6 +48,7 @@ afterEach(() => {
   mocks.store.clear();
   mocks.upsertSave.mockClear();
   mocks.insertNotificationWith.mockClear();
+  mocks.grantTitleIfMissingInTx.mockClear();
 });
 
 describe("applyLifeMajorProgress", () => {
@@ -103,5 +110,58 @@ describe("applyLifeMajorProgress", () => {
 describe("readLifeMajorState", () => {
   it("세이브가 없으면 빈 상태", async () => {
     expect(await readLifeMajorState(TX, "u1")).toMatchObject({ major: null, minor: null });
+  });
+
+  describe("거장 등급", () => {
+    const cap = lifeMajorStageXp("cooking", 10);
+    const perGrade = lifeMajorGrandGradeXp("cooking");
+
+    it("10단계를 넘어도 경험치를 쌓고, 등급이 오르면 알린다", async () => {
+      mocks.store.set(LIFE_MAJOR_SAVE_KEY, { major: "cooking", masteryXp: { cooking: cap - 5 } });
+      const first = await applyLifeMajorProgress(TX, "u1", "cooking", {
+        overflowXp: 100,
+        successes: 1,
+        rng: () => 0.99,
+      });
+      expect(first.masteryXpGained).toBe(100);
+      // 10단계에 닿았을 뿐 아직 거장 등급은 0이다.
+      expect(mocks.insertNotificationWith).not.toHaveBeenCalled();
+
+      // 한 번에 두 등급을 넘으면 마지막 등급으로 한 번만 알린다.
+      await applyLifeMajorProgress(TX, "u1", "cooking", {
+        overflowXp: perGrade * 2,
+        successes: 1,
+        rng: () => 0.99,
+      });
+      expect(mocks.insertNotificationWith).toHaveBeenCalledTimes(1);
+      expect(mocks.insertNotificationWith).toHaveBeenCalledWith(TX, "u1", "grand_grade", {
+        activity: "cooking",
+        name: "요리",
+        grade: 2,
+      });
+      expect((await readLifeMajorState(TX, "u1")).masteryXp.cooking).toBe(cap + 95 + perGrade * 2);
+      expect(mocks.grantTitleIfMissingInTx).not.toHaveBeenCalled();
+    });
+
+    it("등급이 그대로면 알리지 않는다", async () => {
+      mocks.store.set(LIFE_MAJOR_SAVE_KEY, { major: "cooking", masteryXp: { cooking: cap + perGrade } });
+      await applyLifeMajorProgress(TX, "u1", "cooking", { overflowXp: perGrade - 1, successes: 1, rng: () => 0.99 });
+      expect(mocks.insertNotificationWith).not.toHaveBeenCalled();
+    });
+
+    it("칭호 조건을 처음 채운 적립에서 칭호를 준다", async () => {
+      mocks.store.set(LIFE_MAJOR_SAVE_KEY, {
+        major: "cooking",
+        masteryXp: { cooking: cap + perGrade * 9 + (perGrade - 1) },
+      });
+      await applyLifeMajorProgress(TX, "u1", "cooking", { overflowXp: 1, successes: 1, rng: () => 0.99 });
+      expect(mocks.grantTitleIfMissingInTx).toHaveBeenCalledTimes(1);
+      expect(mocks.grantTitleIfMissingInTx).toHaveBeenCalledWith(TX, "u1", "life_grand_cooking", expect.any(Number));
+
+      // 이미 조건을 채운 뒤의 적립은 다시 지급을 시도하지 않는다.
+      mocks.grantTitleIfMissingInTx.mockClear();
+      await applyLifeMajorProgress(TX, "u1", "cooking", { overflowXp: perGrade, successes: 1, rng: () => 0.99 });
+      expect(mocks.grantTitleIfMissingInTx).not.toHaveBeenCalled();
+    });
   });
 });

@@ -72,6 +72,9 @@ import { GatheringUpkeepManualSection } from "./pastimes-gathering-upkeep";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
+  LIFE_MAJOR_GRAND_GRADES_PER_MASTERY,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
   LIFE_MAJOR_MAJOR_BONUS_PER_STAGE,
   LIFE_MAJOR_MAX_STAGE,
   LIFE_MAJOR_PRODUCT_BASE_PCT,
@@ -266,6 +269,14 @@ export function PastimesContent() {
         <li>
           전공 생활에서 Lv.100을 넘겨 쌓이지 못하던 경험치가 명장 경험치로 쌓여
           명장 {LIFE_MAJOR_MAX_STAGE}단계까지 오릅니다.
+        </li>
+        <li>
+          명장 {LIFE_MAJOR_MAX_STAGE}단계 뒤에도 경험치는 계속 쌓여 <Em>거장 등급</Em>이 상한 없이
+          오릅니다. 한 등급에 드는 경험치는 명장 {LIFE_MAJOR_MAX_STAGE}단계까지 든 양의{" "}
+          {LIFE_MAJOR_GRAND_GRADES_PER_MASTERY}분의 1입니다. 생활별 거장{" "}
+          {LIFE_MAJOR_GRAND_TITLE_GRADE}등급과 거장 등급 합계 {LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE}에서
+          칭호를 받고, 생활 숙련도 랭킹에서 합계가 같을 때 거장 등급 합계가 높은 쪽이 앞섭니다. 등급이
+          오르면 알림으로 알려 드립니다.
         </li>
         <li>
           명장 단계마다 주전공은 그 생활의 주력 수치가 {LIFE_MAJOR_MAJOR_BONUS_PER_STAGE}%p(농사

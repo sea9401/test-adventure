@@ -23,6 +23,15 @@ export const FARM_BREEDER_TITLE_ID = "farm_breeder";
 export const FARM_BREED_MASTER_TITLE_ID = "farm_breed_master";
 export const GATHERING_PIONEER_TITLE_ID = "gathering_pioneer";
 export const GATHERING_SITE_MASTER_TITLE_ID = "gathering_site_master";
+/** 생활별 거장 10등급 칭호. 키는 생활 전공 id. */
+export const LIFE_GRAND_TITLE_ID = {
+  farming: "life_grand_farming",
+  woodcutting: "life_grand_woodcutting",
+  mining: "life_grand_mining",
+  fishing: "life_grand_fishing",
+  cooking: "life_grand_cooking",
+} as const;
+export const LIFE_GRAND_TOTAL_TITLE_ID = "life_grand_total";
 export const LIFE_FESTIVAL_REGULAR_TITLE_ID = "life_festival_regular";
 export const LIFE_FESTIVAL_MASTER_TITLE_ID = "life_festival_master";
 export const LIFE_FESTIVAL_LEGEND_TITLE_ID = "life_festival_legend";
@@ -156,6 +165,48 @@ export const TITLES: Record<TitleId, Title> = {
     name: "산과 숲의 주인",
     description: "모든 광맥과 숲을 빈틈없이 정비해 낸 사람.",
     condition: "모든 채집지 정비 5단계 달성",
+    category: "collection",
+  },
+  [LIFE_GRAND_TITLE_ID.farming]: {
+    id: LIFE_GRAND_TITLE_ID.farming,
+    name: "농사 거장",
+    description: "명장의 경지를 넘어 밭을 일구는 사람.",
+    condition: "농사 거장 10등급 달성",
+    category: "collection",
+  },
+  [LIFE_GRAND_TITLE_ID.woodcutting]: {
+    id: LIFE_GRAND_TITLE_ID.woodcutting,
+    name: "벌목 거장",
+    description: "명장의 경지를 넘어 숲을 다루는 사람.",
+    condition: "벌목 거장 10등급 달성",
+    category: "collection",
+  },
+  [LIFE_GRAND_TITLE_ID.mining]: {
+    id: LIFE_GRAND_TITLE_ID.mining,
+    name: "채광 거장",
+    description: "명장의 경지를 넘어 광맥을 읽는 사람.",
+    condition: "채광 거장 10등급 달성",
+    category: "collection",
+  },
+  [LIFE_GRAND_TITLE_ID.fishing]: {
+    id: LIFE_GRAND_TITLE_ID.fishing,
+    name: "낚시 거장",
+    description: "명장의 경지를 넘어 물길을 아는 사람.",
+    condition: "낚시 거장 10등급 달성",
+    category: "collection",
+  },
+  [LIFE_GRAND_TITLE_ID.cooking]: {
+    id: LIFE_GRAND_TITLE_ID.cooking,
+    name: "요리 거장",
+    description: "명장의 경지를 넘어 맛을 빚는 사람.",
+    condition: "요리 거장 10등급 달성",
+    category: "collection",
+  },
+  [LIFE_GRAND_TOTAL_TITLE_ID]: {
+    id: LIFE_GRAND_TOTAL_TITLE_ID,
+    name: "생활의 거장",
+    description: "여러 생활에서 거장의 길을 오래 걸어 온 사람.",
+    condition: "거장 등급 합계 50 달성",
     category: "collection",
   },
   [LIFE_FESTIVAL_REGULAR_TITLE_ID]: {

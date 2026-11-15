@@ -13,6 +13,9 @@ import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import {
   addLifeMajorXp,
   LIFE_MAJOR_ACTIVITIES,
+  LIFE_MAJOR_ACTIVITY_NAME,
+  lifeMajorGrandEarnedTitleIds,
+  lifeMajorGrandGrade,
   LIFE_MAJOR_PRODUCT_ID,
   LIFE_MAJOR_PRODUCTS,
   LIFE_MAJOR_SAVE_KEY,
@@ -28,6 +31,7 @@ import {
   upsertSave,
   type DbExecutor,
 } from "@/lib/server/savesKv";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { insertNotificationWith } from "@/lib/server/v2Notifications";
 
 export async function readLifeMajorState(
@@ -76,6 +80,7 @@ export async function applyLifeMajorProgress(
         }
       : added.state;
   await upsertSave(tx, userId, LIFE_MAJOR_SAVE_KEY, next);
+  await announceGrandGrade(tx, userId, activity, state, next);
   if (productCount > 0 && activity !== "cooking") {
     // 결과 화면이 활동마다 달라 산물 획득은 알림으로 통일해 알린다(같은 트랜잭션).
     const product = LIFE_MAJOR_PRODUCTS[activity];
@@ -92,6 +97,28 @@ export async function applyLifeMajorProgress(
       productCount > 0 && activity !== "cooking" ? LIFE_MAJOR_PRODUCT_ID[activity] : null,
     productCount,
   };
+}
+
+/** 거장 등급이 올랐으면 알리고, 칭호 조건을 처음 채웠으면 칭호를 준다(같은 트랜잭션). */
+async function announceGrandGrade(
+  tx: DbExecutor,
+  userId: string,
+  activity: LifeMajorActivity,
+  before: LifeMajorState,
+  after: LifeMajorState,
+): Promise<void> {
+  const grade = lifeMajorGrandGrade(after, activity);
+  if (grade <= lifeMajorGrandGrade(before, activity)) return;
+  await insertNotificationWith(tx, userId, "grand_grade", {
+    activity,
+    name: LIFE_MAJOR_ACTIVITY_NAME[activity],
+    grade,
+  });
+  const earnedBefore = new Set(lifeMajorGrandEarnedTitleIds(before));
+  const now = Date.now();
+  for (const titleId of lifeMajorGrandEarnedTitleIds(after)) {
+    if (!earnedBefore.has(titleId)) await grantTitleIfMissingInTx(tx, userId, titleId, now);
+  }
 }
 
 export type LifeMajorResponse = {

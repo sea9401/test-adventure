@@ -20,6 +20,9 @@ function activity(id: LifeMajorView["activities"][number]["id"], name: string, o
     stageXpInto: 0,
     stageXpForNext: 1000,
     capped: false,
+    grandGrade: 0,
+    grandXpInto: 0,
+    grandXpForNext: 48_020,
     effectText: null,
     productName: id === "cooking" ? null : `명장 ${name}`,
     productChancePct: 0,
@@ -209,5 +212,51 @@ describe("활동 화면 전공 표시", () => {
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
     await Promise.resolve();
     expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("거장 등급 표시", () => {
+  const grandMining = () =>
+    view({
+      major: "mining",
+      activities: view().activities.map((entry) =>
+        entry.id === "mining"
+          ? {
+              ...entry,
+              role: "major" as const,
+              stage: 10,
+              capped: true,
+              grandGrade: 3,
+              grandXpInto: 12_005,
+              grandXpForNext: 48_020,
+            }
+          : entry,
+      ),
+    });
+
+  it("전공 카드는 명장 10단계 뒤 거장 등급과 다음 등급까지의 진행도를 보여 준다", async () => {
+    current = grandMining();
+    render(<LifeMajorCard />);
+    await screen.findByText("명장 10단계 · 거장 3등급");
+    expect(screen.getByText("다음 등급까지 12,005 / 48,020")).toBeTruthy();
+    expect(screen.getByText("거장 등급")).toBeTruthy();
+  });
+
+  it("10단계 전에는 거장 등급을 표시하지 않는다", async () => {
+    current = view({
+      major: "mining",
+      activities: view().activities.map((entry) =>
+        entry.id === "mining" ? { ...entry, role: "major" as const, stage: 4 } : entry,
+      ),
+    });
+    render(<LifeMajorCard />);
+    await screen.findByText("명장 4단계");
+    expect(screen.queryByText(/다음 등급까지/)).toBeNull();
+  });
+
+  it("생활 화면 상단 줄에도 거장 등급이 붙는다", async () => {
+    current = grandMining();
+    render(<LifeMajorBadge activity="mining" />);
+    await screen.findByText("주전공 · 명장 10단계 · 거장 3등급");
   });
 });

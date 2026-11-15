@@ -8,3 +8,8 @@ export const LIFE_RECORD_PATH = "캐릭터 > 내 정보 > 생활 기록";
 
 /** 명장 제작(명장 요리·단련 촉매·명장 등급 전투 준비물)에 필요한 주전공 명장 단계. */
 export const LIFE_MAJOR_CRAFT_MIN_STAGE = 3;
+
+/** 생활별 거장 칭호를 받는 등급. */
+export const LIFE_MAJOR_GRAND_TITLE_GRADE = 10;
+/** 칭호 ‘생활의 거장’을 받는 거장 등급 합계. */
+export const LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE = 50;

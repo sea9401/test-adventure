@@ -1,3 +1,4 @@
+import { lifeMajorGrandGradeTotal, parseLifeMajorState } from "@/adventure/v2/lifeMajor";
 import { FISH_IDS } from "@/adventure/data/v2/fish";
 import { equipmentCodexSummary } from "@/adventure/data/v2/equipmentCodex";
 import { parseV2Class } from "@/adventure/data/v2/classes";
@@ -32,6 +33,8 @@ import { parseClaimed } from "@/lib/server/v2QuestContext";
 export type LifeMasteryRanking = {
   totalLevel: number;
   totalXp: number;
+  /** 생활 전공의 거장 등급 합계. 생활 숙련도가 같을 때 순위를 가른다. */
+  grandGradeTotal: number;
   farmingLevel: number;
   woodcuttingLevel: number;
   miningLevel: number;
@@ -45,6 +48,7 @@ export function lifeMasteryRankingFromSaves(input: {
   miningRaw?: unknown;
   fishingRaw?: unknown;
   cookingRaw?: unknown;
+  lifeMajorRaw?: unknown;
 }): LifeMasteryRanking {
   const farm = parseFarmState(input.farmRaw);
   const woodcutting = parseWoodcuttingLog(input.woodcuttingRaw);
@@ -67,6 +71,7 @@ export function lifeMasteryRankingFromSaves(input: {
       farmingLevel + woodcuttingLevel + miningLevel + fishingLevel + cookingLevel,
     totalXp:
       farm.stats.farmingXp + woodcutting.xp + mining.xp + fishing.xp + cooking.xp,
+    grandGradeTotal: lifeMajorGrandGradeTotal(parseLifeMajorState(input.lifeMajorRaw)),
     farmingLevel,
     woodcuttingLevel,
     miningLevel,

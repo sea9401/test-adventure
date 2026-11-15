@@ -29,3 +29,8 @@ export function useRefreshGameState(): RefreshGameState {
   }
   return refreshGameState;
 }
+
+/** 공급자 밖(미리보기·단독 렌더)에서도 쓰는 컴포넌트용. 공급자가 없으면 null. */
+export function useOptionalRefreshGameState(): RefreshGameState | null {
+  return useContext(GameStateRefreshCtx);
+}

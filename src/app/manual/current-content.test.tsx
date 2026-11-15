@@ -124,6 +124,7 @@ describe("최신 게임 안내서 내용", () => {
     const quests = renderToStaticMarkup(<QuestsContent />);
     expect(quests).not.toContain("첫 직업·첫 전투");
     expect(quests).toContain("레벨 100에 첫 직업");
+    expect(quests).toContain("사냥 결과 아래에 지금 단계가");
   });
 
   it("홈 화면 구성 안내가 기본 위젯 순서와 같다", () => {
@@ -505,6 +506,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("은행 예치금");
     expect(hunting).toContain("골드 페널티 계산에서 무승부");
     expect(economy).toContain("지역 세금은 붙지 않습니다");
+    expect(economy).toContain("사냥터에서 스태미나가 바닥나면 그 자리에 뜨는 버튼");
     expect(combat).not.toContain("패배해도 페널티는 없습니다");
     expect(hunting).not.toContain("추가 손실은 없습니다");
   });

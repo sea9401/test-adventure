@@ -14,7 +14,10 @@ export type CutGem = {
   grade: CutGemGrade;
   name: string;
   description: string;
-  /** 이 보석으로 줄을 고정할 수 있는 가장 높은 마법부여 단계(숫자가 작을수록 높은 단계). */
+  /**
+   * 이 보석으로 줄을 고정할 수 있는 가장 높은 마법부여 등급(세이브의 rank, 숫자가 작을수록 높다).
+   * 화면의 단계는 반대로 센다: rank 3 = 1단계, rank 2 = 2단계, rank 1 = 3단계.
+   */
   bestRank: 1 | 2 | 3;
 };
 
@@ -24,7 +27,7 @@ export const CUT_GEMS: Record<CutGemGrade, CutGem> = {
     grade: "polished",
     name: "다듬은 보석",
     description:
-      "원석 보석을 깎아 만든 세공 보석. 마법부여 3단계 장비를 다시 마법부여할 때 남길 줄 하나를 고정한다.",
+      "원석 보석을 깎아 만든 세공 보석. 마법부여 1단계 장비를 다시 마법부여할 때 남길 줄 하나를 고정한다.",
     bestRank: 3,
   },
   refined: {
@@ -32,7 +35,7 @@ export const CUT_GEMS: Record<CutGemGrade, CutGem> = {
     grade: "refined",
     name: "정교한 보석",
     description:
-      "면을 고르게 낸 세공 보석. 마법부여 2단계 이하 장비를 다시 마법부여할 때 남길 줄 하나를 고정한다.",
+      "면을 고르게 낸 세공 보석. 마법부여 1·2단계 장비를 다시 마법부여할 때 남길 줄 하나를 고정한다.",
     bestRank: 2,
   },
   flawless: {
@@ -155,7 +158,7 @@ export function cutGems(args: {
   return { materials, results };
 }
 
-/** 이 등급의 보석으로 그 단계의 장비 줄을 고정할 수 있는지. 단계는 3이 가장 낮고 1이 가장 높다. */
+/** 이 등급의 보석으로 그 rank 의 장비 줄을 고정할 수 있는지. rank 는 3이 가장 낮고 1이 가장 높다(화면 표기 1·2·3단계의 반대). */
 export function cutGemUsableForRank(grade: CutGemGrade, rank: 1 | 2 | 3): boolean {
   return CUT_GEMS[grade].bestRank <= rank;
 }

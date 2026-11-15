@@ -247,6 +247,24 @@ describe("최신 게임 안내서 내용", () => {
     }
   });
 
+  it("보석 세공의 확률·조건과 마법부여 줄 고정을 안내한다", () => {
+    const pastimes = renderToStaticMarkup(<PastimesContent />);
+    expect(pastimes).toContain("보석 세공");
+    expect(pastimes).toContain("원석 보석 60개로");
+    for (const name of ["다듬은 보석", "정교한 보석", "완벽한 보석"]) {
+      expect(pastimes).toContain(name);
+    }
+    expect(pastimes).toContain("70%");
+    expect(pastimes).toContain("12%");
+    expect(pastimes).toContain("1·2·3단계");
+    expect(pastimes).toContain("5,000,000 G");
+
+    const enhance = renderToStaticMarkup(<EnhanceContent />);
+    expect(enhance).toContain("남길 줄을 고정");
+    expect(enhance).toContain("3줄 장비는 2줄");
+    expect(enhance).toContain("3단계는 완벽한 보석");
+  });
+
   it("채집지 정비의 보상·비용·명장 정비·칭호를 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
 

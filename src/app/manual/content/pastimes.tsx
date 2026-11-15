@@ -69,6 +69,7 @@ import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/foodShared";
 import { CookingBranchManualSection } from "./pastimes-cooking-branch";
 import { GatheringUpkeepManualSection } from "./pastimes-gathering-upkeep";
+import { GemCuttingManualSection } from "./pastimes-gem-cutting";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
@@ -542,6 +543,7 @@ export function PastimesContent() {
       </UL>
 
       <GatheringUpkeepManualSection />
+      <GemCuttingManualSection />
 
       <H2>낚시</H2>
       <UL>

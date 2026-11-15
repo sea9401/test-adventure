@@ -16,6 +16,8 @@ import {
   type StormExpeditionMapNodeId,
 } from "./stormExpeditionMap";
 
+import { parseDeepProgress, parseDeepStageRequest } from "./dungeonDeepStage";
+
 export const STORM_EXPEDITION_SAVE_KEY = "storm-expedition.v1";
 export const STORM_EXPEDITION_UNLOCK_DEPTH = 72;
 export const STORM_EXPEDITION_DAILY_ATTEMPTS = 3;
@@ -230,6 +232,8 @@ export type StormExpeditionActive = {
   chosenChoices: Partial<Record<StormExpeditionChoiceKind, string>>;
   /** 출발 시 결과까지 고정되는 선택형 위험 이벤트. 기존 진행 중 원정에는 null. */
   riskEvent: StormExpeditionRiskEventOffer | null;
+  /** 이번 탐험의 심층 단계(dungeonDeepStage.ts). 심층이 아니면 없다. */
+  deepStage?: number;
 };
 
 export type StormExpeditionState = {
@@ -243,6 +247,9 @@ export type StormExpeditionState = {
   spFruitPity: number;
   /** 현재 보상 등급인 SP 열매 V를 이 원정에서 누적 획득한 수. */
   spFruitObtained: number;
+  /** 실전으로 완주한 가장 높은 심층 단계와 그 단계에 처음 도달한 시각. */
+  deepBest: number;
+  deepBestAt: number;
 };
 
 export const STORM_EXPEDITION_SP_FRUIT_PROGRESS_VERSION = 2 as const;
@@ -266,6 +273,7 @@ export function parseStormExpeditionState(raw: unknown, date = stormExpeditionDa
       : 1,
     spFruitPity: clampInt(source.spFruitPity, 0, 24),
     spFruitObtained: clampInt(source.spFruitObtained, 0, 3),
+    ...parseDeepProgress(source),
   };
 }
 
@@ -544,6 +552,7 @@ function parseActive(raw: unknown): StormExpeditionActive | null {
       : defaultStormAltarOffers(route.id),
     chosenChoices: parseChosenChoices(source.chosenChoices),
     riskEvent: parseRiskEvent(source.riskEvent),
+    ...(parseDeepStageRequest(source.deepStage) ? { deepStage: parseDeepStageRequest(source.deepStage)! } : {}),
   };
 }
 

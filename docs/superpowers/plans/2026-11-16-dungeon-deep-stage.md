@@ -5,7 +5,7 @@
 각 단계는 실패하는 테스트를 먼저 쓰고 구현한다.
 
 1. `src/adventure/data/v2/dungeonDeepStage.ts`(신규, 순수): 깊이 가산치, 증표 수, 고를 수 있는 단계, 요청 검증, 칭호 문턱.
-2. 재료 `v2_deep_token` 등록(거래 불가), 칭호 6개.
+2. 칭호 6개. 증표는 재료가 아니라 `deep-shop.v1`의 잔액으로 둔다.
 3. 세이브: `StormExpeditionState.deepBest`·`deepBestAt`, `StormExpeditionActive.deepStage` 파싱. 성소 적에 단계 반영.
 4. 성소 라우트: `start`·`auto`의 `deepStage`, 완주 시 증표·최고 단계·칭호, 상태 응답.
 5. 원정 라우트: 같은 내용. 연습 모드는 보상·기록 없음.

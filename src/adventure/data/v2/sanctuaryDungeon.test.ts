@@ -1,6 +1,7 @@
+import { stormExpeditionEnemy } from "./stormExpedition";
 import { describe, expect, it } from "vitest";
 import {
-  canEnterSanctuary, createSanctuaryActive, parseSanctuaryState,
+  SANCTUARY_HARD_DEPTH_BONUS, canEnterSanctuary, createSanctuaryActive, parseSanctuaryState,
   advanceSanctuary, sanctuaryNode, sanctuaryChoices, sanctuaryEnemy,
   DEFAULT_SANCTUARY_AUTO_PREFERENCES, parseSanctuaryAutoPreferences, pickSanctuaryAutoChoice,
 } from "./sanctuaryDungeon";
@@ -90,5 +91,35 @@ describe("sanctuary difficulty", () => {
       if (!next) break;
       active = next;
     }
+  });
+});
+
+describe("성소 심층 단계", () => {
+  it("최고 완주 단계와 진행 중 탐험의 단계를 읽는다", () => {
+    const active = { ...createSanctuaryActive(1_000, 500), deepStage: 3 };
+    const state = parseSanctuaryState({ active, difficulty: "hard", deepBest: 4, deepBestAt: 1_234 });
+
+    expect(state.deepBest).toBe(4);
+    expect(state.deepBestAt).toBe(1_234);
+    expect(state.active?.deepStage).toBe(3);
+    expect(parseSanctuaryState({}).deepBest).toBe(0);
+    expect(parseSanctuaryState({ active: createSanctuaryActive(1_000, 500) }).active).not.toHaveProperty("deepStage");
+  });
+
+  it("하드가 아닌 탐험에는 심층 단계를 두지 않는다", () => {
+    const active = { ...createSanctuaryActive(1_000, 500), deepStage: 3 };
+
+    expect(parseSanctuaryState({ active, difficulty: "normal" }).active).not.toHaveProperty("deepStage");
+  });
+
+  it("심층 적은 하드 가산치 위에 단계마다 깊이 8을 더한다", () => {
+    const active = { ...createSanctuaryActive(1_000, 500), deepStage: 2 };
+    const deep = sanctuaryEnemy(active, "hard");
+    const expected = stormExpeditionEnemy("wreckage", "early_trash", 0, SANCTUARY_HARD_DEPTH_BONUS + 16);
+    const hard = sanctuaryEnemy(createSanctuaryActive(1_000, 500), "hard");
+
+    expect(deep.hp).toBe(expected.hp);
+    expect(deep.atk).toBe(expected.atk);
+    expect(deep.hp).toBeGreaterThan(hard.hp);
   });
 });

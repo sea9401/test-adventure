@@ -7,6 +7,7 @@
 // category 는 도감(TitlesTab) 의 섹션 그루핑에 사용된다. 새 카테고리를 만들면
 // TITLE_CATEGORY_ORDER 에도 등록.
 
+import { DEEP_STAGE_TITLE_IDS } from "./v2/dungeonDeepStage";
 import { EXPLORATION_GRADE_TITLE_IDS } from "./v2/unexploredGrade";
 
 export type TitleId = string;
@@ -226,6 +227,48 @@ export const TITLES: Record<TitleId, Title> = {
     description: "여러 생활에서 거장의 길을 오래 걸어 온 사람.",
     condition: "거장 등급 합계 50 달성",
     category: "collection",
+  },
+  [DEEP_STAGE_TITLE_IDS.storm[10]]: {
+    id: DEEP_STAGE_TITLE_IDS.storm[10],
+    name: "폭풍 심층 항해자",
+    description: "폭풍 원정의 더 깊은 곳까지 배를 몰아 본 사람.",
+    condition: "폭풍 원정 심층 10단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.storm[20]]: {
+    id: DEEP_STAGE_TITLE_IDS.storm[20],
+    name: "폭풍 심층 정복자",
+    description: "심층의 폭풍도 길로 삼는 사람.",
+    condition: "폭풍 원정 심층 20단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.storm[30]]: {
+    id: DEEP_STAGE_TITLE_IDS.storm[30],
+    name: "폭풍의 끝을 본 자",
+    description: "폭풍 원정의 끝이라 여긴 곳을 넘어선 사람.",
+    condition: "폭풍 원정 심층 30단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.sanctuary[10]]: {
+    id: DEEP_STAGE_TITLE_IDS.sanctuary[10],
+    name: "성소 심층 순례자",
+    description: "태초의 성소 더 깊은 곳까지 걸어 들어간 사람.",
+    condition: "태초의 성소 심층 10단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.sanctuary[20]]: {
+    id: DEEP_STAGE_TITLE_IDS.sanctuary[20],
+    name: "성소 심층 수호자",
+    description: "심층의 수호자들 앞에서도 물러서지 않는 사람.",
+    condition: "태초의 성소 심층 20단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.sanctuary[30]]: {
+    id: DEEP_STAGE_TITLE_IDS.sanctuary[30],
+    name: "태초의 끝을 본 자",
+    description: "태초의 성소 끝이라 여긴 곳을 넘어선 사람.",
+    condition: "태초의 성소 심층 30단계 완주",
+    category: "battle",
   },
   [EXPLORATION_GRADE_TITLE_IDS[10]]: {
     id: EXPLORATION_GRADE_TITLE_IDS[10],

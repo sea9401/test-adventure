@@ -194,6 +194,28 @@ describe("woodcutting routes", () => {
     });
   });
 
+  it("정비한 숲에서는 느긋한 자동 벌목이 길어진다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set("life-workshop.v1", { siteUpkeep: { pine: 5 } });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "start", spotId: "pine_grove", planId: "extended" }),
+      }),
+    );
+    const json = await response.json();
+    expect(json.autoSession).toMatchObject({
+      planId: "extended",
+      readyAt: NOW + 3 * 60 * 60_000,
+      durationMs: 3 * 60 * 60_000,
+      materialEfficiency: 0.6,
+    });
+
+    const status = await (await STATUS()).json();
+    expect(status.siteUpkeep).toEqual({ pine: 5 });
+  });
+
   it("다른 자동 생활 작업 중에는 벌목과 자동 벌목을 시작할 수 없다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set(MINING_AUTO_KEY, {

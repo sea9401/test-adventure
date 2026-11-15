@@ -130,7 +130,7 @@ import { createCodexMasteryBatchRecorder } from "@/lib/server/codexMasteryServic
 import { recordCodexMasteryGameplayBatch } from "@/lib/server/codexMasteryGameplay";
 import { GUILD_DINING_USER_SAVE_KEY } from "@/adventure/data/v2/guildDining";
 import { kstWeekMondayKey } from "@/lib/kst";
-import { COOKING_BRANCHES, cookingBranchCovers } from "@/adventure/v2/cooking/branch";
+import { COOKING_BRANCHES, COOKING_BRANCH_CHANGE_COOLDOWN_MS, cookingBranchCovers } from "@/adventure/v2/cooking/branch";
 
 const { festivalBonus } = vi.hoisted(() => ({
   festivalBonus: vi.fn(),
@@ -781,7 +781,7 @@ describe("/api/v2/cooking", () => {
     expect((mocks.store.get("cooking.v2") as { xp: number }).xp).toBe(expectedXp);
   });
 
-  it("전문 분야는 조건 달성 후 한 번만 정한다", async () => {
+  it("전문 분야는 조건 달성 후 고르고, 바꾸면 숙련을 남긴 채 1일 동안 다시 바꿀 수 없다", async () => {
     const hidden = [
       "tomato_salad", "herb_omelet", "egg_fried_rice", "herb_roasted_pork", "crispy_pork_cutlet",
       "soy_pork_rice_bowl", "soy_braised_eggs", "onion_steak", "golden_corn_fritters", "tomato_pork_skewers",
@@ -796,11 +796,37 @@ describe("/api/v2/cooking", () => {
 
     const first = await post({ action: "choose_specialty", field: "hearth" });
     expect(first.status).toBe(200);
+    await expect(first.json()).resolves.toMatchObject({ result: { field: "hearth", changed: false } });
     expect((mocks.store.get("cooking.v2") as { specialty: object }).specialty).toEqual({ field: "hearth", xp: 0 });
 
+    const same = await post({ action: "choose_specialty", field: "hearth" });
+    expect(same.status).toBe(409);
+    await expect(same.json()).resolves.toMatchObject({ error: "specialty_unchanged" });
+
+    mocks.store.set("cooking.v2", {
+      ...(mocks.store.get("cooking.v2") as object),
+      specialty: { field: "hearth", xp: 1_800 },
+      branch: { current: "hearth_grill", xp: { hearth_grill: 100 }, changedAt: null },
+    });
+    mocks.selectResults.push([]);
     const second = await post({ action: "choose_specialty", field: "pot" });
-    expect(second.status).toBe(409);
-    await expect(second.json()).resolves.toMatchObject({ error: "specialty_permanent" });
+    expect(second.status).toBe(200);
+    await expect(second.json()).resolves.toMatchObject({ result: { field: "pot", changed: true } });
+    const saved = mocks.store.get("cooking.v2") as {
+      specialty: object;
+      specialtyReserve: object;
+      specialtyChangedAt: number;
+      branch: { current: string | null; xp: object };
+    };
+    expect(saved.specialty).toEqual({ field: "pot", xp: 0 });
+    expect(saved.specialtyReserve).toEqual({ hearth: 1_800 });
+    expect(typeof saved.specialtyChangedAt).toBe("number");
+    expect(saved.branch.current).toBeNull();
+    expect(saved.branch.xp).toEqual({ hearth_grill: 100 });
+
+    const third = await post({ action: "choose_specialty", field: "hearth" });
+    expect(third.status).toBe(409);
+    await expect(third.json()).resolves.toMatchObject({ error: "specialty_cooldown" });
   });
 
   it("가공은 농장 재료를 차감하고 주방 재료를 저장한다", async () => {
@@ -1000,7 +1026,7 @@ describe("/api/v2/cooking", () => {
 });
 
 describe("/api/v2/cooking 요리 특화", () => {
-  const DAY = 86_400_000;
+  const HOUR = 3_600_000;
   const LEVEL_20_XP = cookingLevelXpThreshold(20);
 
   beforeEach(() => {
@@ -1087,14 +1113,14 @@ describe("/api/v2/cooking 요리 특화", () => {
       current: "baking_pastry",
       rank: 1,
       xpByBranch: { baking_bread: 3_000 },
-      nextChangeAt: NOW + 14 * DAY,
+      nextChangeAt: NOW + COOKING_BRANCH_CHANGE_COOLDOWN_MS,
     });
 
     const tooSoon = await post({ action: "choose_branch", branchId: "baking_bread" });
     expect(tooSoon.status).toBe(409);
     expect(await tooSoon.json()).toEqual({ ok: false, error: "branch_cooldown" });
 
-    vi.setSystemTime(NOW + 14 * DAY);
+    vi.setSystemTime(NOW + COOKING_BRANCH_CHANGE_COOLDOWN_MS);
     const back = await post({ action: "choose_branch", branchId: "baking_bread" });
     expect(back.status).toBe(200);
     expect((await back.json()).branch).toMatchObject({ current: "baking_bread", rank: 3 });
@@ -1214,7 +1240,7 @@ describe("/api/v2/cooking 요리 특화", () => {
   });
 
   it("조회 응답에 특화 정보가 실리고 도감 총수는 그대로다", async () => {
-    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - DAY } });
+    seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - HOUR } });
     const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
 
     expect(json.recipeTotal).toBe(500);
@@ -1226,7 +1252,7 @@ describe("/api/v2/cooking 요리 특화", () => {
       xp: 7_000,
       nextRankXp: 15_000,
       xpByBranch: { baking_bread: 7_000 },
-      nextChangeAt: NOW + 13 * DAY,
+      nextChangeAt: NOW - HOUR + COOKING_BRANCH_CHANGE_COOLDOWN_MS,
       masterpieceBonusPct: 8,
     });
   });

@@ -99,4 +99,17 @@ describe("생활 조합 가공·전문화", () => {
       expect(upgrades.every((upgrade) => Object.keys(upgrade.materials).length === 3)).toBe(true);
     }
   });
+
+  it("채집지 정비 단계를 읽고 다시 저장해도 잃지 않는다", () => {
+    const parsed = parseLifeWorkshopState({
+      tools: { woodcutting: 3, mining: 3 },
+      siteUpkeep: { iron: 3, pine: 99, stone: 2, gold: 0 },
+    });
+    expect(parsed.siteUpkeep).toEqual({ iron: 3, pine: 6 });
+    // 가공·도구 승급처럼 정비와 무관한 동작이 상태를 펼쳐 저장해도 남는다.
+    const saved = JSON.parse(JSON.stringify({ ...parsed, tools: { woodcutting: 3, mining: 3 } }));
+    expect(parseLifeWorkshopState(saved).siteUpkeep).toEqual({ iron: 3, pine: 6 });
+    expect("siteUpkeep" in parseLifeWorkshopState({})).toBe(false);
+    expect("siteUpkeep" in emptyLifeWorkshopState()).toBe(false);
+  });
 });

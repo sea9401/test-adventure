@@ -18,6 +18,7 @@ import {
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
+  jobUnlockSpBonus,
   unlockedJobCount,
   unlockedTier7JobCount,
   type JobUnlockContext,
@@ -78,7 +79,7 @@ export function currentJobSpBudget(
     prof.groups,
     spCapBonusFromRaw(cs.spFruitUsed),
     collectionBonusSp,
-    jobUnlockSpForCount(unlockedJobCount(prof, jobUnlockCtx)),
+    jobUnlockSpBonus(prof, jobUnlockCtx),
   );
 }
 

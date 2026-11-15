@@ -599,8 +599,9 @@ export async function POST(req: Request) {
       } else if (action === "choose_specialty") {
         const field = body?.field as CookingField;
         if (!["hearth", "pot", "baking", "seafood", "medicinal"].includes(field)) throw new Error("invalid_specialty");
-        cooking = chooseCookingSpecialty(cooking, field);
-        result = { action, field };
+        const changed = cooking.specialty !== null;
+        cooking = chooseCookingSpecialty(cooking, field, now);
+        result = { action, field, changed };
       } else if (action === "choose_branch") {
         const changed = (cooking.branch?.current ?? null) !== null;
         cooking = applyCookingBranchChoice(cooking, body?.branchId, now);
@@ -770,7 +771,7 @@ export async function POST(req: Request) {
       "invalid_combination", "invalid_ingredient", "not_enough_ingredients", "recipe_already_known",
       "recipe_locked", "not_enough_farm_items", "not_enough_fishing_items", "not_enough_kitchen_items",
       "not_enough_cooking_prep_sets",
-      "not_enough_gold", "specialty_locked", "specialty_permanent", "delivery_completed",
+      "not_enough_gold", "specialty_locked", "specialty_unchanged", "specialty_cooldown", "delivery_completed",
       "food_not_eligible", "cooked_food_unavailable", "standing_delivery_limit",
       "signature_locked", "not_masterpiece", "not_enough_master_product",
       "branch_locked", "branch_unchanged", "branch_cooldown",

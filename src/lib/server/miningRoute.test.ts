@@ -185,6 +185,34 @@ describe("mining routes", () => {
     });
   });
 
+  it("정비한 광맥에서는 느긋한 자동 채광이 길어지고 기본 작업은 그대로다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set("life-workshop.v1", { siteUpkeep: { iron: 3, copper: 6 } });
+
+    const extended = await (
+      await AUTO(request("auto", { action: "start", spotId: "iron_quarry", planId: "extended" }))
+    ).json();
+    expect(extended.autoSession).toMatchObject({
+      planId: "extended",
+      readyAt: NOW + 156 * 60_000,
+      durationMs: 156 * 60_000,
+      materialEfficiency: 0.6,
+    });
+    await AUTO(request("auto", { action: "cancel" }));
+
+    const standard = await (
+      await AUTO(request("auto", { action: "start", spotId: "copper_gallery", planId: "standard" }))
+    ).json();
+    expect(standard.autoSession).toMatchObject({
+      planId: "standard",
+      readyAt: NOW + 30 * 60_000,
+      durationMs: 30 * 60_000,
+    });
+
+    const status = await (await STATUS()).json();
+    expect(status.siteUpkeep).toEqual({ iron: 3, copper: 6 });
+  });
+
   it("자동 벌목 중에는 수동 채광을 시작할 수 없다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set(WOODCUTTING_AUTO_KEY, {

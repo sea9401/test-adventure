@@ -24,6 +24,10 @@ import {
   requestAutoGathering,
 } from "./gatheringClient";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import {
+  parseGatheringSiteUpkeep,
+  type GatheringSiteUpkeepState,
+} from "./gatheringSiteUpkeep";
 import { useActivityVerification } from "./useActivityVerification";
 import { useCallback, useEffect, useState } from "react";
 import { lifeRequestError } from "./sharedNetworkLimit";
@@ -79,6 +83,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const [autoLoading, setAutoLoading] = useState(false);
   const [activeAutoActivity, setActiveAutoActivity] =
     useState<AutoGatheringActivity | null>(null);
+  const [siteUpkeep, setSiteUpkeep] = useState<GatheringSiteUpkeepState>({});
 
   useEffect(() => {
     let alive = true;
@@ -103,6 +108,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
           }),
         );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
+        setSiteUpkeep(parseGatheringSiteUpkeep(json.siteUpkeep));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -298,6 +304,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     autoResult,
     autoLoading,
     activeAutoActivity,
+    siteUpkeep,
     startAuto,
     claimAuto,
     cancelAuto,

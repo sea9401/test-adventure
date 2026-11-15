@@ -41,6 +41,7 @@ import {
   type LifeFinishedItemId,
 } from "./lifeCrafting";
 import { LifeRequestBoard } from "./LifeRequestBoard";
+import { GatheringSiteUpkeepPanel } from "./GatheringSiteUpkeepPanel";
 import { FarmItemIcon } from "./FarmItemIcon";
 import {
   FARM_CROP_ITEM_IDS,
@@ -128,6 +129,7 @@ export type WorkshopTab =
   | "craft"
   | "aids"
   | "tools"
+  | "upkeep"
   | "specialization"
   | "codex";
 
@@ -137,6 +139,7 @@ const TAB_LABELS: ReadonlyArray<{ key: WorkshopTab; label: string }> = [
   { key: "craft", label: "생활 제작" },
   { key: "aids", label: "생활 보조품" },
   { key: "tools", label: "생활 도구" },
+  { key: "upkeep", label: "채집지 정비" },
   { key: "specialization", label: "전문화" },
   { key: "codex", label: "가공 도감" },
 ];
@@ -737,7 +740,7 @@ export function LifeWorkshopView({
         />
       </HeaderPanel>
 
-      {tab !== "requests" ? (
+      {tab !== "requests" && tab !== "upkeep" ? (
         <div
           className="h-12"
           role="status"
@@ -1040,6 +1043,8 @@ export function LifeWorkshopView({
             );
           })}
         </div>
+      ) : tab === "upkeep" ? (
+        <GatheringSiteUpkeepPanel onChanged={() => void refresh()} />
       ) : tab === "specialization" ? (
         <div className="space-y-3">
           {(["woodcutting", "mining"] as const).map((activity) => {

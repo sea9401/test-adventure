@@ -5,9 +5,11 @@ import {
   COOKING_PUBLIC_RECIPES,
 } from "./catalog";
 import { COOKING_CODEX_MILESTONES } from "./catalogMeta";
+import { COOKING_SPECIALTY_CHANGE_COOLDOWN_MS } from "./specialty";
 import {
   chooseCookingSpecialty,
   cookingLevelXpThreshold,
+  cookingSpecialtyNextChangeAt,
   cookingSpecialtyRank,
   emptyCookingState,
   parseCookingState,
@@ -47,9 +49,9 @@ describe("cooking v2 state", () => {
     ]);
   });
 
-  it("chooses a permanent specialty only at level 20 with ten hidden discoveries", () => {
+  it("chooses the first specialty only at level 20 with ten hidden discoveries", () => {
     const ineligible = emptyCookingState(NOW);
-    expect(() => chooseCookingSpecialty(ineligible, "hearth")).toThrow(
+    expect(() => chooseCookingSpecialty(ineligible, "hearth", NOW)).toThrow(
       "specialty_locked",
     );
 
@@ -61,11 +63,68 @@ describe("cooking v2 state", () => {
       },
       NOW,
     );
-    const chosen = chooseCookingSpecialty(eligible, "hearth");
+    const chosen = chooseCookingSpecialty(eligible, "hearth", NOW);
     expect(chosen.specialty).toEqual({ field: "hearth", xp: 0 });
-    expect(() => chooseCookingSpecialty(chosen, "pot")).toThrow(
-      "specialty_permanent",
+    // 처음 고를 때는 대기가 없다.
+    expect(chosen.specialtyChangedAt).toBeUndefined();
+    expect(cookingSpecialtyNextChangeAt(chosen)).toBeNull();
+    expect(() => chooseCookingSpecialty(chosen, "hearth", NOW)).toThrow(
+      "specialty_unchanged",
     );
+  });
+
+  it("전문 분야를 바꾸면 분야별 숙련이 남고 고른 특화가 풀리며 1일 동안 다시 바꿀 수 없다", () => {
+    expect(COOKING_SPECIALTY_CHANGE_COOLDOWN_MS).toBe(86_400_000);
+    const hearth = parseCookingState(
+      {
+        ...emptyCookingState(NOW),
+        specialty: { field: "hearth", xp: 17_460 },
+        branch: { current: "hearth_grill", xp: { hearth_grill: 100 }, changedAt: null },
+      },
+      NOW,
+    );
+
+    const baking = chooseCookingSpecialty(hearth, "baking", NOW);
+    expect(baking.specialty).toEqual({ field: "baking", xp: 0 });
+    expect(baking.specialtyReserve).toEqual({ hearth: 17_460 });
+    expect(baking.specialtyChangedAt).toBe(NOW);
+    expect(baking.branch).toEqual({
+      current: null,
+      xp: { hearth_grill: 100 },
+      changedAt: null,
+    });
+
+    const nextChangeAt = NOW + COOKING_SPECIALTY_CHANGE_COOLDOWN_MS;
+    expect(cookingSpecialtyNextChangeAt(baking)).toBe(nextChangeAt);
+    expect(() => chooseCookingSpecialty(baking, "hearth", nextChangeAt - 1)).toThrow(
+      "specialty_cooldown",
+    );
+
+    // 돌아오면 남겨 둔 숙련을 이어서 쓴다.
+    const grown = { ...baking, specialty: { field: "baking" as const, xp: 320 } };
+    const back = chooseCookingSpecialty(grown, "hearth", nextChangeAt);
+    expect(back.specialty).toEqual({ field: "hearth", xp: 17_460 });
+    expect(back.specialtyReserve).toEqual({ baking: 320 });
+    expect(back.specialtyChangedAt).toBe(nextChangeAt);
+  });
+
+  it("저장된 분야별 숙련과 변경 시각을 읽고 잘못된 값은 버린다", () => {
+    const parsed = parseCookingState(
+      {
+        ...emptyCookingState(NOW),
+        specialty: { field: "baking", xp: 320 },
+        specialtyReserve: { hearth: 17_460.9, baking: 999, pot: -5, nowhere: 10 },
+        specialtyChangedAt: NOW,
+      },
+      NOW,
+    );
+    // 지금 고른 분야의 숙련은 specialty 에만 둔다.
+    expect(parsed.specialtyReserve).toEqual({ hearth: 17_460 });
+    expect(parsed.specialtyChangedAt).toBe(NOW);
+
+    const untouched = parseCookingState(emptyCookingState(NOW), NOW);
+    expect("specialtyReserve" in untouched).toBe(false);
+    expect("specialtyChangedAt" in untouched).toBe(false);
   });
 
   it("derives five bounded specialty ranks from accumulated xp", () => {

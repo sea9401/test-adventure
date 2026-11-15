@@ -16,6 +16,10 @@ import {
   parseLifeCraftingState,
   type LifeCraftingState,
 } from "./lifeCrafting";
+import {
+  parseGatheringSiteUpkeep,
+  type GatheringSiteUpkeepState,
+} from "./gatheringSiteUpkeep";
 
 export {
   LIFE_PROCESSED_MATERIAL_ID,
@@ -94,6 +98,8 @@ export type LifeWorkshopState = {
     discoveredMaterialIds: LifeProcessedMaterialId[];
   };
   crafting: LifeCraftingState;
+  /** 채집지 정비 단계. 정비한 곳이 없으면 필드가 없다. */
+  siteUpkeep?: GatheringSiteUpkeepState;
 };
 
 export function emptyLifeWorkshopState(): LifeWorkshopState {
@@ -132,6 +138,7 @@ export function parseLifeWorkshopState(raw: unknown): LifeWorkshopState {
     ? source.processing as Record<string, unknown>
     : {};
   const crafting = parseLifeCraftingState(source.crafting);
+  const siteUpkeep = parseGatheringSiteUpkeep(source.siteUpkeep);
   const specializations: LifeWorkshopState["specializations"] = {};
   for (const activity of ["woodcutting", "mining"] as const) {
     const id = specs[activity];
@@ -165,6 +172,7 @@ export function parseLifeWorkshopState(raw: unknown): LifeWorkshopState {
       discoveredMaterialIds: discovered,
     },
     crafting,
+    ...(Object.keys(siteUpkeep).length > 0 ? { siteUpkeep } : {}),
   };
 }
 

@@ -232,12 +232,16 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export const PEDDLER_EPOCH_MONDAY = "2026-01-05";
 export const PEDDLER_PREFERRED_ITEM_COUNT = 2;
 
-const ITEMS_BY_PROFESSION: Record<PeddlerProfession, readonly PeddlerCargoItem[]> = Object.fromEntries(
-  PEDDLER_PROFESSIONS.map((profession) => [
-    profession,
-    PEDDLER_CARGO_ITEMS.filter((item) => item.profession === profession),
-  ]),
-) as Record<PeddlerProfession, readonly PeddlerCargoItem[]>;
+function itemsOf(profession: PeddlerProfession): readonly PeddlerCargoItem[] {
+  return PEDDLER_CARGO_ITEMS.filter((item) => item.profession === profession);
+}
+
+const ITEMS_BY_PROFESSION: Record<PeddlerProfession, readonly PeddlerCargoItem[]> = {
+  farming: itemsOf("farming"),
+  mining: itemsOf("mining"),
+  woodcutting: itemsOf("woodcutting"),
+  fishing: itemsOf("fishing"),
+};
 
 function mod(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;

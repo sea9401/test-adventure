@@ -122,3 +122,46 @@ export function peddlerRemainingLabel(readyAt: number, now: number): string {
   const hours = Math.floor(minutes / 60);
   return hours > 0 ? `${hours}시간 ${minutes % 60}분 남음` : `${minutes}분 남음`;
 }
+
+/** 고른 짐의 적재 점수 합계와 그중 우대 품목 점수. */
+export function peddlerSelectionTotals(
+  cargo: readonly PeddlerCargoView[],
+  selection: Readonly<Record<string, number>>,
+  preferredIds: readonly string[],
+): { points: number; preferredPoints: number; kinds: number } {
+  let points = 0;
+  let preferredPoints = 0;
+  let kinds = 0;
+  for (const item of cargo) {
+    const quantity = Math.min(item.held, selection[item.id] ?? 0);
+    if (quantity <= 0) continue;
+    kinds += 1;
+    points += quantity * item.points;
+    if (preferredIds.includes(item.id)) preferredPoints += quantity * item.points;
+  }
+  return { points, preferredPoints, kinds };
+}
+
+/** 다른 짐을 그대로 둔 채 이 품목을 실을 수 있는 최대 수량. */
+export function peddlerMaxLoadable(
+  item: PeddlerCargoView,
+  cargo: readonly PeddlerCargoView[],
+  selection: Readonly<Record<string, number>>,
+  capacity: number,
+): number {
+  const others = peddlerSelectionTotals(cargo, { ...selection, [item.id]: 0 }, []).points;
+  return Math.max(0, Math.min(item.held, Math.floor((capacity - others) / item.points)));
+}
+
+/** 서버에 보낼 짐. 수량이 0인 품목은 뺀다. */
+export function peddlerCargoPayload(
+  cargo: readonly PeddlerCargoView[],
+  selection: Readonly<Record<string, number>>,
+): Record<string, number> {
+  return Object.fromEntries(
+    cargo.flatMap((item) => {
+      const quantity = Math.min(item.held, selection[item.id] ?? 0);
+      return quantity > 0 ? [[item.id, quantity]] : [];
+    }),
+  );
+}

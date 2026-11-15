@@ -53,6 +53,9 @@ import {
   explorationGrade,
 } from "@/adventure/data/v2/unexploredGrade";
 import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
+import { parseDeepProgress } from "@/adventure/data/v2/dungeonDeepStage";
+import { SANCTUARY_SAVE_KEY } from "@/adventure/data/v2/sanctuaryDungeon";
+import { STORM_EXPEDITION_SAVE_KEY } from "@/adventure/data/v2/stormExpedition";
 import { filterRankingEligibleRows } from "@/lib/server/rankingEligibility";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
@@ -101,6 +104,8 @@ type RankRow = {
   masteryTowerFloor: number;
   /** explorationGrade 한정 — 미개척지 탐사 등급. */
   explorationGrade?: number;
+  /** stormDeep·sanctuaryDeep 한정 — 그 던전에서 실전으로 완주한 가장 높은 심층 단계. */
+  deepStage?: number;
   /** 영구 업적에서 획득한 자동 합산 점수와 달성 개수. */
   achievementScore?: number;
   achievementCompleted?: number;
@@ -143,6 +148,8 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   if (metric === "explorationGrade") return fetchExplorationGradeRows();
+  if (metric === "stormDeep") return fetchDeepStageRows(STORM_EXPEDITION_SAVE_KEY);
+  if (metric === "sanctuaryDeep") return fetchDeepStageRows(SANCTUARY_SAVE_KEY);
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
   // level 탭 = "총 직업 숙련도"(cum_level) 순. API metric 키는 호환을 위해 level 유지.
   // cumLevel 은 재전직으로 리셋되지 않는 직군 숙련도라 장기 성장 진행이 그대로 반영된다.
@@ -768,6 +775,60 @@ async function fetchExplorationGradeRows(): Promise<RankRow[]> {
     }));
 }
 
+// 던전 심층 단계 순위. 최고 완주 단계가 높은 순, 같으면 그 단계에 먼저 도달한 순이다.
+async function fetchDeepStageRows(saveKey: string): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      u.id AS user_id,
+      u.banned_until AS "bannedUntil",
+      COALESCE(u.game_name, p.value->>'name') AS name,
+      p.value->>'gender' AS avatar,
+      d.value AS dungeon_save
+    FROM users u
+    INNER JOIN saves_kv d ON d.user_id = u.id AND d.key = ${saveKey}
+    LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
+      AND jsonb_typeof(d.value->'deepBest') = 'number'
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string;
+    bannedUntil: Date | string | null;
+    name: string;
+    avatar: string | null;
+    dungeon_save: unknown;
+  };
+  return filterRankingEligibleRows(result.rows as unknown as DbRow[])
+    .map((r) => ({
+      userId: String(r.user_id),
+      name: String(r.name),
+      avatar: rankingAvatar(r.avatar),
+      ...parseDeepProgress(r.dungeon_save),
+    }))
+    .filter((r) => r.deepBest > 0)
+    .sort(
+      (a, b) =>
+        b.deepBest - a.deepBest ||
+        a.deepBestAt - b.deepBestAt ||
+        a.userId.localeCompare(b.userId),
+    )
+    .map((r, index) => ({
+      userId: r.userId,
+      name: r.name,
+      avatar: r.avatar,
+      level: 1,
+      cumLevel: 0,
+      paragonLevel: 0,
+      fame: 0,
+      combatPower: 0,
+      ...EMPTY_NEW_METRICS,
+      deepStage: r.deepBest,
+      weekHighest: 0,
+      challengeHighest: 0,
+      rank: index + 1,
+    }));
+}
+
 async function fetchCombatPowerRows(): Promise<RankRow[]> {
   const result = await profileAsyncStage("ranking.combatPower.database", () => db.execute(sql`
     SELECT
@@ -1055,6 +1116,7 @@ export async function GET(req: Request) {
     codexTotal: r.codexTotal,
     masteryTowerFloor: r.masteryTowerFloor,
     explorationGrade: r.explorationGrade ?? 0,
+    deepStage: r.deepStage ?? 0,
     achievementScore: r.achievementScore ?? 0,
     achievementCompleted: r.achievementCompleted ?? 0,
     weekHighest: r.weekHighest,
@@ -1080,6 +1142,7 @@ export async function GET(req: Request) {
         codexTotal: myRow.codexTotal,
         masteryTowerFloor: myRow.masteryTowerFloor,
         explorationGrade: myRow.explorationGrade ?? 0,
+        deepStage: myRow.deepStage ?? 0,
         achievementScore: myRow.achievementScore ?? 0,
         achievementCompleted: myRow.achievementCompleted ?? 0,
         weekHighest: myRow.weekHighest,

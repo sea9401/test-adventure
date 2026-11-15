@@ -15,6 +15,14 @@ import {
   nextExplorationGradePointGrade,
 } from "@/adventure/data/v2/unexploredGrade";
 import { TITLES } from "@/adventure/data/titles";
+import {
+  DEEP_STAGE_DEPTH_STEP,
+  DEEP_STAGE_TITLE_IDS,
+  DEEP_STAGE_TITLE_STAGES,
+  DEEP_TOKEN_BASE,
+  DEEP_TOKEN_PER_STAGE,
+} from "@/adventure/data/v2/dungeonDeepStage";
+import { DEEP_SHOP_ENTRIES } from "@/adventure/v2/deepShop";
 import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
   HUNT_COST,
@@ -57,7 +65,7 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { AUTO_HUNT_LEVEL_TARGET } from "@/adventure/v2/autoHuntStopPolicy";
-import { H2, P, UL, Em, Code, Table } from "./primitives";
+import { H2, H3, P, UL, Em, Code, Table } from "./primitives";
 
 const HUNTING_THEMES = dungeonThemeCatalog(MAX_FRONTIER_DEPTH);
 const LAST_HUNTING_THEME = HUNTING_THEMES.at(-1);
@@ -110,6 +118,13 @@ function rareMapRewardText(def: RareMapKind) {
     .filter(Boolean)
     .join(", ");
 }
+
+// 심층 단계 칭호 이름(원정 → 성소, 낮은 단계부터).
+const DEEP_STAGE_TITLE_NAMES = (["storm", "sanctuary"] as const).flatMap((dungeon) =>
+  DEEP_STAGE_TITLE_STAGES.map(
+    (stage) => TITLES[DEEP_STAGE_TITLE_IDS[dungeon][stage]]?.name ?? "",
+  ),
+);
 
 // 탐사 등급 보상표 — 수치는 unexploredGrade.ts 의 상수에서 읽는다.
 const EXPLORATION_GRADE_POINT_GRADES = (() => {
@@ -442,6 +457,41 @@ export function HuntingContent() {
         노드를 반환하지 않으므로 골드가 들지 않습니다.
         난이도가 붙지 않은 보상 노드는 최대 난이도에서도 그대로 쌓입니다.
       </P>
+      <H2>던전 심층 단계</H2>
+      <P>
+        폭풍 원정과 태초의 성소를 한 번이라도 완주하면 그 던전의 <Em>심층 1단계</Em>가 열립니다.
+        한 단계를 실전으로 완주하면 다음 단계가 열리고, 상한은 없습니다. 출발할 때 열린 단계 가운데
+        원하는 단계를 고릅니다. 적의 깊이는 단계마다 {DEEP_STAGE_DEPTH_STEP}씩 높아지며, 태초의 성소
+        심층은 하드 위에 더해집니다(하드로만 입장). 입장 횟수는 지금의 하루 3회를 같이 쓰고,
+        전리품과 문장 보상은 심층이 아닐 때와 같습니다.
+      </P>
+      <UL>
+        <li>
+          심층 단계를 실전으로 완주할 때마다 <Em>심층 증표</Em>를 {DEEP_TOKEN_BASE} + {DEEP_TOKEN_PER_STAGE} × 단계만큼
+          받습니다. 증표는 거래할 수 없습니다. 폭풍 원정 연습 모드에서는 증표와 기록이 없습니다.
+        </li>
+        <li>
+          패배하면 지금처럼 그 탐험의 임시 전리품을 잃지만, 완주한 단계 기록은 내려가지 않습니다.
+        </li>
+        <li>
+          던전별 최고 완주 단계 {DEEP_STAGE_TITLE_STAGES.join(" · ")}단계에 칭호를 받습니다(
+          {DEEP_STAGE_TITLE_NAMES.join(", ")}). 랭킹의 심층 단계 탭에서 던전별 순위를 볼 수 있습니다.
+        </li>
+      </UL>
+      <H3>심층 교환소</H3>
+      <P>
+        전투 → 던전의 <Em>심층 교환소</Em>에서 심층 증표와 골드를 함께 내고 재료를 받습니다. 한도는
+        매주 월요일 00:00에 초기화됩니다.
+      </P>
+      <Table
+        head={["품목", "증표", "골드", "주간 한도"]}
+        rows={DEEP_SHOP_ENTRIES.map((entry) => [
+          entry.count > 1 ? `${entry.name} ${entry.count}개` : entry.name,
+          `${entry.tokenCost.toLocaleString("ko-KR")}개`,
+          `${entry.goldCost.toLocaleString("ko-KR")} G`,
+          `${entry.weeklyLimit}회`,
+        ])}
+      />
       <H2>탐사 등급</H2>
       <P>
         탐사 경험치로 받는 탐사 포인트 {EXPLORATION_MAX_XP_POINTS}개를 모두 채운 뒤에도 탐사 경험치는

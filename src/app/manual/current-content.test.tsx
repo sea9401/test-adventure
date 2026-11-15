@@ -495,6 +495,19 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).not.toContain("지정된 사냥터의 최심부");
   });
 
+  it("사냥 항목이 던전 심층 단계와 심층 교환소를 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("심층 단계");
+    expect(hunting).toContain("단계마다 8");
+    expect(hunting).toContain("10 + 2 × 단계");
+    expect(hunting).toContain("심층 교환소");
+    expect(hunting).toContain("완벽한 보석");
+    expect(hunting).toContain("5,000,000 G");
+    expect(hunting).toContain("폭풍 심층 항해자");
+    expect(hunting).not.toContain("재련석");
+  });
+
   it("사냥 항목이 미개척지 탐사 등급의 조건과 보상을 적는다", () => {
     const hunting = renderToStaticMarkup(<HuntingContent />);
 

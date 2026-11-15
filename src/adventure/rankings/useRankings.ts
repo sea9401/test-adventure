@@ -16,6 +16,8 @@ export type RankingMetric =
   | "codexCompletion"
   | "masteryTower"
   | "explorationGrade"
+  | "stormDeep"
+  | "sanctuaryDeep"
   | "achievementScore"
   | "guild";
 
@@ -38,6 +40,8 @@ export type RankingEntry = {
   masteryTowerFloor: number;
   /** 미개척지 탐사 등급. 탐사 등급 탭에서만 0보다 크다. */
   explorationGrade?: number;
+  /** 던전 심층 단계 탭에서만 0보다 큰, 실전으로 완주한 가장 높은 심층 단계. */
+  deepStage?: number;
   achievementScore: number;
   achievementCompleted: number;
   weekHighest: number;
@@ -65,6 +69,8 @@ export type RankingMe = {
   masteryTowerFloor: number;
   /** 미개척지 탐사 등급. 탐사 등급 탭에서만 0보다 크다. */
   explorationGrade?: number;
+  /** 던전 심층 단계 탭에서만 0보다 큰, 실전으로 완주한 가장 높은 심층 단계. */
+  deepStage?: number;
   achievementScore: number;
   achievementCompleted: number;
   weekHighest: number;

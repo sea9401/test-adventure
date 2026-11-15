@@ -1,14 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CloudLightning, LockSimple, Sparkle } from "@phosphor-icons/react";
+import { CloudLightning, LockSimple, Sparkle, Storefront } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 
-type DungeonStatus = { unlocked: boolean; attemptsLeft: number; active?: unknown; state?: { active?: unknown } };
+type DungeonStatus = { unlocked: boolean; attemptsLeft: number; active?: unknown; state?: { active?: unknown }; deep?: { best: number; maxSelectable: number } };
+/** 심층 단계 진행 한 줄. 아직 완주한 적이 없어 잠겨 있으면 보여 주지 않는다. */
+function deepStageText(deep: DungeonStatus["deep"]): string | null {
+  if (!deep || deep.maxSelectable <= 0) return null;
+  return deep.best > 0 ? `심층 최고 ${deep.best}단계` : "심층 1단계 도전 가능";
+}
 const DUNGEONS = [
   { name: "폭풍 원정", api: "/api/v2/storm-expedition", href: "/battle/storm-expedition", description: "항로를 선택하며 폭풍 장비와 재료를 수집합니다.", unlock: "심해 폐허 최심부 돌파 후 입장 가능", Icon: CloudLightning },
   { name: "태초의 성소", api: "/api/v2/sanctuary-dungeon", href: "/battle/sanctuary", description: "일자 경로를 돌파하며 레벨업 성장을 돕는 문장을 수집합니다.", unlock: "미개척지 해금 이후 입장 가능", Icon: Sparkle },
@@ -48,9 +53,15 @@ export function V2DungeonSelectionView() {
             ? <p data-locked="true" className="flex items-center gap-1.5 text-sm font-semibold text-zinc-600 dark:text-zinc-300"><LockSimple size={16} weight="bold" aria-hidden className="shrink-0" />{dungeon.unlock}</p>
             : <>
               <p className="text-sm">{`남은 입장 ${status.attemptsLeft} / 3회`}</p>
+              {deepStageText(status.deep) && <p className="text-sm text-zinc-600 dark:text-zinc-300">{deepStageText(status.deep)}</p>}
               <Button aria-label={`${dungeon.name} 입장`} variant="primary" disabled={!active && status.attemptsLeft === 0 && dungeon.href !== "/battle/storm-expedition"} onClick={() => router.push(dungeon.href)}>{active ? "진행 중인 던전 계속하기" : status.attemptsLeft === 0 && dungeon.href === "/battle/storm-expedition" ? "연습 모드 이용" : "던전 입장"}</Button>
             </>}
       </Card>;
     })}
+    <Card padding="md" className="space-y-3">
+      <h2 className="flex items-center gap-2 font-bold"><Storefront size={23} weight="duotone" aria-hidden />심층 교환소</h2>
+      <p className="text-sm">두 던전의 심층 단계를 실전으로 완주해 얻은 심층 증표와 골드로 재료를 바꿉니다.</p>
+      <Button aria-label="심층 교환소 열기" onClick={() => router.push("/battle/deep-shop")}>교환소 열기</Button>
+    </Card>
   </PageShell>;
 }

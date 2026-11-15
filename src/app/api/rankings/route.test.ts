@@ -445,6 +445,34 @@ describe("개인 랭킹", () => {
     expect(json.me).toMatchObject({ rank: 3, explorationGrade: 3 });
   });
 
+  it.each(["stormDeep", "sanctuaryDeep"] as const)("%s 는 최고 완주 단계가 높은 순, 같으면 먼저 도달한 순으로 매긴다", async (metric) => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        { user_id: "u-me", name: "나중에오른사람", avatar: "female1", dungeon_save: { deepBest: 7, deepBestAt: 2_000 } },
+        { user_id: "u-top", name: "가장깊은사람", avatar: "male1", dungeon_save: { deepBest: 21, deepBestAt: 9_000 } },
+        { user_id: "u-zero", name: "심층안감", avatar: "male1", dungeon_save: { clears: 40 } },
+        { user_id: "u-first", name: "먼저오른사람", avatar: "male1", dungeon_save: { deepBest: 7, deepBestAt: 1_000 } },
+      ],
+    });
+
+    const response = await GET(new Request(`http://localhost/api/rankings?metric=${metric}`));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      json.list.map((entry: { rank: number; name: string; deepStage: number }) => [
+        entry.rank,
+        entry.name,
+        entry.deepStage,
+      ]),
+    ).toEqual([
+      [1, "가장깊은사람", 21],
+      [2, "먼저오른사람", 7],
+      [3, "나중에오른사람", 7],
+    ]);
+    expect(json.me).toMatchObject({ rank: 3, deepStage: 7 });
+  });
+
   it("달성 조건과 수령 기록을 합산해 업적 점수 순위를 매긴다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

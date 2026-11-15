@@ -71,6 +71,8 @@ export type StormExpeditionAutoplayRunResult =
 type StormExpeditionAutoplayRunnerOptions = {
   initialStatus: StormExpeditionAutoplayStatus;
   plan: StormExpeditionAutoplayPlan;
+  /** 새 원정을 출발할 때 쓸 심층 단계. 0이면 심층이 아니다. */
+  deepStage?: number;
   request: (request: StormExpeditionActionRequest) => Promise<StormExpeditionAutoplayStatus>;
   onStatus: (status: StormExpeditionAutoplayStatus, label: string) => void;
   shouldStop: () => boolean;
@@ -79,6 +81,7 @@ type StormExpeditionAutoplayRunnerOptions = {
 export function nextStormExpeditionAutoplayStep(
   status: StormExpeditionAutoplayStatus,
   plan: StormExpeditionAutoplayPlan,
+  deepStage: number = 0,
 ): StormExpeditionAutoplayStep {
   if (status.failed) return { kind: "defeated" };
   if (status.bossClear || status.practiceCompleted) return { kind: "complete" };
@@ -89,7 +92,7 @@ export function nextStormExpeditionAutoplayStep(
     return {
       kind: "request",
       label: `${nodeName(status, targetNodeId)} 출발 중`,
-      request: stormExpeditionStartRequest(plan.mode, targetNodeId),
+      request: stormExpeditionStartRequest(plan.mode, targetNodeId, deepStage),
     };
   }
 
@@ -169,13 +172,14 @@ export function nextStormExpeditionAutoplayStep(
 export async function runStormExpeditionAutoplay({
   initialStatus,
   plan,
+  deepStage = 0,
   request,
   onStatus,
   shouldStop,
 }: StormExpeditionAutoplayRunnerOptions): Promise<StormExpeditionAutoplayRunResult> {
   let status = freshStormExpeditionAutoplayStatus(initialStatus);
   while (true) {
-    const step = nextStormExpeditionAutoplayStep(status, plan);
+    const step = nextStormExpeditionAutoplayStep(status, plan, deepStage);
     if (step.kind === "complete" || step.kind === "defeated") return { kind: step.kind, status };
     if (shouldStop()) return { kind: "stopped", status };
     if (step.kind === "conflict") return { kind: "conflict", status, message: step.message };

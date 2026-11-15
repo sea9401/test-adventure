@@ -31,4 +31,22 @@ describe("던전 선택 잠금 표시", () => {
     expect(screen.getByRole("button", { name: "태초의 성소 입장" })).toBeTruthy();
     expect(screen.getByText("남은 입장 2 / 3회")).toBeTruthy();
   });
+
+  it("던전마다 최고 완주 심층 단계를 보여 주고 심층 교환소로 갈 수 있다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        Response.json(
+          url.includes("storm")
+            ? { ok: true, unlocked: true, attemptsLeft: 3, deep: { best: 12, maxSelectable: 13 } }
+            : { ok: true, unlocked: true, attemptsLeft: 2, deep: { best: 0, maxSelectable: 1 } },
+        ),
+      ),
+    );
+    render(<V2DungeonSelectionView />);
+
+    expect(await screen.findByText("심층 최고 12단계")).toBeTruthy();
+    expect(screen.getByText("심층 1단계 도전 가능")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "심층 교환소 열기" })).toBeTruthy();
+  });
 });

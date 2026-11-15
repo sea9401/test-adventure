@@ -24,6 +24,7 @@ function character(selectedNodeIds: string[], level = 100) {
       traces: {},
       craftReceipts: [],
       equipmentCraftReceipts: [],
+      bossRisk: {},
     },
   };
 }

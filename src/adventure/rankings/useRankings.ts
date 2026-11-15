@@ -30,6 +30,8 @@ export type RankingEntry = {
   fame: number;
   combatPower: number;
   lifeMastery: number;
+  /** 생활 숙련도 랭킹 한정 — 거장 등급 합계. */
+  lifeGrandGrade?: number;
   codexCollected: number;
   codexTotal: number;
   masteryTowerFloor: number;
@@ -53,6 +55,8 @@ export type RankingMe = {
   fame: number;
   combatPower: number;
   lifeMastery: number;
+  /** 생활 숙련도 랭킹 한정 — 거장 등급 합계. */
+  lifeGrandGrade?: number;
   codexCollected: number;
   codexTotal: number;
   masteryTowerFloor: number;

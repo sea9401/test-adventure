@@ -418,4 +418,60 @@ describe("adventurer ranch", () => {
     expect(() => swapRanchSlots(ranch, "slot-1", "slot-3", 2_000)).toThrow("slot_locked");
     expect(() => swapRanchSlots(ranch, "slot-1", "slot-1", 2_000)).toThrow("same_slot");
   });
+
+  describe("혈통", () => {
+    function fedChickens(): RanchState {
+      // 닭 두 칸에 사료를 넣고 세 주기(6시간)를 돌린다.
+      let ranch = unlockThrough(2);
+      ranch = addRanchFeed(ranch, "slot-1", 3, 1_000);
+      ranch = addRanchFeed(ranch, "slot-2", 3, 1_000);
+      return settleRanch(ranch, 1_000 + 6 * HOUR);
+    }
+
+    it("칸의 혈통을 읽고 정산·사료 넣기를 거쳐도 잃지 않는다", () => {
+      const ranch = parseRanchState(
+        {
+          ...unlockThrough(2),
+          lineage: {
+            "slot-1": { grade: 3, fails: 4 },
+            "slot-2": { grade: 99, fails: -2 },
+            // 잠긴 칸과 모르는 칸의 값은 버린다.
+            "slot-9": { grade: 2, fails: 1 },
+            nowhere: { grade: 1, fails: 0 },
+          },
+        },
+        1_000,
+      );
+      expect(ranch.lineage).toEqual({
+        "slot-1": { grade: 3, fails: 4 },
+        "slot-2": { grade: 4, fails: 0 },
+      });
+      const later = addRanchFeed(settleRanch(ranch, 2_000), "slot-1", 2, 2_000);
+      expect(later.lineage).toEqual(ranch.lineage);
+      expect("lineage" in parseRanchState(unlockThrough(2), 1_000)).toBe(false);
+    });
+
+    it("수거할 때 주기마다 혈통 등급의 확률로 희귀 산물이 나온다", () => {
+      const ranch = { ...fedChickens(), lineage: { "slot-1": { grade: 3, fails: 0 } } };
+      // slot-1(명품 16%) 세 주기: 0.1 / 0.2 / 0.15 → 0.16 미만이 두 번. slot-2(보통)는 굴리지 않는다.
+      const rolls = [0.1, 0.2, 0.15];
+      const collected = collectRanchProducts(ranch, 1_000 + 6 * HOUR, () => rolls.shift() ?? 0);
+      expect(collected.items).toEqual({ egg: 12 });
+      expect(collected.rareItems).toEqual({ golden_egg: 2 });
+      expect(rolls).toEqual([]);
+      expect(collected.ranch.lineage).toEqual({ "slot-1": { grade: 3, fails: 0 } });
+
+      const plain = collectRanchProducts(fedChickens(), 1_000 + 6 * HOUR, () => 0);
+      expect(plain.rareItems).toEqual({});
+    });
+
+    it("칸을 맞바꾸면 혈통이 따라가고, 동물을 바꾸면 그 칸의 혈통은 사라진다", () => {
+      const ranch = { ...unlockThrough(2), lineage: { "slot-1": { grade: 2, fails: 3 } } };
+      const swapped = swapRanchSlots(ranch, "slot-1", "slot-2", 1_000);
+      expect(swapped.lineage).toEqual({ "slot-2": { grade: 2, fails: 3 } });
+
+      const rebuilt = rebuildRanchSlot(ranch, "slot-1", "cow", 100, 1_000).ranch;
+      expect("lineage" in rebuilt).toBe(false);
+    });
+  });
 });

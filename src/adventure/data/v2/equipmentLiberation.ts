@@ -97,11 +97,15 @@ function rollLevel(rank: LiberationRank, rng: () => number): number {
 
 function rollOptions(
   slot: V2EquipSlot,
-  lineCount: LiberationLineCount,
+  lineCount: number,
   rank: LiberationRank,
   rng: () => number,
+  /** 이미 장비에 붙어 있어 다시 나오면 안 되는 옵션(고정한 줄). */
+  excludedIds: ReadonlySet<LiberationOptionId> = new Set(),
 ): LiberationOptionRoll[] {
-  const remaining = [...EQUIPMENT_LIBERATION_POOLS[slot]];
+  const remaining = EQUIPMENT_LIBERATION_POOLS[slot].filter(
+    (option) => !excludedIds.has(option.id),
+  );
   const options: LiberationOptionRoll[] = [];
   for (let line = 0; line < lineCount; line += 1) {
     const totalWeight = remaining.reduce((sum, option) => sum + option.weight, 0);
@@ -147,17 +151,55 @@ function promotedRank(rank: LiberationRank, rng: () => number): LiberationRank {
   return 1;
 }
 
+/** 고정할 줄 번호가 겹치지 않고 범위 안이며, 줄 수보다 하나 적게까지인지. */
+export function isValidLiberationLockedLines(
+  lineCount: number,
+  lockedLines: readonly number[],
+): boolean {
+  return (
+    lockedLines.length <= Math.max(0, lineCount - 1) &&
+    new Set(lockedLines).size === lockedLines.length &&
+    lockedLines.every((line) => Number.isInteger(line) && line >= 0 && line < lineCount)
+  );
+}
+
+/**
+ * 다시 마법부여한다. lockedLines 의 줄은 자리와 옵션을 그대로 두고 나머지 줄만 새로 굴린다.
+ * 단계 승급은 고정 여부와 무관하게 판정하며, 승급하면 고정한 줄의 수치만 새 단계 범위에서 다시 정한다
+ * (단계별 수치 범위가 겹치지 않아 낮아지지 않는다).
+ */
 export function rerollLiberation(
   slot: V2EquipSlot,
   current: V2LiberationState,
   rng: () => number,
+  lockedLines: readonly number[] = [],
 ): V2LiberationState {
   const rank = promotedRank(current.rank, rng);
+  if (lockedLines.length === 0) {
+    return {
+      rank,
+      lineCount: current.lineCount,
+      revision: current.revision + 1,
+      options: rollOptions(slot, current.lineCount, rank, rng),
+    };
+  }
+  const locked = new Set(lockedLines);
+  const fresh = rollOptions(
+    slot,
+    current.lineCount - locked.size,
+    rank,
+    rng,
+    new Set(lockedLines.map((line) => current.options[line].id)),
+  );
   return {
     rank,
     lineCount: current.lineCount,
     revision: current.revision + 1,
-    options: rollOptions(slot, current.lineCount, rank, rng),
+    options: current.options.map((option, line) =>
+      locked.has(line)
+        ? { id: option.id, level: rank === current.rank ? option.level : rollLevel(rank, rng) }
+        : fresh.shift()!,
+    ),
   };
 }
 

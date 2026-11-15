@@ -1,3 +1,5 @@
+import { LIFE_MAJOR_SAVE_KEY, lifeRenownFromSave } from "@/adventure/v2/lifeMajor";
+import { LIFE_PERK_PROCESS_BATCH_LIMIT, lifePerkUnlocked } from "@/adventure/v2/lifeMajorRules";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -13,6 +15,7 @@ import {
   LIFE_TOOL_BONUS_MATERIAL_PCT,
   LIFE_TOOL_DURATION_REDUCTION_PCT,
   LIFE_TOOL_NAMES,
+  LIFE_PROCESS_BATCH_LIMIT,
   LIFE_WORKSHOP_SAVE_KEY,
   lifeProcessingGreatSuccessPct,
   lifeRespecializationCost,
@@ -107,6 +110,13 @@ function lifeLevels(woodcuttingRaw: unknown, miningRaw: unknown) {
   };
 }
 
+/** 재료 가공을 한 번에 몇 회까지 받는지. 생활 명성으로 대량 처리 편의가 열리면 늘어난다. */
+function lifeProcessBatchLimit(lifeMajorRaw: unknown): number {
+  return lifePerkUnlocked(lifeRenownFromSave(lifeMajorRaw), "bulk_processing")
+    ? LIFE_PERK_PROCESS_BATCH_LIMIT
+    : LIFE_PROCESS_BATCH_LIMIT;
+}
+
 function workshopPayload(args: {
   state: LifeWorkshopState;
   charSave: CharacterSave;
@@ -116,7 +126,9 @@ function workshopPayload(args: {
   skillsRaw?: unknown;
   inventoryRaw?: unknown;
   equipmentRaw?: unknown;
+  lifeMajorRaw?: unknown;
 }) {
+  const processBatchLimit = lifeProcessBatchLimit(args.lifeMajorRaw);
   const levels = lifeLevels(args.woodcuttingRaw, args.miningRaw);
   const materials = materialBalances(args.charSave.materials);
   const farm = parseFarmState(args.farmRaw ?? emptyFarmState());
@@ -146,6 +158,7 @@ function workshopPayload(args: {
     state: args.state,
     levels,
     materials,
+    processBatchLimit,
     failedCookingDishes,
     gold: Math.max(0, Math.floor(Number(args.charSave.gold) || 0)),
     bankedGold: Math.max(0, Math.floor(Number(args.charSave.bankedGold) || 0)),
@@ -159,7 +172,7 @@ function workshopPayload(args: {
       ...recipe,
       maxBatches:
         levels[recipe.activity] >= recipe.requiredLevel
-          ? maxProcessBatches(materials, recipe)
+          ? maxProcessBatches(materials, recipe, processBatchLimit)
           : 0,
       greatSuccessPct: lifeProcessingGreatSuccessPct(
         recipe.activity,
@@ -229,7 +242,7 @@ function workshopPayload(args: {
 }
 
 async function readWorkshopSnapshot(userId: string) {
-  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw, inventoryRaw, equipmentRaw] = await Promise.all([
+  const [charSave, workshopRaw, woodcuttingRaw, miningRaw, farmRaw, skillsRaw, inventoryRaw, equipmentRaw, lifeMajorRaw] = await Promise.all([
     readSave<CharacterSave>(db, userId, "character.v2", {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
@@ -238,8 +251,10 @@ async function readWorkshopSnapshot(userId: string) {
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, "inventory.v2", {}),
     readSave(db, userId, "equipment.v2", {}),
+    readSave(db, userId, LIFE_MAJOR_SAVE_KEY, {}),
   ]);
   return {
+    lifeMajorRaw,
     charSave,
     state: parseLifeWorkshopState(workshopRaw),
     woodcuttingRaw,
@@ -423,14 +438,15 @@ export async function POST(req: Request) {
         ? LIFE_PROCESSING_RECIPE_BY_ID.get(requestBody.recipeId)
         : undefined;
       const batches = Math.floor(Number(requestBody.batches));
-      if (!recipe || !Number.isFinite(batches) || batches < 1 || batches > 100) {
+      const batchLimit = lifeProcessBatchLimit(await readSave(tx, userId, LIFE_MAJOR_SAVE_KEY, {}));
+      if (!recipe || !Number.isFinite(batches) || batches < 1 || batches > batchLimit) {
         return { error: "bad_recipe" as const };
       }
       if (levels[recipe.activity] < recipe.requiredLevel) {
         return { error: "level_required" as const, requiredLevel: recipe.requiredLevel };
       }
       const materials = materialBalances(charSave.materials);
-      if (maxProcessBatches(materials, recipe) < batches) {
+      if (maxProcessBatches(materials, recipe, batchLimit) < batches) {
         return { error: "not_enough_materials" as const };
       }
       const consumed = consumeMaterials(materials, {
@@ -550,11 +566,12 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, ...result }, { status });
   }
   if ("blueprintRecipeId" in result.result && result.result.blueprintRecipeId) await insertFeedEntry(userId, "life_blueprint", { recipeId: result.result.blueprintRecipeId });
-  const [farmRaw, skillsRaw, inventoryRaw, equipmentRaw] = await Promise.all([
+  const [farmRaw, skillsRaw, inventoryRaw, equipmentRaw, lifeMajorRaw] = await Promise.all([
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState()),
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, "inventory.v2", {}),
     readSave(db, userId, "equipment.v2", {}),
+    readSave(db, userId, LIFE_MAJOR_SAVE_KEY, {}),
   ]);
   return Response.json({
     ok: true,
@@ -565,6 +582,7 @@ export async function POST(req: Request) {
       skillsRaw,
       inventoryRaw,
       equipmentRaw,
+      lifeMajorRaw,
     }),
   });
 }

@@ -124,6 +124,7 @@ describe("최신 게임 안내서 내용", () => {
     const quests = renderToStaticMarkup(<QuestsContent />);
     expect(quests).not.toContain("첫 직업·첫 전투");
     expect(quests).toContain("레벨 100에 첫 직업");
+    expect(quests).toContain("사냥 결과 아래에 지금 단계가");
   });
 
   it("홈 화면 구성 안내가 기본 위젯 순서와 같다", () => {
@@ -232,11 +233,72 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("1일 동안 다시 바꿀 수 없습니다");
     expect(html).toContain("전공 고르기 버튼");
     expect(html).toContain("명장 10단계");
+    expect(html).toContain("거장 등급");
+    expect(html).toContain("10분의 1입니다");
+    expect(html).toContain("거장 등급 합계 50에서");
+    expect(html).toContain("생활 명성");
+    for (const perk of ["정산하고 다시 시작", "수확하고 다시 심기", "대량 처리", "생활 한 번에 정산"]) {
+      expect(html).toContain(perk);
+    }
+    expect(html).toContain("한 번에 300회");
     expect(html).toContain("캐릭터 &gt; 내 정보 &gt; 생활 기록");
     expect(html).toContain("Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다");
     for (const name of ["명장 작물", "명장 목재", "명장 합금", "명장 어획"]) {
       expect(html).toContain(name);
     }
+  });
+
+  it("목장 혈통의 등급·교배 확률·비용·희귀 산물을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+    expect(html).toContain("목장 혈통");
+    for (const name of ["보통", "우량", "특급", "명품", "명장 혈통"]) {
+      expect(html).toContain(name);
+    }
+    expect(html).toContain("달걀 60, 배합 사료 20");
+    expect(html).toContain("돼지고기 20, 배합 사료 20");
+    for (const name of ["황금 달걀", "진한 우유", "흑돼지고기"]) {
+      expect(html).toContain(name);
+    }
+    expect(html).toContain("+0.5%p");
+    expect(html).toContain("명장 작물 2개가 더 듭니다");
+  });
+
+  it("행상의 교역로·적재 점수·증표·단골 등급·교환 품목을 안내한다", () => {
+    const html = renderToStaticMarkup(<PastimesContent />);
+    expect(html).toContain("행상");
+    for (const name of ["강나루 장터", "산마루 광산촌", "남쪽 항구"]) {
+      expect(html).toContain(name);
+    }
+    expect(html).toContain("강나루 장터 단골 3등급");
+    expect(html).toContain("단골 등급 합계 10");
+    expect(html).toContain("철광석 2");
+    expect(html).toContain("카카오 90");
+    expect(html).toContain("전설의 어획물 400");
+    expect(html).toContain("티어 1~5: 200, 400, 800, 1,400, 1,700");
+    expect(html).toContain("적재 2,000점당 행상 증표");
+    expect(html).toContain("600,000");
+    expect(html).toContain("4,000");
+    expect(html).toContain("배합 사료 10개");
+    expect(html).toContain("단골 행상");
+    expect(html).toContain("대상인");
+  });
+
+  it("보석 세공의 확률·조건과 마법부여 줄 고정을 안내한다", () => {
+    const pastimes = renderToStaticMarkup(<PastimesContent />);
+    expect(pastimes).toContain("보석 세공");
+    expect(pastimes).toContain("원석 보석 60개로");
+    for (const name of ["다듬은 보석", "정교한 보석", "완벽한 보석"]) {
+      expect(pastimes).toContain(name);
+    }
+    expect(pastimes).toContain("70%");
+    expect(pastimes).toContain("12%");
+    expect(pastimes).toContain("1·2·3단계");
+    expect(pastimes).toContain("5,000,000 G");
+
+    const enhance = renderToStaticMarkup(<EnhanceContent />);
+    expect(enhance).toContain("남길 줄을 고정");
+    expect(enhance).toContain("3줄 장비는 2줄");
+    expect(enhance).toContain("3단계는 완벽한 보석");
   });
 
   it("채집지 정비의 보상·비용·명장 정비·칭호를 안내한다", () => {
@@ -444,6 +506,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("은행 예치금");
     expect(hunting).toContain("골드 페널티 계산에서 무승부");
     expect(economy).toContain("지역 세금은 붙지 않습니다");
+    expect(economy).toContain("사냥터에서 스태미나가 바닥나면 그 자리에 뜨는 버튼");
     expect(combat).not.toContain("패배해도 페널티는 없습니다");
     expect(hunting).not.toContain("추가 손실은 없습니다");
   });

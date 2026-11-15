@@ -65,6 +65,8 @@ export type CookingResponse = {
     requiredStage: number;
     products: { crop: number; catch: number };
   };
+  /** 요리를 한 번에 만들 수 있는 개수. 대량 처리 편의가 열리면 늘어난다. */
+  craftQuantityLimit?: number;
 };
 
 export type CookingBranchView = {

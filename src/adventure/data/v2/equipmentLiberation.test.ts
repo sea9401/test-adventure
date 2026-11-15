@@ -4,6 +4,7 @@ import {
   canLiberateEquipment,
   liberationOptionValue,
   parseLiberationState,
+  isValidLiberationLockedLines,
   rerollLiberation,
   rollInitialLiberation,
 } from "./equipmentLiberation";
@@ -168,5 +169,62 @@ describe("equipment liberation validation", () => {
         { id: "physical_attack_pct", level: 17 },
       ],
     });
+  });
+});
+
+describe("줄을 고정한 재마법부여", () => {
+  const current = {
+    rank: 3 as const,
+    lineCount: 3 as const,
+    revision: 4,
+    options: [
+      { id: "physical_attack_flat" as const, level: 5 },
+      { id: "magic_attack_flat" as const, level: 2 },
+      { id: "accuracy_flat" as const, level: 3 },
+    ],
+  };
+
+  it("고정한 줄은 자리와 값 그대로 두고 나머지만 새로 굴리며 같은 옵션이 겹치지 않는다", () => {
+    for (let seed = 0; seed < 200; seed += 1) {
+      // 승급하지 않도록 첫 굴림은 0.5로 둔다.
+      const values = [0.5, ...Array.from({ length: 8 }, (_, index) => ((seed * 37 + index * 11) % 100) / 100)];
+      const next = rerollLiberation("weapon", current, sequenceRng(values), [0, 2]);
+      expect(next.rank).toBe(3);
+      expect(next.revision).toBe(5);
+      expect(next.options[0]).toEqual({ id: "physical_attack_flat", level: 5 });
+      expect(next.options[2]).toEqual({ id: "accuracy_flat", level: 3 });
+      expect(next.options).toHaveLength(3);
+      expect(new Set(next.options.map(({ id }) => id)).size).toBe(3);
+    }
+  });
+
+  it("단계가 오르면 고정한 줄의 옵션은 유지하고 수치만 새 단계 범위에서 다시 정한다", () => {
+    const promoted = rerollLiberation("weapon", current, sequenceRng([0.01, 0, 0, 0, 0, 0, 0]), [0]);
+    expect(promoted.rank).toBe(2);
+    expect(promoted.options[0].id).toBe("physical_attack_flat");
+    expect(promoted.options[0].level).toBeGreaterThanOrEqual(5);
+    expect(promoted.options.every(({ level }) => level >= 5 && level <= 10)).toBe(true);
+    expect(parseLiberationState(promoted, "weapon")).toEqual(promoted);
+  });
+
+  it("고정하지 않으면 예전과 같은 순서로 굴린다", () => {
+    const values = [0.5, 0.3, 0.2, 0.6, 0.1, 0.9, 0.4];
+    expect(rerollLiberation("weapon", current, sequenceRng(values), [])).toEqual(
+      rerollLiberation("weapon", current, sequenceRng(values)),
+    );
+  });
+
+  it("고정할 줄은 겹치지 않는 줄 번호여야 하고 줄 수보다 하나 적게까지다", () => {
+    expect(isValidLiberationLockedLines(3, [0])).toBe(true);
+    expect(isValidLiberationLockedLines(3, [2, 0])).toBe(true);
+    expect(isValidLiberationLockedLines(3, [0, 1, 2])).toBe(false);
+    expect(isValidLiberationLockedLines(2, [1])).toBe(true);
+    expect(isValidLiberationLockedLines(2, [0, 1])).toBe(false);
+    expect(isValidLiberationLockedLines(1, [0])).toBe(false);
+    expect(isValidLiberationLockedLines(3, [0, 0])).toBe(false);
+    expect(isValidLiberationLockedLines(3, [3])).toBe(false);
+    expect(isValidLiberationLockedLines(3, [-1])).toBe(false);
+    expect(isValidLiberationLockedLines(3, [0.5])).toBe(false);
+    expect(isValidLiberationLockedLines(3, [])).toBe(true);
   });
 });

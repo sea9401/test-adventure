@@ -267,9 +267,11 @@ export function lifeRespecializationCost(
 export function maxProcessBatches(
   materials: Record<string, number>,
   recipe: LifeProcessingRecipe,
+  /** 한 번에 처리할 수 있는 횟수. 대량 처리 편의가 열리면 더 크다. */
+  batchLimit: number = LIFE_PROCESS_BATCH_LIMIT,
 ): number {
   return Math.min(
-    LIFE_PROCESS_BATCH_LIMIT,
+    batchLimit,
     Math.floor((materials[recipe.inputId] ?? 0) / recipe.inputAmount),
   );
 }

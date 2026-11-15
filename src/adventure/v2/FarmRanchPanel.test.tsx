@@ -202,4 +202,32 @@ describe("farm ranch panel", () => {
     expect(html).toContain("씨앗 선별을 배우면 목장이 열립니다");
     expect(html).not.toContain("사료 넣기");
   });
+
+  it("교배 처리를 넘기면 부지마다 혈통과 교배 버튼을 보여 준다", () => {
+    const base = emptyFarmState(1_000);
+    const farm = {
+      ...base,
+      inventory: { egg: 80, compound_feed: 25 },
+      ranch: { ...base.ranch, lineage: { "slot-1": { grade: 2, fails: 1 } } },
+    };
+    expect(renderRanch(farm)).not.toContain("혈통");
+
+    const html = renderToStaticMarkup(
+      <FarmRanchPanel
+        farm={farm}
+        now={1_000}
+        learnedSkillIds={[FARM_CROP_REQUIRED_SKILL_ID]}
+        busyFeedSlotId={null}
+        busyCollect={false}
+        busyUpgradeSlotId={null}
+        busyRebuildSlotId={null}
+        {...handlers}
+        onBreed={vi.fn()}
+      />,
+    );
+    expect(html).toContain("혈통 특급");
+    expect(html).toContain("황금 달걀 확률 10%");
+    expect(html).toContain("교배 성공률 7%");
+    expect(html).toContain('aria-label="부지 1 교배"');
+  });
 });

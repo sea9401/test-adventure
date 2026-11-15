@@ -35,6 +35,15 @@ describe("rankingMetrics", () => {
     });
   });
 
+  it("전공 세이브가 있으면 거장 등급 합계를 함께 계산한다", () => {
+    expect(lifeMasteryRankingFromSaves({}).grandGradeTotal).toBe(0);
+    expect(
+      lifeMasteryRankingFromSaves({
+        lifeMajorRaw: { major: "mining", masteryXp: { mining: 480_200 + 48_020 * 3 + 1, farming: 500 } },
+      }).grandGradeTotal,
+    ).toBe(3);
+  });
+
   it("농사·벌목·채광·낚시·요리 레벨을 생활 숙련도로 합산한다", () => {
     const ranking = lifeMasteryRankingFromSaves({
       farmRaw: { stats: { farmingXp: 160 } },

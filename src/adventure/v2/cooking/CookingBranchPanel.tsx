@@ -61,6 +61,7 @@ export function CookingBranchPanel({
 }) {
   const [changing, setChanging] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const craftLimit = data.craftQuantityLimit ?? MAX_QUANTITY;
   const view = data.branch;
   const specialtyField = data.cooking.specialty?.field ?? null;
   const current = view.current ? COOKING_BRANCH_BY_ID.get(view.current) ?? null : null;
@@ -161,12 +162,12 @@ export function CookingBranchPanel({
               <input
                 type="number"
                 min={1}
-                max={MAX_QUANTITY}
+                max={craftLimit}
                 value={quantity}
                 aria-label="제작 수량"
                 onChange={(event) =>
                   setQuantity(
-                    Math.max(1, Math.min(MAX_QUANTITY, Math.floor(Number(event.target.value) || 1))),
+                    Math.max(1, Math.min(craftLimit, Math.floor(Number(event.target.value) || 1))),
                   )
                 }
                 className="h-10 w-16 rounded-md border border-zinc-300 bg-white px-2 text-right text-sm tabular-nums text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"

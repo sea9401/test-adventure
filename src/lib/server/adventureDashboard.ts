@@ -1,3 +1,4 @@
+import { LIFE_MAJOR_SAVE_KEY } from "@/adventure/v2/lifeMajor";
 import { SANCTUARY_SAVE_KEY, SANCTUARY_DAILY_ATTEMPTS, parseSanctuaryState, canEnterSanctuary } from "@/adventure/data/v2/sanctuaryDungeon";
 import { V2_UNEXPLORED } from "@/adventure/data/v2/coreLoopConfig";
 import type { AdventureActivityView } from "@/adventure/v2/adventureDashboard";
@@ -62,6 +63,8 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [REPEAT_QUESTS_KEY]: {},
   "adventure-log.v2": {},
   "crafting.v2": {},
+  // 홈의 "생활 한 번에 정산" 편의가 열렸는지 판단하는 생활 명성용.
+  [LIFE_MAJOR_SAVE_KEY]: {},
 } satisfies Record<string, unknown>;
 
 export const ADVENTURE_ACTIVITY_IDS = [

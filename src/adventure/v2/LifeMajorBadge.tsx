@@ -35,6 +35,7 @@ export function LifeMajorBadge({ activity }: { activity: LifeMajorActivity }) {
         <span className="min-w-0 flex-1">
           <span className="font-semibold">
             {entry.role === "major" ? "주전공" : "부전공"} · 명장 {entry.stage}단계
+            {entry.capped ? ` · 거장 ${entry.grandGrade.toLocaleString("ko-KR")}등급` : ""}
           </span>
           {entry.effectText ? (
             <span className="text-zinc-500 dark:text-zinc-400"> · {entry.effectText}</span>

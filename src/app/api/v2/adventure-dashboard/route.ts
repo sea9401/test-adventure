@@ -1,3 +1,4 @@
+import { LIFE_MAJOR_SAVE_KEY, lifeRenownFromSave } from "@/adventure/v2/lifeMajor";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSaves } from "@/lib/server/savesKv";
@@ -44,6 +45,7 @@ export async function GET() {
     preferences,
     activities,
     summary: activitySummary(activities),
+    lifeRenown: lifeRenownFromSave(saves[LIFE_MAJOR_SAVE_KEY]),
     notifications: activityTabDots(
       activities,
       preferences.activityNotificationsEnabled,

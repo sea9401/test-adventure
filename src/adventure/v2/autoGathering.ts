@@ -81,6 +81,8 @@ export type AutoGatheringSessionView = {
   readyAt: number;
   /** 시작할 때 굳힌 작업 시간. 없으면 계획의 기본 시간이다. */
   durationMs?: number;
+  /** 작업을 시작한 채집지. 같은 곳에서 다시 시작할 때 쓴다. */
+  spotId?: string;
   attempts: number;
 };
 
@@ -131,6 +133,7 @@ export function parseAutoGatheringSessionView(
     startedAt: correctTimestamp(startedAt),
     readyAt: correctTimestamp(readyAt),
     durationMs: sessionDurationMs(item.durationMs, item.planId),
+    ...(typeof item.spotId === "string" && item.spotId ? { spotId: item.spotId } : {}),
     attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
   };
 }

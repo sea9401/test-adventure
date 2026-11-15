@@ -1,3 +1,4 @@
+import { LIFE_MAJOR_SAVE_KEY, lifeRenownFromSave } from "@/adventure/v2/lifeMajor";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
@@ -27,7 +28,7 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [charSave, logRaw, skillsRaw, autoRaw, woodcuttingAutoRaw, workshopRaw] =
+  const [charSave, logRaw, skillsRaw, autoRaw, woodcuttingAutoRaw, workshopRaw, lifeMajorRaw] =
     await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(
       db,
@@ -40,6 +41,7 @@ export async function GET() {
     readSave(db, userId, MINING_AUTO_KEY, {}),
     readSave(db, userId, WOODCUTTING_AUTO_KEY, {}),
     readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
+    readSave(db, userId, LIFE_MAJOR_SAVE_KEY, {}),
   ]);
   const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
   const workshop = parseLifeWorkshopState(workshopRaw);
@@ -55,6 +57,7 @@ export async function GET() {
       bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier],
     autoSession: autoState.session,
     siteUpkeep: workshop.siteUpkeep ?? {},
+    lifeRenown: lifeRenownFromSave(lifeMajorRaw),
     activeAutoActivity: activeAutoGatheringActivity({
       woodcutting: parseAutoGatheringState(woodcuttingAutoRaw),
       mining: autoState,

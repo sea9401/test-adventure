@@ -33,6 +33,7 @@ import { useGameIdentityState } from "./GameStateProvider";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
 import { AdventureActivitySettings } from "./AdventureActivitySettings";
 import { AdventureHomeLayoutSettings } from "./AdventureHomeLayoutSettings";
+import { lifePerkUnlocked } from "./lifeMajorRules";
 import {
   DEFAULT_ADVENTURE_HOME_HIDDEN_WIDGET_IDS,
   DEFAULT_ADVENTURE_HOME_WIDGET_ORDER,
@@ -243,6 +244,9 @@ export function V2PreferencesView() {
           <AdventureHomeLayoutSettings
             order={snapshot.preferences.widgetOrder}
             hidden={snapshot.preferences.hiddenWidgetIds}
+            unavailable={
+              lifePerkUnlocked(snapshot.lifeRenown ?? 0, "collect_all") ? [] : ["life_collect"]
+            }
             onOrderChange={(widgetOrder) =>
               persistHomePreferences({ widgetOrder })
             }

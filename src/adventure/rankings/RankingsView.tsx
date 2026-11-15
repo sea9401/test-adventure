@@ -220,7 +220,8 @@ export function LifeMasteryMetricPill() {
           생활 숙련도
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
-          농사·벌목·채광·낚시·요리 레벨을 합산하며 각 생활은 Lv.100까지 반영합니다.
+          농사·벌목·채광·낚시·요리 레벨을 합산하며 각 생활은 Lv.100까지 반영합니다. 합계가
+          같으면 거장 등급 합계가 높은 쪽이 앞섭니다.
         </span>
       </div>
     </Card>
@@ -480,7 +481,10 @@ function RankingRow({
         ) : metric === "combatPower" ? (
           <>스탯 합계 {entry.combatPower.toLocaleString()}</>
         ) : metric === "lifeMastery" ? (
-          <>생활 Lv.{entry.lifeMastery.toLocaleString()}</>
+          <>
+            생활 Lv.{entry.lifeMastery.toLocaleString()}
+            {entry.lifeGrandGrade ? ` · 거장 ${entry.lifeGrandGrade.toLocaleString()}` : ""}
+          </>
         ) : metric === "codexCompletion" ? (
           <>
             도감 {codexCompletionPercent(entry.codexCollected, entry.codexTotal)}%

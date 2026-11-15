@@ -7,6 +7,7 @@ import { DraftNumberInput } from "@/components/ui/DraftNumberInput";
 import { Gear, MapTrifold } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { AdventurerMasteryNotice } from "@/adventure/v2/AdventurerMasteryNotice";
+import { HuntNextStepCard } from "@/adventure/v2/HuntNextStepCard";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
 import { type HpBarState } from "@/adventure/v2/HpBar";
@@ -1695,6 +1696,7 @@ export function V2DungeonFloorView({
               hasMp={(mp?.maxMp ?? 0) > 0}
             />
           )}
+          <HuntNextStepCard jobId={playerJobId} refreshKey={latestPresentedResult} />
           <AdventurerMasteryNotice jobId={playerJobId} />
           {resultRareMap && onEnterRareMap && (
             <Button

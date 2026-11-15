@@ -124,6 +124,7 @@ describe("최신 게임 안내서 내용", () => {
     const quests = renderToStaticMarkup(<QuestsContent />);
     expect(quests).not.toContain("첫 직업·첫 전투");
     expect(quests).toContain("레벨 100에 첫 직업");
+    expect(quests).toContain("사냥 결과 아래에 지금 단계가");
   });
 
   it("홈 화면 구성 안내가 기본 위젯 순서와 같다", () => {

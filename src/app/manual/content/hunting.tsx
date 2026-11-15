@@ -23,6 +23,18 @@ import {
   DEEP_TOKEN_PER_STAGE,
 } from "@/adventure/data/v2/dungeonDeepStage";
 import { DEEP_SHOP_ENTRIES } from "@/adventure/v2/deepShop";
+import {
+  UNEXPLORED_BOSS_JACKPOT_BASE_PCT,
+  UNEXPLORED_BOSS_RISK_HP_STEP,
+  UNEXPLORED_BOSS_RISK_JACKPOT_STEP_PCT,
+  UNEXPLORED_BOSS_RISK_QUALITY_STEP_PCT,
+  UNEXPLORED_BOSS_RISK_REWARD_CAP,
+  UNEXPLORED_BOSS_RISK_STAT_STEP,
+  UNEXPLORED_BOSS_RISK_TITLE_IDS,
+  riskBossCoreCount,
+  riskJackpotChancePct,
+  riskMinimumQualityPct,
+} from "@/adventure/data/v2/unexploredBossRisk";
 import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
   HUNT_COST,
@@ -444,6 +456,31 @@ export function HuntingContent() {
             ];
           }),
         )}
+      />
+      <H3>개인 보스 위험도</H3>
+      <P>
+        한 번이라도 처치한 개인 보스는 소환할 때 <Em>위험도</Em>를 고를 수 있습니다(캐릭터 → 개척 노드 →
+        흔적 보관함). 위험도는 보스마다 따로 기록하며, 위험도 N으로 처치하면 그 보스의 N+1이 열립니다.
+        위험도마다 보스 체력이 {Math.round(UNEXPLORED_BOSS_RISK_HP_STEP * 100)}%, 공격·방어 등 능력치 배율이{" "}
+        {Math.round(UNEXPLORED_BOSS_RISK_STAT_STEP * 100)}%씩 오릅니다. 소환석과 세션 시간(24시간)은 같고, 시간 안에
+        처치하지 못하면 소환석만 잃습니다.
+      </P>
+      <Table
+        head={["보상", "위험도마다", `위험도 ${UNEXPLORED_BOSS_RISK_REWARD_CAP}`]}
+        rows={[
+          ["우두머리 핵", "+1개", `${riskBossCoreCount(UNEXPLORED_BOSS_RISK_REWARD_CAP)}개`],
+          [
+            "고유 장비 최소 품질",
+            `+${UNEXPLORED_BOSS_RISK_QUALITY_STEP_PCT}%`,
+            `${riskMinimumQualityPct(UNEXPLORED_BOSS_RISK_REWARD_CAP)}% 이상`,
+          ],
+          [
+            `가장 드문 고유 장비(기본 ${UNEXPLORED_BOSS_JACKPOT_BASE_PCT}%)`,
+            `+${UNEXPLORED_BOSS_RISK_JACKPOT_STEP_PCT}%p`,
+            `${Math.round(riskJackpotChancePct(UNEXPLORED_BOSS_RISK_REWARD_CAP) * 10) / 10}%`,
+          ],
+        ]}
+        caption={`보상은 위험도 ${UNEXPLORED_BOSS_RISK_REWARD_CAP}까지 오르고 그 위는 기록용입니다. 다른 고유 장비의 확률과 군 재료는 그대로입니다. 여섯 보스의 최고 처치 위험도 합계 ${Object.keys(UNEXPLORED_BOSS_RISK_TITLE_IDS).join(" · ")}에 칭호(${Object.values(UNEXPLORED_BOSS_RISK_TITLE_IDS).map((titleId) => TITLES[titleId]?.name ?? titleId).join(", ")})를 받고, 랭킹의 심층 단계 탭에서 순위를 볼 수 있습니다.`}
       />
       <H2>난이도 노드와 최대 난이도</H2>
       <P>

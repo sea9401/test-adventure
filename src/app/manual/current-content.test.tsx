@@ -495,6 +495,18 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).not.toContain("지정된 사냥터의 최심부");
   });
 
+  it("사냥 항목이 개인 보스 위험도의 강화와 보상을 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("개인 보스 위험도");
+    expect(hunting).toContain("보스 체력이 50%");
+    expect(hunting).toContain("8%씩");
+    expect(hunting).toContain("위험도 10");
+    expect(hunting).toContain("11개");
+    expect(hunting).toContain("1.5%");
+    expect(hunting).toContain("위험을 좇는 자");
+  });
+
   it("사냥 항목이 던전 심층 단계와 심층 교환소를 적는다", () => {
     const hunting = renderToStaticMarkup(<HuntingContent />);
 

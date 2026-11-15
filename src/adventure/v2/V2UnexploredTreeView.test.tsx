@@ -1045,6 +1045,49 @@ describe("V2UnexploredTreeView", () => {
     );
   });
 
+  it("처치한 적이 있는 보스는 위험도를 골라 소환하고, 고른 위험도의 변화와 보상을 보여 준다", async () => {
+    const tracking = UNEXPLORED_BOSSES.tracking_weapon;
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(JSON.stringify({ ok: true, sessionId: "risky", summonStonesLeft: 0, riskTier: 4 }), {
+        status: 200, headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          materials: { [tracking.summonMaterialId]: 1 },
+          achievementIds: ["defeat_tracking_weapon"],
+          bossRisk: { tracking_weapon: 3 },
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    openUnexploredTab("흔적 보관함");
+    const panel = screen.getByRole("tabpanel", { name: "흔적 보관함" });
+    const select = within(panel).getByRole("combobox", { name: "추적 병기 위험도" }) as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual([
+      "위험도 0", "위험도 1", "위험도 2", "위험도 3", "위험도 4",
+    ]);
+    const card = select.closest("article") as HTMLElement;
+    expect(within(card).getByText("최고 처치 위험도 3")).toBeTruthy();
+    // 처치한 적이 없는 보스에는 위험도 선택이 없다.
+    expect(within(panel).queryByRole("combobox", { name: "빙하 거수 위험도" })).toBeNull();
+
+    fireEvent.change(select, { target: { value: "4" } });
+    expect(within(card).getByText("체력 3배 · 공격·방어 1.32배")).toBeTruthy();
+    expect(within(card).getByText("우두머리 핵 5개 · 고유 장비 품질 20% 이상 · 가장 드문 고유 0.9%")).toBeTruthy();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "추적 병기 소환" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ bossId: "tracking_weapon", riskTier: 4 });
+    await waitFor(() =>
+      expect(mocks.notifySystem).toHaveBeenCalledWith("✓ 추적 병기(위험도 4)을 소환했습니다.", "success"),
+    );
+  });
+
   it("소환 후 흔적 보관함에 머물러 남은 소환석을 이어서 소환한다", async () => {
     const tracking = UNEXPLORED_BOSSES.tracking_weapon;
     const onOpenCoopBosses = vi.fn();

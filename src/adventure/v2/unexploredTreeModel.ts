@@ -19,6 +19,7 @@ import {
   type UnexploredNode,
   type UnexploredRefundError,
 } from "@/adventure/data/v2/unexploredTree";
+import type { UnexploredBossRiskRecord } from "@/adventure/data/v2/unexploredBossRisk";
 import type { UnexploredAchievementId, UnexploredNodePresets, UnexploredPresetIndex } from "@/adventure/data/v2/unexploredState";
 import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
 import type { UnexploredEffects } from "@/adventure/data/v2/unexploredTree";
@@ -80,6 +81,8 @@ export type UnexploredClientSnapshot = {
   bankedGold: number;
   materials: Record<string, number>;
   achievementIds: UnexploredAchievementId[];
+  /** 개인 보스별 최고 처치 위험도. 위험도 기능 전의 응답에는 없다. */
+  bossRisk?: UnexploredBossRiskRecord;
   refundGoldCost: number;
   summonStoneCraftCost: {
     baseGoldCost: number;

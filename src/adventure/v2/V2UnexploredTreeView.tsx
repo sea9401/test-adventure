@@ -2,6 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 
+import {
+  maxSelectableBossRisk,
+  riskBossCoreCount,
+  riskHpMultiplier,
+  riskJackpotChancePct,
+  riskMinimumQualityPct,
+  riskStatMultiplier,
+} from "@/adventure/data/v2/unexploredBossRisk";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { UnexploredPresetIndex } from "@/adventure/data/v2/unexploredState";
 import { UnexploredPresetSelector } from "./UnexploredPresetSelector";
@@ -89,6 +97,8 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_request: "장비 제작 요청을 확인해 주세요.",
   request_conflict: "제작 요청 식별자가 충돌했습니다. 다시 시도해 주세요.",
   not_enough_summon_stones: "사용할 소환석이 없습니다.",
+  risk_tier_locked: "아직 열리지 않은 위험도입니다.",
+  invalid_risk_tier: "위험도 값이 올바르지 않습니다.",
   too_many_active: "같은 우두머리의 활성 세션이 너무 많습니다.",
 };
 
@@ -143,6 +153,11 @@ function formatPct(value: number): string {
   return `${value > 0 ? "+" : ""}${value}%`;
 }
 
+/** 배율·확률을 소수 둘째 자리까지, 끝의 0 없이 적는다. */
+function formatRiskMultiplier(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
 export function V2UnexploredTreeView({
   initialSnapshot = null,
   onBack,
@@ -164,6 +179,7 @@ export function V2UnexploredTreeView({
   const [activeTab, setActiveTab] = useState<UnexploredTab>("tree");
   const [nodeSearch, setNodeSearch] = useState("");
   const [bossBusy, setBossBusy] = useState<UnexploredBossId | null>(null);
+  const [pickedRisk, setPickedRisk] = useState<Partial<Record<UnexploredBossId, number>>>({});
   const [equipmentCraftBusy, setEquipmentCraftBusy] =
     useState<V2EquipmentId | null>(null);
   const pendingCraftRequestIds = useRef<
@@ -353,14 +369,14 @@ export function V2UnexploredTreeView({
     }
   }
 
-  async function summonPersonalBoss(bossId: UnexploredBossId) {
+  async function summonPersonalBoss(bossId: UnexploredBossId, riskTier: number) {
     if (bossBusy) return;
     setBossBusy(bossId);
     try {
       const response = await fetch("/api/v2/unexplored/summon", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bossId }),
+        body: JSON.stringify(riskTier > 0 ? { bossId, riskTier } : { bossId }),
       });
       const body = (await response.json()) as {
         error?: string;
@@ -382,7 +398,10 @@ export function V2UnexploredTreeView({
         return { ...current, materials };
       });
       // 소환 후에도 흔적 보관함에 머문다. 여러 마리 연속 소환 흐름(협동 보스 목록과 같은 동작).
-      notifySystem(`✓ ${UNEXPLORED_BOSSES[bossId].name}을 소환했습니다.`, "success");
+      notifySystem(
+        `✓ ${UNEXPLORED_BOSSES[bossId].name}${riskTier > 0 ? `(위험도 ${riskTier})` : ""}을 소환했습니다.`,
+        "success",
+      );
     } catch (error) {
       notifySystem(`✗ ${(error as Error).message}`, "error");
     } finally {
@@ -1103,6 +1122,13 @@ export function V2UnexploredTreeView({
               scrolls >= UNEXPLORED_SUMMON_STONE_SCROLL_COST &&
               spendableGold >= craftCost.goldCost;
             const craftingUnlocked = snapshot.effects?.traceEnabled === true;
+            // 위험도 — 이 보스를 처치한 위험도 다음 단계까지 고를 수 있다.
+            const bestRisk = snapshot.bossRisk?.[bossId] ?? 0;
+            const maxRisk = maxSelectableBossRisk({
+              defeated: snapshot.achievementIds.includes(`defeat_${bossId}`),
+              best: bestRisk,
+            });
+            const riskTier = Math.min(pickedRisk[bossId] ?? 0, maxRisk);
             return (
               <article key={bossId} className={`${SURFACE_INSET} space-y-3 p-3`}>
                 <div className="flex items-center justify-between gap-2">
@@ -1144,6 +1170,36 @@ export function V2UnexploredTreeView({
                     ))}
                   </ul>
                 </div>
+                {maxRisk > 0 && (
+                  <div className="space-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label={`${boss.name} 위험도`}
+                        value={riskTier}
+                        disabled={bossBusy !== null}
+                        onChange={(event) => {
+                          const picked = Number(event.target.value);
+                          setPickedRisk((current) => ({ ...current, [bossId]: picked }));
+                        }}
+                        className="min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                      >
+                        {Array.from({ length: maxRisk + 1 }, (_, tier) => (
+                          <option key={tier} value={tier}>위험도 {tier}</option>
+                        ))}
+                      </select>
+                      <span>최고 처치 위험도 {bestRisk}</span>
+                    </div>
+                    {riskTier > 0 && (
+                      <>
+                        <p>체력 {formatRiskMultiplier(riskHpMultiplier(riskTier))}배 · 공격·방어 {formatRiskMultiplier(riskStatMultiplier(riskTier))}배</p>
+                        <p>
+                          우두머리 핵 {riskBossCoreCount(riskTier)}개 · 고유 장비 품질 {riskMinimumQualityPct(riskTier)}% 이상 · 가장 드문 고유{" "}
+                          {formatRiskMultiplier(riskJackpotChancePct(riskTier))}%
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     size="xs"
@@ -1171,7 +1227,7 @@ export function V2UnexploredTreeView({
                     loading={bossBusy === bossId}
                     disabled={bossBusy !== null || summonStones < 1}
                     aria-label={`${boss.name} 소환`}
-                    onClick={() => void summonPersonalBoss(bossId)}
+                    onClick={() => void summonPersonalBoss(bossId, riskTier)}
                   >
                     소환
                   </Button>

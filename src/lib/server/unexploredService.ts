@@ -141,6 +141,8 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     bankedGold: Math.max(0, Math.floor(Number(character.bankedGold) || 0)),
     materials: normalizedMaterials(character.materials),
     achievementIds: save.achievementIds,
+    // 개인 보스별 최고 처치 위험도. 소환할 때 고를 수 있는 위험도가 여기서 나온다.
+    bossRisk: save.bossRisk,
     refundGoldCost: UNEXPLORED_REFUND_GOLD_COST,
   };
 }

@@ -187,6 +187,11 @@ function CoopSessionCard({
                   무료 지원 가능
                 </span>
               )}
+              {session.riskTier ? (
+                <span className="ml-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                  위험도 {session.riskTier}
+                </span>
+              ) : null}
               {session.summonedByName && (
                 <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                   {session.summonedByName} 님이 소환
@@ -397,6 +402,7 @@ export function V2CoopBossListView({
           <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
             {lastReward.rewardMode === "unexplored_personal" ? (
               <>
+                {lastReward.riskTier ? <li>위험도 {lastReward.riskTier} 처치</li> : null}
                 <li>우두머리 핵 ×{lastReward.bossCore}</li>
                 <li>연결 특화 재료 ×{lastReward.poolMaterialCount}</li>
                 {lastReward.uniqueNames.map((name, index) => (

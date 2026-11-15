@@ -104,6 +104,25 @@ describe("GET /api/v2/coop", () => {
     });
   });
 
+  it("개인 보스 세션의 위험도를 목록에 싣는다", async () => {
+    const session = (id: string, mechanicState: unknown) => ({
+      id, regionId: "tracking_weapon", hp: 80, maxHp: 100, mechanicState,
+      expiresAt: new Date(Date.now() + 60_000), summonedByName: "viewer", summonerId: "viewer",
+      summonerGuildId: null, visibility: "summoner_only", spawnedAt: new Date(), defeatedAt: null,
+    });
+    mocks.queryRows.push(
+      [session("risky", { trackingThreat: 0, riskTier: 6 }), session("plain", { trackingThreat: 0 })],
+      [], [], [], [],
+    );
+
+    const body = await (await GET()).json();
+
+    expect(body.sessions.map((entry: { id: string; riskTier: number }) => [entry.id, entry.riskTier])).toEqual([
+      ["risky", 6],
+      ["plain", 0],
+    ]);
+  });
+
   it("개인 보스는 이전에 켜 둔 무료 지원 값이 남아 있어도 목록에 비허용으로 표시한다", async () => {
     mocks.queryRows.push(
       [{

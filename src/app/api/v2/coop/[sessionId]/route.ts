@@ -254,6 +254,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       defeatedAt: session.defeatedAt?.getTime() ?? null,
       defeated: session.defeatedAt !== null && session.hp <= 0,
       expired,
+      riskTier: coopBossRiskTier(session.mechanicState),
       summonedByName: session.summonedByName,
       // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부. 소환자만 상세에서 범위 변경 가능.
       visibility: parseCoopVisibility(session.visibility),

@@ -445,6 +445,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(hunting).toContain("은행 예치금");
     expect(hunting).toContain("골드 페널티 계산에서 무승부");
     expect(economy).toContain("지역 세금은 붙지 않습니다");
+    expect(economy).toContain("사냥터에서 스태미나가 바닥나면 그 자리에 뜨는 버튼");
     expect(combat).not.toContain("패배해도 페널티는 없습니다");
     expect(hunting).not.toContain("추가 손실은 없습니다");
   });

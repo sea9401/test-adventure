@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { AdventurerMasteryNotice } from "@/adventure/v2/AdventurerMasteryNotice";
 import { HuntNextStepCard } from "@/adventure/v2/HuntNextStepCard";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
+import { LowStaminaPotionPrompt } from "@/adventure/v2/LowStaminaPotionPrompt";
 import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
 import { type HpBarState } from "@/adventure/v2/HpBar";
 import {
@@ -1654,6 +1655,8 @@ export function V2DungeonFloorView({
           </div>
         )}
       </Card>
+
+      {lowStamina && <LowStaminaPotionPrompt />}
 
       {needsRecovery && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-zinc-950">

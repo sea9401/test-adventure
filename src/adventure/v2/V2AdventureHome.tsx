@@ -25,6 +25,8 @@ import type {
   ProfileShowcaseSlots,
 } from "@/adventure/profile/profileShowcase";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
+import { LifeCollectAllCard } from "./LifeCollectAllCard";
+import { lifePerkUnlocked } from "./lifeMajorRules";
 import {
   DEFAULT_ADVENTURE_HOME_PREFERENCES,
   type AdventureHomePreferences,
@@ -226,6 +228,9 @@ export function V2AdventureHome() {
         onRetry={() => void refreshDashboard()}
       />
     ),
+    life_collect: lifePerkUnlocked(snapshot?.lifeRenown ?? 0, "collect_all") ? (
+      <LifeCollectAllCard onDone={() => void refreshDashboard()} />
+    ) : null,
     quest_rewards: <GuideQuestBanner />,
     hot_time: state?.hotTime ? <HotTimeBanner hotTime={state.hotTime} /> : null,
     announcements: <V2AnnouncementsPanel />,

@@ -34,6 +34,14 @@ describe("모험 대시보드 API", () => {
     expect((await GET()).status).toBe(401);
   });
 
+  it("생활 명성을 함께 돌려준다", async () => {
+    expect((await (await GET()).json()).lifeRenown).toBe(0);
+    mocks.saves = {
+      "life-major.v1": { major: "mining", masteryXp: { mining: 480_200 + 48_020 * 20 } },
+    };
+    expect((await (await GET()).json()).lifeRenown).toBe(30);
+  });
+
   it("저장된 비활성 활동을 요약과 알림에서 제외한다", async () => {
     const now = Date.now();
     mocks.saves = {

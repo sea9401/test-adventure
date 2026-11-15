@@ -235,6 +235,11 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("거장 등급");
     expect(html).toContain("10분의 1입니다");
     expect(html).toContain("거장 등급 합계 50에서");
+    expect(html).toContain("생활 명성");
+    for (const perk of ["정산하고 다시 시작", "수확하고 다시 심기", "대량 처리", "생활 한 번에 정산"]) {
+      expect(html).toContain(perk);
+    }
+    expect(html).toContain("한 번에 300회");
     expect(html).toContain("캐릭터 &gt; 내 정보 &gt; 생활 기록");
     expect(html).toContain("Lv.100 생활이 하나만 있어도 주전공을 정할 수 있습니다");
     for (const name of ["명장 작물", "명장 목재", "명장 합금", "명장 어획"]) {

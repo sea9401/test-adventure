@@ -82,6 +82,7 @@ export function AdventureDashboardProvider({ children }: { children: ReactNode }
           activities: json.activities,
           summary: json.summary,
           notifications: json.notifications,
+          lifeRenown: Math.max(0, Math.floor(Number(json.lifeRenown) || 0)),
         });
         setError(null);
       } catch {

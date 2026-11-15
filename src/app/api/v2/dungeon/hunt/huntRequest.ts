@@ -91,9 +91,11 @@ export async function handleHunt(req: Request, userId: string) {
     let totalExp = 0;
     let explorationXpGained = 0;
     let explorationPointsGained = 0;
+    let explorationGradesGained = 0;
     let explorationAfter: {
       xpAfter: number;
       xpPoints: number;
+      grade: number;
     } | null = null;
     let totalProficiency = 0;
     let totalGold = 0;
@@ -181,9 +183,11 @@ export async function handleHunt(req: Request, userId: string) {
       if (res.exploration) {
         explorationXpGained += res.exploration.xpGained;
         explorationPointsGained += res.exploration.pointsGained;
+        explorationGradesGained += res.exploration.gradesGained;
         explorationAfter = {
           xpAfter: res.exploration.xpAfter,
           xpPoints: res.exploration.xpPoints,
+          grade: res.exploration.grade,
         };
       }
       totalProficiency += res.proficiencyGained;
@@ -338,6 +342,8 @@ export async function handleHunt(req: Request, userId: string) {
                   xpAfter: explorationAfter.xpAfter,
                   xpPoints: explorationAfter.xpPoints,
                   pointsGained: explorationPointsGained,
+                  gradesGained: explorationGradesGained,
+                  grade: explorationAfter.grade,
                 },
               }
             : {}),

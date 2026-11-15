@@ -1,4 +1,8 @@
 import {
+  UNEXPLORED_TRACE_CAP_MAX,
+  UNEXPLORED_TRACE_CAP_TIERS,
+} from "./unexploredGrade";
+import {
   UNEXPLORED_MONSTER_POOLS,
   UNEXPLORED_POOL_IDS,
   type UnexploredPoolId,
@@ -8,7 +12,8 @@ export {
   UNEXPLORED_SUMMON_STONE_MATERIALS,
 } from "./unexploredBosses";
 
-export const UNEXPLORED_TRACE_CAP = 2_500;
+/** 기본 흔적 보관 상한. 탐사 등급이 오르면 늘어난다(unexploredGrade.ts 의 unexploredTraceCap). */
+export const UNEXPLORED_TRACE_CAP = UNEXPLORED_TRACE_CAP_TIERS[0].cap;
 
 export const UNEXPLORED_BASE_DROP_MATERIALS = {
   v2_unexplored_star_sea_shell: {
@@ -93,6 +98,7 @@ export function rollUnexploredTraceAmount(params: {
   return roll * 100 < chance ? 2 : 1;
 }
 
+// 읽을 때는 가장 높은 보관 상한으로만 자른다. 계정별 상한은 받을 때(grantUnexploredTrace) 적용한다.
 export function parseUnexploredTraces(raw: unknown): UnexploredTraceState {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const source = raw as Record<string, unknown>;
@@ -100,7 +106,7 @@ export function parseUnexploredTraces(raw: unknown): UnexploredTraceState {
     UNEXPLORED_POOL_IDS.flatMap((poolId) => {
       const value = Math.floor(Number(source[poolId]));
       return Number.isFinite(value) && value > 0
-        ? [[poolId, Math.min(UNEXPLORED_TRACE_CAP, value)]]
+        ? [[poolId, Math.min(UNEXPLORED_TRACE_CAP_MAX, value)]]
         : [];
     }),
   );
@@ -110,11 +116,13 @@ export function grantUnexploredTrace(
   raw: unknown,
   poolId: UnexploredPoolId,
   amount = 1,
+  cap: number = UNEXPLORED_TRACE_CAP,
 ): { traces: UnexploredTraceState; granted: number } {
   const traces = parseUnexploredTraces(raw);
   const before = traces[poolId] ?? 0;
   const requested = Math.max(0, Math.floor(Number(amount) || 0));
-  const after = Math.min(UNEXPLORED_TRACE_CAP, before + requested);
+  // 상한보다 많이 가진 흔적은 줄이지 않는다.
+  const after = Math.max(before, Math.min(cap, before + requested));
   return {
     traces: after > 0 ? { ...traces, [poolId]: after } : traces,
     granted: after - before,

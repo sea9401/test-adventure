@@ -279,7 +279,7 @@ describe("unexplored service", () => {
     expect(lowered.ok).toBe(true);
     if (!lowered.ok) return;
     expect(lowered.character.gold).toBe(1_000_000);
-    expect(lowered.character.unexplored.difficultyCaps).toEqual([120, 130, 130]);
+    expect(lowered.character.unexplored.difficultyCaps).toEqual([120, 130, 130, 130, 130]);
     expect(lowered.character.unexplored.selectedNodeIds).toEqual(selectedNodeIds);
     expect(lowered.snapshot).toMatchObject({
       difficulty: 120,

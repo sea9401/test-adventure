@@ -65,6 +65,7 @@ const DIFFICULTY_CAP_OPTIONS = Array.from(
 
 const ERROR_TEXT: Record<string, string> = {
   invalid_preset: "선택할 수 없는 프리셋입니다.",
+  preset_locked: "탐사 등급이 모자라 아직 쓸 수 없는 프리셋입니다.",
   preset_changed: "다른 화면에서 프리셋이 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
   level_required: "100레벨 달성 후 탐사망을 변경할 수 있습니다.",
   unknown_node: "존재하지 않는 탐사 노드입니다.",
@@ -512,14 +513,26 @@ export function V2UnexploredTreeView({
           <p className="text-xs font-medium text-amber-800 dark:text-amber-200">탐사 포인트</p>
           <p className="text-lg font-bold">{snapshot.spentPoints} / {snapshot.earnedPoints}</p>
         </div>
-        <div>
-          <p className="text-xs font-medium text-amber-800 dark:text-amber-200">탐사 경험치</p>
-          <p className="text-lg font-bold">
-            {snapshot.nextPointCost > 0
-              ? `${snapshot.explorationXp.toLocaleString()} / ${snapshot.nextPointCost.toLocaleString()}`
-              : "완료"}
-          </p>
-        </div>
+        {snapshot.nextPointCost > 0 ? (
+          <div>
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">탐사 경험치</p>
+            <p className="text-lg font-bold">
+              {snapshot.explorationXp.toLocaleString()} / {snapshot.nextPointCost.toLocaleString()}
+            </p>
+          </div>
+        ) : (
+          // 탐사 포인트 30개를 채운 뒤에는 같은 경험치가 탐사 등급으로 쌓인다.
+          <div>
+            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">탐사 등급</p>
+            <p className="text-lg font-bold">{snapshot.explorationGrade.toLocaleString()}등급</p>
+            <p className="text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+              다음 등급까지 {snapshot.gradeXp.toLocaleString()} / {snapshot.gradeXpCost.toLocaleString()}
+            </p>
+            <p className="text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+              탐사 포인트 +1: {snapshot.nextGradePointGrade.toLocaleString()}등급
+            </p>
+          </div>
+        )}
         <div>
           <p className="text-xs font-medium text-amber-800 dark:text-amber-200">현재 사냥터</p>
           <p className="text-lg font-bold">난이도 {snapshot.difficulty}</p>
@@ -1046,7 +1059,8 @@ export function V2UnexploredTreeView({
               <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 우두머리의 흔적 노드를 활성화한 뒤 모든 특화
                 몬스터를 처치하면 획득합니다. 제작한 소환석은 노드나 레벨
-                상태와 관계없이 사용할 수 있습니다.
+                상태와 관계없이 사용할 수 있습니다. 흔적은
+                군마다 {snapshot.traceCap.toLocaleString()}개까지 보관합니다.
               </p>
             </div>
           </div>

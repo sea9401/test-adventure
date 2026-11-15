@@ -49,6 +49,14 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   xpPoints: 3,
   nextPointCost: 100,
   nextPointRemaining: 90,
+  explorationGrade: 0,
+  gradeXp: 0,
+  gradeXpCost: 15_000,
+  gradeBonusPoints: 0,
+  nextGradePointGrade: 5,
+  presetSlotCount: 3,
+  presetUnlockGrades: [0, 0, 0, 10, 40],
+  traceCap: 2_500,
   selectedNodeIds: ["start", "inner-0-0"],
   activePresetIndex: 0,
   nodePresets: [["start", "inner-0-0"], [], []],
@@ -89,6 +97,66 @@ function openUnexploredTab(
 }
 
 describe("V2UnexploredTreeView", () => {
+  it("30포인트를 채운 계정에는 탐사 등급과 다음 등급·다음 추가 포인트를 보여 준다", () => {
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          xpPoints: 30,
+          explorationXp: 301_234,
+          nextPointCost: 0,
+          nextPointRemaining: 0,
+          explorationGrade: 20,
+          gradeXp: 1_234,
+          gradeBonusPoints: 2,
+          nextGradePointGrade: 30,
+          presetSlotCount: 4,
+          traceCap: 3_500,
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("탐사 등급")).toBeTruthy();
+    expect(screen.getByText("20등급")).toBeTruthy();
+    expect(screen.getByText("다음 등급까지 1,234 / 15,000")).toBeTruthy();
+    expect(screen.getByText("탐사 포인트 +1: 30등급")).toBeTruthy();
+    expect(screen.queryByText("탐사 경험치")).toBeNull();
+
+    openUnexploredTab("흔적 보관함");
+    expect(screen.getByText(/군마다 3,500개까지 보관합니다/)).toBeTruthy();
+  });
+
+  it("30포인트 전에는 다음 포인트까지의 탐사 경험치를 보여 준다", () => {
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+
+    expect(screen.getByText("탐사 경험치")).toBeTruthy();
+    expect(screen.getByText("10 / 100")).toBeTruthy();
+    expect(screen.queryByText("탐사 등급")).toBeNull();
+  });
+
+  it("잠긴 프리셋 칸은 필요한 탐사 등급을 적고 누를 수 없다", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{ ...SNAPSHOT, explorationGrade: 12, presetSlotCount: 4 }}
+        onBack={vi.fn()}
+      />,
+    );
+    const presets = screen.getByRole("group", { name: "개척 노드 프리셋" });
+
+    const fourth = within(presets).getByRole("button", { name: "프리셋 4" }) as HTMLButtonElement;
+    expect(fourth.disabled).toBe(false);
+    const fifth = within(presets).getByRole("button", {
+      name: "프리셋 5, 탐사 등급 40 필요",
+    }) as HTMLButtonElement;
+    expect(fifth.disabled).toBe(true);
+    expect(within(fifth).getByText("탐사 등급 40")).toBeTruthy();
+    fireEvent.click(fifth);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("shows three independent presets and applies the server's switched allocation", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true, snapshot: {
       ...SNAPSHOT, activePresetIndex: 1, spentPoints: 0, selectedNodeIds: [],
@@ -96,7 +164,10 @@ describe("V2UnexploredTreeView", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
     const presets = screen.getByRole("group", { name: "개척 노드 프리셋" });
-    expect(within(presets).getAllByRole("button")).toHaveLength(3);
+    expect(within(presets).getAllByRole("button")).toHaveLength(5);
+    expect(
+      within(presets).getAllByRole("button").filter((button) => !(button as HTMLButtonElement).disabled),
+    ).toHaveLength(3);
     expect(within(presets).getByRole("button", { name: "프리셋 1" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(within(presets).getByRole("button", { name: "프리셋 1" }));
     expect(fetchMock).not.toHaveBeenCalled();

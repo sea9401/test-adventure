@@ -44,14 +44,28 @@ export function applyHuntAdventureProgress(
   enemyName: string,
   nowMs: number,
   uniqueEquipment?: UniqueEquipmentAcquisitionEvidence,
+  // 이번 승리로 조건을 채운 칭호(탐사 등급 등). 이미 있는 칭호는 획득 시각을 바꾸지 않는다.
+  titleIds: readonly string[] = [],
 ): AdventureLogSave {
-  const killed = applyMonsterKill(logSave, enemyName, nowMs);
+  const killed = withTitles(applyMonsterKill(logSave, enemyName, nowMs), titleIds, nowMs);
   return uniqueEquipment
     ? applyUniqueEquipmentAcquisitions({
         adventureLogRaw: killed,
         ...uniqueEquipment,
       })
     : killed;
+}
+
+function withTitles(
+  logSave: AdventureLogSave,
+  titleIds: readonly string[],
+  nowMs: number,
+): AdventureLogSave {
+  const missing = titleIds.filter((titleId) => !logSave.titles?.[titleId]);
+  if (missing.length === 0) return logSave;
+  const titles = { ...(logSave.titles ?? {}) };
+  for (const titleId of missing) titles[titleId] = { obtainedAt: nowMs };
+  return { ...logSave, titles };
 }
 
 // 전투수 랭킹용 몬스터 킬 카운터(adventure-log.v2) — 승리 시 서버 권위로 누적.
@@ -64,6 +78,7 @@ export async function recordMonsterKill(
   enemyName: string,
   nowMs: number,
   uniqueEquipment?: UniqueEquipmentAcquisitionEvidence,
+  titleIds: readonly string[] = [],
 ): Promise<void> {
   const logSave = await lockSaveForUpdate<AdventureLogSave>(
     tx,
@@ -75,6 +90,6 @@ export async function recordMonsterKill(
     tx,
     userId,
     "adventure-log.v2",
-    applyHuntAdventureProgress(logSave, enemyName, nowMs, uniqueEquipment),
+    applyHuntAdventureProgress(logSave, enemyName, nowMs, uniqueEquipment, titleIds),
   );
 }

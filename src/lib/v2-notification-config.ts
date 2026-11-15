@@ -36,6 +36,7 @@ export const V2_NOTIFICATION_TYPES = [
   "auction_unsold",
   "master_product",
   "grand_grade",
+  "exploration_grade",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -116,11 +117,27 @@ export function grandGradeNotificationText(payload: GrandGradeNotificationPayloa
   return `${payload.name} 거장 ${payload.grade.toLocaleString("ko-KR")}등급에 올랐습니다.`;
 }
 
+// exploration_grade — 미개척지 탐사 등급 상승. pointsGained 는 이번에 함께 받은 탐사 포인트 수.
+export type ExplorationGradeNotificationPayload = {
+  grade: number;
+  pointsGained: number;
+};
+
+export function explorationGradeNotificationText(
+  payload: ExplorationGradeNotificationPayload,
+): string {
+  const grade = `미개척지 탐사 ${Number(payload.grade).toLocaleString("ko-KR")}등급에 올랐습니다.`;
+  return Number(payload.pointsGained) > 0
+    ? `${grade} 탐사 포인트 ${Number(payload.pointsGained).toLocaleString("ko-KR")}개를 받았습니다.`
+    : grade;
+}
+
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
   | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload
   | GrandGradeNotificationPayload
+  | ExplorationGradeNotificationPayload
   | GuildKickedNotificationPayload
   | GuildDisbandedNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.

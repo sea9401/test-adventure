@@ -7,6 +7,8 @@
 // category 는 도감(TitlesTab) 의 섹션 그루핑에 사용된다. 새 카테고리를 만들면
 // TITLE_CATEGORY_ORDER 에도 등록.
 
+import { EXPLORATION_GRADE_TITLE_IDS } from "./v2/unexploredGrade";
+
 export type TitleId = string;
 
 export const ARENA_CHAMPION_TITLE_ID = "pvp_champion";
@@ -224,6 +226,27 @@ export const TITLES: Record<TitleId, Title> = {
     description: "여러 생활에서 거장의 길을 오래 걸어 온 사람.",
     condition: "거장 등급 합계 50 달성",
     category: "collection",
+  },
+  [EXPLORATION_GRADE_TITLE_IDS[10]]: {
+    id: EXPLORATION_GRADE_TITLE_IDS[10],
+    name: "미개척지 길잡이",
+    description: "탐사망을 다 채우고도 미개척지를 계속 걷는 사람.",
+    condition: "미개척지 탐사 등급 10 달성",
+    category: "exploration",
+  },
+  [EXPLORATION_GRADE_TITLE_IDS[50]]: {
+    id: EXPLORATION_GRADE_TITLE_IDS[50],
+    name: "미개척지 선도자",
+    description: "남들이 닿지 못한 곳까지 탐사를 이어 온 사람.",
+    condition: "미개척지 탐사 등급 50 달성",
+    category: "exploration",
+  },
+  [EXPLORATION_GRADE_TITLE_IDS[100]]: {
+    id: EXPLORATION_GRADE_TITLE_IDS[100],
+    name: "미개척지의 전설",
+    description: "미개척지 탐사의 끝을 스스로 넓혀 가는 사람.",
+    condition: "미개척지 탐사 등급 100 달성",
+    category: "exploration",
   },
   [LIFE_FESTIVAL_REGULAR_TITLE_ID]: {
     id: LIFE_FESTIVAL_REGULAR_TITLE_ID,

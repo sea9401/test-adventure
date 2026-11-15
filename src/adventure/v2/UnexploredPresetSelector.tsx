@@ -17,23 +17,45 @@ export function UnexploredPresetSelector({
 }) {
   return (
     <section className={`${SURFACE_CARD} space-y-2 p-3`}>
-      <div role="group" aria-label="개척 노드 프리셋" className="grid grid-cols-3 gap-2">
+      <div
+        role="group"
+        aria-label="개척 노드 프리셋"
+        className="grid grid-cols-3 gap-2 sm:grid-cols-5"
+      >
         {UNEXPLORED_PRESET_INDEXES.map((index) => {
           const active = snapshot.activePresetIndex === index;
-          const spent = active ? snapshot.spentPoints : snapshot.nodePresets[index].length;
+          // 넷째·다섯째 칸은 탐사 등급으로 열린다. 잠긴 칸은 필요한 등급을 바로 보여 준다.
+          const locked = index >= snapshot.presetSlotCount;
+          const requiredGrade = snapshot.presetUnlockGrades[index] ?? 0;
+          const spent = active
+            ? snapshot.spentPoints
+            : (snapshot.nodePresets[index]?.length ?? 0);
           return (
             <Button
               key={index}
-              aria-label={`프리셋 ${index + 1}`}
+              aria-label={
+                locked
+                  ? `프리셋 ${index + 1}, 탐사 등급 ${requiredGrade} 필요`
+                  : `프리셋 ${index + 1}`
+              }
               aria-pressed={active}
               variant={active ? "primary" : "secondary"}
-              disabled={!snapshot.eligible || busy}
+              disabled={!snapshot.eligible || busy || locked}
               className="py-2 [&>[data-button-content]]:flex-col [&>[data-button-content]]:gap-0.5"
-              onClick={() => { if (!active) onSelect(index); }}
+              onClick={() => { if (!active && !locked) onSelect(index); }}
             >
               <span>프리셋 {index + 1}</span>
-              <span className="text-xs">{spent} / {snapshot.earnedPoints}P</span>
-              <span className="text-xs">{active ? "사용 중" : "전환"}</span>
+              {locked ? (
+                <>
+                  <span className="text-xs">탐사 등급 {requiredGrade}</span>
+                  <span className="text-xs">잠김</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs">{spent} / {snapshot.earnedPoints}P</span>
+                  <span className="text-xs">{active ? "사용 중" : "전환"}</span>
+                </>
+              )}
             </Button>
           );
         })}

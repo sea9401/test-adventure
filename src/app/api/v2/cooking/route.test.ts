@@ -1239,6 +1239,28 @@ describe("/api/v2/cooking 요리 특화", () => {
     expect(savedCooking().discoveredRecipeIds.some((id) => id.startsWith("branch_"))).toBe(false);
   });
 
+  it("요리는 한 번에 20개까지, 대량 처리 편의가 열리면 50개까지 받는다", async () => {
+    mocks.store.set("cooking.v2", emptyCookingState(NOW));
+    const base = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
+    expect(base.craftQuantityLimit).toBe(20);
+    const over = await post({ action: "craft", recipeId: "no_such_recipe", quantity: 21 });
+    expect(await over.json()).toMatchObject({ error: "invalid_quantity" });
+
+    // 채광·벌목 명장 10단계 = 생활 명성 20.
+    mocks.store.set("life-major.v1", {
+      major: "mining",
+      minor: "woodcutting",
+      masteryXp: { mining: 480_200, woodcutting: 480_200 },
+    });
+    const unlocked = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();
+    expect(unlocked.craftQuantityLimit).toBe(50);
+    // 수량은 받아들여지고, 그다음 검사(모르는 레시피)에서 걸린다.
+    const allowed = await post({ action: "craft", recipeId: "no_such_recipe", quantity: 50 });
+    expect((await allowed.json()).error).not.toBe("invalid_quantity");
+    const tooMany = await post({ action: "craft", recipeId: "no_such_recipe", quantity: 51 });
+    expect(await tooMany.json()).toMatchObject({ error: "invalid_quantity" });
+  });
+
   it("조회 응답에 특화 정보가 실리고 도감 총수는 그대로다", async () => {
     seedBaker({ branch: { current: "baking_bread", xp: { baking_bread: 7_000 }, changedAt: NOW - HOUR } });
     const json = await (await GET(new Request("http://localhost/api/v2/cooking"))).json();

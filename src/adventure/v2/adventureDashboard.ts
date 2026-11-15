@@ -4,6 +4,8 @@ export const DEFAULT_ADVENTURE_HOME_WIDGET_ORDER = [
   // 튜토리얼 카드가 첫 화면 안에 보이도록 오늘의 모험 체크보다 앞에 둔다.
   "quest_rewards",
   "activity_checklist",
+  // 생활 명성으로 편의가 열린 계정에만 나타난다.
+  "life_collect",
   "hot_time",
   "announcements",
   "bulletin_preview",
@@ -79,6 +81,8 @@ export type AdventureDashboardSnapshot = {
   activities: AdventureActivityView[];
   summary: AdventureDashboardSummary;
   notifications: ReturnType<typeof activityTabDots>;
+  /** 생활 명성. 홈의 "생활 한 번에 정산" 편의가 열렸는지 판단한다. */
+  lifeRenown?: number;
 };
 
 const WIDGET_IDS = new Set<string>(DEFAULT_ADVENTURE_HOME_WIDGET_ORDER);

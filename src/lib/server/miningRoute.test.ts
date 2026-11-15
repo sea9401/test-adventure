@@ -209,8 +209,11 @@ describe("mining routes", () => {
       durationMs: 30 * 60_000,
     });
 
+    store.set("life-major.v1", { major: "mining", masteryXp: { mining: 480_200 + 48_020 * 2 } });
     const status = await (await STATUS()).json();
     expect(status.siteUpkeep).toEqual({ iron: 3, copper: 6 });
+    // 명장 10단계 + 거장 2등급.
+    expect(status.lifeRenown).toBe(12);
   });
 
   it("자동 벌목 중에는 수동 채광을 시작할 수 없다", async () => {

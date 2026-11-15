@@ -51,7 +51,8 @@ import {
 import { RANCH_ANIMAL_DEFINITIONS, ranchReadySlotCount } from "./ranch";
 import {
   farmBatchOutcomeText,
-  type FarmBatchAction,
+  farmReplantOutcomeText,
+  type FarmBusyBatchAction,
 } from "./farmBatchActions";
 import { FarmRanchPanel } from "./FarmRanchPanel";
 import { FarmEndgameShopPanel } from "./FarmEndgameShopPanel";
@@ -63,6 +64,8 @@ import { LIFE_LEVEL_CAP } from "./lifeLevelProgression";
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { ranchBreedNoticeText } from "./RanchLineageRow";
+import { lifePerkUnlocked } from "./lifeMajorRules";
 
 type FarmSectionKey =
   | "home"
@@ -127,6 +130,7 @@ export function AdventurerFarmPanel({
     busyPlotUpgrade,
     busyBreedCropId,
     busyRanchFeedSlotId,
+    busyRanchBreedSlotId,
     busyRanchCollect,
     busyRanchUpgradeSlotId,
     busyRanchRebuildSlotId,
@@ -151,6 +155,8 @@ export function AdventurerFarmPanel({
     uproot,
     plantAll,
     harvestAll,
+    harvestAndReplant,
+    lifeRenown,
     fertilizeAll,
     deliver,
     deliverSpecial,
@@ -161,6 +167,7 @@ export function AdventurerFarmPanel({
     breedCrop,
     feedRanchSlot,
     collectRanch,
+    breedRanchSlot,
     buyRanchSlot,
     rebuildRanchSlot,
     swapRanchSlots,
@@ -198,6 +205,15 @@ export function AdventurerFarmPanel({
       farm?.plots
         .filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
         .map((plot) => plot.id) ?? [],
+    [farm?.plots, now],
+  );
+  const readyPlots = useMemo(
+    () =>
+      farm?.plots.flatMap((plot) =>
+        plot.cropId && plot.readyAt && plot.readyAt <= now
+          ? [{ plotId: plot.id, cropId: plot.cropId }]
+          : [],
+      ) ?? [],
     [farm?.plots, now],
   );
   const plantablePlotIds = useMemo(() => {
@@ -391,6 +407,9 @@ export function AdventurerFarmPanel({
         ),
       };
     }
+    if (notice.kind === "batchReplant") {
+      return { id: notice.id, tone: "ok", text: farmReplantOutcomeText(notice) };
+    }
     if (notice.kind === "batchFertilizer") {
       return {
         id: notice.id,
@@ -407,6 +426,13 @@ export function AdventurerFarmPanel({
             ? `축사에 배합 사료 ${notice.result.amount}개를 사용했습니다. 보유 사료 ${notice.result.feedRemaining}개.`
             : "채울 수 있는 사료가 없습니다."
           : `배합 사료 ${notice.result.amount}개를 넣었습니다. 남은 사료 ${notice.result.feedRemaining}개.`,
+      };
+    }
+    if (notice.kind === "ranchBreed") {
+      return {
+        id: notice.id,
+        tone: notice.result.success ? "ok" : "warn",
+        text: ranchBreedNoticeText(notice.result),
       };
     }
     if (notice.kind === "ranchCollect") {
@@ -550,6 +576,11 @@ export function AdventurerFarmPanel({
                   fertilizerCount={fertilizablePlotIds.length}
                   busyAction={busyPlotAction}
                   onHarvestAll={() => void harvestAll(readyPlotIds)}
+                  onHarvestAndReplant={
+                    lifePerkUnlocked(lifeRenown, "farm_replant")
+                      ? () => void harvestAndReplant(readyPlots)
+                      : undefined
+                  }
                   onPlantAll={() =>
                     selectedCrop &&
                     void plantAll(plantablePlotIds, selectedCrop.id)
@@ -601,6 +632,9 @@ export function AdventurerFarmPanel({
                   onRebuild={(slotId, animalId) => void rebuildRanchSlot(slotId, animalId)}
                   busySwap={busyRanchSwap}
                   onSwap={(fromSlotId, toSlotId) => void swapRanchSlots(fromSlotId, toSlotId)}
+                  breedingInfo={breedingInfo}
+                  busyBreedSlotId={busyRanchBreedSlotId}
+                  onBreed={(slotId) => void breedRanchSlot(slotId)}
                   onOpenLifeWorkshop={onOpenLifeWorkshop}
                 />
               </div>
@@ -1495,6 +1529,7 @@ export function FarmBatchActionPanel({
   fertilizerCount,
   busyAction,
   onHarvestAll,
+  onHarvestAndReplant,
   onPlantAll,
   onFertilizeAll,
 }: {
@@ -1502,8 +1537,10 @@ export function FarmBatchActionPanel({
   harvestCount: number;
   plantCount: number;
   fertilizerCount: number;
-  busyAction: FarmBatchAction | null;
+  busyAction: FarmBusyBatchAction | null;
   onHarvestAll: () => void;
+  /** 수확하고 같은 작물을 다시 심는다. 편의가 열렸을 때만 넘긴다. */
+  onHarvestAndReplant?: () => void;
   onPlantAll: () => void;
   onFertilizeAll: () => void;
 }) {
@@ -1516,7 +1553,7 @@ export function FarmBatchActionPanel({
       role="group"
       aria-label="농장 일괄 작업"
       aria-busy={busy}
-      className={`${SURFACE_INSET} grid gap-2 p-3 sm:grid-cols-3`}
+      className={`${SURFACE_INSET} grid gap-2 p-3 ${onHarvestAndReplant ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
     >
       <button
         type="button"
@@ -1528,6 +1565,18 @@ export function FarmBatchActionPanel({
           ? "모두 수확 중..."
           : `모두 수확 · ${harvestCount}칸`}
       </button>
+      {onHarvestAndReplant ? (
+        <button
+          type="button"
+          disabled={busy || harvestCount < 1}
+          onClick={onHarvestAndReplant}
+          className={buttonClass}
+        >
+          {busyAction === "replant"
+            ? "수확하고 다시 심는 중..."
+            : `수확하고 다시 심기 · ${harvestCount}칸`}
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={busy || plantCount < 1}

@@ -109,6 +109,36 @@ describe("life workshop route", () => {
     expect(grantedTitles).toContain("life_processing_first");
   });
 
+  it("가공은 한 번에 100회까지, 대량 처리 편의가 열리면 300회까지 받는다", async () => {
+    store.set("character.v2", { materials: { [WOODCUTTING_MATERIAL_ID.pine]: 5_000 } });
+
+    const over = await POST(request({ action: "process", recipeId: "pine_softwood", batches: 101 }));
+    expect(over.status).toBe(400);
+    const base = await (await GET()).json();
+    expect(base.processBatchLimit).toBe(100);
+    expect(base.recipes.find((recipe: { id: string }) => recipe.id === "pine_softwood").maxBatches).toBe(100);
+
+    // 채광·벌목 명장 10단계 = 생활 명성 20.
+    store.set("life-major.v1", {
+      major: "mining",
+      minor: "woodcutting",
+      masteryXp: { mining: 480_200, woodcutting: 480_200 },
+    });
+    const unlocked = await (await GET()).json();
+    expect(unlocked.processBatchLimit).toBe(300);
+    expect(unlocked.recipes.find((recipe: { id: string }) => recipe.id === "pine_softwood").maxBatches).toBe(300);
+
+    const bulk = await POST(request({ action: "process", recipeId: "pine_softwood", batches: 300 }));
+    const json = await bulk.json();
+    expect(bulk.status).toBe(200);
+    expect(json.result).toMatchObject({ produced: 300 });
+    expect(json.processBatchLimit).toBe(300);
+    expect(json.materials[WOODCUTTING_MATERIAL_ID.pine]).toBe(2_000);
+
+    const tooMany = await POST(request({ action: "process", recipeId: "pine_softwood", batches: 301 }));
+    expect(tooMany.status).toBe(400);
+  });
+
   it("도구 승급 시 가공품과 채광 부산물을 함께 소모한다", async () => {
     store.set("character.v2", {
       materials: {

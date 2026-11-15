@@ -358,6 +358,23 @@ describe("농장 일괄 작업", () => {
     expect(busyHtml.match(/disabled=""/g)).toHaveLength(3);
     expect(busyHtml).toContain("모두 수확 중...");
   });
+
+  it("편의가 열리면 수확하고 다시 심기 버튼을 더한다", () => {
+    const locked = renderToStaticMarkup(<FarmBatchActionPanel {...commonProps} />);
+    expect(locked).not.toContain("수확하고 다시 심기");
+
+    const unlocked = renderToStaticMarkup(
+      <FarmBatchActionPanel {...commonProps} onHarvestAndReplant={vi.fn()} />,
+    );
+    expect(unlocked).toContain("수확하고 다시 심기 · 2칸");
+    expect(unlocked).toContain("sm:grid-cols-2");
+
+    const busy = renderToStaticMarkup(
+      <FarmBatchActionPanel {...commonProps} busyAction="replant" onHarvestAndReplant={vi.fn()} />,
+    );
+    expect(busy).toContain("수확하고 다시 심는 중...");
+    expect(busy.match(/disabled=""/g)).toHaveLength(4);
+  });
 });
 
 describe("농장 납품 정렬", () => {

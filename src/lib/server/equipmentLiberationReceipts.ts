@@ -10,6 +10,9 @@ export type EquipmentLiberationReceiptResponse = {
   spentGold: number;
   spentEnchantScrolls?: number;
   cashItems?: Record<string, number>;
+  /** 줄 고정에 쓴 세공 보석과 남은 세공 보석(재료 id → 개수). */
+  spentCutGems?: Record<string, number>;
+  cutGems?: Record<string, number>;
 };
 
 export type EquipmentLiberationReceipt<Response = EquipmentLiberationReceiptResponse> = {

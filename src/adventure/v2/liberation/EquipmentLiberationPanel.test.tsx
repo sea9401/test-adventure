@@ -332,5 +332,97 @@ describe("장비 마법부여 작업대", () => {
     const dialog = screen.getByRole("dialog", { name: "최초 마법부여 확인" });
     expect(within(dialog).getByRole("button", { name: "마법부여서 1장 쓰고 마법부여" })).toBeTruthy();
   });
-});
 
+  describe("세공 보석으로 줄 고정", () => {
+    const threeLine: V2EquipInstance = {
+      ...initialItem,
+      bound: true,
+      liberation: {
+        rank: 2,
+        lineCount: 3,
+        revision: 9,
+        options: [
+          { id: "base_str_pct", level: 8 },
+          { id: "skill_crit_damage_pp", level: 6 },
+          { id: "base_dex_pct", level: 7 },
+        ],
+      },
+    };
+
+    it("2줄 이상인 장비는 남길 줄을 고르고 줄 수보다 하나 적게까지만 고를 수 있다", () => {
+      renderPanel(threeLine, { cutGems: { v2_cut_gem_polished: 9, v2_cut_gem_refined: 2 } });
+      const toggles = screen.getAllByRole("button", { name: /줄 고정/ });
+      expect(toggles).toHaveLength(3);
+      // 2단계 장비라 다듬은 보석은 쓸 수 없다.
+      expect(screen.getByText("이 장비에 쓸 수 있는 세공 보석 2개")).toBeTruthy();
+
+      fireEvent.click(toggles[0]);
+      fireEvent.click(toggles[2]);
+      expect(toggles[0].getAttribute("aria-pressed")).toBe("true");
+      expect(toggles[2].getAttribute("aria-pressed")).toBe("true");
+      // 세 줄을 모두 고정할 수는 없다.
+      expect((toggles[1] as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByText("2줄 고정: 세공 보석 2개, 골드 10,000,000 G 추가")).toBeTruthy();
+      expect(screen.getByText(/비용/).textContent).toContain("25,000,000 G");
+    });
+
+    it("1줄 장비와 처음 마법부여하는 장비에는 줄 고정이 없다", () => {
+      const oneLine: V2EquipInstance = {
+        ...initialItem,
+        bound: true,
+        liberation: { rank: 3, lineCount: 1, revision: 2, options: [{ id: "base_str_pct", level: 4 }] },
+      };
+      const { unmount } = renderPanel(oneLine, { cutGems: { v2_cut_gem_polished: 9 } });
+      expect(screen.queryByRole("button", { name: /줄 고정/ })).toBeNull();
+      unmount();
+      renderPanel(initialItem, { cutGems: { v2_cut_gem_polished: 9 } });
+      expect(screen.queryByRole("button", { name: /줄 고정/ })).toBeNull();
+    });
+
+    it("고정한 줄을 요청에 싣고 남은 보석을 위로 알린다", async () => {
+      const onCutGemsUpdated = vi.fn();
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body));
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            item: {
+              ...threeLine,
+              liberation: { ...threeLine.liberation, revision: 10 },
+            },
+            gold: 0,
+            bankedGold: 10_000_000,
+            spentCutGems: { v2_cut_gem_refined: 1 },
+            cutGems: { v2_cut_gem_refined: 1 },
+            echoedLockedLines: body.lockedLines,
+          }),
+          { status: 200 },
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderPanel(threeLine, { cutGems: { v2_cut_gem_refined: 2 }, onCutGemsUpdated });
+
+      fireEvent.click(screen.getAllByRole("button", { name: /줄 고정/ })[1]);
+      fireEvent.click(screen.getByRole("button", { name: "재마법부여" }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      const sent = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+      expect(sent.lockedLines).toEqual([1]);
+      await waitFor(() => expect(onCutGemsUpdated).toHaveBeenCalledWith({ v2_cut_gem_refined: 1 }));
+    });
+
+    it("쓸 수 있는 보석이나 골드가 모자라면 재마법부여를 막고 이유를 알린다", () => {
+      const { unmount } = renderPanel(threeLine, { cutGems: { v2_cut_gem_polished: 9 } });
+      fireEvent.click(screen.getAllByRole("button", { name: /줄 고정/ })[0]);
+      expect(screen.getByText("이 장비에 쓸 수 있는 세공 보석이 모자랍니다.")).toBeTruthy();
+      expect((screen.getByRole("button", { name: "재마법부여" }) as HTMLButtonElement).disabled).toBe(true);
+      unmount();
+
+      // 기본 비용은 낼 수 있지만 줄 고정 추가분까지는 모자란다.
+      renderPanel(threeLine, { cutGems: { v2_cut_gem_refined: 2 }, gold: 16_000_000, bankedGold: 0 });
+      expect((screen.getByRole("button", { name: "재마법부여" }) as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(screen.getAllByRole("button", { name: /줄 고정/ })[0]);
+      expect((screen.getByRole("button", { name: "재마법부여" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+});

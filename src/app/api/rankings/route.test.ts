@@ -261,6 +261,50 @@ describe("개인 랭킹", () => {
     );
   });
 
+  it("생활 숙련도가 같으면 거장 등급 합계가 높은 쪽이 앞서고 합계를 함께 돌려준다", async () => {
+    // 같은 지표의 앞선 테스트 결과가 캐시에 남아 있어 모듈을 새로 불러온다.
+    vi.resetModules();
+    const { GET } = await import("./route");
+    const same = {
+      farm_save: { stats: { farmingXp: 500 } },
+      woodcutting_save: { cuts: 50, xp: 500 },
+      mining_save: { successes: 50, xp: 500 },
+      fishing_save: { xp: 500 },
+    };
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-plain",
+          name: "명장전",
+          avatar: "female1",
+          ...same,
+          // 갱신이 더 일러 예전 기준으로는 앞서던 계정.
+          updated_at: "2026-07-20T00:00:00.000Z",
+        },
+        {
+          user_id: "u-grand",
+          name: "거장",
+          avatar: "male1",
+          ...same,
+          life_major_save: {
+            major: "farming",
+            masteryXp: { farming: 120_050 + 12_005 * 4, cooking: 120_050 + 12_005 * 2 },
+          },
+          updated_at: "2026-07-20T00:00:01.000Z",
+        },
+      ],
+    });
+
+    const json = await (
+      await GET(new Request("http://localhost/api/rankings?metric=lifeMastery"))
+    ).json();
+
+    expect(json.list.map((entry: { name: string }) => entry.name)).toEqual(["거장", "명장전"]);
+    expect(json.list[0].lifeMastery).toBe(json.list[1].lifeMastery);
+    expect(json.list[0].lifeGrandGrade).toBe(6);
+    expect(json.list[1].lifeGrandGrade).toBe(0);
+  });
+
   it("직업·장비·어보 수집 수로 도감 완성도 순위를 매긴다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

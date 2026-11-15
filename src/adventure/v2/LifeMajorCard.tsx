@@ -11,12 +11,18 @@ import {
   FARM_BREEDING_STAGE_COSTS,
 } from "./farmBreedingRules";
 import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
+import { RANCH_LINEAGE_MASTER_CROP_COST } from "./ranchLineageRules";
 import {
   GATHERING_SITE_MASTER_PRODUCT_COUNT,
   GATHERING_SITE_MASTER_STAGE,
 } from "./gatheringSiteUpkeep";
 import type { LifeMajorActivity, LifeMajorActivityView, LifeMajorView } from "./lifeMajor";
-import { LIFE_MAJOR_CHANGE_COOLDOWN_MS } from "./lifeMajorRules";
+import {
+  LIFE_MAJOR_CHANGE_COOLDOWN_MS,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
+  LIFE_PERKS,
+} from "./lifeMajorRules";
 import {
   craftTemperingCatalyst,
   fetchLifeMajorView,
@@ -192,10 +198,55 @@ export function LifeMajorCard() {
       </div>
 
       <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">명장 혈통</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          농사 주전공 명장 {view.crafting.requiredStage}단계부터 목장에서 명품 혈통의 가축을 명장 혈통으로 교배할 수 있습니다. 교배마다 명장 작물 {RANCH_LINEAGE_MASTER_CROP_COST}개가 더 듭니다.
+        </p>
+      </div>
+
+      <div className={`${SURFACE_INSET} p-2.5`}>
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">명장 정비</p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           채광 또는 벌목 주전공 명장 {view.crafting.requiredStage}단계부터 생활 공방의 채집지 정비 탭에서 그 생활의 채집지를 {GATHERING_SITE_MASTER_STAGE}단계로 올릴 수 있습니다. 명장 합금 또는 명장 목재 {GATHERING_SITE_MASTER_PRODUCT_COUNT}개가 듭니다.
         </p>
+      </div>
+
+      <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">거장 등급</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          명장 10단계 뒤에도 전공 생활의 경험치가 쌓여 거장 등급이 상한 없이 오릅니다. 생활별 거장 {LIFE_MAJOR_GRAND_TITLE_GRADE}등급과 합계 {LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE}등급에서 칭호를 받고, 생활 숙련도 랭킹에서 순위가 같을 때 합계가 높은 쪽이 앞섭니다.
+        </p>
+      </div>
+
+      <div className={`${SURFACE_INSET} p-2.5`}>
+        <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+          생활 명성 {view.renown.toLocaleString("ko-KR")}
+        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          다섯 생활의 명장 단계와 거장 등급을 더한 값입니다. 명성이 오르면 반복 조작을 줄이는 편의가 열립니다.
+        </p>
+        <ul aria-label="편의 해금" className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
+          {LIFE_PERKS.map((perk) => {
+            const unlocked = view.renown >= perk.renown;
+            return (
+              <li key={perk.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{perk.name}</p>
+                  <p className="text-zinc-600 dark:text-zinc-300">{perk.description}</p>
+                </div>
+                <span
+                  className={
+                    unlocked
+                      ? "font-semibold text-emerald-700 dark:text-emerald-300"
+                      : "tabular-nums text-zinc-500 dark:text-zinc-400"
+                  }
+                >
+                  {unlocked ? "열림" : `명성 ${perk.renown}`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       <ul className="space-y-1.5">
@@ -248,8 +299,9 @@ function CatalystRow({
 }
 
 function MajorRow({ entry }: { entry: LifeMajorActivityView }) {
+  // 10단계 뒤에는 막대가 다음 거장 등급까지의 진행도를 보여 준다.
   const progress = entry.capped
-    ? 100
+    ? Math.min(100, (entry.grandXpInto / Math.max(1, entry.grandXpForNext)) * 100)
     : Math.min(100, (entry.stageXpInto / Math.max(1, entry.stageXpForNext)) * 100);
   return (
     <li className={`${SURFACE_INSET} p-2.5`}>
@@ -261,12 +313,20 @@ function MajorRow({ entry }: { entry: LifeMajorActivityView }) {
           </span>
         ) : null}
         <span className="ml-auto font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
-          명장 {entry.stage}단계
+          {entry.capped
+            ? `명장 ${entry.stage}단계 · 거장 ${entry.grandGrade.toLocaleString("ko-KR")}등급`
+            : `명장 ${entry.stage}단계`}
         </span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div className="h-full rounded-full bg-amber-500" style={{ width: `${progress}%` }} />
       </div>
+      {entry.capped ? (
+        <p className="mt-1.5 text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+          다음 등급까지 {entry.grandXpInto.toLocaleString("ko-KR")} /{" "}
+          {entry.grandXpForNext.toLocaleString("ko-KR")}
+        </p>
+      ) : null}
       {entry.role ? (
         <p className="mt-1.5 text-xs text-zinc-600 dark:text-zinc-300">
           {entry.effectText ? <span>{entry.effectText}</span> : null}

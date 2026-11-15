@@ -22,6 +22,7 @@ import {
 } from "@/adventure/v2/fishingCodex";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
+import { LIFE_MAJOR_SAVE_KEY } from "@/adventure/v2/lifeMajor";
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
@@ -86,6 +87,8 @@ type RankRow = {
   combatPower: number;
   /** 농사·벌목·채광·낚시·요리 레벨 합계(각 100 상한). */
   lifeMastery: number;
+  /** lifeMastery 한정 — 거장 등급 합계. 생활 숙련도가 같을 때 순위를 가른다. */
+  lifeGrandGrade?: number;
   /** 직업 해금 + 장비 등록 + 어보 발견 수 / 전체 수집 가능 수. */
   codexCollected: number;
   codexTotal: number;
@@ -221,6 +224,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
       mining.value AS mining_save,
       fishing.value AS fishing_save,
       cooking.value AS cooking_save,
+      major.value AS life_major_save,
       GREATEST(
         COALESCE(farm.updated_at, u.created_at),
         COALESCE(wood.updated_at, u.created_at),
@@ -235,6 +239,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv mining ON mining.user_id = u.id AND mining.key = ${MINING_LOG_KEY}
     LEFT JOIN saves_kv fishing ON fishing.user_id = u.id AND fishing.key = ${FISHING_PROGRESS_KEY}
     LEFT JOIN saves_kv cooking ON cooking.user_id = u.id AND cooking.key = ${COOKING_SAVE_KEY}
+    LEFT JOIN saves_kv major ON major.user_id = u.id AND major.key = ${LIFE_MAJOR_SAVE_KEY}
     WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
   `));
@@ -243,6 +248,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
     bannedUntil: Date | string | null;
     name: string;
     avatar: string | null;
+    life_major_save: unknown;
     farm_save: unknown;
     woodcutting_save: unknown;
     mining_save: unknown;
@@ -258,6 +264,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
         miningRaw: r.mining_save,
         fishingRaw: r.fishing_save,
         cookingRaw: r.cooking_save,
+        lifeMajorRaw: r.life_major_save,
       });
       return {
         userId: String(r.user_id),
@@ -269,6 +276,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
         fame: 0,
         combatPower: 0,
         lifeMastery: mastery.totalLevel,
+        lifeGrandGrade: mastery.grandGradeTotal,
         codexCollected: 0,
         codexTotal: 0,
         masteryTowerFloor: 0,
@@ -283,6 +291,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
       .sort(
         (a, b) =>
           b.lifeMastery - a.lifeMastery ||
+          b.lifeGrandGrade - a.lifeGrandGrade ||
           b.totalXp - a.totalXp ||
           a.updatedAtMs - b.updatedAtMs ||
           a.userId.localeCompare(b.userId),
@@ -297,6 +306,7 @@ async function fetchLifeMasteryRows(): Promise<RankRow[]> {
         fame: r.fame,
         combatPower: r.combatPower,
         lifeMastery: r.lifeMastery,
+        lifeGrandGrade: r.lifeGrandGrade,
         codexCollected: r.codexCollected,
         codexTotal: r.codexTotal,
         masteryTowerFloor: r.masteryTowerFloor,
@@ -974,6 +984,7 @@ export async function GET(req: Request) {
     fame: r.fame,
     combatPower: r.combatPower,
     lifeMastery: r.lifeMastery,
+    lifeGrandGrade: r.lifeGrandGrade ?? 0,
     codexCollected: r.codexCollected,
     codexTotal: r.codexTotal,
     masteryTowerFloor: r.masteryTowerFloor,
@@ -997,6 +1008,7 @@ export async function GET(req: Request) {
         fame: myRow.fame,
         combatPower: myRow.combatPower,
         lifeMastery: myRow.lifeMastery,
+        lifeGrandGrade: myRow.lifeGrandGrade ?? 0,
         codexCollected: myRow.codexCollected,
         codexTotal: myRow.codexTotal,
         masteryTowerFloor: myRow.masteryTowerFloor,

@@ -93,11 +93,11 @@ function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy
         const choices = sanctuaryChoiceCatalog(row.kind);
         return Array.from({ length: row.ranks }, (_, rank) => {
           const name = row.ranks > 1 ? `${row.label} ${rank + 1}순위` : row.label;
-          return <label key={name} className="flex flex-col gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          return <label key={name} className="flex min-w-0 flex-col gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             {name}
             <select value={preferences[row.kind][rank]} disabled={busy}
               onChange={(event) => setPreferences((current) => ({ ...current, [row.kind]: placeAtRank(current[row.kind], rank, event.target.value) }))}
-              className="min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+              className="min-h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
               {choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.description}</option>)}
             </select>
           </label>;

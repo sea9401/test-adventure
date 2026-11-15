@@ -19,7 +19,9 @@ import {
   auctionWonNotificationText,
   guildDisbandedNotificationText,
   guildKickedNotificationText,
+  grandGradeNotificationText,
   masterProductNotificationText,
+  type GrandGradeNotificationPayload,
   type MasterProductNotificationPayload,
   type AuctionUnsoldNotificationPayload,
   type AuctionWonNotificationPayload,
@@ -60,6 +62,8 @@ function previewText(notification: V2NotificationEntry): string {
       return auctionUnsoldNotificationText(payload as AuctionUnsoldNotificationPayload);
     case "master_product":
       return masterProductNotificationText(payload as MasterProductNotificationPayload);
+    case "grand_grade":
+      return grandGradeNotificationText(payload as GrandGradeNotificationPayload);
     case "outpost_attacked":
       return "길드 시설이 공격받았습니다.";
     case "outpost_lost":

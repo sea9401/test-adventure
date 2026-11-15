@@ -34,7 +34,9 @@ import {
   auctionWonNotificationText,
   guildDisbandedNotificationText,
   guildKickedNotificationText,
+  grandGradeNotificationText,
   masterProductNotificationText,
+  type GrandGradeNotificationPayload,
   type MasterProductNotificationPayload,
   type AuctionUnsoldNotificationPayload,
   type AuctionWonNotificationPayload,
@@ -49,6 +51,13 @@ export type NotificationCenterTab = "all" | "notifications" | "mail";
 
 const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
   master_product: (
+    <Medal
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-amber-500 dark:text-amber-400"
+    />
+  ),
+  grand_grade: (
     <Medal
       size={16}
       weight="duotone"
@@ -206,6 +215,9 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
   }
   if (n.type === "master_product") {
     return masterProductNotificationText(n.payload as MasterProductNotificationPayload);
+  }
+  if (n.type === "grand_grade") {
+    return grandGradeNotificationText(n.payload as GrandGradeNotificationPayload);
   }
   if (n.type === "outpost_attacked") {
     return (

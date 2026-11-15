@@ -103,6 +103,7 @@ export function useMining(): MiningHandlers {
   const [activeAutoActivity, setActiveAutoActivity] =
     useState<AutoGatheringActivity | null>(null);
   const [siteUpkeep, setSiteUpkeep] = useState<GatheringSiteUpkeepState>({});
+  const [lifeRenown, setLifeRenown] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -125,6 +126,7 @@ export function useMining(): MiningHandlers {
         );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
         setSiteUpkeep(parseGatheringSiteUpkeep(json.siteUpkeep));
+        setLifeRenown(Math.max(0, Math.floor(Number(json.lifeRenown) || 0)));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -229,6 +231,8 @@ export function useMining(): MiningHandlers {
   const startAuto = useCallback(async (
     spotId: MiningSpotId,
     planId: AutoGatheringPlanId,
+    // 정산 직후 다시 시작할 때는 방금 받은 정산 결과를 화면에 남긴다.
+    keepResult = false,
   ): Promise<void> => {
     setAutoLoading(true);
     try {
@@ -244,7 +248,7 @@ export function useMining(): MiningHandlers {
       });
       setAutoSession(session);
       setActiveAutoActivity("mining");
-      setAutoResult(null);
+      if (!keepResult) setAutoResult(null);
       setAutoGathering(
         session
           ? {
@@ -306,6 +310,7 @@ export function useMining(): MiningHandlers {
     autoLoading,
     activeAutoActivity,
     siteUpkeep,
+    lifeRenown,
     startAuto,
     claimAuto,
     cancelAuto,

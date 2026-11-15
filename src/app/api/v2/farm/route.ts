@@ -1,3 +1,4 @@
+import { lifeRenownFromSave } from "@/adventure/v2/lifeMajor";
 import { db } from "@/db";
 import {
   FARM_CROP_LIST,
@@ -63,5 +64,6 @@ export async function GET() {
     fertilizerBalance: workshop.crafting.balances.organic_fertilizer ?? 0,
     endgameShop: farmEndgameShopView(farm, ownedTitleIdsOf(adventureLogRaw)),
     breeding: farmBreedingContextFromSaves(characterRaw, lifeMajorRaw),
+    lifeRenown: lifeRenownFromSave(lifeMajorRaw),
   });
 }

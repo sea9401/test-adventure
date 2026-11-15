@@ -6,6 +6,7 @@
 //  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
+import { CUT_GEMS, CUT_GEM_GRADES } from "@/adventure/v2/gemCutting";
 import { TEMPERING_CATALYST } from "@/adventure/v2/lifeMajorProducts";
 import { EnhanceCatalystToggle } from "./EnhanceCatalystToggle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -350,6 +351,8 @@ export function V2EnhanceView({
   const [enchantScrolls, setEnchantScrolls] = useState(0);
   const [stones, setStones] = useState({ red: 0, blue: 0 });
   const [catalysts, setCatalysts] = useState(0);
+  // 세공 보석(재료 id → 개수) — 마법부여 작업대의 줄 고정에 쓴다.
+  const [cutGems, setCutGems] = useState<Record<string, number>>({});
   const [useCatalyst, setUseCatalyst] = useState(false);
   const [reforgeStones, setReforgeStones] = useState({ basic: 0, high: 0 });
   const [staminaShards, setStaminaShards] = useState(0);
@@ -453,6 +456,14 @@ export function V2EnhanceView({
           blue: j.materials?.[ENHANCE_STONE_MATERIAL_ID.blue] ?? 0,
         });
         setCatalysts(j.materials?.[TEMPERING_CATALYST.id] ?? 0);
+        setCutGems(
+          Object.fromEntries(
+            CUT_GEM_GRADES.map((grade) => [
+              CUT_GEMS[grade].id,
+              j.materials?.[CUT_GEMS[grade].id] ?? 0,
+            ]),
+          ),
+        );
         setReforgeStones({
           basic: j.materials?.[REFORGE_STONE_MATERIAL_ID.basic] ?? 0,
           high: j.materials?.[REFORGE_STONE_MATERIAL_ID.high] ?? 0,
@@ -1078,6 +1089,8 @@ export function V2EnhanceView({
           initialItemIid={initialItemIid}
           enchantScrolls={enchantScrolls}
           onEnchantScrollsUpdated={setEnchantScrolls}
+          cutGems={cutGems}
+          onCutGemsUpdated={setCutGems}
           onItemUpdated={(updated) => {
             setOwned((current) =>
               current.map((instance) =>

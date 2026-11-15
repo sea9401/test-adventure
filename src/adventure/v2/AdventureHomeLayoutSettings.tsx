@@ -18,6 +18,7 @@ const WIDGET_LABELS: Record<AdventureHomeWidgetId, string> = {
   character_summary: "캐릭터",
   stamina: "스태미나",
   activity_checklist: "오늘의 모험 체크",
+  life_collect: "생활 한 번에 정산",
   quest_rewards: "퀘스트",
   hot_time: "핫타임",
   announcements: "공지",
@@ -28,19 +29,24 @@ const WIDGET_LABELS: Record<AdventureHomeWidgetId, string> = {
 export function AdventureHomeLayoutSettings({
   order,
   hidden,
+  unavailable = [],
   onOrderChange,
   onHiddenChange,
   onReset,
 }: {
   order: readonly AdventureHomeWidgetId[];
   hidden: readonly AdventureHomeWidgetId[];
+  /** 이 계정에 아직 열리지 않아 목록에 보이지 않는 위젯. 저장된 순서와 숨김 값은 건드리지 않는다. */
+  unavailable?: readonly AdventureHomeWidgetId[];
   onOrderChange: (order: AdventureHomeWidgetId[]) => void;
   onHiddenChange: (hidden: AdventureHomeWidgetId[]) => void;
   onReset: () => void;
 }) {
   const dragging = useRef<AdventureHomeWidgetId | null>(null);
   const hiddenSet = new Set(hidden);
-  const visible = order.filter((id) => !hiddenSet.has(id));
+  const unavailableSet = new Set(unavailable);
+  const visible = order.filter((id) => !hiddenSet.has(id) && !unavailableSet.has(id));
+  const listedHidden = hidden.filter((id) => !unavailableSet.has(id));
 
   const move = (id: AdventureHomeWidgetId, delta: number) => {
     const visibleIndex = visible.indexOf(id);
@@ -140,13 +146,13 @@ export function AdventureHomeLayoutSettings({
         ))}
       </div>
 
-      {hidden.length > 0 && (
+      {listedHidden.length > 0 && (
         <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
           <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             숨긴 위젯
           </h3>
           <div className="mt-2 flex flex-wrap gap-2">
-            {hidden.map((id) => (
+            {listedHidden.map((id) => (
               <Button
                 key={id}
                 type="button"

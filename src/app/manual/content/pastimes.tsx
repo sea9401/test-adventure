@@ -69,16 +69,22 @@ import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
 import { COOKING_SIGNATURE_DURATION_MULTIPLIER } from "@/adventure/v2/cooking/foodShared";
 import { CookingBranchManualSection } from "./pastimes-cooking-branch";
 import { GatheringUpkeepManualSection } from "./pastimes-gathering-upkeep";
+import { GemCuttingManualSection } from "./pastimes-gem-cutting";
+import { PeddlerManualSection } from "./pastimes-peddler";
+import { RanchLineageManualSection } from "./pastimes-ranch-lineage";
 import {
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_CRAFT_MIN_STAGE,
+  LIFE_MAJOR_GRAND_GRADES_PER_MASTERY,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
   LIFE_MAJOR_MAJOR_BONUS_PER_STAGE,
   LIFE_MAJOR_MAX_STAGE,
   LIFE_MAJOR_PRODUCT_BASE_PCT,
   LIFE_MAJOR_PRODUCT_PER_STAGE_PCT,
   LIFE_MAJOR_PRODUCTS,
 } from "@/adventure/v2/lifeMajor";
-import { LIFE_RECORD_PATH } from "@/adventure/v2/lifeMajorRules";
+import { LIFE_PERKS, LIFE_RECORD_PATH } from "@/adventure/v2/lifeMajorRules";
 import {
   FARM_BREEDING_BASE_MAX_STAGE,
   FARM_BREEDING_MASTER_STAGE,
@@ -268,6 +274,19 @@ export function PastimesContent() {
           명장 {LIFE_MAJOR_MAX_STAGE}단계까지 오릅니다.
         </li>
         <li>
+          명장 {LIFE_MAJOR_MAX_STAGE}단계 뒤에도 경험치는 계속 쌓여 <Em>거장 등급</Em>이 상한 없이
+          오릅니다. 한 등급에 드는 경험치는 명장 {LIFE_MAJOR_MAX_STAGE}단계까지 든 양의{" "}
+          {LIFE_MAJOR_GRAND_GRADES_PER_MASTERY}분의 1입니다. 생활별 거장{" "}
+          {LIFE_MAJOR_GRAND_TITLE_GRADE}등급과 거장 등급 합계 {LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE}에서
+          칭호를 받고, 생활 숙련도 랭킹에서 합계가 같을 때 거장 등급 합계가 높은 쪽이 앞섭니다. 등급이
+          오르면 알림으로 알려 드립니다.
+        </li>
+        <li>
+          다섯 생활의 명장 단계와 거장 등급을 모두 더한 값이 <Em>생활 명성</Em>입니다. 전공에서 뺀
+          생활의 단계도 셉니다. 명성이 오르면 반복 조작을 줄이는 편의가 열리고, 생활 기록의 전공
+          카드에서 명성과 열린 편의를 확인합니다. 생산량과 전투 수치는 바뀌지 않습니다.
+        </li>
+        <li>
           명장 단계마다 주전공은 그 생활의 주력 수치가 {LIFE_MAJOR_MAJOR_BONUS_PER_STAGE}%p(농사
           수확량은 {LIFE_MAJOR_MAJOR_BONUS_PER_STAGE}%)씩 오르고, 부전공은 절반만 오릅니다. 주력
           수치는 농사 수확량, 벌목 추가 원목 확률, 채광 추가 광석 확률, 낚시 특수 어종 가중치,
@@ -286,6 +305,10 @@ export function PastimesContent() {
           명장 단계는 생활별로 남지만, 전공일 때만 오르고 효과가 붙습니다.
         </li>
       </UL>
+      <Table
+        head={["생활 명성", "열리는 편의", "내용"]}
+        rows={LIFE_PERKS.map((perk) => [`${perk.renown}`, perk.name, perk.description])}
+      />
       <UL>
         <li>
           <Em>명장 요리</Em>: 요리 주전공 명장 {LIFE_MAJOR_CRAFT_MIN_STAGE}단계부터 주방의 명장
@@ -522,6 +545,9 @@ export function PastimesContent() {
       </UL>
 
       <GatheringUpkeepManualSection />
+      <GemCuttingManualSection />
+      <RanchLineageManualSection />
+      <PeddlerManualSection />
 
       <H2>낚시</H2>
       <UL>

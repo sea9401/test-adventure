@@ -104,6 +104,10 @@ export function EquipmentEnchantmentGuideDialog({
           <p className="mt-1 text-xs leading-relaxed">
             옵션 줄 수는 유지되며, 버튼을 누르면 별도 확인 없이 바로 진행됩니다.
           </p>
+          <p className="mt-1 text-xs leading-relaxed">
+            2줄 이상인 장비는 세공 보석으로 남길 줄을 고정할 수 있습니다. 고정한 줄은 그대로 두고 나머지 줄만
+            다시 정합니다.
+          </p>
         </section>
 
         <section className="mt-4 space-y-2">

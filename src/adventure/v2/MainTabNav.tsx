@@ -19,6 +19,7 @@ import {
   Fish,
   Hammer,
   Lightning,
+  Package,
   PottedPlant,
   ShieldStar,
   SlidersHorizontal,
@@ -147,6 +148,7 @@ export const LIFE_MENU_ITEMS = [
   { label: "낚시", href: "/town/fishing", Icon: Fish, color: "text-sky-500" },
   { label: "주방", href: "/town/kitchen", Icon: CookingPot, color: "text-amber-600" },
   { label: "생활 축제", href: "/town/festival", Icon: Tent, color: "text-rose-500" },
+  { label: "행상", href: "/town/peddler", Icon: Package, color: "text-amber-600" },
 ] satisfies SubItem[];
 
 function activityMenuText(

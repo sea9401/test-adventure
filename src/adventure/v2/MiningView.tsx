@@ -37,6 +37,7 @@ import {
 import { ProductionJobAdvanceNotice } from "./ProductionJobAdvanceNotice";
 import { LifeFieldEnvironmentCard } from "./LifeFieldPanels";
 import { GatheringResourceStockCard } from "./GatheringResourceStockCard";
+import { lifePerkUnlocked } from "./lifeMajorRules";
 import {
   gatheringSiteExtendedDurationMs,
   gatheringSiteStage,
@@ -101,9 +102,12 @@ export type MiningHandlers = {
   activeAutoActivity: AutoGatheringActivity | null;
   /** 채집지 정비 단계. 자동 채집 카드가 느긋한 작업 시간을 보여 줄 때 쓴다. */
   siteUpkeep?: GatheringSiteUpkeepState;
+  /** 생활 명성. 자동 작업의 "보상 받고 다시 시작" 편의가 열렸는지 판단한다. */
+  lifeRenown?: number;
   startAuto: (
     spotId: MiningSpotId,
     planId: AutoGatheringPlanId,
+    keepResult?: boolean,
   ) => Promise<void>;
   claimAuto: () => Promise<void>;
   cancelAuto: () => Promise<void>;
@@ -484,6 +488,7 @@ export function MiningView({
   autoLoading,
   activeAutoActivity,
   siteUpkeep,
+  lifeRenown = 0,
   startAuto,
   claimAuto,
   cancelAuto,
@@ -681,6 +686,16 @@ export function MiningView({
             startAuto(selectedSpotId as MiningSpotId, planId)
           }
           onClaim={claimAuto}
+          onRestart={
+            lifePerkUnlocked(lifeRenown, "auto_restart") && autoSession?.spotId
+              ? async () => {
+                  const restartSpotId = autoSession.spotId as MiningSpotId;
+                  const restartPlanId = autoSession.planId;
+                  await claimAuto();
+                  await startAuto(restartSpotId, restartPlanId, true);
+                }
+              : undefined
+          }
           onCancel={cancelAuto}
         />
       ) : null}

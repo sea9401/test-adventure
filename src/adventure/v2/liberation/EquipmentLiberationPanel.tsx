@@ -1,6 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import {
+  CUT_GEMS,
+  CUT_GEM_GRADES,
+  LIBERATION_LOCK_GOLD_PER_LINE,
+  cutGemUsableForRank,
+} from "@/adventure/v2/gemCutting";
 import { Lock, Question, Sparkle } from "@phosphor-icons/react";
 import { equipmentLiberationRevision } from "@/adventure/data/v2/equipmentEnchantmentTransfer";
 import { EquipmentEnchantmentTransfer } from "./EquipmentEnchantmentTransfer";
@@ -49,6 +55,8 @@ type LiberationApiResponse = {
   gold?: number;
   bankedGold?: number;
   cashItems?: Record<string, number>;
+  /** 남은 세공 보석(재료 id → 개수). */
+  cutGems?: Record<string, number>;
 };
 
 type LiberationPayment = "gold" | "enchant_scroll";
@@ -57,6 +65,8 @@ type PendingRequest = {
   iid: string;
   revision: number;
   payment: LiberationPayment;
+  /** 고정한 줄 번호를 이어 붙인 값. 고정이 바뀌면 새 요청으로 본다. */
+  lockKey: string;
   requestId: string;
 };
 
@@ -68,6 +78,9 @@ export type EquipmentLiberationPanelProps = {
   initialItemIid?: string;
   /** 보유한 마법부여서 수. 있으면 골드 대신 1장으로 마법부여할 수 있다. */
   enchantScrolls?: number;
+  /** 보유한 세공 보석(재료 id → 개수). 다시 마법부여할 때 남길 줄을 고정하는 데 쓴다. */
+  cutGems?: Record<string, number>;
+  onCutGemsUpdated?: (cutGems: Record<string, number>) => void;
   onItemUpdated: (item: V2EquipInstance) => void;
   onWalletUpdated: (gold: number, bankedGold: number) => void;
   onEnchantScrollsUpdated?: (count: number) => void;
@@ -79,6 +92,10 @@ function errorMessage(error: string | undefined): string {
       return "골드가 부족합니다.";
     case "insufficient_enchant_scroll":
       return "마법부여서가 부족합니다.";
+    case "insufficient_cut_gems":
+      return "이 장비에 쓸 수 있는 세공 보석이 모자랍니다.";
+    case "invalid_locked_lines":
+      return "고정할 줄을 다시 골라 주세요.";
     case "ineligible":
       return "이 장비에는 마법부여할 수 없습니다.";
     case "not_owned":
@@ -97,6 +114,8 @@ export function EquipmentLiberationPanel({
   bankedGold,
   initialItemIid,
   enchantScrolls = 0,
+  cutGems = {},
+  onCutGemsUpdated,
   onItemUpdated,
   onWalletUpdated,
   onEnchantScrollsUpdated,
@@ -121,6 +140,10 @@ export function EquipmentLiberationPanel({
     promoted: boolean;
     revision: number;
   } | null>(null);
+  const [lockState, setLockState] = useState<{ iid: string; lines: number[] }>({
+    iid: "",
+    lines: [],
+  });
   const pendingRequest = useRef<PendingRequest | null>(null);
   const selected =
     candidates.find((candidate) => candidate.iid === selectedIid) ??
@@ -131,6 +154,30 @@ export function EquipmentLiberationPanel({
   const isReroll = current != null;
   const actionLabel = isReroll ? "재마법부여" : "마법부여";
   const spendable = gold + bankedGold;
+  // 줄 고정 — 이미 마법부여한 2줄 이상 장비에서 줄 수보다 하나 적게까지. 줄 하나에 세공 보석 1개와 추가 골드.
+  const maxLocks = current ? current.lineCount - 1 : 0;
+  const lockedLines =
+    instance && lockState.iid === instance.iid
+      ? lockState.lines.filter((line) => current != null && line < current.lineCount).slice(0, maxLocks)
+      : [];
+  const usableCutGems = current
+    ? CUT_GEM_GRADES.filter((grade) => cutGemUsableForRank(grade, current.rank)).reduce(
+        (total, grade) => total + Math.max(0, Math.floor(Number(cutGems[CUT_GEMS[grade].id]) || 0)),
+        0,
+      )
+    : 0;
+  const lockGold = lockedLines.length * LIBERATION_LOCK_GOLD_PER_LINE;
+  const cutGemsShort = lockedLines.length > usableCutGems;
+  const goldCost = EQUIPMENT_LIBERATION_GOLD_COST + lockGold;
+
+  function toggleLockedLine(line: number): void {
+    if (!instance || busy) return;
+    const next = lockedLines.includes(line)
+      ? lockedLines.filter((item) => item !== line)
+      : [...lockedLines, line].sort((left, right) => left - right);
+    if (next.length > maxLocks) return;
+    setLockState({ iid: instance.iid, lines: next });
+  }
   const probabilityRows = item ? liberationOptionProbabilityRows(item.slot) : [];
 
   function selectEquipment(iid: string): void {
@@ -153,15 +200,18 @@ export function EquipmentLiberationPanel({
     if (!instance || busy) return;
     const revision = equipmentLiberationRevision(instance);
     const reusable = pendingRequest.current;
+    const lockKey = lockedLines.join(",");
     const request =
       reusable?.iid === instance.iid &&
       reusable.revision === revision &&
-      reusable.payment === payment
+      reusable.payment === payment &&
+      reusable.lockKey === lockKey
         ? reusable
         : {
             iid: instance.iid,
             revision,
             payment,
+            lockKey,
             requestId: crypto.randomUUID(),
           };
     pendingRequest.current = request;
@@ -175,6 +225,7 @@ export function EquipmentLiberationPanel({
           requestId: request.requestId,
           expectedRevision: request.revision,
           ...(payment === "enchant_scroll" ? { payment } : {}),
+          ...(lockedLines.length > 0 ? { lockedLines } : {}),
         }),
       });
       const body = (await response.json()) as LiberationApiResponse;
@@ -197,6 +248,7 @@ export function EquipmentLiberationPanel({
       if (payment === "enchant_scroll") {
         onEnchantScrollsUpdated?.(body.cashItems?.[ENCHANT_SCROLL_ITEM_ID] ?? 0);
       }
+      if (body.cutGems) onCutGemsUpdated?.(body.cutGems);
       setResult({
         rank: nextLiberation?.rank ?? previousRank,
         promoted:
@@ -205,9 +257,11 @@ export function EquipmentLiberationPanel({
       });
       setMessage({
         tone: "success",
-        text: isReroll
-          ? "재마법부여가 완료되었습니다."
-          : "장비 마법부여가 완료되었습니다.",
+        text: !isReroll
+          ? "장비 마법부여가 완료되었습니다."
+          : lockedLines.length > 0
+            ? "고정한 줄을 남기고 재마법부여했습니다."
+            : "재마법부여가 완료되었습니다.",
       });
     } catch {
       setMessage({
@@ -367,7 +421,7 @@ export function EquipmentLiberationPanel({
             6T 이상 · 폭풍 개량 제외
           </span>
           <span className="tabular-nums">
-            비용 <strong className="text-amber-700 dark:text-amber-300">{EQUIPMENT_LIBERATION_GOLD_COST.toLocaleString()} G</strong>
+            비용 <strong className="text-amber-700 dark:text-amber-300">{goldCost.toLocaleString()} G</strong>
             <span className="ml-2 text-zinc-500 dark:text-zinc-400">
               결제 가능 {spendable.toLocaleString()} G
             </span>
@@ -402,7 +456,7 @@ export function EquipmentLiberationPanel({
               aria-label="현재 마법부여 옵션"
               className={`mt-3 space-y-2 ${result ? "ui-result-highlight" : ""}`}
             >
-              {current.options.map((option) => (
+              {current.options.map((option, line) => (
                 <li
                   key={option.id}
                   className={`${SURFACE_INSET} flex items-center justify-between gap-3 border-violet-200 px-3 py-2.5 shadow-sm dark:border-violet-900`}
@@ -421,9 +475,45 @@ export function EquipmentLiberationPanel({
                   <span className="shrink-0 rounded-md border border-violet-200 bg-white px-2 py-1 text-xs font-bold tabular-nums text-violet-700 dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300">
                     Lv.{option.level}
                   </span>
+                  {maxLocks > 0 ? (
+                    <Button
+                      size="sm"
+                      variant={lockedLines.includes(line) ? "primary" : "secondary"}
+                      className="min-h-10 shrink-0"
+                      aria-label={`${formatLiberationOptionRoll(option)} 줄 고정`}
+                      aria-pressed={lockedLines.includes(line)}
+                      disabled={
+                        busy || (!lockedLines.includes(line) && lockedLines.length >= maxLocks)
+                      }
+                      onClick={() => toggleLockedLine(line)}
+                    >
+                      {lockedLines.includes(line) ? "고정됨" : "고정"}
+                    </Button>
+                  ) : null}
                 </li>
               ))}
             </ul>
+            {maxLocks > 0 ? (
+              <div className="mt-3 space-y-1 text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+                <p>이 장비에 쓸 수 있는 세공 보석 {usableCutGems.toLocaleString()}개</p>
+                {lockedLines.length > 0 ? (
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {lockedLines.length}줄 고정: 세공 보석 {lockedLines.length}개, 골드{" "}
+                    {lockGold.toLocaleString()} G 추가
+                  </p>
+                ) : (
+                  <p>
+                    남길 줄을 고정하면 그 줄은 그대로 두고 나머지만 다시 정합니다. 줄 하나에 세공 보석 1개와
+                    골드 {LIBERATION_LOCK_GOLD_PER_LINE.toLocaleString()} G가 더 듭니다.
+                  </p>
+                )}
+                {cutGemsShort ? (
+                  <p className="font-semibold text-rose-600 dark:text-rose-400">
+                    이 장비에 쓸 수 있는 세공 보석이 모자랍니다.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className={`${SURFACE_INSET} mt-4 p-3 text-sm leading-relaxed`}>
@@ -450,7 +540,7 @@ export function EquipmentLiberationPanel({
               className="mt-4 w-full shadow-lg shadow-violet-500/20"
               size="md"
               variant="primary"
-              disabled={busy}
+              disabled={busy || cutGemsShort || spendable < lockGold}
               onClick={() => startLiberation("enchant_scroll")}
             >
               {busy ? "마법부여 중…" : `마법부여서로 ${actionLabel}`}
@@ -458,7 +548,7 @@ export function EquipmentLiberationPanel({
             <Button
               className="mt-2"
               fullWidth
-              disabled={busy || spendable < EQUIPMENT_LIBERATION_GOLD_COST}
+              disabled={busy || cutGemsShort || spendable < goldCost}
               onClick={() => startLiberation("gold")}
             >
               골드로 {actionLabel}
@@ -469,7 +559,7 @@ export function EquipmentLiberationPanel({
             className="mt-4 w-full shadow-lg shadow-violet-500/20"
             size="md"
             variant="primary"
-            disabled={busy || spendable < EQUIPMENT_LIBERATION_GOLD_COST}
+            disabled={busy || cutGemsShort || spendable < goldCost}
             onClick={() => startLiberation("gold")}
           >
             {busy ? "마법부여 중…" : actionLabel}

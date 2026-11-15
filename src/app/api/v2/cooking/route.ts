@@ -1,3 +1,5 @@
+import { lifeRenownFromSave } from "@/adventure/v2/lifeMajor";
+import { LIFE_PERK_COOKING_CRAFT_LIMIT, lifePerkUnlocked } from "@/adventure/v2/lifeMajorRules";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { cookingFailedCombinations, cookingFirstDiscoveries } from "@/db/cookingSchema";
@@ -250,7 +252,15 @@ function cookingView(userId: string, now: number, values: {
     cookingSkillBonuses: equippedCookingBonuses(parseV2SkillsState(values.skillsRaw).equipped),
     branch: cookingBranchView(cooking, now),
     signature: signatureView(values.lifeMajorRaw, values.character),
+    craftQuantityLimit: cookingCraftQuantityLimit(values.lifeMajorRaw),
   };
+}
+
+/** 요리를 한 번에 몇 개까지 만드는지. 생활 명성으로 대량 처리 편의가 열리면 늘어난다. */
+function cookingCraftQuantityLimit(lifeMajorRaw: unknown): number {
+  return lifePerkUnlocked(lifeRenownFromSave(lifeMajorRaw), "bulk_processing")
+    ? LIFE_PERK_COOKING_CRAFT_LIMIT
+    : COOKING_CRAFT_BASE_LIMIT;
 }
 
 // 명장 요리 — 요리 주전공 명장 3단계 이상만 만들 수 있다. 재료 보유량은 character.v2 재료에서 읽는다.
@@ -344,7 +354,9 @@ export async function GET(req: Request) {
   }));
 }
 
-function positiveQuantity(raw: unknown, maximum = 20): number {
+const COOKING_CRAFT_BASE_LIMIT = 20;
+
+function positiveQuantity(raw: unknown, maximum = COOKING_CRAFT_BASE_LIMIT): number {
   const quantity = Math.floor(Number(raw) || 0);
   if (quantity < 1 || quantity > maximum) throw new Error("invalid_quantity");
   return quantity;
@@ -480,7 +492,10 @@ export async function POST(req: Request) {
       } else if (action === "craft") {
         const recipeId = typeof body?.recipeId === "string" ? body.recipeId : "";
         const recipe = COOKING_SECRET_RECIPE_BY_ID.get(recipeId);
-        const quantity = positiveQuantity(body?.quantity ?? 1);
+        const quantity = positiveQuantity(
+          body?.quantity ?? 1,
+          cookingCraftQuantityLimit(await readSave(tx, userId, LIFE_MAJOR_SAVE_KEY, {})),
+        );
         const usePrepSet = body?.usePrepSet === true;
         // 특화 전용 요리는 발견 대상이 아니다. 지금 고른 특화와 랭크로 만들 수 있는지 본다.
         const branchContext = recipe ? cookingBranchCraftContext(cooking, recipe) : null;

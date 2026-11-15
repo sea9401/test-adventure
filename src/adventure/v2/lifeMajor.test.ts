@@ -2,8 +2,23 @@ import { describe, expect, it } from "vitest";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { farmingLevelXpThreshold } from "./farm";
 import {
+  LIFE_PERKS,
+  LIFE_PERK_COOKING_CRAFT_LIMIT,
+  LIFE_PERK_PROCESS_BATCH_LIMIT,
+  lifePerkUnlocked,
+} from "./lifeMajorRules";
+import {
   addLifeMajorXp,
   assignLifeMajors,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
+  lifeMajorGrandEarnedTitleIds,
+  lifeMajorGrandGrade,
+  lifeMajorGrandGradeForXp,
+  lifeMajorGrandGradeTotal,
+  lifeMajorGrandGradeXp,
+  lifeMajorView,
+  lifeRenown,
   LIFE_MAJOR_ACTIVITIES,
   LIFE_MAJOR_CHANGE_COOLDOWN_MS,
   LIFE_MAJOR_PRODUCT_ID,
@@ -98,7 +113,7 @@ describe("넘친 경험치와 적립", () => {
     expect(lifeXpOverflow({ gained: 0, before: 100, after: 100 })).toBe(0);
   });
 
-  it("전공일 때만 적립하고 10단계에서 멈춘다", () => {
+  it("전공일 때만 적립하고 10단계를 넘어서도 계속 쌓인다", () => {
     const base = state({ major: "mining" });
     expect(addLifeMajorXp(base, "farming", 50)).toEqual({ state: base, gained: 0 });
     const added = addLifeMajorXp(base, "mining", 50);
@@ -106,7 +121,84 @@ describe("넘친 경험치와 적립", () => {
     expect(added.state.masteryXp.mining).toBe(50);
     const cap = lifeMajorStageXp("mining", 10);
     const nearCap = state({ major: "mining", masteryXp: { mining: cap - 3 } });
-    expect(addLifeMajorXp(nearCap, "mining", 10)).toMatchObject({ gained: 3, state: { masteryXp: { mining: cap } } });
+    expect(addLifeMajorXp(nearCap, "mining", 10)).toMatchObject({
+      gained: 10,
+      state: { masteryXp: { mining: cap + 7 } },
+    });
+    // 단계는 10에서 멈춘다.
+    expect(lifeMajorStageForXp("mining", cap + 7)).toMatchObject({ stage: 10, capped: true });
+  });
+});
+
+describe("거장 등급", () => {
+  it("등급당 경험치는 10단계 요구량의 10분의 1이다", () => {
+    expect(lifeMajorGrandGradeXp("mining")).toBe(48_020);
+    expect(lifeMajorGrandGradeXp("woodcutting")).toBe(48_020);
+    expect(lifeMajorGrandGradeXp("fishing")).toBe(42_018);
+    expect(lifeMajorGrandGradeXp("farming")).toBe(12_005);
+    expect(lifeMajorGrandGradeXp("cooking")).toBe(12_005);
+  });
+
+  it("10단계를 넘은 경험치로 등급과 진행도를 계산하고 상한이 없다", () => {
+    const cap = lifeMajorStageXp("farming", 10);
+    expect(lifeMajorGrandGradeForXp("farming", cap - 1)).toEqual({ grade: 0, xpInto: 0, xpForNext: 12_005 });
+    expect(lifeMajorGrandGradeForXp("farming", cap)).toEqual({ grade: 0, xpInto: 0, xpForNext: 12_005 });
+    expect(lifeMajorGrandGradeForXp("farming", cap + 12_004)).toEqual({ grade: 0, xpInto: 12_004, xpForNext: 12_005 });
+    expect(lifeMajorGrandGradeForXp("farming", cap + 12_005)).toEqual({ grade: 1, xpInto: 0, xpForNext: 12_005 });
+    expect(lifeMajorGrandGradeForXp("farming", cap + 12_005 * 250 + 9).grade).toBe(250);
+    expect(lifeMajorGrandGradeForXp("farming", Number.NaN).grade).toBe(0);
+  });
+
+  it("전공에서 빠져도 등급은 남고 합계에 들어간다", () => {
+    const current = state({
+      major: "mining",
+      minor: "farming",
+      masteryXp: {
+        mining: lifeMajorStageXp("mining", 10) + 48_020 * 3 + 5,
+        farming: lifeMajorStageXp("farming", 10) + 12_005 * 2,
+        cooking: lifeMajorStageXp("cooking", 10) + 12_005 * 4,
+        woodcutting: lifeMajorStageXp("woodcutting", 9),
+      },
+    });
+    expect(lifeMajorGrandGrade(current, "mining")).toBe(3);
+    expect(lifeMajorGrandGrade(current, "cooking")).toBe(4);
+    expect(lifeMajorGrandGrade(current, "woodcutting")).toBe(0);
+    expect(lifeMajorGrandGradeTotal(current)).toBe(9);
+  });
+
+  it("화면용 값에 거장 등급과 다음 등급까지의 진행도를 싣는다", () => {
+    const current = state({
+      major: "mining",
+      masteryXp: { mining: lifeMajorStageXp("mining", 10) + 48_020 * 3 + 5 },
+    });
+    const mining = lifeMajorView(current, ALL_100).activities.find((entry) => entry.id === "mining");
+    expect(mining).toMatchObject({
+      stage: 10,
+      capped: true,
+      grandGrade: 3,
+      grandXpInto: 5,
+      grandXpForNext: 48_020,
+    });
+    const farming = lifeMajorView(current, ALL_100).activities.find((entry) => entry.id === "farming");
+    expect(farming).toMatchObject({ stage: 0, grandGrade: 0 });
+  });
+
+  it("생활별 10등급과 합계 50등급에서 칭호 조건을 채운다", () => {
+    expect(LIFE_MAJOR_GRAND_TITLE_GRADE).toBe(10);
+    expect(LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE).toBe(50);
+    const at = (activity: LifeMajorActivity, grade: number) =>
+      lifeMajorStageXp(activity, 10) + lifeMajorGrandGradeXp(activity) * grade;
+    expect(lifeMajorGrandEarnedTitleIds(state({ masteryXp: { mining: at("mining", 9) } }))).toEqual([]);
+    expect(
+      lifeMajorGrandEarnedTitleIds(
+        state({ masteryXp: { mining: at("mining", 10), cooking: at("cooking", 12) } }),
+      ),
+    ).toEqual(["life_grand_mining", "life_grand_cooking"]);
+    expect(
+      lifeMajorGrandEarnedTitleIds(
+        state({ masteryXp: { mining: at("mining", 41), farming: at("farming", 9) } }),
+      ),
+    ).toEqual(["life_grand_mining", "life_grand_total"]);
   });
 });
 
@@ -198,5 +290,40 @@ describe("명장 제작 조건", () => {
     for (const field of ["hearth", "pot", "baking", "medicinal"] as const) {
       expect(signatureIngredientFor(field)).toBe(LIFE_MAJOR_PRODUCT_ID.farming);
     }
+  });
+});
+
+describe("생활 명성과 편의 해금", () => {
+  it("명성은 다섯 생활의 명장 단계와 거장 등급을 모두 더한다", () => {
+    expect(lifeRenown(state({}))).toBe(0);
+    const current = state({
+      major: "mining",
+      minor: "farming",
+      masteryXp: {
+        mining: lifeMajorStageXp("mining", 10) + lifeMajorGrandGradeXp("mining") * 3,
+        farming: lifeMajorStageXp("farming", 6),
+        // 전공에서 뺀 생활의 단계도 센다.
+        cooking: lifeMajorStageXp("cooking", 2),
+      },
+    });
+    expect(lifeRenown(current)).toBe(10 + 3 + 6 + 2);
+    expect(lifeMajorView(current, ALL_100).renown).toBe(21);
+  });
+
+  it("명성 5·10·20·30에서 편의가 하나씩 열린다", () => {
+    expect(LIFE_PERKS.map((perk) => [perk.id, perk.renown])).toEqual([
+      ["auto_restart", 5],
+      ["farm_replant", 10],
+      ["bulk_processing", 20],
+      ["collect_all", 30],
+    ]);
+    expect(lifePerkUnlocked(4, "auto_restart")).toBe(false);
+    expect(lifePerkUnlocked(5, "auto_restart")).toBe(true);
+    expect(lifePerkUnlocked(19, "bulk_processing")).toBe(false);
+    expect(lifePerkUnlocked(20, "bulk_processing")).toBe(true);
+    expect(lifePerkUnlocked(29, "collect_all")).toBe(false);
+    expect(lifePerkUnlocked(Number.NaN, "auto_restart")).toBe(false);
+    expect(LIFE_PERK_PROCESS_BATCH_LIMIT).toBe(300);
+    expect(LIFE_PERK_COOKING_CRAFT_LIMIT).toBe(50);
   });
 });

@@ -30,11 +30,8 @@ function cookingEffectTagsText(effectTags: readonly CookingEffectTag[]): string 
     .join(" · ");
 }
 
-function clampCookingQuantity(raw: unknown): number {
-  return Math.min(
-    COOKING_CRAFT_MAX_QUANTITY,
-    Math.max(1, Math.floor(Number(raw) || 1)),
-  );
+function clampCookingQuantity(raw: unknown, limit: number): number {
+  return Math.min(limit, Math.max(1, Math.floor(Number(raw) || 1)));
 }
 
 export function CookingCodexPanel({ data, busy, mutate }: { data: CookingResponse; busy: boolean; mutate: CookingMutation }) {
@@ -43,6 +40,7 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
   const [methodFilter, setMethodFilter] = useState<CookingCodexMethodFilter>("all");
   const [usePrepSet, setUsePrepSet] = useState(false);
   const [quantityByRecipe, setQuantityByRecipe] = useState<Record<string, number>>({});
+  const craftLimit = data.craftQuantityLimit ?? COOKING_CRAFT_MAX_QUANTITY;
   const prepSetEnabled = usePrepSet && data.cookingPrepSets > 0;
   const visibleRecipes = useMemo(() => {
     const terms = cookingSearchTerms(query);
@@ -196,13 +194,13 @@ export function CookingCodexPanel({ data, busy, mutate }: { data: CookingRespons
                       <input
                         type="number"
                         min={1}
-                        max={COOKING_CRAFT_MAX_QUANTITY}
+                        max={craftLimit}
                         step={1}
                         value={quantity}
                         aria-label={`${recipe.name} 조리 수량`}
                         disabled={busy}
                         onChange={(event) => {
-                          const nextQuantity = clampCookingQuantity(event.target.value);
+                          const nextQuantity = clampCookingQuantity(event.target.value, craftLimit);
                           setQuantityByRecipe((current) => ({
                             ...current,
                             [recipe.id]: nextQuantity,

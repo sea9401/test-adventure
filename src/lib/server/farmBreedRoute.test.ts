@@ -273,6 +273,8 @@ describe("farm breed route", () => {
     const major = await GET();
     expect(await major.json()).toMatchObject({
       breeding: { masterUnlocked: true, masterCropHeld: 5 },
+      // 농사 명장 3단계 = 생활 명성 3.
+      lifeRenown: 3,
     });
   });
 });

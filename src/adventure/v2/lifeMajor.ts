@@ -2,6 +2,7 @@
 // 주전공 1 + 부전공 1. 전공 생활에서 Lv.100 상한을 넘겨 버려지던 경험치를 명장 경험치로 받고,
 // 단계에 따라 효율 보너스와 명장 산물(거래 가능 재료) 확률을 준다. 고르지 않은 생활은 불이익 없음.
 
+import { LIFE_GRAND_TITLE_ID, LIFE_GRAND_TOTAL_TITLE_ID } from "@/adventure/data/titles";
 import { cookingLevelXpThreshold } from "./cooking/state";
 import { farmingLevelXpThreshold } from "./farm";
 import { fishingLevelXpThreshold } from "./fishingProgression";
@@ -11,7 +12,12 @@ import { woodcuttingXpForLevel } from "./woodcuttingProgression";
 
 import type { CookingField } from "./cooking/types";
 import { LIFE_MAJOR_PRODUCT_ID, LIFE_MAJOR_PRODUCTS, TEMPERING_CATALYST } from "./lifeMajorProducts";
-import { LIFE_MAJOR_CHANGE_COOLDOWN_MS, LIFE_MAJOR_CRAFT_MIN_STAGE } from "./lifeMajorRules";
+import {
+  LIFE_MAJOR_CHANGE_COOLDOWN_MS,
+  LIFE_MAJOR_CRAFT_MIN_STAGE,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
+} from "./lifeMajorRules";
 
 export {
   TEMPERING_CATALYST,
@@ -22,11 +28,18 @@ export {
 
 export const LIFE_MAJOR_SAVE_KEY = "life-major.v1";
 export const LIFE_MAJOR_MAX_STAGE = 10;
-export { LIFE_MAJOR_CHANGE_COOLDOWN_MS, LIFE_MAJOR_CRAFT_MIN_STAGE } from "./lifeMajorRules";
+export {
+  LIFE_MAJOR_CHANGE_COOLDOWN_MS,
+  LIFE_MAJOR_CRAFT_MIN_STAGE,
+  LIFE_MAJOR_GRAND_TITLE_GRADE,
+  LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE,
+} from "./lifeMajorRules";
 export const LIFE_MAJOR_MAJOR_BONUS_PER_STAGE = 1;
 export const LIFE_MAJOR_MINOR_FACTOR = 0.5;
 export const LIFE_MAJOR_PRODUCT_BASE_PCT = 0.5;
 export const LIFE_MAJOR_PRODUCT_PER_STAGE_PCT = 0.15;
+/** 거장 한 등급의 경험치 = 명장 10단계 요구량 ÷ 이 값. */
+export const LIFE_MAJOR_GRAND_GRADES_PER_MASTERY = 10;
 
 export const LIFE_MAJOR_ACTIVITIES = [
   "farming",
@@ -147,6 +160,57 @@ export function lifeMajorStageForXp(
   };
 }
 
+/** 거장 한 등급에 필요한 경험치. 명장 10단계를 넘은 경험치로 상한 없이 오른다. */
+export function lifeMajorGrandGradeXp(activity: LifeMajorActivity): number {
+  return Math.round(lifeMajorT100(activity) / LIFE_MAJOR_GRAND_GRADES_PER_MASTERY);
+}
+
+export function lifeMajorGrandGradeForXp(
+  activity: LifeMajorActivity,
+  xp: number,
+): { grade: number; xpInto: number; xpForNext: number } {
+  const perGrade = lifeMajorGrandGradeXp(activity);
+  const over = Math.max(0, nonNegativeInt(xp) - lifeMajorStageXp(activity, LIFE_MAJOR_MAX_STAGE));
+  return { grade: Math.floor(over / perGrade), xpInto: over % perGrade, xpForNext: perGrade };
+}
+
+export function lifeMajorGrandGrade(state: LifeMajorState, activity: LifeMajorActivity): number {
+  return lifeMajorGrandGradeForXp(activity, state.masteryXp[activity] ?? 0).grade;
+}
+
+/** 전공에서 빠진 생활의 등급도 합친다. */
+export function lifeMajorGrandGradeTotal(state: LifeMajorState): number {
+  return LIFE_MAJOR_ACTIVITIES.reduce(
+    (total, activity) => total + lifeMajorGrandGrade(state, activity),
+    0,
+  );
+}
+
+/** 생활 명성 — 다섯 생활의 명장 단계와 거장 등급 합계. 전공에서 뺀 생활도 센다. */
+export function lifeRenown(state: LifeMajorState): number {
+  return LIFE_MAJOR_ACTIVITIES.reduce(
+    (total, activity) =>
+      total + lifeMajorStage(state, activity) + lifeMajorGrandGrade(state, activity),
+    0,
+  );
+}
+
+/** 저장된 전공 세이브에서 바로 명성을 읽는다(상태 조회 라우트용). */
+export function lifeRenownFromSave(raw: unknown): number {
+  return lifeRenown(parseLifeMajorState(raw));
+}
+
+/** 지금 거장 등급으로 조건을 채운 칭호. 지급 여부는 호출하는 쪽이 보유 칭호와 견줘 정한다. */
+export function lifeMajorGrandEarnedTitleIds(state: LifeMajorState): string[] {
+  const titleIds: string[] = LIFE_MAJOR_ACTIVITIES.filter(
+    (activity) => lifeMajorGrandGrade(state, activity) >= LIFE_MAJOR_GRAND_TITLE_GRADE,
+  ).map((activity) => LIFE_GRAND_TITLE_ID[activity]);
+  if (lifeMajorGrandGradeTotal(state) >= LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE) {
+    titleIds.push(LIFE_GRAND_TOTAL_TITLE_ID);
+  }
+  return titleIds;
+}
+
 export function lifeMajorRole(
   state: LifeMajorState,
   activity: LifeMajorActivity,
@@ -202,8 +266,9 @@ export function addLifeMajorXp(
 ): { state: LifeMajorState; gained: number } {
   const amount = nonNegativeInt(overflowXp);
   if (amount <= 0 || lifeMajorRole(state, activity) === null) return { state, gained: 0 };
+  // 10단계를 넘은 경험치도 버리지 않고 쌓는다(거장 등급).
   const current = state.masteryXp[activity] ?? 0;
-  const next = Math.min(lifeMajorStageXp(activity, LIFE_MAJOR_MAX_STAGE), current + amount);
+  const next = Math.min(Number.MAX_SAFE_INTEGER, current + amount);
   if (next === current) return { state, gained: 0 };
   return {
     state: { ...state, masteryXp: { ...state.masteryXp, [activity]: next } },
@@ -269,6 +334,10 @@ export type LifeMajorActivityView = {
   stageXpInto: number;
   stageXpForNext: number;
   capped: boolean;
+  /** 거장 등급 — 명장 10단계를 넘은 경험치로 오른다. */
+  grandGrade: number;
+  grandXpInto: number;
+  grandXpForNext: number;
   effectText: string | null;
   productName: string | null;
   productChancePct: number;
@@ -283,6 +352,8 @@ export type LifeMajorCraftingView = {
 };
 
 export type LifeMajorView = {
+  /** 생활 명성 — 편의 해금 조건. */
+  renown: number;
   major: LifeMajorActivity | null;
   minor: LifeMajorActivity | null;
   nextChangeAt: number | null;
@@ -308,11 +379,13 @@ export function lifeMajorView(
       wood: held(LIFE_MAJOR_PRODUCT_ID.woodcutting),
       catalysts: held(TEMPERING_CATALYST.id),
     },
+    renown: lifeRenown(state),
     major: state.major,
     minor: state.minor,
     nextChangeAt: lifeMajorNextChangeAt(state),
     activities: LIFE_MAJOR_ACTIVITIES.map((id) => {
       const progress = lifeMajorStageForXp(id, state.masteryXp[id] ?? 0);
+      const grand = lifeMajorGrandGradeForXp(id, state.masteryXp[id] ?? 0);
       const role = lifeMajorRole(state, id);
       const bonus = lifeMajorBonusPct(state, id);
       const effect = LIFE_MAJOR_EFFECT_LABEL[id];
@@ -327,6 +400,9 @@ export function lifeMajorView(
         stageXpInto: progress.xpInto,
         stageXpForNext: progress.xpForNext,
         capped: progress.capped,
+        grandGrade: grand.grade,
+        grandXpInto: grand.xpInto,
+        grandXpForNext: grand.xpForNext,
         effectText: role && bonus > 0 ? `${effect.label} +${formatPct(bonus)}${effect.unit}` : null,
         productName: id === "cooking" ? null : LIFE_MAJOR_PRODUCTS[id].name,
         productChancePct: lifeMajorProductChancePct(state, id),

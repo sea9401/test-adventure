@@ -229,6 +229,91 @@ describe("POST /api/v2/me/equipment/liberate", () => {
     expect(mocks.saves.get("character.v2")).toMatchObject({ gold: 0, cashItems: {} });
   });
 
+  it("세공 보석으로 줄을 고정하고 쓴 보석과 남은 보석을 돌려준다", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    mocks.saves.set("character.v2", {
+      level: 100,
+      gold: EQUIPMENT_LIBERATION_GOLD_COST + 5_000_000,
+      bankedGold: 0,
+      materials: { v2_cut_gem_polished: 2, v2_rough_gem: 40 },
+    });
+    mocks.saves.set("equipment.v2", {
+      owned: [
+        {
+          iid: "weapon-1",
+          id: "v2_storm_breaker_greatsword",
+          bound: true,
+          liberation: {
+            rank: 3,
+            lineCount: 2,
+            revision: 3,
+            options: [
+              { id: "physical_attack_flat", level: 5 },
+              { id: "magic_attack_flat", level: 1 },
+            ],
+          },
+        },
+      ],
+      equipped: { weapon: "weapon-1" },
+    });
+
+    const response = await POST(
+      request({ iid: "weapon-1", requestId: REQUEST_A, expectedRevision: 3, lockedLines: [0] }),
+    );
+    const json = await response.json();
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      ok: true,
+      spentGold: EQUIPMENT_LIBERATION_GOLD_COST + 5_000_000,
+      gold: 0,
+      spentCutGems: { v2_cut_gem_polished: 1 },
+      cutGems: { v2_cut_gem_polished: 1 },
+    });
+    expect(json.item.liberation.options[0]).toEqual({ id: "physical_attack_flat", level: 5 });
+    expect(mocks.saves.get("character.v2")).toMatchObject({
+      materials: { v2_cut_gem_polished: 1, v2_rough_gem: 40 },
+    });
+  });
+
+  it("줄 번호가 배열이 아니거나 너무 많으면 저장을 잠그기 전에 거절한다", async () => {
+    for (const lockedLines of ["0", [0, 1, 2], [0.5], [-1]]) {
+      const response = await POST(
+        request({ iid: "weapon-1", requestId: REQUEST_A, expectedRevision: 0, lockedLines }),
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ ok: false, error: "invalid_locked_lines" });
+    }
+    expect(lockSaveForUpdate).not.toHaveBeenCalled();
+  });
+
+  it("보석이 없으면 409로 거절하고 아무것도 쓰지 않는다", async () => {
+    mocks.saves.set("equipment.v2", {
+      owned: [
+        {
+          iid: "weapon-1",
+          id: "v2_storm_breaker_greatsword",
+          bound: true,
+          liberation: {
+            rank: 3,
+            lineCount: 2,
+            revision: 3,
+            options: [
+              { id: "physical_attack_flat", level: 5 },
+              { id: "magic_attack_flat", level: 1 },
+            ],
+          },
+        },
+      ],
+      equipped: { weapon: "weapon-1" },
+    });
+    const response = await POST(
+      request({ iid: "weapon-1", requestId: REQUEST_A, expectedRevision: 3, lockedLines: [1] }),
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ ok: false, error: "insufficient_cut_gems" });
+    expect(mocks.writes).toBe(0);
+  });
+
   it("rejects an unknown payment before locking saves", async () => {
     const response = await POST(
       request({ iid: "weapon-1", requestId: REQUEST_A, expectedRevision: 0, payment: "coin" }),

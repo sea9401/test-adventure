@@ -214,6 +214,7 @@ describe("woodcutting routes", () => {
 
     const status = await (await STATUS()).json();
     expect(status.siteUpkeep).toEqual({ pine: 5 });
+    expect(status.lifeRenown).toBe(0);
   });
 
   it("다른 자동 생활 작업 중에는 벌목과 자동 벌목을 시작할 수 없다", async () => {

@@ -34,6 +34,7 @@ import {
   type AchievementSummary,
 } from "@/adventure/data/v2/v2Quests";
 import { TITLES } from "@/adventure/data/titles";
+import { questRewardText } from "@/adventure/data/v2/questRewardText";
 import type {
   RepeatBundleView as BaseRepeatBundleView,
   RepeatQuestView,
@@ -182,21 +183,6 @@ function resetLabel(at: number, nowMs: number): string {
   const h = Math.floor(ms / 3600_000);
   if (h >= 1) return `${h}시간 후 리셋`;
   return `${Math.max(1, Math.floor(ms / 60_000))}분 후 리셋`;
-}
-
-function rewardText(reward: QuestReward): string {
-  const parts: string[] = [];
-  if (reward.gold) parts.push(`${reward.gold.toLocaleString()} 골드(은행 입금)`);
-  if (reward.equip) {
-    parts.push(V2_EQUIPMENT[reward.equip]?.name ?? reward.equip);
-  }
-  if (reward.staminaPotions) {
-    parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
-  }
-  if (reward.titleId) {
-    parts.push(`칭호: ${TITLES[reward.titleId]?.name ?? reward.titleId}`);
-  }
-  return parts.join(" · ");
 }
 
 function seedPouchText(pouch: SeedPouchReward): string {
@@ -492,7 +478,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
-        const text = rewardText(q.reward);
+        const text = questRewardText(q.reward);
         if (text) notifyReward("보상 수령", text);
         else notifySystem("업적 완료로 기록했어요.");
         await Promise.all([refresh(), refreshGameState()]);
@@ -994,7 +980,7 @@ export function QuestRow({
   onOpenMonsterCodex?: () => void;
 }) {
   const { status } = quest;
-  const reward = rewardText(quest.reward);
+  const reward = questRewardText(quest.reward);
 
   const icon =
     status === "claimed" ? (

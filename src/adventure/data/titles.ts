@@ -23,6 +23,8 @@ export const FARM_BREEDER_TITLE_ID = "farm_breeder";
 export const FARM_BREED_MASTER_TITLE_ID = "farm_breed_master";
 export const GATHERING_PIONEER_TITLE_ID = "gathering_pioneer";
 export const GATHERING_SITE_MASTER_TITLE_ID = "gathering_site_master";
+export const PEDDLER_REGULAR_TITLE_ID = "peddler_regular";
+export const PEDDLER_MASTER_TITLE_ID = "peddler_master";
 /** 생활별 거장 10등급 칭호. 키는 생활 전공 id. */
 export const LIFE_GRAND_TITLE_ID = {
   farming: "life_grand_farming",
@@ -165,6 +167,20 @@ export const TITLES: Record<TitleId, Title> = {
     name: "산과 숲의 주인",
     description: "모든 광맥과 숲을 빈틈없이 정비해 낸 사람.",
     condition: "모든 채집지 정비 5단계 달성",
+    category: "collection",
+  },
+  [PEDDLER_REGULAR_TITLE_ID]: {
+    id: PEDDLER_REGULAR_TITLE_ID,
+    name: "단골 행상",
+    description: "교역로마다 얼굴이 알려진 행상.",
+    condition: "행상 단골 등급 합계 15 달성",
+    category: "collection",
+  },
+  [PEDDLER_MASTER_TITLE_ID]: {
+    id: PEDDLER_MASTER_TITLE_ID,
+    name: "대상인",
+    description: "세 교역로 어디서나 수레를 기다리게 만든 상인.",
+    condition: "행상 단골 등급 합계 30 달성",
     category: "collection",
   },
   [LIFE_GRAND_TITLE_ID.farming]: {

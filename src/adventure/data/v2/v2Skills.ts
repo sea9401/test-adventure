@@ -1015,8 +1015,9 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     }
     mag += ((p.spdPerLukCoef ?? 0) / 0.95) * 0.5;
     if (p.skillCritOverflow) mag += 0.5;
-    // 스킬이 발동하고 치명타까지 발생해야 적용되는 조건부 배율이라 일반 치명 피해보다 낮게 평가한다.
-    mag += (p.skillCritDmgPct ?? 0) / 60;
+    // 기본 공격 치명타 피해와 같은 20%당 power 1로 평가한다. 종전 60%당 1은 치명타 확률
+    // 상한(75%)에서 스킬 피해 약 10%인 20%를 1 SP로 만들어 다른 직업의 저가 채용을 불렀다.
+    mag += (p.skillCritDmgPct ?? 0) / 20;
     if (p.equipmentMagicSkillCritConversion) mag += 3.5;
     if (p.skillCritAfterEvade) mag += 0.5;
     if (p.counterDamageUsesReflectBoost) mag += 0.5;

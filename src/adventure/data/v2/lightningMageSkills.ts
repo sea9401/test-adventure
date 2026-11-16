@@ -30,7 +30,10 @@ export const LIGHTNING_MAGE_SKILLS: Record<LightningMageSkillId, V2SkillDefiniti
     id: "v2c_electromancer_capacitor", name: "축전", stat: "int", category: "passive", tier: 3,
     description: "쌓아 둔 전류를 치명적인 순간에 한꺼번에 흘려보낸다.",
     detail: { mechanics: ["모든 직업에서 스킬 치명타 피해 20% 증가."], limitations: ["기본 공격의 치명타 피해는 올리지 않는다."] },
-    mpCost: 0, cooldown: 0, learnCost: 8000, effects: [],
+    // 공통 산식은 스킬 치명타 피해를 60%당 power 1로 쳐서 1 SP가 나온다. 이 값이면 다른 직업이
+    // 치명타 확률 상한(75%)에서 스킬 피해 약 10%를 1 SP로 얻는다. 필살(기본 공격 치명타 피해 25%·4 SP)
+    // 기준에 맞춰 값을 고정한다.
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCost: 3, effects: [],
     passive: { skillCritDmgPct: 20 },
   },
   v2c_electromancer_conduction: {
@@ -72,7 +75,8 @@ export const LIGHTNING_MAGE_SKILLS: Record<LightningMageSkillId, V2SkillDefiniti
     id: "v2c_thundersovereign_thunderclap", name: "뇌정", stat: "int", category: "passive", tier: 3,
     description: "천둥이 뒤따르듯 급소를 찌른 주문의 충격을 한층 키운다.",
     detail: { mechanics: ["모든 직업에서 스킬 치명타 피해 30% 증가."], synergies: ["축전과 함께 장착하면 합산해 50%."] },
-    mpCost: 0, cooldown: 0, learnCost: 12000, effects: [],
+    // 축전과 같은 이유로 고정한다. 필살 II(기본 공격 치명타 피해 30%·5 SP)와 같은 값이다.
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 5, effects: [],
     passive: { skillCritDmgPct: 30 },
   },
 };

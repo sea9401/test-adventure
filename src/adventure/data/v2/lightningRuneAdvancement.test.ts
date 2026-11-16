@@ -115,6 +115,14 @@ describe("전격 계보 스킬 정의", () => {
       lightningCritHastePct: 20,
     });
   });
+
+  it("축전·뇌정의 SP는 같은 수치의 기본 공격 치명타 피해 패시브보다 싸지 않다", () => {
+    // 필살(기본 공격 치명타 피해 25%) 4 SP, 필살 II(30%) 5 SP가 기준이다.
+    expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4);
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(5);
+    expect(spCostOf(V2_SKILLS.v2c_electromancer_capacitor)).toBe(3);
+    expect(spCostOf(V2_SKILLS.v2c_thundersovereign_thunderclap)).toBe(5);
+  });
 });
 
 describe("룬 기사 계보 스킬 정의", () => {

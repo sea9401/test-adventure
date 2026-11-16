@@ -6,6 +6,10 @@ import { marketplaceBrowseSnapshotKey, marketplacePollDelayMs } from "./marketpl
 import { SelectControl } from "./marketplace/SelectControl";
 import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
 import { MarketplaceWatchFilter, useMarketplaceWatchlist } from "./marketplace/useMarketplaceWatchlist";
+import {
+  MARKETPLACE_FAVORITES_KEY,
+  marketplaceFavoriteKey,
+} from "./marketplace/marketplaceFavorites";
 import { useMarketplaceUnsold } from "./marketplace/useMarketplaceUnsold";
 import { ItemSearchInput } from "./ItemSearchInput";
 import { filterItemCounts, matchesItemSearch } from "./itemSearch";
@@ -159,8 +163,6 @@ export type MarketplacePreviewData = {
 
 // 거래소 목록 한 페이지에 보여줄 아이템 수.
 const MARKETPLACE_PAGE_SIZE = 10;
-
-const MARKETPLACE_FAVORITES_KEY = "adventure.marketplace.favorites.v1";
 
 const MARKETPLACE_RECENT_SEARCHES_KEY = "adventure.marketplace.searches.v1";
 
@@ -937,7 +939,8 @@ export function V2MarketplaceView({
     const craftedBy = listingCraftedBy(l.instancePayload);
     return (craftedBy?.name ?? "").toLowerCase().includes(query);
   };
-  const favoriteKeyForListing = (l: Listing) => `${l.kind}:${l.itemId}`;
+  const favoriteKeyForListing = (l: Listing) =>
+    marketplaceFavoriteKey(l.kind, l.itemId);
   const q = search.trim().toLowerCase();
   const browseEquipmentTab =
     browseTab !== "material" && browseTab !== "consumable";

@@ -27,7 +27,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   equipmentSave: unknown;
   proficiencyRaw: unknown;
   skillsRaw: unknown;
-  /** 아레나·훈련 대련처럼 음식 효과와 전투 준비물을 함께 제외할 때 false. 기본은 PvE 적용. */
+  /** 아레나·유저 친선전처럼 음식 효과와 전투 준비물을 함께 제외할 때 false. 기본은 PvE 적용(허수아비 대련 포함). */
   includeCookingBuff?: boolean;
 }): DerivedPlayerCombatV2 | null {
   const { character, equipmentSave, proficiencyRaw, skillsRaw } = saves;

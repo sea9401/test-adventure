@@ -195,7 +195,7 @@ export function peddlerTokenReward({
   return { tokens: Math.floor(numerator / TOKEN_DENOMINATOR), carry: numerator % TOKEN_DENOMINATOR };
 }
 
-// ── 단골 등급 ──
+// ── 교역 등급 ──
 
 /** n등급에 필요한 누적 적재 점수(1등급부터). */
 export const PEDDLER_RANK_THRESHOLDS: readonly number[] = [
@@ -204,7 +204,7 @@ export const PEDDLER_RANK_THRESHOLDS: readonly number[] = [
 export const PEDDLER_MAX_RANK = PEDDLER_RANK_THRESHOLDS.length;
 export const PEDDLER_BASE_CAPACITY = 2_000;
 export const PEDDLER_CAPACITY_PER_RANK = 200;
-/** 단골 등급 합계 칭호 조건. */
+/** 교역 등급 합계 칭호 조건. */
 export const PEDDLER_REGULAR_TITLE_TOTAL_RANK = 15;
 export const PEDDLER_MASTER_TITLE_TOTAL_RANK = 30;
 

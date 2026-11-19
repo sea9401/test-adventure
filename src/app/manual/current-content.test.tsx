@@ -263,14 +263,14 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("명장 작물 2개가 더 듭니다");
   });
 
-  it("행상의 교역로·적재 점수·증표·단골 등급·교환 품목을 안내한다", () => {
+  it("행상의 교역로·적재 점수·증표·교역 등급·교환 품목을 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
     expect(html).toContain("행상");
     for (const name of ["강나루 장터", "산마루 광산촌", "남쪽 항구"]) {
       expect(html).toContain(name);
     }
-    expect(html).toContain("강나루 장터 단골 3등급");
-    expect(html).toContain("단골 등급 합계 10");
+    expect(html).toContain("강나루 장터 교역 3등급");
+    expect(html).toContain("교역 등급 합계 10");
     expect(html).toContain("철광석 2");
     expect(html).toContain("카카오 90");
     expect(html).toContain("전설의 어획물 400");

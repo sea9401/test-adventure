@@ -63,7 +63,11 @@
 
 ## 검증 및 운영 영향
 
-- DB 마이그레이션, 배포 설정, 의존성 변경은 없다. 새 그림도 없다.
+- DB 마이그레이션과 배포 설정 변경은 없다. 새 그림도 없다.
+- 의존성: Next.js와 `eslint-config-next`를 16.4.1에서 16.4.5로 올렸다. PR CI의 운영 의존성 점검이 2026-11-16·17에
+  공개된 Next.js 권고 2건(GHSA-mfr8-8qww-v76h, GHSA-vc7v-qv4w-wrv8, 중간 등급, `use cache` 함수의 캐시가 루트
+  매개변수 사이에서 새는 문제)으로 병합을 막았다. 두 권고의 수정 버전이 16.4.5다. 이 게임은 `use cache`를 쓰지
+  않지만 점검 기준에 맞춰 올렸다. `public/third-party-notices.txt`를 함께 갱신했다.
 - 세이브: 새 세이브 `deep-shop.v1`, `peddler-arrival-notification.v1`. `character.v2.unexplored`에 `bossRisk`,
   `storm-expedition.v1`·`sanctuary-dungeon.v1`에 `deepBest`·`deepBestAt`. 필드가 없는 기존 세이브는 각각 처음 상태로
   읽는다. 나머지 세부는 항목별 기록에 있다.

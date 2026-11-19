@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => {
     state,
     ensureUser: vi.fn(async () => "u-viewer" as string | null),
     select: vi.fn(() => query(state.selectRows.shift() ?? [])),
+    readAvatars: vi.fn(),
+    readCosmetics: vi.fn(),
   };
 });
 
@@ -32,6 +34,11 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: mocks.ensureUser,
+}));
+
+vi.mock("@/lib/server/museunCosmetics", () => ({
+  readProfileAvatarMap: mocks.readAvatars,
+  readMuseunCosmeticAppearanceMap: mocks.readCosmetics,
 }));
 
 import { GET } from "./route";
@@ -46,6 +53,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.state.selectRows = [];
   mocks.ensureUser.mockResolvedValue("u-viewer");
+  mocks.readAvatars.mockResolvedValue(new Map());
+  mocks.readCosmetics.mockResolvedValue(new Map());
 });
 
 describe("GET /api/chat/rooms/[roomId] members", () => {
@@ -58,7 +67,11 @@ describe("GET /api/chat/rooms/[roomId] members", () => {
     expect(await response.text()).toBe("not in room");
   });
 
-  it("참여자 이름과 역할을 방장 우선으로 직렬화한다", async () => {
+  it("참여자 이름과 역할, 줄 머리 프사 정보를 방장 우선으로 직렬화한다", async () => {
+    mocks.readAvatars.mockResolvedValue(new Map([["u-owner", "female2"]]));
+    mocks.readCosmetics.mockResolvedValue(
+      new Map([["u-owner", { profileBorder: "royal" }]]),
+    );
     mocks.state.selectRows = [
       [{ userId: "u-viewer" }],
       [
@@ -87,14 +100,19 @@ describe("GET /api/chat/rooms/[roomId] members", () => {
           name: "마녀",
           role: "owner",
           joinedAt: 1_787_652_000_000,
+          avatar: "female2",
+          profileBorder: "royal",
         },
         {
           userId: "u-member",
           name: "모험가",
           role: "member",
           joinedAt: 1_787_655_600_000,
+          avatar: "male1",
+          profileBorder: null,
         },
       ],
     });
+    expect(mocks.readAvatars).toHaveBeenCalledWith(["u-owner", "u-member"]);
   });
 });

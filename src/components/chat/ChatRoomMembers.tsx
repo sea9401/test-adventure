@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { CrownSimple, Users } from "@phosphor-icons/react";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { PersonThumb } from "@/components/ui/PersonThumb";
 import {
   fetchChatRoomMembers,
   type CustomChatRoomMember,
@@ -98,6 +99,13 @@ export function ChatRoomMembers({
                       aria-label={`${member.name} 프로필 보기`}
                       className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
+                      {member.avatar && (
+                        <PersonThumb
+                          avatar={member.avatar}
+                          name={member.name}
+                          profileBorder={member.profileBorder}
+                        />
+                      )}
                       <span className="min-w-0 flex-1 truncate font-medium">
                         {member.name}
                       </span>

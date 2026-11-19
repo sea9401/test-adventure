@@ -8,6 +8,7 @@ import {
 } from "@/adventure/data/v2/guildContribution";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { PersonThumb } from "@/components/ui/PersonThumb";
 import type {
   GuildContributionResponse,
   GuildInfoResponse,
@@ -130,13 +131,22 @@ export function GuildContributionPanel({
                 <span className="font-medium tabular-nums text-zinc-400 dark:text-zinc-500">
                   {index + 1}
                 </span>
-                <span className="truncate font-medium">
-                  {member?.name ?? "모험가"}
-                  {mine && (
-                    <span className="ml-1 text-[10px] font-normal text-sky-600 dark:text-sky-300">
-                      나
-                    </span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {member && (
+                    <PersonThumb
+                      avatar={member.avatar}
+                      name={member.name}
+                      profileBorder={member.profileBorder}
+                    />
                   )}
+                  <span className="min-w-0 truncate font-medium">
+                    {member?.name ?? "모험가"}
+                    {mine && (
+                      <span className="ml-1 text-xs font-normal text-sky-600 dark:text-sky-300">
+                        나
+                      </span>
+                    )}
+                  </span>
                 </span>
                 <span className="text-right font-semibold tabular-nums">
                   {row.weeklyPoints.toLocaleString()}

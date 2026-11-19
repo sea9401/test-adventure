@@ -11,6 +11,7 @@ import {
   chatNameClass,
 } from "./ChatCosmetics";
 import { ContentSafetyActions } from "@/components/safety/ContentSafetyActions";
+import { PersonThumb, ROW_THUMB_CLASS } from "@/components/ui/PersonThumb";
 
 export const CHAT_BOTTOM_THRESHOLD_PX = 100;
 
@@ -171,11 +172,41 @@ export function MessageList({
         // 일반 채팅은 메타 정보와 본문을 두 줄로, 시스템 알림은 한 줄로 표시한다.
         visibleMessages.map((m) => {
           const body = parseChatMessageContent(m);
+          // 줄 머리 프사 — 시스템 알림과 프사 정보가 없는 예전 응답에는 붙이지 않는다.
+          const thumb =
+            tab !== "notice" && m.avatar ? (
+              <PersonThumb
+                avatar={m.avatar}
+                name={m.name}
+                profileBorder={m.cosmetics?.profileBorder}
+                size="chat"
+              />
+            ) : null;
           return (
             <div
               key={m.id}
-              className="text-sm text-zinc-800 dark:text-zinc-100"
+              className={`text-sm text-zinc-800 dark:text-zinc-100 ${
+                thumb ? "flex items-start gap-2.5" : ""
+              }`}
             >
+              {thumb &&
+                (m.mine ? (
+                  <span className={`${ROW_THUMB_CLASS} mt-0.5 flex shrink-0`}>
+                    {thumb}
+                  </span>
+                ) : (
+                  // 이름 버튼과 같은 동작이라 탭 순서와 보조 기술에서는 뺀다.
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onClick={() => onSelectName(m.name)}
+                    className={`${ROW_THUMB_CLASS} mt-0.5 flex shrink-0`}
+                  >
+                    {thumb}
+                  </button>
+                ))}
+              <div className={thumb ? "min-w-0 flex-1" : undefined}>
               <div
                 className={
                   tab === "notice"
@@ -254,6 +285,7 @@ export function MessageList({
                   )}
                 </div>
               )}
+              </div>
               </div>
           );
         })

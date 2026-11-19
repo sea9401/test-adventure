@@ -14,6 +14,10 @@ import {
 } from "@/lib/chat-rooms";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { requireCurrentUgcConsent } from "@/lib/server/ugcSafety";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 
 type ActionBody = { action?: unknown; targetName?: unknown };
 
@@ -56,11 +60,20 @@ export async function GET(_req: Request, { params }: RoomRouteContext) {
       asc(chatRoomMembers.userId),
     );
 
+  // 참여자 줄 머리 프사 — 명단을 열 때만 부르는 조회라 참여자 묶음으로 한 번씩 읽는다.
+  const memberUserIds = members.map((member) => member.userId);
+  const [avatarByUser, cosmeticByUser] = await Promise.all([
+    readProfileAvatarMap(memberUserIds),
+    readMuseunCosmeticAppearanceMap(memberUserIds),
+  ]);
+
   return Response.json({
     members: members.map((member) => ({
       ...member,
       name: member.name ?? "모험가",
       joinedAt: member.joinedAt.getTime(),
+      avatar: avatarByUser.get(member.userId) ?? "male1",
+      profileBorder: cosmeticByUser.get(member.userId)?.profileBorder ?? null,
     })),
   });
 }

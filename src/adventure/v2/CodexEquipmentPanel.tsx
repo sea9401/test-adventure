@@ -3,14 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle,
-  HandFist,
-  Shield,
-  Sneaker,
   Star,
-  Sword,
-  type Icon,
 } from "@phosphor-icons/react";
-import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
+import { EquipmentTypeIcon } from "./EquipmentTypeIcon";
 import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -96,14 +91,6 @@ const EQUIPMENT_SLOT_ORDER: V2EquipSlot[] = [
   "necklace",
 ];
 const EQUIPMENT_CODEX_PAGE_SIZE = 20;
-const EQUIPMENT_SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
-  weapon: { Icon: Sword, color: "text-rose-500" },
-  armor: { Icon: Shield, color: "text-sky-500" },
-  gloves: { Icon: HandFist, color: "text-amber-500" },
-  boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: RingIcon, color: "text-violet-500" },
-  necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
-};
 const DEFAULT_EQUIPMENT_CODEX_META: EquipmentCodexMeta = {
   registeredCount: 0,
   total: EQUIPMENT_IDS.length,
@@ -782,7 +769,6 @@ export function CodexEquipmentPanel({
                         : ownedCount > 0
                           ? "장착·잠금"
                           : "보유 없음";
-                    const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
                     const favorite = favoriteEquipmentIds.has(id);
                     return (
                     <div
@@ -799,7 +785,7 @@ export function CodexEquipmentPanel({
                         className="flex flex-1 flex-col gap-1 text-left"
                       >
                         <div className="flex items-start justify-between gap-1 pr-8">
-                          <Icon size={20} weight="duotone" className={color} />
+                          <EquipmentTypeIcon item={item} />
                           {registered ? (
                             <span className="inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
                               <CheckCircle size={12} weight="fill" />

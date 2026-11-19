@@ -7,6 +7,11 @@ import {
   emptyFarmReadyNotificationState,
 } from "@/adventure/v2/farmReadyNotification";
 import { FARM_SAVE_KEY, emptyFarmState } from "@/adventure/v2/farm";
+import { PEDDLER_SAVE_KEY } from "@/adventure/v2/peddler";
+import {
+  PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY,
+  createPeddlerArrivalNotification,
+} from "@/adventure/v2/peddlerArrivalNotification";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
 import {
@@ -27,8 +32,13 @@ export async function GET(req: Request) {
   const countOnly = new URL(req.url).searchParams.get("count") === "1";
   const now = Date.now();
 
-  const [[{ unreadCount: storedUnreadCount }], farmRaw, farmNotificationRaw] =
-    await Promise.all([
+  const [
+    [{ unreadCount: storedUnreadCount }],
+    farmRaw,
+    farmNotificationRaw,
+    peddlerRaw,
+    peddlerNotificationRaw,
+  ] = await Promise.all([
       db
         .select({ unreadCount: sql<number>`count(*)::int` })
         .from(v2Notifications)
@@ -46,13 +56,20 @@ export async function GET(req: Request) {
         FARM_READY_NOTIFICATION_SAVE_KEY,
         emptyFarmReadyNotificationState(),
       ),
+      readSave(db, userId, PEDDLER_SAVE_KEY, {}),
+      readSave(db, userId, PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY, {}),
     ]);
   const farmReadyNotification = createFarmReadyNotification(
     farmRaw,
     farmNotificationRaw,
     now,
   );
-  const unreadCount = storedUnreadCount + (farmReadyNotification ? 1 : 0);
+  // 저장된 행 없이 읽을 때 만드는 알림. 농장 수확과 행상 도착이 각각 최대 한 건이다.
+  const dynamicNotifications = [
+    farmReadyNotification,
+    createPeddlerArrivalNotification(peddlerRaw, peddlerNotificationRaw, now),
+  ].filter((entry): entry is V2NotificationEntry => entry !== null);
+  const unreadCount = storedUnreadCount + dynamicNotifications.length;
   if (countOnly) {
     return Response.json({ ok: true, unreadCount });
   }
@@ -67,7 +84,7 @@ export async function GET(req: Request) {
       ),
     )
     .orderBy(desc(v2Notifications.id))
-    .limit(NOTIF_FETCH_LIMIT - (farmReadyNotification ? 1 : 0));
+    .limit(NOTIF_FETCH_LIMIT - dynamicNotifications.length);
 
   const storedNotifications: V2NotificationEntry[] = rows.map((r) => ({
     id: r.id,
@@ -76,10 +93,7 @@ export async function GET(req: Request) {
     readAt: r.readAt ? r.readAt.getTime() : null,
     createdAt: r.createdAt.getTime(),
   }));
-  const notifications = [
-    ...(farmReadyNotification ? [farmReadyNotification] : []),
-    ...storedNotifications,
-  ].sort((a, b) => b.createdAt - a.createdAt);
+  const notifications = [...dynamicNotifications, ...storedNotifications].sort((a, b) => b.createdAt - a.createdAt);
 
   return Response.json({ ok: true, notifications, unreadCount });
 }

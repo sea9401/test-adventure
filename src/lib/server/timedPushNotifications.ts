@@ -23,6 +23,13 @@ import {
   ranchReadyPushCandidates,
 } from "@/adventure/v2/ranchReadyPush";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
+import { PEDDLER_SAVE_KEY } from "@/adventure/v2/peddler";
+import {
+  PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY,
+  peddlerArrivalPushBody,
+  peddlerArrivalPushEventKey,
+  unacknowledgedPeddlerArrivals,
+} from "@/adventure/v2/peddlerArrivalNotification";
 import {
   DAY_MS,
   RETENTION_POLICY,
@@ -34,6 +41,8 @@ const TIMER_SAVE_KEYS = [
   MINING_AUTO_KEY,
   FARM_SAVE_KEY,
   FARM_READY_NOTIFICATION_SAVE_KEY,
+  PEDDLER_SAVE_KEY,
+  PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY,
 ] as const;
 const DELIVERY_RETENTION_MS = RETENTION_POLICY.pushDeliveryDays * DAY_MS;
 
@@ -96,6 +105,13 @@ export async function sendDueTimedPushNotifications(now = Date.now()) {
         saves.get(FARM_SAVE_KEY),
         now,
       ).map((candidate) => candidate.eventKey),
+    );
+    candidateKeys.push(
+      ...unacknowledgedPeddlerArrivals(
+        saves.get(PEDDLER_SAVE_KEY),
+        saves.get(PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY),
+        now,
+      ).map((arrival) => peddlerArrivalPushEventKey(userId, arrival)),
     );
   }
 
@@ -179,6 +195,33 @@ export async function sendDueTimedPushNotifications(now = Date.now()) {
       failed += result.failed;
       if (result.delivered > 0) {
         await recordDeliveries(userId, ranchPlan.eventKeys);
+      }
+    }
+
+    const pendingArrivals = unacknowledgedPeddlerArrivals(
+      saves.get(PEDDLER_SAVE_KEY),
+      saves.get(PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY),
+      now,
+    ).filter(
+      (arrival) =>
+        !deliveredKeys.has(peddlerArrivalPushEventKey(userId, arrival)),
+    );
+    if (pendingArrivals.length > 0) {
+      const result = await sendWebPushToUser(userId, {
+        title: "행상 수레 도착",
+        body: peddlerArrivalPushBody(pendingArrivals),
+        url: "/town/peddler",
+        tag: "peddler-arrived",
+      });
+      delivered += result.delivered;
+      failed += result.failed;
+      if (result.delivered > 0) {
+        await recordDeliveries(
+          userId,
+          pendingArrivals.map((arrival) =>
+            peddlerArrivalPushEventKey(userId, arrival),
+          ),
+        );
       }
     }
   }

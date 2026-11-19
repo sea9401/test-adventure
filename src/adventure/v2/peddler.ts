@@ -105,6 +105,17 @@ export function parsePeddlerState(raw: unknown, weekId: string): PeddlerState {
   };
 }
 
+export type PeddlerActiveDispatch = { routeId: PeddlerRouteId; dispatch: PeddlerDispatch };
+
+/** 보낸 수레만 읽는다. 도착 알림과 홈 체크처럼 주간 구매 기록이 필요 없는 곳에서 쓴다. */
+export function peddlerActiveDispatches(raw: unknown): PeddlerActiveDispatch[] {
+  const routesRaw = record(record(raw).routes);
+  return PEDDLER_ROUTE_IDS.flatMap((routeId) => {
+    const dispatch = parseDispatch(record(routesRaw[routeId]).dispatch);
+    return dispatch ? [{ routeId, dispatch }] : [];
+  });
+}
+
 export function peddlerRouteRank(state: PeddlerState, routeId: PeddlerRouteId): number {
   return peddlerRankForPoints(state.routes[routeId].standingPoints);
 }

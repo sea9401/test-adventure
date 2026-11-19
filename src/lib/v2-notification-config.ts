@@ -31,6 +31,7 @@ export const V2_NOTIFICATION_TYPES = [
   "coop_defeated",
   "feedback_replied",
   "farm_ready",
+  "peddler_arrived",
   "codex_research_trophy",
   "auction_won",
   "auction_unsold",
@@ -116,11 +117,23 @@ export function grandGradeNotificationText(payload: GrandGradeNotificationPayloa
   return `${payload.name} 거장 ${payload.grade.toLocaleString("ko-KR")}등급에 올랐습니다.`;
 }
 
+// peddler_arrived — 도착했고 아직 확인하지 않은 행상 수레를 한 건으로 묶은 동적 알림.
+export type PeddlerArrivedNotificationPayload = {
+  arrivedCount: number;
+};
+
+export function peddlerArrivedNotificationText(
+  payload: PeddlerArrivedNotificationPayload,
+): string {
+  return `행상 수레 ${payload.arrivedCount.toLocaleString("ko-KR")}대가 돌아왔습니다.`;
+}
+
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
   | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload
   | GrandGradeNotificationPayload
+  | PeddlerArrivedNotificationPayload
   | GuildKickedNotificationPayload
   | GuildDisbandedNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.

@@ -12,6 +12,7 @@ import {
   Flag,
   Medal,
   Handshake,
+  Package,
   Plant,
   ShoppingBag,
   ShieldWarning,
@@ -25,6 +26,7 @@ import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import { unreadInboxItems } from "@/adventure/v2/inboxViewState";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
+import { acknowledgePeddlerArrivalNotification } from "@/adventure/v2/peddlerArrivalNotificationClient";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -36,6 +38,8 @@ import {
   guildKickedNotificationText,
   grandGradeNotificationText,
   masterProductNotificationText,
+  peddlerArrivedNotificationText,
+  type PeddlerArrivedNotificationPayload,
   type GrandGradeNotificationPayload,
   type MasterProductNotificationPayload,
   type AuctionUnsoldNotificationPayload,
@@ -160,6 +164,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-emerald-600 dark:text-emerald-400"
+    />
+  ),
+  peddler_arrived: (
+    <Package
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-amber-600 dark:text-amber-400"
     />
   ),
   codex_research_trophy: (
@@ -315,6 +326,14 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
+  if (n.type === "peddler_arrived") {
+    return (
+      <>
+        {peddlerArrivedNotificationText(n.payload as PeddlerArrivedNotificationPayload)}{" "}
+        눌러서 증표를 받아 주세요
+      </>
+    );
+  }
   if (n.type === "codex_research_trophy") {
     const p = n.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
     const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
@@ -339,12 +358,14 @@ function NotificationRow({
   onOpenOutpost,
   onOpenFeedback,
   onOpenFarm,
+  onOpenPeddler,
   onOpenCoopSession,
 }: {
   item: V2NotificationEntry;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
   onOpenFarm: () => void;
+  onOpenPeddler: () => void;
   onOpenCoopSession: (sessionId: string) => void;
 }) {
   const outpostId = (item.payload as { outpostId?: string }).outpostId;
@@ -353,12 +374,13 @@ function NotificationRow({
       ? (item.payload as { feedbackId: number }).feedbackId
       : null;
   const farmReady = item.type === "farm_ready";
+  const peddlerArrived = item.type === "peddler_arrived";
   const coopSessionId =
     item.type === "coop_defeated"
       ? (item.payload as { sessionId: string }).sessionId
       : null;
   const actionable = Boolean(
-    outpostId || feedbackId || farmReady || coopSessionId,
+    outpostId || feedbackId || farmReady || peddlerArrived || coopSessionId,
   );
 
   return (
@@ -370,6 +392,9 @@ function NotificationRow({
         else if (farmReady) {
           void acknowledgeFarmReadyNotification();
           onOpenFarm();
+        } else if (peddlerArrived) {
+          void acknowledgePeddlerArrivalNotification();
+          onOpenPeddler();
         } else if (coopSessionId) {
           void acknowledgeV2Notification(item.id);
           onOpenCoopSession(coopSessionId);
@@ -429,6 +454,7 @@ export function V2NotificationsView({
   onOpenOutpost,
   onOpenFeedback,
   onOpenFarm,
+  onOpenPeddler,
   onOpenCoopSession,
   initialTab = "all",
 }: {
@@ -436,6 +462,7 @@ export function V2NotificationsView({
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
   onOpenFarm: () => void;
+  onOpenPeddler: () => void;
   onOpenCoopSession: (sessionId: string) => void;
   initialTab?: NotificationCenterTab;
 }) {
@@ -503,11 +530,17 @@ export function V2NotificationsView({
         const farmReadyRead = hasFarmReady
           ? await acknowledgeFarmReadyNotification()
           : false;
+        const peddlerArrivedRead = notifications.some(
+          (item) => item.type === "peddler_arrived",
+        )
+          ? await acknowledgePeddlerArrivalNotification()
+          : false;
         const readAt = Date.now();
         setNotifications((current) =>
           current?.map((item) =>
             item.readAt === null &&
-            (item.type !== "farm_ready" || farmReadyRead)
+            (item.type !== "farm_ready" || farmReadyRead) &&
+            (item.type !== "peddler_arrived" || peddlerArrivedRead)
               ? { ...item, readAt }
               : item,
           ) ?? [],
@@ -594,6 +627,7 @@ export function V2NotificationsView({
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
                     onOpenFarm={onOpenFarm}
+                    onOpenPeddler={onOpenPeddler}
                     onOpenCoopSession={onOpenCoopSession}
                   />
                 </li>
@@ -618,6 +652,7 @@ export function V2NotificationsView({
                     onOpenOutpost={onOpenOutpost}
                     onOpenFeedback={onOpenFeedback}
                     onOpenFarm={onOpenFarm}
+                    onOpenPeddler={onOpenPeddler}
                     onOpenCoopSession={onOpenCoopSession}
                   />
                 </li>

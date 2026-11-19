@@ -83,7 +83,7 @@ it("알림 센터에서도 낙찰과 물품 지급 완료를 표시한다", asyn
   }));
   render(<V2NotificationsView
     onBack={() => {}} onOpenOutpost={() => {}} onOpenFeedback={() => {}}
-    onOpenFarm={() => {}} onOpenCoopSession={() => {}} initialTab="notifications"
+    onOpenFarm={() => {}} onOpenPeddler={() => {}} onOpenCoopSession={() => {}} initialTab="notifications"
   />);
   expect(await screen.findByText(/철광석 ×4.*1,500골드.*물품 지급이 완료/)).not.toBeNull();
 });
@@ -119,7 +119,48 @@ it("알림 센터에서도 유찰 품목과 수량을 표시한다", async () =>
   }));
   render(<V2NotificationsView
     onBack={() => {}} onOpenOutpost={() => {}} onOpenFeedback={() => {}}
-    onOpenFarm={() => {}} onOpenCoopSession={() => {}} initialTab="notifications"
+    onOpenFarm={() => {}} onOpenPeddler={() => {}} onOpenCoopSession={() => {}} initialTab="notifications"
   />);
   expect(await screen.findByText(/철광석 ×4.*유찰되어 돌아왔습니다/)).not.toBeNull();
+});
+
+const PEDDLER_NOTIFICATION = {
+  id: -1, type: "peddler_arrived", readAt: null, createdAt: Date.now(),
+  payload: { arrivedCount: 2 },
+};
+
+it("알림 종에서 돌아온 행상 수레 수를 표시하고 누르면 확인으로 기록한다", async () => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("chrome-status")) {
+      return Response.json({ ok: true, notificationUnread: 1, mailUnread: 0 });
+    }
+    if (url === "/api/v2/notifications") {
+      return Response.json({ ok: true, unreadCount: 1, notifications: [PEDDLER_NOTIFICATION] });
+    }
+    return Response.json({ ok: true, items: [], unreadCount: 0 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ChromeStatusProvider><NotificationBell /></ChromeStatusProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "알림 및 우편 1개" }));
+  fireEvent.click(await screen.findByText("행상 수레 2대가 돌아왔습니다."));
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/v2/notifications/peddler-arrival/read",
+    { method: "POST" },
+  );
+});
+
+it("알림 센터에서도 돌아온 행상 수레를 표시한다", async () => {
+  const { V2NotificationsView } = await import("./V2NotificationsView");
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === "/api/v2/notifications") {
+      return Response.json({ ok: true, notifications: [PEDDLER_NOTIFICATION] });
+    }
+    return Response.json({ ok: true, items: [] });
+  }));
+  render(<V2NotificationsView
+    onBack={() => {}} onOpenOutpost={() => {}} onOpenFeedback={() => {}}
+    onOpenFarm={() => {}} onOpenPeddler={() => {}} onOpenCoopSession={() => {}} initialTab="notifications"
+  />);
+  expect(await screen.findByText(/행상 수레 2대가 돌아왔습니다\. 눌러서 증표를 받아 주세요/)).not.toBeNull();
 });

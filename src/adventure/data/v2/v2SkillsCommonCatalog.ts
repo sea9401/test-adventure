@@ -2595,7 +2595,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       mechanics: ["직접 피해 효과가 정확히 하나인 공격 스킬의 일반 물리 피해에 검기 초월 보정을 적용한다."],
       limitations: ["직접 피해 효과가 둘 이상인 다단 공격 전체와 체력 소모·처형·중첩 보상·마법 피해에는 적용되지 않는다."],
     },
-    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11,
+    // 스킬 치명타 피해 산식 보정(60%→20%당 power 1) 전의 13 SP를 유지한다.
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 11, spCostDiscount: 2,
     effects: [],
     passive: {
       statPct: { str: 24 },
@@ -2963,7 +2964,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       limitations: ["속도 보정은 무한히 선형 증가하지 않고 점차 효율이 줄어든다."],
     },
     // 속도 전환 상한 조정으로 루브릭 비용이 내려가도 기존 장착 비용 14 SP는 유지한다.
-    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 14,
+    // 스킬 치명타 피해 산식 보정(60%→20%당 power 1)으로 루브릭이 15가 되어도 14 SP를 유지한다.
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 14, spCostDiscount: 1,
     effects: [],
     passive: {
       statPct: { dex: 22, luk: 8 },

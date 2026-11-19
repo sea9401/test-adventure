@@ -72,7 +72,8 @@ export const LIGHTNING_MAGE_SKILLS: Record<LightningMageSkillId, V2SkillDefiniti
     id: "v2c_thundersovereign_thunderclap", name: "뇌정", stat: "int", category: "passive", tier: 3,
     description: "천둥이 뒤따르듯 급소를 찌른 주문의 충격을 한층 키운다.",
     detail: { mechanics: ["모든 직업에서 스킬 치명타 피해 30% 증가."], synergies: ["축전과 함께 장착하면 합산해 50%."] },
-    mpCost: 0, cooldown: 0, learnCost: 12000, effects: [],
+    // 공통 산식 값은 4 SP다. 필살 II(기본 공격 치명타 피해 30%·5 SP)와 같은 값으로 고정한다.
+    mpCost: 0, cooldown: 0, learnCost: 12000, spCost: 5, effects: [],
     passive: { skillCritDmgPct: 30 },
   },
 };

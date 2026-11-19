@@ -16,14 +16,15 @@ import {
   type SanctuaryAutoChoiceKind, type SanctuaryDifficulty, type SanctuaryAutoPreferences, type SanctuaryAutoRun, type SanctuaryState,
 } from "@/adventure/data/v2/sanctuaryDungeon";
 import { confirmGameAction } from "@/components/ui/gameDialog";
+import { deepStageTokenReward } from "@/adventure/data/v2/dungeonDeepStage";
 import type { StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import { StormExpeditionRouteMap } from "./StormExpeditionRouteMap";
 import { StormExpeditionNodeDialog, type StormExpeditionNodeDialogModel } from "./StormExpeditionNodeDialog";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 
-type Status = { ok: boolean; unlocked: boolean; attemptsLeft: number; state: SanctuaryState; error?: string };
-type Result = Partial<Status> & { auto?: { runs: SanctuaryAutoRun[] }; success?: boolean; finalClear?: boolean; failed?: boolean; withdrawn?: boolean; droppedEmblems?: Emblem[]; gainedEmblems?: Emblem[]; replay?: ReplayPayload; playerName?: string; gender?: string; startPlayerHp?: number; enemyName?: string };
+type Status = { ok: boolean; unlocked: boolean; attemptsLeft: number; state: SanctuaryState; deep?: { best: number; maxSelectable: number }; error?: string };
+type Result = Partial<Status> & { deepTokensGained?: number; auto?: { runs: SanctuaryAutoRun[] }; success?: boolean; finalClear?: boolean; failed?: boolean; withdrawn?: boolean; droppedEmblems?: Emblem[]; gainedEmblems?: Emblem[]; replay?: ReplayPayload; playerName?: string; gender?: string; startPlayerHp?: number; enemyName?: string };
 const ERRORS: Record<string, string> = {
   locked: "미개척지 해금 이후 입장할 수 있습니다.", no_attempts: "오늘의 입장 횟수를 모두 사용했습니다.",
   already_active: "진행 중인 던전이 있습니다.", no_active: "진행 중인 던전이 없습니다.",
@@ -31,7 +32,24 @@ const ERRORS: Record<string, string> = {
   choice_required: "먼저 현재 지점의 효과를 선택해 주세요.", invalid_choice: "선택할 수 없는 효과입니다.",
   battle_required: "현재 지점의 전투를 완료해 주세요.", unauthorized: "로그인 상태를 확인해 주세요.",
   invalid_difficulty: "선택할 수 없는 난이도입니다.",
+  deep_stage_locked: "아직 열리지 않은 심층 단계입니다.", invalid_deep_stage: "심층 단계는 하드에서만 고를 수 있습니다.",
 };
+/** 심층 단계 선택. 하드를 골랐을 때만 보이고, 완주 기록이 없으면 여는 조건을 알린다. */
+function DeepStagePicker({ deep, value, busy, onChange }: { deep: { best: number; maxSelectable: number }; value: number; busy: boolean; onChange: (stage: number) => void }) {
+  if (deep.maxSelectable <= 0) return <p className="text-sm">성소를 한 번 완주하면 심층 1단계가 열립니다.</p>;
+  return <div className="flex flex-wrap items-center gap-2">
+    <label className="flex items-center gap-2 text-sm font-semibold">
+      심층 단계
+      <select aria-label="심층 단계" value={value} disabled={busy} onChange={(event) => onChange(Number(event.target.value))}
+        className="min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+        <option value={0}>심층 없음(하드)</option>
+        {Array.from({ length: deep.maxSelectable }, (_, index) => index + 1).map((stage) =>
+          <option key={stage} value={stage}>{stage}단계 · 증표 {deepStageTokenReward(stage)}개</option>)}
+      </select>
+    </label>
+    <span className="text-sm text-zinc-600 dark:text-zinc-300">{deep.best > 0 ? `최고 완주 ${deep.best}단계` : "완주한 심층 단계 없음"}</span>
+  </div>;
+}
 const DIFFICULTY_OPTIONS = SANCTUARY_DIFFICULTIES.map((key) => ({ key, label: SANCTUARY_DIFFICULTY_LABELS[key], tone: key === "hard" ? "danger" as const : "safe" as const }));
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 const DIFFICULTY_REQUIRED = "난이도를 먼저 선택해 주세요.";
@@ -75,11 +93,11 @@ function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy
         const choices = sanctuaryChoiceCatalog(row.kind);
         return Array.from({ length: row.ranks }, (_, rank) => {
           const name = row.ranks > 1 ? `${row.label} ${rank + 1}순위` : row.label;
-          return <label key={name} className="flex flex-col gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          return <label key={name} className="flex min-w-0 flex-col gap-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             {name}
             <select value={preferences[row.kind][rank]} disabled={busy}
               onChange={(event) => setPreferences((current) => ({ ...current, [row.kind]: placeAtRank(current[row.kind], rank, event.target.value) }))}
-              className="min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+              className="min-h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
               {choices.map((choice) => <option key={choice.id} value={choice.id}>{choice.name} · {choice.description}</option>)}
             </select>
           </label>;
@@ -96,12 +114,15 @@ function AutoRunResult({ runs, onOpenEmblems }: { runs: SanctuaryAutoRun[]; onOp
     <h2 className="font-bold">일괄 진행 결과</h2>
     <ul className="space-y-1 text-sm">
       {runs.map((run, index) => <li key={index}>
-        {run.cleared ? `${index + 1}회차 ${SANCTUARY_DIFFICULTY_LABELS[run.difficulty]} · 클리어 · 문장 ${run.gainedEmblems.length}개`
-          : `${index + 1}회차 ${SANCTUARY_DIFFICULTY_LABELS[run.difficulty]} · ${run.endedAt}에서 패배${run.lostEmblems > 0 ? ` · 임시 문장 ${run.lostEmblems}개 잃음` : ""}`}
+        {run.cleared ? `${index + 1}회차 ${runLabel(run)} · 클리어 · 문장 ${run.gainedEmblems.length}개${run.deepTokens ? ` · 심층 증표 ${run.deepTokens}개` : ""}`
+          : `${index + 1}회차 ${runLabel(run)} · ${run.endedAt}에서 패배${run.lostEmblems > 0 ? ` · 임시 문장 ${run.lostEmblems}개 잃음` : ""}`}
       </li>)}
     </ul>
     {gained.length > 0 && <><p>문장 {gained.length}개를 획득했습니다.</p><EmblemList items={gained} /><Button onClick={onOpenEmblems}>문장 확인</Button></>}
   </Card>;
+}
+function runLabel(run: SanctuaryAutoRun): string {
+  return run.deepStage ? `${SANCTUARY_DIFFICULTY_LABELS[run.difficulty]} · 심층 ${run.deepStage}단계` : SANCTUARY_DIFFICULTY_LABELS[run.difficulty];
 }
 function EmblemList({ items }: { items: Emblem[] }) {
   return <div className="flex flex-wrap gap-2">{items.map((item) => <span key={item.iid} className={`${SURFACE_INSET} px-2 py-1 text-sm`}>{EMBLEM_LABELS[item.kind]} 문장 · {item.grade}등급</span>)}</div>;
@@ -119,6 +140,7 @@ export function V2SanctuaryDungeonView() {
   const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
   const [skipReplay, setSkipReplay] = useState(false);
   const [difficulty, setDifficulty] = useState<SanctuaryDifficulty | null>(null);
+  const [pickedDeepStage, setPickedDeepStage] = useState(0);
   const inFlight = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -144,6 +166,10 @@ export function V2SanctuaryDungeonView() {
       setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.");
     } finally { inFlight.current = false; setBusy(false); }
   }
+  // 심층 단계는 하드에서만 쓰고, 열린 단계를 넘지 않게 맞춘다.
+  const deep = status?.deep ?? { best: 0, maxSelectable: 0 };
+  const deepStage = difficulty === "hard" ? Math.min(pickedDeepStage, deep.maxSelectable) : 0;
+  const deepRequest = deepStage > 0 ? { deepStage } : {};
   async function runAuto(preferences: SanctuaryAutoPreferences) {
     if (!status || (status.attemptsLeft > 0 && !difficulty)) return;
     const runs = (status.state.active ? 1 : 0) + status.attemptsLeft;
@@ -152,7 +178,7 @@ export function V2SanctuaryDungeonView() {
       message: `탐험 ${runs}회를 끝까지 자동으로 진행합니다. ${difficulty && status.attemptsLeft > 0 ? `새로 시작하는 탐험은 ${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도입니다. ` : ""}패배한 탐험은 그 탐험의 임시 문장을 잃습니다.`,
       confirmLabel: "진행",
     });
-    if (confirmed) await act("auto", { ...(difficulty ? { difficulty } : {}), preferences });
+    if (confirmed) await act("auto", { ...(difficulty ? { difficulty } : {}), ...deepRequest, preferences });
   }
   const active = status?.state.active;
   const selectedNode = SANCTUARY_NODES.find((entry) => entry.id === openNodeId);
@@ -178,6 +204,8 @@ export function V2SanctuaryDungeonView() {
     <Card className="space-y-2 text-sm">
       <p>미개척지 해금 이후 입장 · 하루 3회(노말·하드 공유) · 폭풍 원정과 입장 횟수 별도</p>
       <SegmentedControl ariaLabel="난이도" options={DIFFICULTY_OPTIONS} value={difficulty} onChange={setDifficulty} />
+      {difficulty === "hard" && <DeepStagePicker deep={deep} value={deepStage} busy={busy} onChange={setPickedDeepStage} />}
+      {deepStage > 0 && <p>심층 {deepStage}단계는 하드보다 적이 더 강합니다. 문장 보상은 하드와 같고, 완주하면 심층 증표 {deepStageTokenReward(deepStage)}개를 받습니다.</p>}
       <RewardRates difficulty={difficulty} />
       <p>문장은 임시 전리품으로 보관됩니다. 귀환하거나 최종 보스를 처치하면 획득하며, 패배하면 이번 탐험의 임시 문장을 잃습니다.</p>
     </Card>
@@ -191,7 +219,7 @@ export function V2SanctuaryDungeonView() {
       <Card padding="md" className="min-w-0 space-y-3">
         <h2 className="font-bold">성소 지도</h2>
         <p className="text-sm">{active ? "현재 원형 아이콘을 선택해 전투나 정비를 진행하세요." : "성소 외곽 아이콘을 선택해 입장하세요."}</p>
-        {active && <p className="text-sm">{SANCTUARY_DIFFICULTY_LABELS[status.state.difficulty]} 진행 중 · HP {active.hp.toLocaleString()} / {active.maxHp.toLocaleString()} · MP {active.mp.toLocaleString()} / {active.maxMp.toLocaleString()} · 완료 {active.completedNodeIds.length} / {SANCTUARY_NODES.length}</p>}
+        {active && <p className="text-sm">{SANCTUARY_DIFFICULTY_LABELS[status.state.difficulty]}{active.deepStage ? ` · 심층 ${active.deepStage}단계` : ""} 진행 중 · HP {active.hp.toLocaleString()} / {active.maxHp.toLocaleString()} · MP {active.mp.toLocaleString()} / {active.maxMp.toLocaleString()} · 완료 {active.completedNodeIds.length} / {SANCTUARY_NODES.length}</p>}
         <StormExpeditionRouteMap layout="linear" label="성소 진행 경로" nodes={SANCTUARY_NODES}
           currentNodeId={active?.currentNodeId ?? null} visitedNodeIds={active?.visitedNodeIds ?? []}
           completedNodeIds={active?.completedNodeIds ?? []}
@@ -208,12 +236,13 @@ export function V2SanctuaryDungeonView() {
     {result && (result.success !== undefined || result.withdrawn) && <Card role="status" className="space-y-2">
       <h2 className="font-bold">{result.finalClear ? "성소 클리어!" : result.failed ? "전투 패배" : result.withdrawn ? "귀환 완료" : `${result.enemyName} 처치`}</h2>
       {result.failed && <p>이번 탐험의 임시 문장을 잃었습니다.</p>}
+      {result.deepTokensGained ? <p>심층 증표 {result.deepTokensGained}개를 받았습니다.</p> : null}
       {result.gainedEmblems && result.gainedEmblems.length > 0 ? <><p>문장 {result.gainedEmblems.length}개를 획득했습니다.</p><EmblemList items={result.gainedEmblems} /><Button onClick={() => router.push("/character/emblems")}>문장 확인</Button></> : result.droppedEmblems && result.droppedEmblems.length > 0 ? <><p>임시 문장 획득</p><EmblemList items={result.droppedEmblems} /></> : null}
     </Card>}
     {dialog && <StormExpeditionNodeDialog open model={dialog} busy={busy}
       onClose={() => setOpenNodeId(null)}
       onAction={(action) => {
-        if (action.kind === "move" && difficulty) void act("start", { difficulty });
+        if (action.kind === "move" && difficulty) void act("start", { difficulty, ...deepRequest });
         if (action.kind === "fight") void act("fight");
         if (action.kind === "choose") void act("choose", { choiceId: action.choiceId });
         if (action.kind === "skip_replay") setSkipReplay(action.value);

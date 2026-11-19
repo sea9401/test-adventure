@@ -6,6 +6,35 @@ import {
   UNEXPLORED_MIN_DIFFICULTY_CAP,
 } from "@/adventure/data/v2/unexploredTree";
 import { unexploredBossUniqueEffectOf } from "@/adventure/data/v2/unexploredBossUniqueEffects";
+import {
+  EXPLORATION_GRADE_TITLE_IDS,
+  EXPLORATION_GRADE_XP,
+  EXPLORATION_MAX_XP_POINTS,
+  UNEXPLORED_PRESET_UNLOCK_GRADES,
+  UNEXPLORED_TRACE_CAP_TIERS,
+  nextExplorationGradePointGrade,
+} from "@/adventure/data/v2/unexploredGrade";
+import { TITLES } from "@/adventure/data/titles";
+import {
+  DEEP_STAGE_DEPTH_STEP,
+  DEEP_STAGE_TITLE_IDS,
+  DEEP_STAGE_TITLE_STAGES,
+  DEEP_TOKEN_BASE,
+  DEEP_TOKEN_PER_STAGE,
+} from "@/adventure/data/v2/dungeonDeepStage";
+import { DEEP_SHOP_ENTRIES } from "@/adventure/v2/deepShop";
+import {
+  UNEXPLORED_BOSS_JACKPOT_BASE_PCT,
+  UNEXPLORED_BOSS_RISK_HP_STEP,
+  UNEXPLORED_BOSS_RISK_JACKPOT_STEP_PCT,
+  UNEXPLORED_BOSS_RISK_QUALITY_STEP_PCT,
+  UNEXPLORED_BOSS_RISK_REWARD_CAP,
+  UNEXPLORED_BOSS_RISK_STAT_STEP,
+  UNEXPLORED_BOSS_RISK_TITLE_IDS,
+  riskBossCoreCount,
+  riskJackpotChancePct,
+  riskMinimumQualityPct,
+} from "@/adventure/data/v2/unexploredBossRisk";
 import { SANCTUARY_DIFFICULTY_LABELS } from "@/adventure/data/v2/sanctuaryDungeon";
 import {
   HUNT_COST,
@@ -48,7 +77,7 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { AUTO_HUNT_LEVEL_TARGET } from "@/adventure/v2/autoHuntStopPolicy";
-import { H2, P, UL, Em, Code, Table } from "./primitives";
+import { H2, H3, P, UL, Em, Code, Table } from "./primitives";
 
 const HUNTING_THEMES = dungeonThemeCatalog(MAX_FRONTIER_DEPTH);
 const LAST_HUNTING_THEME = HUNTING_THEMES.at(-1);
@@ -101,6 +130,26 @@ function rareMapRewardText(def: RareMapKind) {
     .filter(Boolean)
     .join(", ");
 }
+
+// 심층 단계 칭호 이름(원정 → 성소, 낮은 단계부터).
+const DEEP_STAGE_TITLE_NAMES = (["storm", "sanctuary"] as const).flatMap((dungeon) =>
+  DEEP_STAGE_TITLE_STAGES.map(
+    (stage) => TITLES[DEEP_STAGE_TITLE_IDS[dungeon][stage]]?.name ?? "",
+  ),
+);
+
+// 탐사 등급 보상표 — 수치는 unexploredGrade.ts 의 상수에서 읽는다.
+const EXPLORATION_GRADE_POINT_GRADES = (() => {
+  const grades: number[] = [];
+  let grade = 0;
+  for (let count = 0; count < 5; count += 1) {
+    grade = nextExplorationGradePointGrade(grade);
+    grades.push(grade);
+  }
+  return grades;
+})();
+const PRESET_UNLOCK_GRADES = UNEXPLORED_PRESET_UNLOCK_GRADES.filter((grade) => grade > 0);
+const TRACE_CAP_UPGRADES = UNEXPLORED_TRACE_CAP_TIERS.filter((tier) => tier.grade > 0);
 
 export function HuntingContent() {
   return (
@@ -408,6 +457,31 @@ export function HuntingContent() {
           }),
         )}
       />
+      <H3>개인 보스 위험도</H3>
+      <P>
+        한 번이라도 처치한 개인 보스는 소환할 때 <Em>위험도</Em>를 고를 수 있습니다(캐릭터 → 개척 노드 →
+        흔적 보관함). 위험도는 보스마다 따로 기록하며, 위험도 N으로 처치하면 그 보스의 N+1이 열립니다.
+        위험도마다 보스 체력이 {Math.round(UNEXPLORED_BOSS_RISK_HP_STEP * 100)}%, 공격·방어 등 능력치 배율이{" "}
+        {Math.round(UNEXPLORED_BOSS_RISK_STAT_STEP * 100)}%씩 오릅니다. 소환석과 세션 시간(24시간)은 같고, 시간 안에
+        처치하지 못하면 소환석만 잃습니다.
+      </P>
+      <Table
+        head={["보상", "위험도마다", `위험도 ${UNEXPLORED_BOSS_RISK_REWARD_CAP}`]}
+        rows={[
+          ["우두머리 핵", "+1개", `${riskBossCoreCount(UNEXPLORED_BOSS_RISK_REWARD_CAP)}개`],
+          [
+            "고유 장비 최소 품질",
+            `+${UNEXPLORED_BOSS_RISK_QUALITY_STEP_PCT}%`,
+            `${riskMinimumQualityPct(UNEXPLORED_BOSS_RISK_REWARD_CAP)}% 이상`,
+          ],
+          [
+            `가장 드문 고유 장비(기본 ${UNEXPLORED_BOSS_JACKPOT_BASE_PCT}%)`,
+            `+${UNEXPLORED_BOSS_RISK_JACKPOT_STEP_PCT}%p`,
+            `${Math.round(riskJackpotChancePct(UNEXPLORED_BOSS_RISK_REWARD_CAP) * 10) / 10}%`,
+          ],
+        ]}
+        caption={`보상은 위험도 ${UNEXPLORED_BOSS_RISK_REWARD_CAP}까지 오르고 그 위는 기록용입니다. 다른 고유 장비의 확률과 군 재료는 그대로입니다. 여섯 보스의 최고 처치 위험도 합계 ${Object.keys(UNEXPLORED_BOSS_RISK_TITLE_IDS).join(" · ")}에 칭호(${Object.values(UNEXPLORED_BOSS_RISK_TITLE_IDS).map((titleId) => TITLES[titleId]?.name ?? titleId).join(", ")})를 받고, 랭킹의 심층 단계 탭에서 순위를 볼 수 있습니다.`}
+      />
       <H2>난이도 노드와 최대 난이도</H2>
       <P>
         난이도를 올리고 보상을 주는 노드는 기본 {UNEXPLORED_BASE_DIFFICULTY}단에서 최대 {UNEXPLORED_MAX_DIFFICULTY}단까지만 반영됩니다.
@@ -420,6 +494,76 @@ export function HuntingContent() {
         노드를 반환하지 않으므로 골드가 들지 않습니다.
         난이도가 붙지 않은 보상 노드는 최대 난이도에서도 그대로 쌓입니다.
       </P>
+      <H2>던전 심층 단계</H2>
+      <P>
+        폭풍 원정과 태초의 성소를 한 번이라도 완주하면 그 던전의 <Em>심층 1단계</Em>가 열립니다.
+        한 단계를 실전으로 완주하면 다음 단계가 열리고, 상한은 없습니다. 출발할 때 열린 단계 가운데
+        원하는 단계를 고릅니다. 적의 깊이는 단계마다 {DEEP_STAGE_DEPTH_STEP}씩 높아지며, 태초의 성소
+        심층은 하드 위에 더해집니다(하드로만 입장). 입장 횟수는 지금의 하루 3회를 같이 쓰고,
+        전리품과 문장 보상은 심층이 아닐 때와 같습니다.
+      </P>
+      <UL>
+        <li>
+          심층 단계를 실전으로 완주할 때마다 <Em>심층 증표</Em>를 {DEEP_TOKEN_BASE} + {DEEP_TOKEN_PER_STAGE} × 단계만큼
+          받습니다. 증표는 거래할 수 없습니다. 폭풍 원정 연습 모드에서는 증표와 기록이 없습니다.
+        </li>
+        <li>
+          패배하면 지금처럼 그 탐험의 임시 전리품을 잃지만, 완주한 단계 기록은 내려가지 않습니다.
+        </li>
+        <li>
+          던전별 최고 완주 단계 {DEEP_STAGE_TITLE_STAGES.join(" · ")}단계에 칭호를 받습니다(
+          {DEEP_STAGE_TITLE_NAMES.join(", ")}). 랭킹의 심층 단계 탭에서 던전별 순위를 볼 수 있습니다.
+        </li>
+      </UL>
+      <H3>심층 교환소</H3>
+      <P>
+        전투 → 던전의 <Em>심층 교환소</Em>에서 심층 증표와 골드를 함께 내고 재료를 받습니다. 한도는
+        매주 월요일 00:00에 초기화됩니다.
+      </P>
+      <Table
+        head={["품목", "증표", "골드", "주간 한도"]}
+        rows={DEEP_SHOP_ENTRIES.map((entry) => [
+          entry.count > 1 ? `${entry.name} ${entry.count}개` : entry.name,
+          `${entry.tokenCost.toLocaleString("ko-KR")}개`,
+          `${entry.goldCost.toLocaleString("ko-KR")} G`,
+          `${entry.weeklyLimit}회`,
+        ])}
+      />
+      <H2>탐사 등급</H2>
+      <P>
+        탐사 경험치로 받는 탐사 포인트 {EXPLORATION_MAX_XP_POINTS}개를 모두 채운 뒤에도 탐사 경험치는
+        계속 쌓여 <Em>탐사 등급</Em>이 오릅니다. 탐사 경험치는 지금처럼 100레벨 사냥에서 이길 때마다
+        1씩 쌓이고, {EXPLORATION_GRADE_XP.toLocaleString()}마다 1등급입니다. 등급에는 상한이 없고
+        재전직해도 남습니다. 등급과 다음 등급까지의 경험치는 캐릭터 → 개척 노드 위쪽에서 확인합니다.
+      </P>
+      <Table
+        head={["보상", "받는 등급", "내용"]}
+        rows={[
+          [
+            "탐사 포인트 +1",
+            `${EXPLORATION_GRADE_POINT_GRADES.join(" · ")} …`,
+            "받을 때마다 다음 간격이 5등급씩 늘어납니다. 모든 프리셋에 함께 적용됩니다.",
+          ],
+          [
+            "탐사망 프리셋 칸",
+            PRESET_UNLOCK_GRADES.map((grade) => `${grade}등급`).join(" · "),
+            `기본 ${UNEXPLORED_PRESET_UNLOCK_GRADES.length - PRESET_UNLOCK_GRADES.length}칸에서 한 칸씩 늘어납니다.`,
+          ],
+          [
+            "흔적 보관 상한",
+            TRACE_CAP_UPGRADES.map((tier) => `${tier.grade}등급`).join(" · "),
+            `군마다 ${UNEXPLORED_TRACE_CAP_TIERS[0].cap.toLocaleString()}개에서 ${TRACE_CAP_UPGRADES.map((tier) => `${tier.cap.toLocaleString()}개`).join(", ")}로 늘어납니다.`,
+          ],
+          [
+            "칭호",
+            Object.keys(EXPLORATION_GRADE_TITLE_IDS).map((grade) => `${grade}등급`).join(" · "),
+            Object.values(EXPLORATION_GRADE_TITLE_IDS)
+              .map((titleId) => TITLES[titleId]?.name ?? titleId)
+              .join(", "),
+          ],
+        ]}
+        caption="등급이 오르면 알림으로 알려 드립니다. 랭킹의 탐사 등급 탭에서 순위를 볼 수 있습니다."
+      />
     </>
   );
 }

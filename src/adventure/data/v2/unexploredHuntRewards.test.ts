@@ -704,6 +704,14 @@ describe("unexplored hunt rewards", () => {
     expect(hit.traces).toEqual({ frozen_legion: 2500 });
     expect(hit.traceGranted).toBe(1);
 
+    // 탐사 등급으로 보관 상한이 늘어난 계정은 그 상한까지 받는다.
+    const raised = rollUnexploredHuntRewards(plan, sequence(0.999, 0.949999), {
+      existingTraces: { frozen_legion: 2499 },
+      traceCap: 3_500,
+    });
+    expect(raised.traces).toEqual({ frozen_legion: 2501 });
+    expect(raised.traceGranted).toBe(2);
+
     const miss = rollUnexploredHuntRewards(plan, sequence(0.999, 0.95), {
       existingTraces: {},
     });

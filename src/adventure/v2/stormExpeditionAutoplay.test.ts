@@ -374,3 +374,32 @@ describe("폭풍 원정 자동 진행 실행기", () => {
     expect(onStatus).toHaveBeenCalledWith(stale, "칼바람 외곽 출발 중");
   });
 });
+
+describe("폭풍 원정 일괄 진행의 심층 단계", () => {
+  it("새 원정을 출발할 때 고른 심층 단계를 싣는다", () => {
+    const step = nextStormExpeditionAutoplayStep(status(null), plan, 3);
+
+    expect(step.kind).toBe("request");
+    if (step.kind !== "request") return;
+    expect(step.request).toMatchObject({ action: "start", mode: "normal", deepStage: 3 });
+  });
+
+  it("실행기는 받은 심층 단계로 출발 요청을 보낸다", async () => {
+    const requests: StormExpeditionActionRequest[] = [];
+
+    await runStormExpeditionAutoplay({
+      initialStatus: status(null),
+      plan,
+      deepStage: 2,
+      request: async (request) => {
+        requests.push(request);
+        return { ok: true, bossClear: true, state: { active: null } };
+      },
+      onStatus: () => undefined,
+      shouldStop: () => false,
+    });
+
+    expect(requests[0]).toMatchObject({ action: "start", deepStage: 2 });
+  });
+});
+

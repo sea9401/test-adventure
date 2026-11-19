@@ -76,6 +76,8 @@ export type CoopSessionSummary = CoopFortressStatus &
   trackingThreatMax: number;
   trackingReady: boolean;
   expiresAt: number;
+  /** 미개척지 개인 보스 위험도. 일반 협동 보스는 0이거나 없다. */
+  riskTier?: number;
   summonedByName: string | null;
   visibility: CoopVisibility;
   allowFreeSupport: boolean;
@@ -156,7 +158,9 @@ export type CoopClaimReward =
     }
   | {
       rewardMode: "unexplored_personal";
-      bossCore: 1;
+      /** 이 세션의 위험도. 위험도 기능 전에 받은 보상에는 없다. */
+      riskTier?: number;
+      bossCore: number;
       bossCoreMaterialId: string;
       poolMaterialId: string;
       poolMaterialCount: 1;
@@ -194,6 +198,7 @@ export type CoopSessionDetail = {
     defeatedAt: number | null;
     defeated: boolean;
     expired: boolean;
+    riskTier?: number;
     summonedByName: string | null;
     // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부(소환 후 범위 변경 컨트롤 게이트).
     visibility: CoopVisibility;

@@ -138,10 +138,11 @@ export function applyUnexploredHuntProgress(params: {
   save: UnexploredSave;
   xpGained: number;
   pointsGained: number;
+  gradesGained: number;
 } {
   const before = parseUnexploredSave(params.rawSave);
   if (!params.won) {
-    return { save: before, xpGained: 0, pointsGained: 0 };
+    return { save: before, xpGained: 0, pointsGained: 0, gradesGained: 0 };
   }
   const xp = grantExplorationXp(before, EXPLORATION_XP_PER_HUNT_WIN);
   const withTraces: UnexploredSave = {
@@ -159,6 +160,7 @@ export function applyUnexploredHuntProgress(params: {
     save: achievements.save,
     xpGained: xp.acceptedXp,
     pointsGained: xp.pointsGained,
+    gradesGained: xp.gradesGained,
   };
 }
 

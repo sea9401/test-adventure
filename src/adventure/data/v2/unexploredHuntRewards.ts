@@ -283,6 +283,8 @@ export function rollUnexploredHuntRewards(
   input: {
     common?: UnexploredCommonRewards;
     existingTraces?: unknown;
+    /** 이 계정의 흔적 보관 상한. 생략하면 기본 상한. */
+    traceCap?: number;
   } = {},
 ): UnexploredHuntRewardResult {
   const common = input.common ?? {
@@ -412,7 +414,12 @@ export function rollUnexploredHuntRewards(
   let traceGranted = 0;
   if (plan.trace) {
     const amount = normalizedRoll(rng) < plan.trace.extraChance ? 2 : 1;
-    const granted = grantUnexploredTrace(traces, plan.trace.poolId, amount);
+    const granted = grantUnexploredTrace(
+      traces,
+      plan.trace.poolId,
+      amount,
+      input.traceCap,
+    );
     traces = granted.traces;
     traceGranted = granted.granted;
     if (granted.granted > 0) {

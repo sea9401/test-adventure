@@ -37,6 +37,8 @@ import {
   grandGradeNotificationText,
   masterProductNotificationText,
   type GrandGradeNotificationPayload,
+  explorationGradeNotificationText,
+  type ExplorationGradeNotificationPayload,
   type MasterProductNotificationPayload,
   type AuctionUnsoldNotificationPayload,
   type AuctionWonNotificationPayload,
@@ -58,6 +60,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
     />
   ),
   grand_grade: (
+    <Medal
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-amber-500 dark:text-amber-400"
+    />
+  ),
+  exploration_grade: (
     <Medal
       size={16}
       weight="duotone"
@@ -218,6 +227,11 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
   }
   if (n.type === "grand_grade") {
     return grandGradeNotificationText(n.payload as GrandGradeNotificationPayload);
+  }
+  if (n.type === "exploration_grade") {
+    return explorationGradeNotificationText(
+      n.payload as ExplorationGradeNotificationPayload,
+    );
   }
   if (n.type === "outpost_attacked") {
     return (

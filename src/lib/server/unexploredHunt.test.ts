@@ -19,11 +19,12 @@ function character(selectedNodeIds: string[], level = 100) {
       achievementIds: [],
       selectedNodeIds,
       activePresetIndex: 0,
-      nodePresets: [selectedNodeIds, [], []],
-      difficultyCaps: [130, 130, 130],
+      nodePresets: [selectedNodeIds, [], [], [], []],
+      difficultyCaps: [130, 130, 130, 130, 130],
       traces: {},
       craftReceipts: [],
       equipmentCraftReceipts: [],
+      bossRisk: {},
     },
   };
 }

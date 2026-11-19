@@ -495,6 +495,44 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).not.toContain("지정된 사냥터의 최심부");
   });
 
+  it("사냥 항목이 개인 보스 위험도의 강화와 보상을 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("개인 보스 위험도");
+    expect(hunting).toContain("보스 체력이 50%");
+    expect(hunting).toContain("8%씩");
+    expect(hunting).toContain("위험도 10");
+    expect(hunting).toContain("11개");
+    expect(hunting).toContain("1.5%");
+    expect(hunting).toContain("위험을 좇는 자");
+  });
+
+  it("사냥 항목이 던전 심층 단계와 심층 교환소를 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("심층 단계");
+    expect(hunting).toContain("단계마다 8");
+    expect(hunting).toContain("10 + 2 × 단계");
+    expect(hunting).toContain("심층 교환소");
+    expect(hunting).toContain("완벽한 보석");
+    expect(hunting).toContain("5,000,000 G");
+    expect(hunting).toContain("폭풍 심층 항해자");
+    // 재련 기능이 꺼져 있어 교환소 표에는 재련석이 없다.
+    expect(hunting).not.toMatch(/재련석 \d+개<\/td>/);
+  });
+
+  it("사냥 항목이 미개척지 탐사 등급의 조건과 보상을 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("탐사 등급");
+    expect(hunting).toContain("15,000");
+    expect(hunting).toContain("5 · 15 · 30 · 50 · 75");
+    expect(hunting).toContain("10등급 · 40등급");
+    expect(hunting).toContain("3,500개");
+    expect(hunting).toContain("5,000개");
+    expect(hunting).toContain("미개척지 길잡이");
+  });
+
   it("사냥 패배 위험 골드와 지역 세금 폐지를 모순 없이 안내한다", () => {
     const combat = renderToStaticMarkup(<CombatContent />);
     const hunting = renderToStaticMarkup(<HuntingContent />);

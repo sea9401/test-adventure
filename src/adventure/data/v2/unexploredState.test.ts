@@ -36,21 +36,21 @@ describe("unexplored save", () => {
   });
 
   it("프리셋마다 고른 최대 난이도를 보존하고 잘못된 값은 기본 상한으로 되돌린다", () => {
-    expect(emptyUnexploredSave().difficultyCaps).toEqual([130, 130, 130]);
+    expect(emptyUnexploredSave().difficultyCaps).toEqual([130, 130, 130, 130, 130]);
     expect(unexploredDifficultyCap(emptyUnexploredSave())).toBe(130);
 
     const save = parseUnexploredSave({
       activePresetIndex: 1,
       difficultyCaps: [120, 125, 119],
     });
-    expect(save.difficultyCaps).toEqual([120, 125, 130]);
+    expect(save.difficultyCaps).toEqual([120, 125, 130, 130, 130]);
     expect(unexploredDifficultyCap(save)).toBe(125);
 
     expect(
       parseUnexploredSave({ difficultyCaps: ["120", 140, 121.5] }).difficultyCaps,
-    ).toEqual([130, 130, 130]);
+    ).toEqual([130, 130, 130, 130, 130]);
     expect(parseUnexploredSave({ difficultyCaps: 120 }).difficultyCaps).toEqual([
-      130, 130, 130,
+      130, 130, 130, 130, 130,
     ]);
   });
 
@@ -114,6 +114,47 @@ describe("unexplored save", () => {
       "defeat_glacial_colossus",
       "defeat_all_personal_bosses",
     ]);
+  });
+
+  it("프리셋은 다섯 칸으로 읽고, 세 칸만 있던 세이브는 빈 칸으로 채운다", () => {
+    expect(emptyUnexploredSave().nodePresets).toEqual([[], [], [], [], []]);
+
+    const legacy = parseUnexploredSave({
+      activePresetIndex: 1,
+      nodePresets: [["start"], ["start", "inner-0-0"], []],
+      difficultyCaps: [120, 125, 130],
+    });
+    expect(legacy.nodePresets).toEqual([["start"], ["start", "inner-0-0"], [], [], []]);
+    expect(legacy.difficultyCaps).toEqual([120, 125, 130, 130, 130]);
+
+    const fifth = parseUnexploredSave({
+      activePresetIndex: 4,
+      nodePresets: [[], [], [], [], ["start"]],
+      difficultyCaps: [130, 130, 130, 130, 121],
+    });
+    expect(fifth.activePresetIndex).toBe(4);
+    expect(fifth.selectedNodeIds).toEqual(["start"]);
+    expect(unexploredDifficultyCap(fifth)).toBe(121);
+    expect(parseUnexploredSave({ activePresetIndex: 5 }).activePresetIndex).toBe(0);
+  });
+
+  it("탐사 등급으로 받은 추가 포인트를 탐사 포인트에 더한다", () => {
+    const graded = parseUnexploredSave({
+      xpPoints: 30,
+      explorationXp: 15_000 * 15,
+      explorationProgressVersion: 2,
+      achievementIds: [...UNEXPLORED_ACHIEVEMENT_IDS],
+    });
+    expect(unexploredEarnedPoints(100, graded)).toBe(43 + 2);
+    // 재전직으로 레벨이 내려가도 등급으로 받은 포인트는 남는다.
+    expect(unexploredEarnedPoints(1, graded)).toBe(43 + 2);
+
+    const notCapped = parseUnexploredSave({
+      xpPoints: 29,
+      explorationXp: 15_000 * 15,
+      explorationProgressVersion: 2,
+    });
+    expect(unexploredEarnedPoints(100, notCapped)).toBe(29);
   });
 
   it("shows the first XP point at level 100 and gives one point per achievement", () => {

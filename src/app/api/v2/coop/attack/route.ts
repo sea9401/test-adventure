@@ -22,6 +22,7 @@ import {
   COOP_ATTACK_TURNS,
   COOP_BOSSES,
   coopBossForBattle,
+  coopBossRiskTier,
   coopCriticalDamageFromLog,
   coopTierForRatio,
   parseCoopBossKindId,
@@ -293,6 +294,9 @@ export async function POST(req: Request) {
       {
         conditionalEnrageWeakened: sessionPeek.hardEnrageWeakened,
         bossMp: bossBattleStartMp,
+        // 개인 보스 위험도 — 세션의 최대 체력과 능력치 배율을 그대로 쓴다.
+        sharedMaxHp: sessionPeek.maxHp,
+        riskTier: coopBossRiskTier(sessionPeek.mechanicState),
       },
     );
     const bossStartHp = Math.max(

@@ -24,6 +24,8 @@ import {
   MAX_ACTIVE_PER_KIND,
   coopBossDurationMs,
   coopBossMaxMp,
+  coopBossSessionMaxHp,
+  withCoopBossRiskTier,
   withCoopBossMp,
   withCoopImmortalBerserkerState,
   withCoopInvincibleFortressState,
@@ -115,6 +117,8 @@ export async function createCoopBossSession(
     now: Date;
     visibility: CoopVisibility;
     allowFreeSupport?: boolean;
+    /** 미개척지 개인 보스 위험도. 체력과 능력치 배율에 쓰인다. */
+    riskTier?: number;
   },
 ): Promise<CreateCoopBossSessionResult> {
   const kind = COOP_BOSSES[args.kindId];
@@ -127,32 +131,39 @@ export async function createCoopBossSession(
   const sessionId = randomUUID();
   const expiresAt = args.now.getTime() + coopBossDurationMs(kind);
   const summonerGuildId = await getGuildId(ex, args.userId);
-  const initialMechanicState = withCoopBossTrackingThreat(
-    kind,
-    withCoopBossMp(kind, {}, coopBossMaxMp(kind)),
-    0,
+  const riskTier = args.riskTier ?? 0;
+  const maxHp = coopBossSessionMaxHp(kind, riskTier);
+  const initialMechanicState = withCoopBossRiskTier(
+    withCoopBossTrackingThreat(
+      kind,
+      withCoopBossMp(kind, {}, coopBossMaxMp(kind)),
+      0,
+    ),
+    riskTier,
   );
   const mechanicState = kind.id === "invincible_fortress"
     ? withCoopInvincibleFortressState(
         kind,
         initialMechanicState,
-        initialInvincibleFortressState(kind.sharedMaxHp),
-        kind.sharedMaxHp,
+        initialInvincibleFortressState(maxHp),
+        maxHp,
+        maxHp,
       )
     : kind.id === "immortal_berserker"
       ? withCoopImmortalBerserkerState(
           kind,
           initialMechanicState,
-          initialImmortalBerserkerState(kind.sharedMaxHp),
-          kind.sharedMaxHp,
+          initialImmortalBerserkerState(maxHp),
+          maxHp,
+          maxHp,
         )
       : initialMechanicState;
   await ex.insert(coopBossSessions).values({
     id: sessionId,
     regionId: args.kindId,
     bossName: kind.name,
-    hp: kind.sharedMaxHp,
-    maxHp: kind.sharedMaxHp,
+    hp: maxHp,
+    maxHp,
     spawnedAt: args.now,
     expiresAt: new Date(expiresAt),
     regenPerMin: 0,

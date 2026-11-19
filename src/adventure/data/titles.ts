@@ -7,6 +7,10 @@
 // category 는 도감(TitlesTab) 의 섹션 그루핑에 사용된다. 새 카테고리를 만들면
 // TITLE_CATEGORY_ORDER 에도 등록.
 
+import { DEEP_STAGE_TITLE_IDS } from "./v2/dungeonDeepStage";
+import { UNEXPLORED_BOSS_RISK_TITLE_IDS } from "./v2/unexploredBossRisk";
+import { EXPLORATION_GRADE_TITLE_IDS } from "./v2/unexploredGrade";
+
 export type TitleId = string;
 
 export const ARENA_CHAMPION_TITLE_ID = "pvp_champion";
@@ -224,6 +228,83 @@ export const TITLES: Record<TitleId, Title> = {
     description: "여러 생활에서 거장의 길을 오래 걸어 온 사람.",
     condition: "거장 등급 합계 50 달성",
     category: "collection",
+  },
+  [DEEP_STAGE_TITLE_IDS.storm[10]]: {
+    id: DEEP_STAGE_TITLE_IDS.storm[10],
+    name: "폭풍 심층 항해자",
+    description: "폭풍 원정의 더 깊은 곳까지 배를 몰아 본 사람.",
+    condition: "폭풍 원정 심층 10단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.storm[20]]: {
+    id: DEEP_STAGE_TITLE_IDS.storm[20],
+    name: "폭풍 심층 정복자",
+    description: "심층의 폭풍도 길로 삼는 사람.",
+    condition: "폭풍 원정 심층 20단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.storm[30]]: {
+    id: DEEP_STAGE_TITLE_IDS.storm[30],
+    name: "폭풍의 끝을 본 자",
+    description: "폭풍 원정의 끝이라 여긴 곳을 넘어선 사람.",
+    condition: "폭풍 원정 심층 30단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.sanctuary[10]]: {
+    id: DEEP_STAGE_TITLE_IDS.sanctuary[10],
+    name: "성소 심층 순례자",
+    description: "태초의 성소 더 깊은 곳까지 걸어 들어간 사람.",
+    condition: "태초의 성소 심층 10단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.sanctuary[20]]: {
+    id: DEEP_STAGE_TITLE_IDS.sanctuary[20],
+    name: "성소 심층 수호자",
+    description: "심층의 수호자들 앞에서도 물러서지 않는 사람.",
+    condition: "태초의 성소 심층 20단계 완주",
+    category: "battle",
+  },
+  [DEEP_STAGE_TITLE_IDS.sanctuary[30]]: {
+    id: DEEP_STAGE_TITLE_IDS.sanctuary[30],
+    name: "태초의 끝을 본 자",
+    description: "태초의 성소 끝이라 여긴 곳을 넘어선 사람.",
+    condition: "태초의 성소 심층 30단계 완주",
+    category: "battle",
+  },
+  [UNEXPLORED_BOSS_RISK_TITLE_IDS[30]]: {
+    id: UNEXPLORED_BOSS_RISK_TITLE_IDS[30],
+    name: "위험을 좇는 자",
+    description: "더 위험한 우두머리를 골라 불러내는 사람.",
+    condition: "미개척지 개인 보스 위험도 합계 30 달성",
+    category: "battle",
+  },
+  [UNEXPLORED_BOSS_RISK_TITLE_IDS[60]]: {
+    id: UNEXPLORED_BOSS_RISK_TITLE_IDS[60],
+    name: "위험의 끝에 선 자",
+    description: "여섯 우두머리를 모두 깊은 위험 속에서 쓰러뜨린 사람.",
+    condition: "미개척지 개인 보스 위험도 합계 60 달성",
+    category: "battle",
+  },
+  [EXPLORATION_GRADE_TITLE_IDS[10]]: {
+    id: EXPLORATION_GRADE_TITLE_IDS[10],
+    name: "미개척지 길잡이",
+    description: "탐사망을 다 채우고도 미개척지를 계속 걷는 사람.",
+    condition: "미개척지 탐사 등급 10 달성",
+    category: "exploration",
+  },
+  [EXPLORATION_GRADE_TITLE_IDS[50]]: {
+    id: EXPLORATION_GRADE_TITLE_IDS[50],
+    name: "미개척지 선도자",
+    description: "남들이 닿지 못한 곳까지 탐사를 이어 온 사람.",
+    condition: "미개척지 탐사 등급 50 달성",
+    category: "exploration",
+  },
+  [EXPLORATION_GRADE_TITLE_IDS[100]]: {
+    id: EXPLORATION_GRADE_TITLE_IDS[100],
+    name: "미개척지의 전설",
+    description: "미개척지 탐사의 끝을 스스로 넓혀 가는 사람.",
+    condition: "미개척지 탐사 등급 100 달성",
+    category: "exploration",
   },
   [LIFE_FESTIVAL_REGULAR_TITLE_ID]: {
     id: LIFE_FESTIVAL_REGULAR_TITLE_ID,

@@ -38,6 +38,7 @@ import {
 import { ARENA_HISTORY_KEY, ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import { arenaDailyMatchCount, parseArenaHistory, parseArenaState } from "./arena";
 import { FISHING_CODEX_KEY, parseFishCodex } from "@/adventure/v2/fishingCodex";
+import { PEDDLER_SAVE_KEY, peddlerActiveDispatches } from "@/adventure/v2/peddler";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { buildRepeatSignals, REPEAT_QUESTS_KEY } from "./v2QuestContext";
@@ -51,6 +52,7 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [FISHING_DAILY_KEY]: {},
   [WOODCUTTING_AUTO_KEY]: {},
   [MINING_AUTO_KEY]: {},
+  [PEDDLER_SAVE_KEY]: {},
   [MASTERY_TOWER_SAVE_KEY]: {},
   [STORM_EXPEDITION_SAVE_KEY]: {},
   [SANCTUARY_SAVE_KEY]: {},
@@ -75,6 +77,7 @@ export const ADVENTURE_ACTIVITY_IDS = [
   "fishing_daily",
   "woodcutting_ready",
   "mining_ready",
+  "peddler_ready",
   "mastery_tower_daily",
   "storm_expedition_daily",
   "sanctuary_daily",
@@ -121,6 +124,32 @@ function gatheringActivity(
     state: ready ? "actionable" : "in_progress",
     readyAt: session.readyAt,
     defaultEnabled: true,
+  };
+}
+
+function peddlerActivity(raw: unknown, now: number): RawActivity {
+  const base = {
+    id: "peddler_ready",
+    group: "ready",
+    tab: "life",
+    title: "행상",
+    href: "/town/peddler",
+    defaultEnabled: true,
+  } as const;
+  const readyAts = peddlerActiveDispatches(raw).map(({ dispatch }) => dispatch.readyAt);
+  const arrivedCount = readyAts.filter((readyAt) => readyAt <= now).length;
+  if (arrivedCount > 0) {
+    return { ...base, detail: `도착한 수레 ${arrivedCount}대`, state: "actionable" };
+  }
+  if (readyAts.length === 0) {
+    return { ...base, detail: "보낸 수레 없음", state: "completed" };
+  }
+  const nextReadyAt = Math.min(...readyAts);
+  return {
+    ...base,
+    detail: minutesRemaining(nextReadyAt, now),
+    state: "in_progress",
+    readyAt: nextReadyAt,
   };
 }
 
@@ -279,6 +308,7 @@ export function resolveAdventureActivities(
       saves[MINING_AUTO_KEY],
       now,
     ),
+    peddlerActivity(saves[PEDDLER_SAVE_KEY], now),
     {
       id: "mastery_tower_daily",
       group: "daily",

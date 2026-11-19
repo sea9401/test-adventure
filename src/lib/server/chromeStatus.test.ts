@@ -82,6 +82,25 @@ describe("readChromeStatus", () => {
     expect(mocks.select).toHaveBeenCalledTimes(5);
   });
 
+  it("도착한 행상 수레가 있으면 알림 수에 한 건을 더한다", async () => {
+    const now = 1_700_000_000_000;
+    mocks.results = [[{ unreadCount: 2 }], [{ unreadCount: 0 }], []];
+    mocks.createFarmReadyNotification.mockReturnValue(null);
+    mocks.readSave.mockImplementation(
+      async (_db: unknown, _userId: string, key: string) =>
+        key === "peddler.v1"
+          ? {
+              routes: {
+                river: { dispatch: { hours: 4, startedAt: now - 5 * 3_600_000, readyAt: now - 3_600_000, points: 2_000, tokens: 10 } },
+                ridge: { dispatch: { hours: 4, startedAt: now - 5 * 3_600_000, readyAt: now - 3_600_000, points: 2_000, tokens: 10 } },
+              },
+            }
+          : {},
+    );
+
+    await expect(readChromeStatus("u1", now)).resolves.toMatchObject({ notificationUnread: 3 });
+  });
+
   it("공지 자체가 없으면 열람 기록을 추가 조회하지 않는다", async () => {
     mocks.results = [[{ unreadCount: 0 }], [{ unreadCount: 0 }], []];
     mocks.createFarmReadyNotification.mockReturnValue(null);

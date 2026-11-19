@@ -9,6 +9,7 @@ import {
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
 import { FISHING_DAILY_KEY } from "@/adventure/data/v2/fishingDailyChallenges";
+import { PEDDLER_SAVE_KEY } from "@/adventure/v2/peddler";
 import { STORM_EXPEDITION_SAVE_KEY } from "@/adventure/data/v2/stormExpedition";
 import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import { activityTabDots, applyActivityPreferences, DEFAULT_ADVENTURE_HOME_PREFERENCES } from "@/adventure/v2/adventureDashboard";
@@ -149,6 +150,74 @@ describe("모험 대시보드 서버 활동 변환", () => {
     expect(activities.find(({ id }) => id === "mining_ready")).toMatchObject({
       state: "completed",
       detail: "진행 중인 작업 없음",
+    });
+  });
+
+  it("도착한 행상 수레는 행동 가능한 생활 활동이 되고 행상 메뉴에 점을 띄운다", () => {
+    const now = Date.UTC(2026, 10, 20, 4);
+    const hour = 60 * 60 * 1000;
+    const dispatch = (startedAt: number, hours: number) => ({
+      hours, startedAt, readyAt: startedAt + hours * hour, points: 2_000, tokens: 10,
+    });
+    const activities = resolveAdventureActivities(
+      {
+        ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS,
+        [PEDDLER_SAVE_KEY]: {
+          routes: {
+            river: { standingPoints: 0, dispatch: dispatch(now - 5 * hour, 4) },
+            ridge: { standingPoints: 0, dispatch: dispatch(now - 5 * hour, 8) },
+          },
+        },
+      },
+      now,
+    );
+    const peddler = activities.find(({ id }) => id === "peddler_ready");
+    expect(peddler).toMatchObject({
+      group: "ready",
+      tab: "life",
+      title: "행상",
+      href: "/town/peddler",
+      state: "actionable",
+      detail: "도착한 수레 1대",
+    });
+    const dots = activityTabDots(
+      applyActivityPreferences(activities, DEFAULT_ADVENTURE_HOME_PREFERENCES),
+      true,
+    );
+    expect(dots.paths["/town/peddler"]).toBe(true);
+    expect(dots.tabs.life).toBe(true);
+  });
+
+  it("길 위의 행상 수레는 가장 먼저 도착할 수레의 남은 시간을 보여 준다", () => {
+    const now = Date.UTC(2026, 10, 20, 4);
+    const hour = 60 * 60 * 1000;
+    const activities = resolveAdventureActivities(
+      {
+        ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS,
+        [PEDDLER_SAVE_KEY]: {
+          routes: {
+            river: { standingPoints: 0, dispatch: { hours: 12, startedAt: now - hour, readyAt: now + 11 * hour, points: 2_000, tokens: 17 } },
+            harbor: { standingPoints: 0, dispatch: { hours: 4, startedAt: now - hour, readyAt: now + 3 * hour, points: 2_000, tokens: 10 } },
+          },
+        },
+      },
+      now,
+    );
+    expect(activities.find(({ id }) => id === "peddler_ready")).toMatchObject({
+      state: "in_progress",
+      detail: "3시간 남음",
+      readyAt: now + 3 * hour,
+    });
+  });
+
+  it("보낸 행상 수레가 없으면 알림을 만들지 않는 대기 상태다", () => {
+    const activities = resolveAdventureActivities(
+      { ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS },
+      Date.UTC(2026, 10, 20, 4),
+    );
+    expect(activities.find(({ id }) => id === "peddler_ready")).toMatchObject({
+      state: "completed",
+      detail: "보낸 수레 없음",
     });
   });
 

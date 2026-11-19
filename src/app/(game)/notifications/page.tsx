@@ -16,6 +16,7 @@ export default function NotificationsPage() {
         router.push(feedbackReplyHref(feedbackId))
       }
       onOpenFarm={() => router.push("/town/farm")}
+      onOpenPeddler={() => router.push("/town/peddler")}
       onOpenCoopSession={(sessionId) =>
         router.push(coopBossSessionHref(sessionId))
       }

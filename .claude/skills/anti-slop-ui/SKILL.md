@@ -24,6 +24,7 @@ description: Use when 이 게임의 화면·컴포넌트·Tailwind 클래스·CS
 | 메뉴 목록 | `EntryList` + `EntryRow` (카드 하나 안의 행, 목적지 화면 그림 썸네일). 상자 카드를 세로로 쌓지 않는다 |
 | 섹션 제목 | `SectionHeading` (금빛 스타일의 명조·장식 훅 포함) |
 | 사람이 나오는 줄(채팅·길드원·순위) | `PersonThumb`(줄 맨 앞 프사, 목록 28px·채팅 32px), 프사와 이름만 놓을 때는 `PersonLabel` |
+| 장비 카드·매물의 종류 아이콘 | `EquipmentTypeIcon`(`src/adventure/v2/EquipmentTypeIcon.tsx`). 무기는 종류마다 다른 선 아이콘. 장비는 그림이 아니라 아이콘으로 보여 준다(2026-11-20 오너 결정). 화면마다 부위 아이콘 표를 새로 만들지 않는다 |
 | 주 행동·선택 색 | `Button` `primary`, `TabBar` (의미 토큰 `bg-primary`·`text-selected`). 보라를 직접 칠하지 않는다 |
 | 글꼴 | 기본 Geist(`font-sans`/`font-mono`). 금빛 스타일 제목용 명조(Noto Serif KR) 1종 외 새 글꼴 금지 |
 
@@ -47,7 +48,7 @@ description: Use when 이 게임의 화면·컴포넌트·Tailwind 클래스·CS
 
 글 위주 구조는 유지하고, 그림은 줄 맨 앞의 작은 식별 그림으로만 쓴다(2026-11-20 오너 결정). 큰 배너, 장식 테두리, 화면 머리 그림 띠를 새로 만들지 않는다.
 
-- 사람은 프사(`PersonThumb`), 물건은 종류 그림, 장소·메뉴는 시설 그림. 크기는 28~40px.
+- 사람은 프사(`PersonThumb`), 장소·메뉴는 시설 그림. 크기는 28~40px. 장비는 그림을 쓰지 않고 선 아이콘(`EquipmentTypeIcon`)을 유지한다.
 - 줄 머리 그림에는 `ROW_THUMB_CLASS`(`ui-row-thumb`)를 단다. 은신 모드와 터미널 모드에서는 `globals.css`가 이 클래스를 숨겨 글만 남긴다. 그림을 감싸는 버튼·래퍼에도 같은 클래스를 달아 빈 칸이 남지 않게 한다.
 - 프사의 테두리 꾸미기는 움직임 없는 색 테두리로만 보인다. 줄마다 반짝임이나 번짐을 넣지 않는다.
 - 프사를 누르는 동작은 이름을 누르는 동작과 같게 하고, 같은 줄에 이름 버튼이 있으면 프사 버튼은 탭 순서에서 뺀다.

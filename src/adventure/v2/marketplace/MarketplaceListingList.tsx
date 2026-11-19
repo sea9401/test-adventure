@@ -12,6 +12,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { EquipmentCodexBadge } from "@/adventure/v2/EquipmentCodexBadge";
 import { NecklaceIcon, RingIcon } from "@/adventure/v2/EquipmentSlotIcons";
+import { EquipmentTypeIcon } from "@/adventure/v2/EquipmentTypeIcon";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   consumableStatusLine,
@@ -318,7 +319,11 @@ export function ListingList({
               <div
                 className={`${SURFACE_INSET} flex h-12 w-12 shrink-0 items-center justify-center text-sky-700 dark:text-sky-300`}
               >
-                <ListingKindIcon size={25} weight="duotone" />
+                {l.kind === "equip" && item ? (
+                  <EquipmentTypeIcon item={item} size={25} colored={false} />
+                ) : (
+                  <ListingKindIcon size={25} weight="duotone" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">

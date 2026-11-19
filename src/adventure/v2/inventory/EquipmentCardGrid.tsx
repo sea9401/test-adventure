@@ -3,14 +3,9 @@
 import {
   CheckCircle,
   Diamond,
-  HandFist,
   Lock,
-  Shield,
-  Sneaker,
-  Sword,
-  type Icon,
 } from "@phosphor-icons/react";
-import { NecklaceIcon, RingIcon } from "../EquipmentSlotIcons";
+import { EquipmentTypeIcon } from "../EquipmentTypeIcon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
@@ -23,7 +18,6 @@ import {
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
-  type V2EquipSlot,
   type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
@@ -45,15 +39,6 @@ import {
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 import { enchantmentStage } from "../liberation/equipmentLiberationViewModel";
 
-// 슬롯별 아이콘/색 — 카드 좌상단 표식.
-const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
-  weapon: { Icon: Sword, color: "text-rose-500" },
-  armor: { Icon: Shield, color: "text-sky-500" },
-  gloves: { Icon: HandFist, color: "text-amber-500" },
-  boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: RingIcon, color: "text-violet-500" },
-  necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
-};
 
 // 카드 스탯 목록 — 개체 굴림 반영 기본 전투 스탯 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
 //   치명피해). 티어 숫자 표기는 제거(이름·전투 스탯·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
@@ -159,7 +144,6 @@ export function EquipmentCardGrid({
     <div className="grid grid-cols-2 gap-2">
       {cards.map(({ inst, isEquipped }) => {
         const item = V2_EQUIPMENT[inst.id];
-        const { Icon, color } = SLOT_ICON[item.slot];
         const pct = rollQualityPct(item, inst.roll);
         const isSelected = selectable && inst.iid === selectedIid;
         const isSaleSelected =
@@ -215,7 +199,7 @@ export function EquipmentCardGrid({
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
               <span className="flex items-center gap-1">
-                <Icon size={20} weight="duotone" className={color} />
+                <EquipmentTypeIcon item={item} />
                 {inst.locked && (
                   <Lock
                     size={13}

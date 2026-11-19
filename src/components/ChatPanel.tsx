@@ -33,7 +33,6 @@ import {
 import { postMessage, translateChatError } from "./chat/chatApi";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
-import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import type { Avatar } from "@/adventure/profile/avatars";
 import {
   EquippedCosmeticBadge,
@@ -77,25 +76,9 @@ import {
   type ChatRoomOrderId,
 } from "@/lib/chat-rooms";
 
-export type ChatChannel = "global" | "trade" | "guild" | "room";
+import type { ChatChannel, ChatMessage } from "./chat/chatTypes";
+export type { ChatChannel, ChatMessage };
 type ChatRoomKey = "chat" | "trade" | "guild" | "notice";
-
-export type ChatMessage = {
-  id: number;
-  authorUserId?: string | null;
-  channel: ChatChannel;
-  roomId?: number | null;
-  name: string;
-  className: string;
-  title: string | null;
-  content: string;
-  itemLink?: ChatEquipmentLink | null;
-  createdAt: number;
-  mine: boolean;
-  /** 작성자 프사. 예전 응답이나 시스템 알림에는 없을 수 있다. */
-  avatar?: Avatar | null;
-  cosmetics?: MuseunCosmeticAppearance | null;
-};
 
 // 데스크톱 채팅창 크기 영속 + 최소 크기(드래그 리사이즈).
 const CHAT_SIZE_KEY = "chat-panel-size.v2";

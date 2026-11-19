@@ -141,7 +141,28 @@ export function withMasterProduct(
     : mergeDrops(materials, {});
 }
 
-/** 생활별 현재 레벨(전공 자격 판정용). 생활 기록 요약과 같은 계산을 쓴다. */
+/** 세이브 원본에서 생활별 현재 레벨을 구한다. 생활 기록 요약과 같은 계산을 쓴다. */
+export function lifeLevelsFromSaves(
+  saves: Pick<
+    Parameters<typeof lifeSummaryFromSaves>[0],
+    "farmRaw" | "woodcuttingRaw" | "miningRaw" | "fishingRaw" | "cookingRaw"
+  >,
+  now = Date.now(),
+): Record<LifeMajorActivity, number> {
+  const summary = lifeSummaryFromSaves(saves, now);
+  const levels = Object.fromEntries(LIFE_MAJOR_ACTIVITIES.map((id) => [id, 1])) as Record<
+    LifeMajorActivity,
+    number
+  >;
+  for (const activity of summary.activities) {
+    if ((LIFE_MAJOR_ACTIVITIES as readonly string[]).includes(activity.id)) {
+      levels[activity.id as LifeMajorActivity] = activity.level;
+    }
+  }
+  return levels;
+}
+
+/** 생활별 현재 레벨(전공 자격 판정용). */
 export async function readLifeLevels(
   executor: DbExecutor,
   userId: string,
@@ -153,15 +174,5 @@ export async function readLifeLevels(
     readSave(executor, userId, FISHING_PROGRESS_KEY, {}),
     readSave(executor, userId, COOKING_SAVE_KEY, {}),
   ]);
-  const summary = lifeSummaryFromSaves({ farmRaw, woodcuttingRaw, miningRaw, fishingRaw, cookingRaw });
-  const levels = Object.fromEntries(LIFE_MAJOR_ACTIVITIES.map((id) => [id, 1])) as Record<
-    LifeMajorActivity,
-    number
-  >;
-  for (const activity of summary.activities) {
-    if ((LIFE_MAJOR_ACTIVITIES as readonly string[]).includes(activity.id)) {
-      levels[activity.id as LifeMajorActivity] = activity.level;
-    }
-  }
-  return levels;
+  return lifeLevelsFromSaves({ farmRaw, woodcuttingRaw, miningRaw, fishingRaw, cookingRaw });
 }

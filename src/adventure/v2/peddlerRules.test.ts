@@ -74,7 +74,7 @@ describe("행상 적재 점수", () => {
   });
 });
 
-describe("행상 단골 등급", () => {
+describe("행상 교역 등급", () => {
   it("누적 점수 경계에서 등급이 오른다", () => {
     expect(peddlerRankForPoints(0)).toBe(0);
     expect(peddlerRankForPoints(5_999)).toBe(0);

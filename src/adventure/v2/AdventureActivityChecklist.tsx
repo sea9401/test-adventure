@@ -54,6 +54,7 @@ export function dailyResetRemainingLabel(now: number): string {
 
 function actionableLabel(activity: AdventureActivityView): string {
   if (activity.id === "farm_ready") return "수확";
+  if (activity.id === "peddler_ready") return "받기";
   if (activity.tab === "guild") return "확인";
   return "이동";
 }
@@ -64,7 +65,7 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
   const idle = activity.group === "ready" && activity.state === "completed";
   const completed = activity.state === "completed" && !idle;
   const stateLabel =
-    activity.countsTowardCompletion === false
+    activity.countsTowardCompletion === false && !completed
       ? "반복"
       : idle
         ? "대기"

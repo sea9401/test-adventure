@@ -177,14 +177,14 @@ export const TITLES: Record<TitleId, Title> = {
     id: PEDDLER_REGULAR_TITLE_ID,
     name: "단골 행상",
     description: "교역로마다 얼굴이 알려진 행상.",
-    condition: "행상 단골 등급 합계 15 달성",
+    condition: "행상 교역 등급 합계 15 달성",
     category: "collection",
   },
   [PEDDLER_MASTER_TITLE_ID]: {
     id: PEDDLER_MASTER_TITLE_ID,
     name: "대상인",
     description: "세 교역로 어디서나 수레를 기다리게 만든 상인.",
-    condition: "행상 단골 등급 합계 30 달성",
+    condition: "행상 교역 등급 합계 30 달성",
     category: "collection",
   },
   [LIFE_GRAND_TITLE_ID.farming]: {

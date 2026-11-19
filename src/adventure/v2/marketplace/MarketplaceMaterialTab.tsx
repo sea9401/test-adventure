@@ -13,6 +13,11 @@ import {
   type PriceStat,
 } from "./marketplaceShared";
 
+/** 판매 재료의 표시 이름. 일반 재료와 생활 재료(씨앗·농축산물·어획물·주방 재료)를 함께 찾는다. 표시와 검색이 같은 이름을 쓰도록 여기서만 정한다. */
+export function marketplaceMaterialName(matId: string): string | undefined {
+  return V2_MATERIALS[matId]?.name ?? marketplaceLifeItemDefinition(matId)?.name;
+}
+
 // 판매 탭 — 재료. 빈 목록 안내 / 수량+가격 입력 카드 목록 + 페이지네이션.
 export function MarketplaceMaterialTab({
   searchActive = false,
@@ -55,10 +60,7 @@ export function MarketplaceMaterialTab({
     <div className="space-y-2">
       {pager.pageItems.map((matId) => {
         const have = materials[matId] ?? 0;
-        const itemName =
-          V2_MATERIALS[matId]?.name ??
-          marketplaceLifeItemDefinition(matId)?.name ??
-          matId;
+        const itemName = marketplaceMaterialName(matId) ?? matId;
         return (
           <Card key={matId} padding="sm">
             <div className="flex items-center justify-between gap-2">

@@ -27,6 +27,7 @@ import { SP_FRUIT, parseSpFruitUsed, type SpFruitTier } from "@/adventure/data/v
 import { BATTLE_PREP_ITEM_BY_ID } from "@/adventure/data/v2/battlePrep";
 import { canLiberateEquipment } from "@/adventure/data/v2/equipmentLiberation";
 import {
+  MAX_BULK_LOCK_COUNT,
   V2_EQUIPMENT,
   type V2EquipInstance,
   type V2EquipSlot,
@@ -138,6 +139,14 @@ type EquipmentCompareSelectionState = {
 
 const MAX_COMPARE_CANDIDATES = 4;
 
+// 선택 잠금(건의 #859). 한 번에 고를 수 있는 수는 선택 판매와 같다.
+type EquipmentLockSelectionState = {
+  slot: V2EquipSlot;
+  iids: Set<string>;
+};
+
+const MAX_LOCK_SELECTION_COUNT = MAX_EXPLICIT_SELL_COUNT;
+
 type EquipmentCodexBulkState = {
   slot: V2EquipSlot;
   candidates: EquipmentCodexBulkCandidate[];
@@ -161,6 +170,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     useState<EquipmentSaleSelectionState | null>(null);
   const [compareSelection, setCompareSelection] =
     useState<EquipmentCompareSelectionState | null>(null);
+  const [lockSelection, setLockSelection] =
+    useState<EquipmentLockSelectionState | null>(null);
   const [codexBulk, setCodexBulk] =
     useState<EquipmentCodexBulkState | null>(null);
   useEffect(() => {
@@ -970,17 +981,108 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [notifySystem, owned, equipped, setBankedGold, setGold],
   );
 
+  // 여러 장비 잠금·해제(건의 #859). 한 요청의 상한을 넘으면 나누어 보낸다. 잠금 상태가 실제로
+  //   바뀐 개체 수를 돌려주고, 실패하면 이유를 알린 뒤 null 을 돌려준다.
+  const applyBulkLock = useCallback(
+    async (iids: string[], locked: boolean): Promise<number | null> => {
+      setBusy("bulk-lock");
+      try {
+        let changedCount = 0;
+        for (let start = 0; start < iids.length; start += MAX_BULK_LOCK_COUNT) {
+          const res = await fetch("/api/v2/me/equipment/lock", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              iids: iids.slice(start, start + MAX_BULK_LOCK_COUNT),
+              locked,
+            }),
+          });
+          const j = (await res.json().catch(() => null)) as {
+            ok?: boolean;
+            error?: string;
+            owned?: V2EquipInstance[];
+            changedCount?: number;
+          } | null;
+          if (!j?.ok) {
+            notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
+            return null;
+          }
+          setOwned(j.owned ?? []);
+          changedCount += j.changedCount ?? 0;
+        }
+        return changedCount;
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+        return null;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem],
+  );
+
   const startSelectedSale = useCallback((slot: V2EquipSlot) => {
     setCard(null);
     setCompareSelection(null);
+    setLockSelection(null);
     setSaleSelection({ slot, iids: new Set() });
   }, []);
 
   const startCompareSelection = useCallback((slot: V2EquipSlot) => {
     setCard(null);
     setSaleSelection(null);
+    setLockSelection(null);
     setCompareSelection({ slot, iids: new Set(), open: false });
   }, []);
+
+  const startLockSelection = useCallback((slot: V2EquipSlot) => {
+    setCard(null);
+    setSaleSelection(null);
+    setCompareSelection(null);
+    setLockSelection({ slot, iids: new Set() });
+  }, []);
+
+  const toggleLockSelection = useCallback(
+    (slot: V2EquipSlot, inst: V2EquipInstance) => {
+      setLockSelection((current) => {
+        if (!current || current.slot !== slot) return current;
+        const iids = new Set(current.iids);
+        if (iids.has(inst.iid)) iids.delete(inst.iid);
+        else if (iids.size < MAX_LOCK_SELECTION_COUNT) iids.add(inst.iid);
+        return { ...current, iids };
+      });
+    },
+    [],
+  );
+
+  const applyLockSelection = useCallback(
+    async (locked: boolean) => {
+      if (!lockSelection || lockSelection.iids.size === 0) return;
+      const changedCount = await applyBulkLock([...lockSelection.iids], locked);
+      if (changedCount == null) return;
+      setLockSelection(null);
+      notifySystem(
+        changedCount === 0
+          ? locked
+            ? "✓ 고른 장비는 이미 잠겨 있습니다"
+            : "✓ 고른 장비는 이미 잠금이 풀려 있습니다"
+          : locked
+            ? `✓ 장비 ${changedCount.toLocaleString()}개를 잠갔습니다`
+            : `✓ 장비 ${changedCount.toLocaleString()}개의 잠금을 풀었습니다`,
+      );
+    },
+    [applyBulkLock, lockSelection, notifySystem],
+  );
+
+  const lockUniqueEquipment = useCallback(
+    async (iids: string[]) => {
+      if (iids.length === 0) return;
+      const changedCount = await applyBulkLock(iids, true);
+      if (changedCount == null) return;
+      notifySystem(`✓ 유니크 장비 ${changedCount.toLocaleString()}개를 잠갔습니다`);
+    },
+    [applyBulkLock, notifySystem],
+  );
 
   const toggleCompareSelection = useCallback(
     (slot: V2EquipSlot, inst: V2EquipInstance) => {
@@ -1214,6 +1316,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onChange={(nextTab) => {
               setSaleSelection(null);
               setCompareSelection(null);
+              setLockSelection(null);
               setTab(nextTab);
             }}
             ariaLabel="인벤토리 카테고리"
@@ -1315,6 +1418,19 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                     current ? { ...current, open: true } : current,
                   ),
               }}
+              lockSelection={{
+                active: lockSelection?.slot === tab,
+                selectedIids:
+                  lockSelection?.slot === tab
+                    ? lockSelection.iids
+                    : new Set<string>(),
+                max: MAX_LOCK_SELECTION_COUNT,
+                onStart: () => startLockSelection(tab),
+                onCancel: () => setLockSelection(null),
+                onToggle: (inst) => toggleLockSelection(tab, inst),
+                onApply: (locked) => void applyLockSelection(locked),
+              }}
+              onLockUniques={(iids) => void lockUniqueEquipment(iids)}
             />
           )}
         </Card>

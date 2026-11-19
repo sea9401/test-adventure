@@ -89,6 +89,17 @@ export type EquipmentCompareSelection = {
   onConfirm: () => void;
 };
 
+// 여러 장비를 골라 한 번에 잠그거나 푼다(건의 #859). 잠긴 장비와 장착 장비도 고를 수 있다.
+export type EquipmentLockSelection = {
+  active: boolean;
+  selectedIids: ReadonlySet<string>;
+  max: number;
+  onStart: () => void;
+  onCancel: () => void;
+  onToggle: (inst: V2EquipInstance) => void;
+  onApply: (locked: boolean) => void;
+};
+
 const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
   key: SortMode;
   label: string;
@@ -126,6 +137,8 @@ export function EquipmentTab({
   codexBulk,
   selection,
   compare,
+  lockSelection,
+  onLockUniques,
 }: {
   search?: string;
   slot: V2EquipSlot;
@@ -152,6 +165,9 @@ export function EquipmentTab({
   };
   selection: EquipmentSaleSelection;
   compare?: EquipmentCompareSelection;
+  lockSelection?: EquipmentLockSelection;
+  /** 유니크 전부 잠금(건의 #859). 이 부위의 잠기지 않은 유니크 개체 iid 를 넘긴다. */
+  onLockUniques?: (iids: string[]) => void;
 }) {
   const tabLabel = V2_ITEM_TABS.find((t) => t.key === slot)?.label ?? "";
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -180,6 +196,15 @@ export function EquipmentTab({
   );
   const uniqueCount = useMemo(
     () => instances.filter(isUniqueInstance).length,
+    [instances],
+  );
+  const locking = lockSelection?.active === true;
+  const lockPickCount = lockSelection?.selectedIids.size ?? 0;
+  const unlockedUniqueIids = useMemo(
+    () =>
+      instances
+        .filter((instance) => instance.locked !== true && isUniqueInstance(instance))
+        .map((instance) => instance.iid),
     [instances],
   );
 
@@ -251,6 +276,10 @@ export function EquipmentTab({
               비교할 장비를 최대 {compare.max}개 고르세요.
               {equippedIid ? " 장착 중인 장비는 자동으로 함께 비교됩니다." : ""}
             </p>
+          ) : locking ? (
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+              잠그거나 잠금을 풀 장비를 고르세요.
+            </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -283,7 +312,7 @@ export function EquipmentTab({
             </div>
           )}
           {/* 일괄 작업 — 현재 탭 부위 전체 대상, 장착·잠금 장비는 제외(전 장비 판매 가능) */}
-          {bulkOpen && !selection.active && !comparing ? (
+          {bulkOpen && !selection.active && !comparing && !locking ? (
             <section
               id={bulkPanelId}
               aria-label="일괄 작업"
@@ -291,8 +320,8 @@ export function EquipmentTab({
             >
               {search.trim() ? (
                 <p className="text-xs text-zinc-600 dark:text-zinc-300">
-                  일괄 판매·도감 일괄 등록은 검색 결과와 관계없이 현재 부위 전체에 적용됩니다. 찾은
-                  장비만 팔려면 선택 판매를 이용해 주세요.
+                  일괄 판매·도감 일괄 등록·유니크 전부 잠금은 검색 결과와 관계없이 현재 부위 전체에
+                  적용됩니다. 찾은 장비만 팔거나 잠그려면 선택 판매·선택 잠금을 이용해 주세요.
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-2">
@@ -308,6 +337,27 @@ export function EquipmentTab({
                 <Button onClick={selection.onStart} disabled={busy !== null} size="sm">
                   선택 판매
                 </Button>
+                {lockSelection ? (
+                  <Button
+                    onClick={() => {
+                      setBulkOpen(false);
+                      lockSelection.onStart();
+                    }}
+                    disabled={busy !== null}
+                    size="sm"
+                  >
+                    선택 잠금
+                  </Button>
+                ) : null}
+                {onLockUniques ? (
+                  <Button
+                    onClick={() => onLockUniques(unlockedUniqueIids)}
+                    disabled={busy !== null || unlockedUniqueIids.length === 0}
+                    size="sm"
+                  >
+                    유니크 전부 잠금 ({unlockedUniqueIids.length})
+                  </Button>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                 {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
@@ -378,11 +428,19 @@ export function EquipmentTab({
                 purpose: "compare",
                 max: compare.max,
               }
-            : {
-                active: selection.active,
-                selectedIids: selection.selectedIids,
-                onToggle: selection.onToggle,
-              }
+            : locking
+              ? {
+                  active: true,
+                  selectedIids: lockSelection.selectedIids,
+                  onToggle: lockSelection.onToggle,
+                  purpose: "lock",
+                  max: lockSelection.max,
+                }
+              : {
+                  active: selection.active,
+                  selectedIids: selection.selectedIids,
+                  onToggle: selection.onToggle,
+                }
         }
         recentlyAcquiredIid={
           sortMode === "acquired" ? tabInstances[0]?.iid : undefined
@@ -400,7 +458,7 @@ export function EquipmentTab({
             ? {
                 title: "잠근 장비가 없습니다",
                 message:
-                  "장비 상세에서 잠금을 설정하면 여기에 모아 볼 수 있습니다.",
+                  "장비 상세나 일괄 작업의 선택 잠금으로 잠그면 여기에 모아 볼 수 있습니다.",
               }
             : lockFilter === "unlocked"
             ? { title: "잠그지 않은 장비가 없습니다", message: "이 부위의 장비는 모두 잠겨 있습니다." }
@@ -456,6 +514,42 @@ export function EquipmentTab({
               size="sm"
             >
               비교하기
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {locking ? (
+        <div
+          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          aria-live="polite"
+        >
+          <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+            선택 {lockPickCount}개
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={lockSelection.onCancel}
+              disabled={busy !== null}
+              variant="secondary"
+              size="sm"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={() => lockSelection.onApply(false)}
+              disabled={busy !== null || lockPickCount === 0}
+              variant="secondary"
+              size="sm"
+            >
+              잠금 해제
+            </Button>
+            <Button
+              onClick={() => lockSelection.onApply(true)}
+              disabled={busy !== null || lockPickCount === 0}
+              variant="primary"
+              size="sm"
+            >
+              잠금
             </Button>
           </div>
         </div>

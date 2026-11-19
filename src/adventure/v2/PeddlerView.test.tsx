@@ -102,18 +102,18 @@ describe("PeddlerView", () => {
     vi.restoreAllMocks();
   });
 
-  it("교역로마다 단골 등급, 적재량, 우대 품목을 보여 준다", async () => {
+  it("교역로마다 교역 등급, 적재량, 우대 품목을 보여 준다", async () => {
     stubFetch(viewData());
     render(<PeddlerView onBack={() => {}} />);
     const river = await screen.findByRole("region", { name: "강나루 장터" });
-    expect(within(river).getByText(/단골 3등급/)).toBeTruthy();
+    expect(within(river).getByText(/교역 3등급/)).toBeTruthy();
     expect(within(river).getByText(/적재량 2,600점/)).toBeTruthy();
     expect(within(river).getByText(/우유, 석탄/)).toBeTruthy();
     expect(within(river).getByText(/다음 등급까지 16,000점/)).toBeTruthy();
     expect(screen.getByText("120")).toBeTruthy();
 
     const harbor = screen.getByRole("region", { name: "남쪽 항구" });
-    expect(within(harbor).getByText("단골 등급 합계 10에 열립니다.")).toBeTruthy();
+    expect(within(harbor).getByText("교역 등급 합계 10에 열립니다.")).toBeTruthy();
     expect(within(harbor).queryByRole("button", { name: /짐 싣기/ })).toBeNull();
   });
 
@@ -175,7 +175,7 @@ describe("PeddlerView", () => {
     const ridge = await screen.findByRole("region", { name: "산마루 광산촌" });
     fireEvent.click(within(ridge).getByRole("button", { name: "받기" }));
     await waitFor(() => expect(posted).toEqual([{ action: "claim", routeId: "ridge" }]));
-    expect(await screen.findByText(/증표 \+14 · 단골 점수 \+2,000 · 단골 1등급/)).toBeTruthy();
+    expect(await screen.findByText(/증표 \+14 · 교역 점수 \+2,000 · 교역 1등급/)).toBeTruthy();
   });
 
   it("파견 중인 수레는 남은 시간과 받을 증표를 보여 준다", async () => {

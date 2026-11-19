@@ -1,3 +1,10 @@
+import {
+  addMasterProductGain,
+  masterProductGainText,
+  parseMasterProductGain,
+  type MasterProductGain,
+} from "./masterProductGain";
+
 export type FarmBatchAction = "plant" | "harvest" | "fertilize";
 /** 화면이 "진행 중"으로 표시하는 일괄 작업. replant = 수확하고 다시 심기. */
 export type FarmBusyBatchAction = FarmBatchAction | "replant";
@@ -26,6 +33,7 @@ export function farmBatchOutcomeText(
   cropName?: string,
   farmingXpGained = 0,
   seedsReturned = 0,
+  masterProduct?: MasterProductGain | null,
 ): string {
   if (error) {
     return completed > 0
@@ -34,9 +42,11 @@ export function farmBatchOutcomeText(
   }
   if (action === "harvest") {
     const base = `${completed}칸을 모두 수확했습니다.${seedsReturned > 0 ? ` 씨앗 ${seedsReturned}개 반환.` : ""}`;
-    return farmingXpGained > 0
-      ? `${base} 농사 XP +${farmingXpGained.toLocaleString("ko-KR")}.`
-      : base;
+    const withXp =
+      farmingXpGained > 0
+        ? `${base} 농사 XP +${farmingXpGained.toLocaleString("ko-KR")}.`
+        : base;
+    return masterProduct ? `${withXp} ${masterProductGainText(masterProduct)}.` : withXp;
   }
   if (action === "fertilize") {
     return `유기질 거름을 ${completed}칸에 뿌렸습니다.`;
@@ -61,10 +71,13 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
   error: string | null;
   farmingXpGained: number;
   seedsReturned: number;
+  /** 수확으로 얻은 명장 작물 합계. 없으면 빠진다. */
+  masterProduct?: MasterProductGain;
 }> {
   let completed = 0;
   let seedsReturned = 0;
   let farmingXpGained = 0;
+  let masterProduct: MasterProductGain | null = null;
 
   // 심기는 서버가 한 트랜잭션에서 여러 칸을 처리한다. 칸마다 요청하면 밭이
   // 많을 때 수확 직후 농사 요청 제한(분당 30회)에 걸려 중간에 멈춘다.
@@ -115,6 +128,7 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           error: data.error ?? "request_failed",
           farmingXpGained,
           seedsReturned,
+          masterProduct: masterProduct ?? undefined,
         };
       }
       onSuccess(data);
@@ -124,6 +138,7 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           0,
           Math.floor(Number(data.result?.farmingXpGained) || 0),
         );
+        masterProduct = addMasterProductGain(masterProduct, parseMasterProductGain(data));
       }
       completed += 1;
     } catch (error) {
@@ -132,11 +147,18 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           error: error instanceof Error ? error.message : "request_failed",
           farmingXpGained,
           seedsReturned,
+          masterProduct: masterProduct ?? undefined,
         };
     }
   }
 
-  return { completed, error: null, farmingXpGained, seedsReturned };
+  return {
+    completed,
+    error: null,
+    farmingXpGained,
+    seedsReturned,
+    masterProduct: masterProduct ?? undefined,
+  };
 }
 
 export type FarmReplantOutcome = {
@@ -146,6 +168,7 @@ export type FarmReplantOutcome = {
   error: string | null;
   farmingXpGained: number;
   seedsReturned: number;
+  masterProduct?: MasterProductGain;
 };
 
 /**
@@ -184,11 +207,15 @@ export async function runFarmHarvestAndReplant<T extends FarmBatchResponse>({
     error,
     farmingXpGained: harvest.farmingXpGained,
     seedsReturned: harvest.seedsReturned,
+    masterProduct: harvest.masterProduct,
   };
 }
 
 export function farmReplantOutcomeText(
-  outcome: Pick<FarmReplantOutcome, "harvested" | "planted" | "farmingXpGained" | "seedsReturned">,
+  outcome: Pick<
+    FarmReplantOutcome,
+    "harvested" | "planted" | "farmingXpGained" | "seedsReturned" | "masterProduct"
+  >,
 ): string {
   const parts = [`${outcome.harvested}칸을 수확하고 ${outcome.planted}칸에 다시 심었습니다.`];
   if (outcome.planted < outcome.harvested) {
@@ -198,5 +225,6 @@ export function farmReplantOutcomeText(
   if (outcome.farmingXpGained > 0) {
     parts.push(`농사 XP +${outcome.farmingXpGained.toLocaleString("ko-KR")}.`);
   }
+  if (outcome.masterProduct) parts.push(`${masterProductGainText(outcome.masterProduct)}.`);
   return parts.join(" ");
 }

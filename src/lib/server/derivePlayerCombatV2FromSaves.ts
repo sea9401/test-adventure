@@ -27,7 +27,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
   equipmentSave: unknown;
   proficiencyRaw: unknown;
   skillsRaw: unknown;
-  /** 아레나·훈련 대련처럼 음식 효과와 전투 준비물을 함께 제외할 때 false. 기본은 PvE 적용. */
+  /** 아레나·유저 친선전처럼 음식 효과와 전투 준비물을 함께 제외할 때 false. 기본은 PvE 적용(허수아비 대련 포함). */
   includeCookingBuff?: boolean;
 }): DerivedPlayerCombatV2 | null {
   const { character, equipmentSave, proficiencyRaw, skillsRaw } = saves;
@@ -220,11 +220,17 @@ export function derivePlayerCombatV2FromSaves(saves: {
   };
   const maxHp = derived.maxHp + flat.maxHp;
   const maxMp = (derived.player.maxMp ?? 0) + flat.maxMp;
+  // Pure 는 현재 HP·MP를 준비물·음식을 더하기 전 최대치로 자른다. 늘어난 최대치 기준으로 다시
+  // 잘라야 가득 채운 저장값이 매번 깎여 보이지 않는다(건의 #862).
+  const hp = Math.max(0, Math.min(character.hp ?? maxHp, maxHp));
+  const mp = Math.max(0, Math.min(character.mp ?? maxMp, maxMp));
   return {
     ...derived,
     maxHp,
     player: {
       ...derived.player,
+      hp,
+      mp,
       atk: derived.player.atk + flat.atk,
       magicAtk: (derived.player.magicAtk ?? derived.player.atk) + flat.magicAtk,
       def: derived.player.def + flat.def,

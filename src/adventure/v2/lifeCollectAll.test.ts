@@ -129,4 +129,32 @@ describe("runLifeCollectAll", () => {
       { area: "ranch", tone: "info", text: "목장: 수거하거나 채울 것이 없습니다." },
     ]);
   });
+
+  it("정산과 수확에서 얻은 명장 산물을 결과 줄에 적는다", async () => {
+    const lifeMajor = (name: string, count: number) => ({
+      masteryXpGained: 0,
+      masterProduct: { materialId: "x", name, count },
+    });
+    const { request } = fakeRequest({
+      "GET /api/v2/mining/status": () => ({ json: readyMining }),
+      "POST /api/v2/mining/auto#claim": () => ({
+        json: { ok: true, materialName: "철광석", materialsGained: 430, lifeMajor: lifeMajor("명장 합금", 3) },
+      }),
+      "POST /api/v2/mining/auto#start": () => ({ json: { ok: true } }),
+      "GET /api/v2/farm": () => ({
+        json: { ok: true, now: NOW, farm: { plots: [{ id: "p1", cropId: "wheat", readyAt: NOW - 5 }] } },
+      }),
+      "POST /api/v2/farm/harvest": () => ({
+        json: { ok: true, lifeMajor: lifeMajor("명장 작물", 1), result: { farmingXpGained: 20, seedReturned: 0 } },
+      }),
+      "POST /api/v2/farm/plant": () => ({ json: { ok: true, result: { planted: 1, stoppedError: null } } }),
+      "POST /api/v2/farm/ranch/collect": () => ({ json: { ok: true } }),
+      "POST /api/v2/farm/ranch/feed": () => ({ json: { ok: true } }),
+    });
+
+    const lines = await runLifeCollectAll(request);
+
+    expect(lines[0].text).toBe("자동 채광: 철광석 +430 · 명장 합금 +3. 철 광맥에서 다시 시작했습니다.");
+    expect(lines[1].text).toBe("밭: 1칸을 수확하고 1칸에 다시 심었습니다. 농사 XP +20. 명장 작물 +1.");
+  });
 });

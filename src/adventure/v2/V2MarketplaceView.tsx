@@ -6,11 +6,14 @@ import { marketplaceBrowseSnapshotKey, marketplacePollDelayMs } from "./marketpl
 import { SelectControl } from "./marketplace/SelectControl";
 import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
 import { MarketplaceWatchFilter, useMarketplaceWatchlist } from "./marketplace/useMarketplaceWatchlist";
+import {
+  MARKETPLACE_FAVORITES_KEY,
+  marketplaceFavoriteKey,
+} from "./marketplace/marketplaceFavorites";
 import { useMarketplaceUnsold } from "./marketplace/useMarketplaceUnsold";
 import { ItemSearchInput } from "./ItemSearchInput";
 import { filterItemCounts, matchesItemSearch } from "./itemSearch";
 
-import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { FISH, type FishId } from "@/adventure/data/v2/fish";
 import {
   MUSEUN_CASH_ITEMS,
@@ -40,7 +43,6 @@ import {
   equippedInstanceForMarketplaceItem,
   equippedItemIdsForMarketplace,
 } from "@/adventure/v2/marketplace/equipmentComparison";
-import { marketplaceLifeItemDefinition } from "@/adventure/v2/marketplace/lifeItemCatalog";
 import {
   listingCraftQuality,
   listingCraftedBy,
@@ -59,7 +61,7 @@ import {
   ListingList,
   MarketplaceRecentTradeList,
 } from "@/adventure/v2/marketplace/MarketplaceListingList";
-import { MarketplaceMaterialTab } from "@/adventure/v2/marketplace/MarketplaceMaterialTab";
+import { MarketplaceMaterialTab, marketplaceMaterialName } from "@/adventure/v2/marketplace/MarketplaceMaterialTab";
 import { MarketplaceMyBids } from "@/adventure/v2/marketplace/MarketplaceMyBids";
 import {
   MarketToolsDialog,
@@ -159,8 +161,6 @@ export type MarketplacePreviewData = {
 
 // 거래소 목록 한 페이지에 보여줄 아이템 수.
 const MARKETPLACE_PAGE_SIZE = 10;
-
-const MARKETPLACE_FAVORITES_KEY = "adventure.marketplace.favorites.v1";
 
 const MARKETPLACE_RECENT_SEARCHES_KEY = "adventure.marketplace.searches.v1";
 
@@ -745,7 +745,7 @@ export function V2MarketplaceView({
         quantity: qty,
         price,
       },
-      `✓ ${V2_MATERIALS[matId]?.name ?? marketplaceLifeItemDefinition(matId)?.name ?? matId} ${qty}개 묶음 경매 등록`,
+      `✓ ${marketplaceMaterialName(matId) ?? matId} ${qty}개 묶음 경매 등록`,
       loadInventory,
     );
   };
@@ -864,7 +864,7 @@ export function V2MarketplaceView({
     (i) => !i.locked && !equippedIids.has(i.iid),
   );
   const sellableMats = Object.keys(materials).filter((id) =>
-    (materials[id] ?? 0) > 0 && matchesItemSearch(V2_MATERIALS[id]?.name, sellSearch),
+    (materials[id] ?? 0) > 0 && matchesItemSearch(marketplaceMaterialName(id), sellSearch),
   );
   const searchedRareMaps = rareMaps.filter((map) => matchesItemSearch(RARE_MAP_KINDS[map.kind]?.name, sellSearch));
   const searchedCashItems = filterItemCounts(cashItems, sellSearch, (id) => MUSEUN_CASH_ITEMS[id]?.name);
@@ -937,7 +937,8 @@ export function V2MarketplaceView({
     const craftedBy = listingCraftedBy(l.instancePayload);
     return (craftedBy?.name ?? "").toLowerCase().includes(query);
   };
-  const favoriteKeyForListing = (l: Listing) => `${l.kind}:${l.itemId}`;
+  const favoriteKeyForListing = (l: Listing) =>
+    marketplaceFavoriteKey(l.kind, l.itemId);
   const q = search.trim().toLowerCase();
   const browseEquipmentTab =
     browseTab !== "material" && browseTab !== "consumable";

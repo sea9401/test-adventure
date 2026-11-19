@@ -68,6 +68,7 @@ export type GuildTrainingDrillView = GuildTrainingDrillDef & {
   recommended?: boolean;
 };
 
+export const GUILD_TRAINING_SAVE_KEY = "guild-training.v1";
 export const GUILD_TRAINING_WEEKLY_BONUS_TARGET = 5;
 export const GUILD_TRAINING_WEEKLY_BONUS_MASTERY = 30;
 export const GUILD_TRAINING_WEEKLY_SECOND_BONUS_TARGET = 10;

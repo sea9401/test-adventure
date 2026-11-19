@@ -47,6 +47,16 @@ export function masteryGrowthBonus(mastery: number): number {
   return Math.log2(1 + m / V2_MASTERY_GROWTH_SCALE);
 }
 
+// 로그 항은 숙련도가 두 배가 돼야 1이 오른다. 관련 숙련도가 수십만을 넘으면 더 쌓아도 성장 범위가
+// 사실상 멈추므로, 레벨업 성장 범위에는 숙련도에 비례하는 항을 함께 더한다.
+export const V2_MASTERY_GROWTH_TAIL_SCALE = 200_000;
+
+/** 레벨업 성장 범위에만 더하는 선형 항. 재전직 시작 스탯과 HP·MP 성장은 로그 항만 쓴다. */
+export function masteryGrowthTail(mastery: number): number {
+  const m = Number.isFinite(mastery) ? Math.max(0, mastery) : 0;
+  return m / V2_MASTERY_GROWTH_TAIL_SCALE;
+}
+
 export type V2StatGrowthRange = {
   min: 0;
   max: number;
@@ -61,7 +71,7 @@ export function statGrowthRanges(
   const totals = statGrowthMasteryTotals(prof);
   return Object.fromEntries(
     V2_STAT_KEYS.map((stat) => {
-      const upper = 1 + masteryGrowthBonus(totals[stat]);
+      const upper = 1 + masteryGrowthBonus(totals[stat]) + masteryGrowthTail(totals[stat]);
       const lowerMax = Math.floor(upper);
       return [stat, {
         min: 0,

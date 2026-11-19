@@ -10,6 +10,7 @@ import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import { unreadInboxItems } from "@/adventure/v2/inboxViewState";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
+import { acknowledgePeddlerArrivalNotification } from "@/adventure/v2/peddlerArrivalNotificationClient";
 import { coopBossSessionHref } from "@/adventure/v2/coop/coopRoutes";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { feedbackReplyHref } from "@/lib/feedbackNavigation";
@@ -21,7 +22,11 @@ import {
   guildKickedNotificationText,
   grandGradeNotificationText,
   masterProductNotificationText,
+  peddlerArrivedNotificationText,
+  type PeddlerArrivedNotificationPayload,
   type GrandGradeNotificationPayload,
+  explorationGradeNotificationText,
+  type ExplorationGradeNotificationPayload,
   type MasterProductNotificationPayload,
   type AuctionUnsoldNotificationPayload,
   type AuctionWonNotificationPayload,
@@ -64,6 +69,10 @@ function previewText(notification: V2NotificationEntry): string {
       return masterProductNotificationText(payload as MasterProductNotificationPayload);
     case "grand_grade":
       return grandGradeNotificationText(payload as GrandGradeNotificationPayload);
+    case "exploration_grade":
+      return explorationGradeNotificationText(
+        payload as ExplorationGradeNotificationPayload,
+      );
     case "outpost_attacked":
       return "길드 시설이 공격받았습니다.";
     case "outpost_lost":
@@ -104,6 +113,8 @@ function previewText(notification: V2NotificationEntry): string {
       const p = payload as { readyCount: number };
       return `수확 가능한 작물이 ${p.readyCount}개 있어요.`;
     }
+    case "peddler_arrived":
+      return peddlerArrivedNotificationText(payload as PeddlerArrivedNotificationPayload);
     case "codex_research_trophy": {
       const p = payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };
       const labels = { bronze: "동", silver: "은", gold: "금", platinum: "백금", diamond: "다이아", legendary: "전설" } as const;
@@ -246,6 +257,12 @@ export function NotificationBell() {
       );
       void acknowledgeV2Notification(notification.id);
       router.push(feedbackReplyHref(feedbackId));
+      return;
+    }
+    if (notification.type === "peddler_arrived") {
+      setOpen(false);
+      void acknowledgePeddlerArrivalNotification();
+      router.push("/town/peddler");
       return;
     }
     if (notification.type !== "farm_ready") {

@@ -3,6 +3,7 @@
 // 한 단계가 실패해도 나머지는 이어서 처리하고, 단계마다 결과 한 줄을 돌려준다.
 
 import { farmReplantOutcomeText, runFarmHarvestAndReplant } from "./farmBatchActions";
+import { masterProductGainText, parseMasterProductGain } from "./masterProductGain";
 
 export type LifeCollectLine = {
   area: "gathering" | "farm" | "ranch";
@@ -66,10 +67,11 @@ async function collectGathering(request: Request): Promise<LifeCollectLine> {
 
   const claim = await call(request, `/api/v2/${activity}/auto`, { action: "claim" });
   if (!claim.ok) return line("error", `자동 ${name}: 정산하지 못했습니다.`);
+  const masterProduct = parseMasterProductGain(claim.json);
   const gained = `${String(claim.json.materialName ?? "재료")} +${Math.max(
     0,
     Math.floor(Number(claim.json.materialsGained) || 0),
-  ).toLocaleString("ko-KR")}`;
+  ).toLocaleString("ko-KR")}${masterProduct ? ` · ${masterProductGainText(masterProduct)}` : ""}`;
   if (typeof session.spotId !== "string" || !session.spotId) {
     return line("ok", `자동 ${name}: ${gained}.`);
   }

@@ -13,7 +13,7 @@ describe("independent mastery growth", () => {
       jobCumLevel: { warrior: mastery },
       groups: { warrior: { tier: 1, cultivations: 0, cumLevel: mastery } },
     }).str.max;
-    expect([0, 10_000, 100_000, 1_000_000, 20_000_000].map(max)).toEqual([1, 3, 6, 9, 13]);
+    expect([0, 10_000, 100_000, 1_000_000, 20_000_000].map(max)).toEqual([1, 3, 6, 14, 113]);
     expect(max(200_000_000)).toBeGreaterThan(max(20_000_000));
   });
 

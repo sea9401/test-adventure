@@ -33,6 +33,7 @@ import type { RanchAnimalId, RanchFeedTarget, RanchSlotId } from "./ranch";
 import type { RanchBreedResult } from "./ranchLineage";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import { parseMasterProductGain, type MasterProductGain } from "./masterProductGain";
 import {
   farmEndgameShopView,
   type FarmEndgameShopPurchaseResult,
@@ -54,6 +55,8 @@ type FarmResponse = {
   weeklyDeliveries?: FarmWeeklyDeliveryRequest[];
   shopItems?: FarmShopItem[];
   result?: FarmHarvestResult;
+  /** 수확 응답에만 온다. 명장 작물 획득은 수확 알림 문장에 붙인다. */
+  lifeMajor?: unknown;
   deliveryResult?: FarmDeliveryResult;
   specialDeliveryResult?: FarmSpecialDeliveryResult;
   weeklyDeliveryResult?: FarmWeeklyDeliveryResult;
@@ -148,7 +151,12 @@ export type FarmClientState = {
 
 export type FarmNotice =
   | { id: number; kind: "error"; text: string }
-  | { id: number; kind: "harvest"; result: FarmHarvestResult }
+  | {
+      id: number;
+      kind: "harvest";
+      result: FarmHarvestResult;
+      masterProduct?: MasterProductGain | null;
+    }
   | { id: number; kind: "delivery"; result: FarmDeliveryResult }
   | { id: number; kind: "specialDelivery"; result: FarmSpecialDeliveryResult }
   | { id: number; kind: "weeklyDelivery"; result: FarmWeeklyDeliveryResult }
@@ -165,6 +173,7 @@ export type FarmNotice =
       count: number;
       farmingXpGained: number;
       seedsReturned: number;
+      masterProduct?: MasterProductGain;
     }
   | { id: number; kind: "batchFertilizer"; count: number }
   | {
@@ -174,6 +183,7 @@ export type FarmNotice =
       planted: number;
       farmingXpGained: number;
       seedsReturned: number;
+      masterProduct?: MasterProductGain;
     }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
   | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
@@ -293,7 +303,12 @@ export function useFarm(): FarmClientState {
     if (data.result) {
       setLastResult(data.result);
       if (!options.suppressActionNotice) {
-        setNotice({ id: Date.now(), kind: "harvest", result: data.result });
+        setNotice({
+          id: Date.now(),
+          kind: "harvest",
+          result: data.result,
+          masterProduct: parseMasterProductGain(data),
+        });
       }
       window.dispatchEvent(new Event("v2notif:read"));
     }
@@ -515,6 +530,7 @@ export function useFarm(): FarmClientState {
             count: result.completed,
             farmingXpGained: result.farmingXpGained,
             seedsReturned: result.seedsReturned,
+            masterProduct: result.masterProduct,
           });
         } else {
           setNotice({
@@ -571,6 +587,7 @@ export function useFarm(): FarmClientState {
             planted: outcome.planted,
             farmingXpGained: outcome.farmingXpGained,
             seedsReturned: outcome.seedsReturned,
+            masterProduct: outcome.masterProduct,
           });
         }
       } catch (batchError) {

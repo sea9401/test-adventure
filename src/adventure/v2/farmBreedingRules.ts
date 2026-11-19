@@ -6,8 +6,8 @@ export const FARM_BREEDING_BASE_MAX_STAGE = 5;
 /** 명장 품종 — 농사 주전공 명장 3단계 이상만 올릴 수 있다. */
 export const FARM_BREEDING_MASTER_STAGE = 6;
 
-const BASE_RARE_CHANCE_PCT_PER_STAGE = 2;
-const MASTER_RARE_CHANCE_PCT = 13;
+const BASE_RARE_CHANCE_PCT_PER_STAGE = 4;
+const MASTER_RARE_CHANCE_PCT = 30;
 
 export type FarmBreedingStageCost = {
   /** 일반 작물 비용. 그 작물의 기본 평균 수확량을 곱해 개수로 바꾼다. */
@@ -20,10 +20,10 @@ export type FarmBreedingStageCost = {
 export const FARM_BREEDING_STAGE_COSTS: readonly FarmBreedingStageCost[] = [
   { harvests: 10, rare: 2, masterCrop: 0 },
   { harvests: 25, rare: 5, masterCrop: 0 },
-  { harvests: 60, rare: 10, masterCrop: 0 },
-  { harvests: 120, rare: 18, masterCrop: 0 },
-  { harvests: 200, rare: 30, masterCrop: 0 },
-  { harvests: 300, rare: 40, masterCrop: 3 },
+  { harvests: 70, rare: 10, masterCrop: 0 },
+  { harvests: 150, rare: 18, masterCrop: 0 },
+  { harvests: 260, rare: 30, masterCrop: 0 },
+  { harvests: 400, rare: 40, masterCrop: 3 },
 ];
 
 export function normalizeFarmBreedingStage(raw: unknown): number {

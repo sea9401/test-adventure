@@ -263,14 +263,14 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("명장 작물 2개가 더 듭니다");
   });
 
-  it("행상의 교역로·적재 점수·증표·단골 등급·교환 품목을 안내한다", () => {
+  it("행상의 교역로·적재 점수·증표·교역 등급·교환 품목을 안내한다", () => {
     const html = renderToStaticMarkup(<PastimesContent />);
     expect(html).toContain("행상");
     for (const name of ["강나루 장터", "산마루 광산촌", "남쪽 항구"]) {
       expect(html).toContain(name);
     }
-    expect(html).toContain("강나루 장터 단골 3등급");
-    expect(html).toContain("단골 등급 합계 10");
+    expect(html).toContain("강나루 장터 교역 3등급");
+    expect(html).toContain("교역 등급 합계 10");
     expect(html).toContain("철광석 2");
     expect(html).toContain("카카오 90");
     expect(html).toContain("전설의 어획물 400");
@@ -306,13 +306,14 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("채집지 정비");
     expect(html).toContain("느긋한 자동 작업 시간");
-    expect(html).toContain("3시간 30분");
-    expect(html).toContain("2시간 12분");
+    expect(html).toContain("2시간 30분");
+    expect(html).toContain("4시간 30분");
+    expect(html).toContain("6시간");
     expect(html).toContain("단단한 돌 200");
     expect(html).toContain("원석 보석 600");
     // 철 광맥 1단계와 편백나무숲 6단계의 원자재 수량.
     expect(html).toContain("1,920");
-    expect(html).toContain("13,200");
+    expect(html).toContain("17,600");
     expect(html).toContain("채광, 숲이면 벌목 주전공");
     expect(html).toContain("개척자");
     expect(html).toContain("산과 숲의 주인");
@@ -493,6 +494,44 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("한 번만");
     expect(html).toContain("이미 완료한 단계");
     expect(html).not.toContain("지정된 사냥터의 최심부");
+  });
+
+  it("사냥 항목이 개인 보스 위험도의 강화와 보상을 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("개인 보스 위험도");
+    expect(hunting).toContain("보스 체력이 50%");
+    expect(hunting).toContain("8%씩");
+    expect(hunting).toContain("위험도 10");
+    expect(hunting).toContain("11개");
+    expect(hunting).toContain("1.5%");
+    expect(hunting).toContain("위험을 좇는 자");
+  });
+
+  it("사냥 항목이 던전 심층 단계와 심층 교환소를 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("심층 단계");
+    expect(hunting).toContain("단계마다 8");
+    expect(hunting).toContain("10 + 2 × 단계");
+    expect(hunting).toContain("심층 교환소");
+    expect(hunting).toContain("완벽한 보석");
+    expect(hunting).toContain("5,000,000 G");
+    expect(hunting).toContain("폭풍 심층 항해자");
+    // 재련 기능이 꺼져 있어 교환소 표에는 재련석이 없다.
+    expect(hunting).not.toMatch(/재련석 \d+개<\/td>/);
+  });
+
+  it("사냥 항목이 미개척지 탐사 등급의 조건과 보상을 적는다", () => {
+    const hunting = renderToStaticMarkup(<HuntingContent />);
+
+    expect(hunting).toContain("탐사 등급");
+    expect(hunting).toContain("15,000");
+    expect(hunting).toContain("5 · 15 · 30 · 50 · 75");
+    expect(hunting).toContain("10등급 · 40등급");
+    expect(hunting).toContain("3,500개");
+    expect(hunting).toContain("5,000개");
+    expect(hunting).toContain("미개척지 길잡이");
   });
 
   it("사냥 패배 위험 골드와 지역 세금 폐지를 모순 없이 안내한다", () => {
@@ -1021,6 +1060,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("묶음 전체");
     expect(html).toContain("나누어 여러 매물을 등록");
     expect(html).toContain("별표 즐겨찾기");
+    expect(html).toContain("장비 도감</strong>에서 별표를 달아 두면");
     expect(html).toContain("최근 30일 체결가 추이");
     expect(html).toContain("목표 개당 가격 이하");
     expect(html).toContain("시작 입찰가 이상");

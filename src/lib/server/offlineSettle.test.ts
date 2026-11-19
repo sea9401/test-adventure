@@ -333,6 +333,49 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     });
   });
 
+  // 깊은 층에 선 약한 캐릭터 — 매 판 지지만 충전약으로 체력이 돌아와 계속 싸울 수 있다.
+  function seedLosingWarrior(lastBattleAt: number) {
+    seedStrongWarrior(lastBattleAt);
+    store.set("character.v2", {
+      ...(store.get("character.v2") as Record<string, unknown>),
+      level: 1,
+      hp: 100,
+      frontierDepth: 60,
+      lastHuntDepth: 60,
+    });
+    store.set("equipment.v2", { owned: [], equipped: {} });
+    store.set("proficiency.v2", { groups: { warrior: { tier: 1, points: 0, cumLevel: 1 } }, grown: {} });
+    store.set("inventory.v2", { hpCharges: 9_000_000, mpCharges: 0 });
+  }
+
+  it("패배 시 정지를 켜면 처음 진 판에서 세션을 종료한다", async () => {
+    seedLosingWarrior(Date.now() - 60_000);
+    setOfflineStopConfig({ defeatEnabled: true });
+
+    const res = await POST(settleRequest());
+    const json = (await res.json()) as {
+      battles: number;
+      losses: number;
+      stoppedReason: string | null;
+      active: boolean;
+    };
+    expect(json).toMatchObject({ battles: 1, losses: 1, stoppedReason: "defeat", active: false });
+  });
+
+  it("패배 시 정지를 끄면 져도 충전약으로 회복해 계속 싸운다", async () => {
+    seedLosingWarrior(Date.now() - 60_000);
+
+    const res = await POST(settleRequest());
+    const json = (await res.json()) as {
+      battles: number;
+      losses: number;
+      stoppedReason: string | null;
+    };
+    expect(json.losses).toBeGreaterThan(1);
+    expect(json.battles).toBe(json.losses);
+    expect(json.stoppedReason).toBeNull();
+  });
+
   it("긴 정산은 50판 배치로 커넥션을 반납하고 다음 요청에서 이어간다", async () => {
     seedStrongWarrior(Date.now() - 60 * HUNT_COOLDOWN_MS);
 

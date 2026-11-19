@@ -226,7 +226,8 @@ describe("farm ranch panel", () => {
       />,
     );
     expect(html).toContain("혈통 특급");
-    expect(html).toContain("황금 달걀 확률 10%");
+    expect(html).toContain("산물 +50%");
+    expect(html).toContain("황금 달걀 확률 20%");
     expect(html).toContain("교배 성공률 7%");
     expect(html).toContain('aria-label="부지 1 교배"');
   });

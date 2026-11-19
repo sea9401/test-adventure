@@ -13,6 +13,15 @@ import {
   isUnexploredNodeId,
   type UnexploredNodeId,
 } from "./unexploredTree";
+import {
+  EXPLORATION_MAX_XP_POINTS,
+  explorationGrade,
+  explorationGradeBonusPoints,
+} from "./unexploredGrade";
+import {
+  parseBossRiskRecord,
+  type UnexploredBossRiskRecord,
+} from "./unexploredBossRisk";
 import type { V2EquipmentId } from "./v2Equipment";
 
 type UnexploredBossAchievementId = `defeat_${UnexploredBossId}`;
@@ -51,14 +60,16 @@ export type UnexploredEquipmentCraftReceipt = {
   craftedAt: number;
 };
 
-export const UNEXPLORED_PRESET_INDEXES = [0, 1, 2] as const;
+// 프리셋은 다섯 칸이다. 넷째·다섯째 칸은 탐사 등급으로 열린다(unexploredGrade.ts).
+export const UNEXPLORED_PRESET_INDEXES = [0, 1, 2, 3, 4] as const;
 export type UnexploredPresetIndex = (typeof UNEXPLORED_PRESET_INDEXES)[number];
-export type UnexploredNodePresets = [UnexploredNodeId[], UnexploredNodeId[], UnexploredNodeId[]];
-/** 프리셋마다 이용자가 고른 최대 난이도. */
-export type UnexploredDifficultyCaps = [number, number, number];
+/** 프리셋 칸마다의 노드 배분. 읽은 세이브는 항상 UNEXPLORED_PRESET_INDEXES 길이다. */
+export type UnexploredNodePresets = UnexploredNodeId[][];
+/** 프리셋마다 이용자가 고른 최대 난이도. 길이는 프리셋 칸 수와 같다. */
+export type UnexploredDifficultyCaps = number[];
 
 export function isUnexploredPresetIndex(value: unknown): value is UnexploredPresetIndex {
-  return value === 0 || value === 1 || value === 2;
+  return (UNEXPLORED_PRESET_INDEXES as readonly unknown[]).includes(value);
 }
 
 export type UnexploredSave = {
@@ -73,10 +84,12 @@ export type UnexploredSave = {
   traces: UnexploredTraceState;
   craftReceipts: UnexploredCraftReceipt[];
   equipmentCraftReceipts: UnexploredEquipmentCraftReceipt[];
+  /** 개인 보스별 최고 처치 위험도(unexploredBossRisk.ts). */
+  bossRisk: UnexploredBossRiskRecord;
 };
 
 const achievementIdSet = new Set<string>(UNEXPLORED_ACHIEVEMENT_IDS);
-const MAX_XP_POINTS = 30;
+const MAX_XP_POINTS = EXPLORATION_MAX_XP_POINTS;
 // 업적마다 1포인트. 보스 업적이 늘면 상한도 함께 늘어나도록 목록 길이를 쓴다.
 const MAX_ACHIEVEMENT_POINTS = UNEXPLORED_ACHIEVEMENT_IDS.length;
 const MAX_CRAFT_RECEIPTS = 50;
@@ -188,7 +201,7 @@ function parseDifficultyCaps(raw: unknown): UnexploredDifficultyCaps {
   const source = Array.isArray(raw) ? raw : [];
   const cap = (value: unknown) =>
     isUnexploredDifficultyCap(value) ? value : UNEXPLORED_MAX_DIFFICULTY;
-  return [cap(source[0]), cap(source[1]), cap(source[2])];
+  return UNEXPLORED_PRESET_INDEXES.map((index) => cap(source[index]));
 }
 
 /** 지금 쓰는 프리셋에 적용되는 최대 난이도. */
@@ -206,15 +219,12 @@ export function emptyUnexploredSave(): UnexploredSave {
     achievementIds: [],
     selectedNodeIds: [],
     activePresetIndex: 0,
-    nodePresets: [[], [], []],
-    difficultyCaps: [
-      UNEXPLORED_MAX_DIFFICULTY,
-      UNEXPLORED_MAX_DIFFICULTY,
-      UNEXPLORED_MAX_DIFFICULTY,
-    ],
+    nodePresets: UNEXPLORED_PRESET_INDEXES.map(() => []),
+    difficultyCaps: UNEXPLORED_PRESET_INDEXES.map(() => UNEXPLORED_MAX_DIFFICULTY),
     traces: {},
     craftReceipts: [],
     equipmentCraftReceipts: [],
+    bossRisk: {},
   };
 }
 
@@ -227,11 +237,9 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     ? source.activePresetIndex
     : 0;
   const rawPresets = Array.isArray(source.nodePresets) ? source.nodePresets : [];
-  const nodePresets: UnexploredNodePresets = [
-    uniqueKnownValues(rawPresets[0], isUnexploredNodeId),
-    uniqueKnownValues(rawPresets[1], isUnexploredNodeId),
-    uniqueKnownValues(rawPresets[2], isUnexploredNodeId),
-  ];
+  const nodePresets: UnexploredNodePresets = UNEXPLORED_PRESET_INDEXES.map((index) =>
+    uniqueKnownValues(rawPresets[index], isUnexploredNodeId),
+  );
   // Keep the existing active-allocation field authoritative for hunt/progression
   // writers, and migrate legacy allocations into the default first slot.
   const selectedNodeIds = uniqueKnownValues(
@@ -258,6 +266,7 @@ export function parseUnexploredSave(raw: unknown): UnexploredSave {
     equipmentCraftReceipts: parseEquipmentCraftReceipts(
       source.equipmentCraftReceipts,
     ),
+    bossRisk: parseBossRiskRecord(source.bossRisk),
   };
 }
 
@@ -270,7 +279,11 @@ export function unexploredEarnedPoints(
     MAX_XP_POINTS,
     Math.max(nonNegativeInteger(save.xpPoints), levelPoint),
   );
-  return xpPoints + Math.min(MAX_ACHIEVEMENT_POINTS, save.achievementIds.length);
+  return (
+    xpPoints +
+    Math.min(MAX_ACHIEVEMENT_POINTS, save.achievementIds.length) +
+    explorationGradeBonusPoints(explorationGrade(save))
+  );
 }
 
 export function canChangeUnexploredNodes(level: number): boolean {

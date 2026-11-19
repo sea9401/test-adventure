@@ -153,4 +153,60 @@ describe("sanctuary play screen", () => {
     fireEvent.click(await screen.findByRole("button", { name: /태초의 문지기, 현재/ }));
     expect(screen.getByRole("dialog").textContent).toContain("문장 2개 확정");
   });
+  it("하드를 고르면 열린 심층 단계를 고를 수 있고 그 단계로 입장한다", async () => {
+    const deepStatus = (state: unknown, deep: { best: number; maxSelectable: number }) => ({
+      ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 2, state, deep }),
+    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(deepStatus({ ...parseSanctuaryState({}), clears: 9, deepBest: 2 }, { best: 2, maxSelectable: 3 }))
+      .mockResolvedValueOnce(deepStatus({ ...parseSanctuaryState({}), revision: 1, difficulty: "hard", active: { ...createSanctuaryActive(1000, 300), deepStage: 3 } }, { best: 2, maxSelectable: 3 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2SanctuaryDungeonView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "노말" }));
+    expect(screen.queryByRole("combobox", { name: "심층 단계" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "하드" }));
+    const select = screen.getByRole("combobox", { name: "심층 단계" }) as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual([
+      "심층 없음(하드)",
+      "1단계 · 증표 12개",
+      "2단계 · 증표 14개",
+      "3단계 · 증표 16개",
+    ]);
+    expect(screen.getByText("최고 완주 2단계")).toBeTruthy();
+    fireEvent.change(select, { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /성소 외곽, 이동 가능/ }));
+    fireEvent.click(screen.getByRole("button", { name: "성소 입장" }));
+
+    await screen.findByRole("button", { name: /성소 외곽, 현재/ });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ action: "start", difficulty: "hard", deepStage: 3, expectedRevision: 0 });
+    expect(screen.getByText(/하드 · 심층 3단계 진행 중/)).toBeTruthy();
+  });
+  it("완주 기록이 없으면 심층이 잠겨 있다고 알린다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 3, state: parseSanctuaryState({}), deep: { best: 0, maxSelectable: 0 } }),
+    }));
+    render(<V2SanctuaryDungeonView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "하드" }));
+
+    expect(screen.queryByRole("combobox", { name: "심층 단계" })).toBeNull();
+    expect(screen.getByText("성소를 한 번 완주하면 심층 1단계가 열립니다.")).toBeTruthy();
+  });
+  it("심층을 완주하면 받은 증표를 알린다", async () => {
+    const path = ["wreckage_outer", "supply", "wreckage_middle", "wreckage_camp", "wreckage_elite", "altar", "wreckage_guardian", "final_prep", "storm_heart"];
+    const active = { ...createSanctuaryActive(1000, 300), deepStage: 4, currentNodeId: "storm_heart", visitedNodeIds: path, completedNodeIds: path.slice(0, -1) };
+    const base = parseSanctuaryState({});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 0, state: { ...base, revision: 2, difficulty: "hard", active }, deep: { best: 3, maxSelectable: 4 } }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 0, state: { ...base, revision: 3, deepBest: 4 }, deep: { best: 4, maxSelectable: 5 }, success: true, finalClear: true, gainedEmblems: [], deepTokensGained: 18, enemyName: "태초의 수호자" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2SanctuaryDungeonView />);
+
+    const current = await screen.findByRole("button", { name: /, 현재/ });
+    fireEvent.click(current);
+    fireEvent.click(screen.getByRole("button", { name: "전투 시작" }));
+
+    expect(await screen.findByText("심층 증표 18개를 받았습니다.")).toBeTruthy();
+  });
 });

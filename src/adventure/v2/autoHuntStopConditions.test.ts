@@ -13,6 +13,7 @@ const snapshot = {
   rareMapFound: false,
   rareMapCount: 0,
   level: 99,
+  lost: false,
 };
 
 describe("getAutoHuntStopReason", () => {
@@ -83,6 +84,38 @@ describe("getAutoHuntStopReason", () => {
   });
 });
 
+describe("패배 시 정지", () => {
+  it("조건을 켰을 때만 패배한 전투에서 멈춘다", () => {
+    const config = { ...DEFAULT_AUTO_HUNT_STOP_CONFIG, defeatEnabled: true };
+
+    expect(getAutoHuntStopReason(config, { ...snapshot, lost: true })).toBe("defeat");
+    expect(getAutoHuntStopReason(config, snapshot)).toBeNull();
+    expect(
+      getAutoHuntStopReason(DEFAULT_AUTO_HUNT_STOP_CONFIG, { ...snapshot, lost: true }),
+    ).toBeNull();
+  });
+
+  it("다른 조건과 함께 걸리면 패배를 먼저 알린다", () => {
+    const config = {
+      ...DEFAULT_AUTO_HUNT_STOP_CONFIG,
+      defeatEnabled: true,
+      potionEnabled: true,
+      potionThreshold: 100,
+    };
+
+    expect(
+      getAutoHuntStopReason(config, { ...snapshot, lost: true, hpCharges: 0 }),
+    ).toBe("defeat");
+  });
+
+  it("기본값은 꺼짐이고 옛 설정에는 꺼짐으로 보완한다", () => {
+    expect(DEFAULT_AUTO_HUNT_STOP_CONFIG.defeatEnabled).toBe(false);
+    expect(normalizeAutoHuntStopConfig({ level100Enabled: true }).defeatEnabled).toBe(false);
+    expect(normalizeAutoHuntStopConfig({ defeatEnabled: true }).defeatEnabled).toBe(true);
+    expect(normalizeAutoHuntStopConfig({ defeatEnabled: "yes" }).defeatEnabled).toBe(false);
+  });
+});
+
 describe("normalizeAutoHuntStopConfig", () => {
   it("uses safe defaults for malformed persisted values", () => {
     expect(
@@ -103,6 +136,7 @@ describe("normalizeAutoHuntStopConfig", () => {
       rareMapEnabled: true,
       rareMapFullEnabled: false,
       level100Enabled: false,
+      defeatEnabled: false,
     });
   });
 

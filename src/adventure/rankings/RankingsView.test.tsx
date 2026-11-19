@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   codexMasteryScopeForView,
   CodexRankingControls,
+  DeepStageRankingControls,
+  effectiveRankingMetric,
   LifeMasteryMetricPill,
 } from "./RankingsView";
 
@@ -63,3 +65,21 @@ describe("도감 숙련·월간 연구 랭킹 전환", () => {
     expect(html).not.toContain("생태 연구");
   });
 });
+
+describe("심층 단계 랭킹", () => {
+  it("심층 단계 탭은 고른 던전의 순위를 조회한다", () => {
+    expect(effectiveRankingMetric("stormDeep", "sanctuaryDeep")).toBe("sanctuaryDeep");
+    expect(effectiveRankingMetric("stormDeep", "stormDeep")).toBe("stormDeep");
+    expect(effectiveRankingMetric("masteryTower", "sanctuaryDeep")).toBe("masteryTower");
+  });
+
+  it("폭풍 원정과 태초의 성소를 전환하는 선택기를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <DeepStageRankingControls dungeon="stormDeep" onChange={() => undefined} />,
+    );
+    expect(html).toContain("폭풍 원정");
+    expect(html).toContain("태초의 성소");
+    expect(html).toContain("실전으로 완주한 가장 높은 심층 단계");
+  });
+});
+

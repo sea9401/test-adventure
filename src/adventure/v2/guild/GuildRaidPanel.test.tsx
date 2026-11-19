@@ -92,6 +92,8 @@ function raidState(
         damage: 123_456,
         attackCount: 3,
         eligible: true,
+        avatar: "female2",
+        profileBorder: null,
       },
     ],
     leaderboard: [
@@ -136,6 +138,23 @@ describe("길드 토벌전 패널", () => {
     expect(html).toContain("숙련의 증표 300개");
     expect(html).toContain("참여 조건 달성");
     expect(html).toContain("bg-white");
+  });
+
+  it("길드원 기여도 줄 맨 앞에 프사를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+      />,
+    );
+    const section = html.slice(html.indexOf("길드원 기여도"));
+
+    expect(section).toContain("ui-row-thumb");
+    expect(section.indexOf("ui-row-thumb")).toBeLessThan(
+      section.indexOf("테스터"),
+    );
   });
 
   it("오늘 공격을 모두 썼으면 공격 버튼을 비활성화한다", () => {

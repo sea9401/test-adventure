@@ -1291,9 +1291,9 @@ describe("adventurer farm", () => {
       "wheat",
       1_000,
     );
-    // 밀 기본 5%. 희귀 판정 난수 0.10 은 3단계(+6%p = 11%)에서만 성공한다.
+    // 밀 기본 5%. 희귀 판정 난수 0.15 는 3단계(+12%p = 17%)에서만 성공한다.
     const harvest = (state: FarmState) => {
-      const rolls = [0.5, 0.1, 0.9];
+      const rolls = [0.5, 0.15, 0.9];
       return harvestPlot(state, "plot-1", 1_000 + FARM_CROPS.wheat.growMs, () => rolls.shift()!);
     };
 

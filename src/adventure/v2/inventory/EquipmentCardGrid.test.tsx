@@ -49,6 +49,48 @@ describe("EquipmentCardGrid", () => {
     expect(html).toContain('aria-pressed="true"');
   });
 
+  it("잠금 선택은 잠긴 장비와 장착 장비도 고를 수 있고 상한에 닿으면 나머지를 막는다", () => {
+    const cards = [
+      { inst: { iid: "locked", id: "v2_starter_staff" as const, locked: true }, isEquipped: false },
+      { inst: { iid: "equipped", id: "v2_starter_staff" as const }, isEquipped: true },
+      { inst: { iid: "rest", id: "v2_starter_staff" as const }, isEquipped: false },
+    ];
+    const open = renderToStaticMarkup(
+      <EquipmentCardGrid
+        cards={cards}
+        onOpenCard={() => undefined}
+        saleSelection={{
+          active: true,
+          selectedIids: new Set(["locked"]),
+          onToggle: () => undefined,
+          purpose: "lock",
+          max: 100,
+        }}
+      />,
+    );
+    expect(open).not.toContain("선택 불가");
+    expect(open).toContain("잠금 선택됨");
+    expect(open).toContain("잠금 선택 안 됨");
+    expect(open).toContain("border-indigo-400");
+    expect(open).not.toContain("border-rose-400");
+
+    const full = renderToStaticMarkup(
+      <EquipmentCardGrid
+        cards={cards}
+        onOpenCard={() => undefined}
+        saleSelection={{
+          active: true,
+          selectedIids: new Set(["locked", "equipped"]),
+          onToggle: () => undefined,
+          purpose: "lock",
+          max: 2,
+        }}
+      />,
+    );
+    expect(full.match(/잠금 선택됨/g)).toHaveLength(2);
+    expect(full).toContain("잠금 선택 불가: 최대 2개");
+  });
+
   it("강화로 생긴 소수 위력은 장비 카드에서 정수로 표시한다", () => {
     const html = renderToStaticMarkup(
       <EquipmentCardGrid

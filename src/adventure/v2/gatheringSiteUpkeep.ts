@@ -68,11 +68,11 @@ type StageCost = {
 const STAGE_COSTS: readonly StageCost[] = [
   { sessions: 3, byproductId: MINING_MATERIAL_ID.stone, byproducts: 200, masterProducts: 0 },
   { sessions: 8, byproductId: MINING_MATERIAL_ID.stone, byproducts: 400, masterProducts: 0 },
-  { sessions: 15, byproductId: MINING_MATERIAL_ID.coal, byproducts: 250, masterProducts: 0 },
-  { sessions: 25, byproductId: MINING_MATERIAL_ID.coal, byproducts: 500, masterProducts: 0 },
-  { sessions: 40, byproductId: MINING_MATERIAL_ID.roughGem, byproducts: 400, masterProducts: 0 },
+  { sessions: 18, byproductId: MINING_MATERIAL_ID.coal, byproducts: 250, masterProducts: 0 },
+  { sessions: 32, byproductId: MINING_MATERIAL_ID.coal, byproducts: 500, masterProducts: 0 },
+  { sessions: 55, byproductId: MINING_MATERIAL_ID.roughGem, byproducts: 400, masterProducts: 0 },
   {
-    sessions: 60,
+    sessions: 80,
     byproductId: MINING_MATERIAL_ID.roughGem,
     byproducts: 600,
     masterProducts: GATHERING_SITE_MASTER_PRODUCT_COUNT,
@@ -80,7 +80,7 @@ const STAGE_COSTS: readonly StageCost[] = [
 ];
 
 /** 인덱스 = 정비 단계. 그 채집지의 느긋한 작업 시간(분). */
-const EXTENDED_MINUTES_BY_STAGE = [120, 132, 144, 156, 168, 180, 210] as const;
+const EXTENDED_MINUTES_BY_STAGE = [120, 150, 180, 210, 240, 270, 360] as const;
 
 function byGrade(left: { grade: number }, right: { grade: number }): number {
   return left.grade - right.grade;

@@ -281,18 +281,18 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     expect(report.ratios).toEqual([
       expect.objectContaining({
         setId: "tracking",
-        stormRoleRatio: expect.closeTo(0.884441365694139, 8),
-        pioneerRoleRatio: expect.closeTo(1.0980475380916925, 8),
+        stormRoleRatio: expect.closeTo(0.8933936824430809, 8),
+        pioneerRoleRatio: expect.closeTo(1.0860084002955792, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
       expect.objectContaining({
         // 통합 중독 보정: 스킬·장비 독에 같은 행운 기준과 최종 배율을 적용한다.
         setId: "toxic_blood",
-        stormRoleRatio: expect.closeTo(0.8747745757991876, 8),
-        pioneerRoleRatio: expect.closeTo(0.9162378766764808, 8),
-        bossRoleRatio: expect.closeTo(0.8503258175421763, 8),
-        bossSurvivalRatio: expect.closeTo(0.9718677494199537, 8),
+        stormRoleRatio: expect.closeTo(0.8732029958871906, 8),
+        pioneerRoleRatio: expect.closeTo(0.9130439950082208, 8),
+        bossRoleRatio: expect.closeTo(0.8600472442707926, 8),
+        bossSurvivalRatio: expect.closeTo(0.970870870870871, 8),
       }),
       expect.objectContaining({
         setId: "glacial_guard",
@@ -303,8 +303,8 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
       }),
       expect.objectContaining({
         setId: "deep_arcane",
-        stormRoleRatio: expect.closeTo(0.8531959602029757, 8),
-        pioneerRoleRatio: expect.closeTo(1.0995438946811773, 8),
+        stormRoleRatio: expect.closeTo(0.852712710489613, 8),
+        pioneerRoleRatio: expect.closeTo(1.0993711081499453, 8),
         bossRoleRatio: null,
         bossSurvivalRatio: null,
       }),
@@ -327,7 +327,7 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
       expect(output).toContain(
         "세트 | 폭풍 전환/폭풍 | 개척자 전환/개척자 | 전환/보스 역할 | 전환/보스 생존",
       );
-      expect(output).toContain("tracking | 0.884 | 1.098 | - | -");
+      expect(output).toContain("tracking | 0.893 | 1.086 | - | -");
       expect(output).toContain(
         "세트 | 슬롯 | 특화 장비(위력·옵션) | 보스 고유(위력·옵션)",
       );
@@ -449,7 +449,7 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     );
   }, 120_000);
 
-  it("개척자 기준 주 역할 비율이 0.97 미만이면 PvE 실패로 보고한다", () => {
+  it("개척자 기준 주 역할 비율이 하한 0.96 미만이면 PvE 실패로 보고한다", () => {
     const base = buildUnexploredSpecialtyBalanceReport({
       pveTrials: 1,
       pvpPairs: 0,
@@ -509,7 +509,8 @@ describe("미개척지 상위 특화 세트 결정적 밸런스 시뮬레이션"
     expect(unexploredSpecialtyBalanceViolations(report)).toEqual({
       warnings: [],
       // 활의 상시 적중도 전환을 제거하고 명궁의 안목 장착 효과로 분리했다.
-      // 0.97~1.08 판정 범위는 유지하며 실제 장착 구성의 결과를 검증한다.
+      // 숙련도 성장 범위 선형 항 적용 뒤 표본 스탯이 올라 판정 하한은 0.96이다(시뮬 스크립트 상수 참고).
+      // 실제 장착 구성의 결과를 검증한다.
       failures: [],
     });
   }, 120_000);

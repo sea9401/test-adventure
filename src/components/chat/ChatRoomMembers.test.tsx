@@ -19,6 +19,8 @@ describe("ChatRoomMembers", () => {
             name: "마녀",
             role: "owner",
             joinedAt: 1_787_652_000_000,
+            avatar: "female2",
+            profileBorder: null,
           },
           {
             userId: "u-member",
@@ -54,6 +56,17 @@ describe("ChatRoomMembers", () => {
     expect(screen.getByRole("button", { name: "마녀 프로필 보기" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "길드원 프로필 보기" })).toBeTruthy();
     expect(screen.getByText("방장")).toBeTruthy();
+    // 프사 정보가 있는 참여자만 이름 앞에 줄 머리 프사가 붙는다.
+    expect(
+      screen
+        .getByRole("button", { name: "마녀 프로필 보기" })
+        .querySelector(".ui-row-thumb"),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "길드원 프로필 보기" })
+        .querySelector(".ui-row-thumb"),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "길드원 프로필 보기" }));
     expect(onSelectName).toHaveBeenCalledWith("길드원");

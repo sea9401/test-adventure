@@ -27,6 +27,7 @@ import {
   parseStaminaFromSave,
   staminaConfigForCharacter,
 } from "@/adventure/v2/stamina";
+import { adventureSupportBenefits } from "@/adventure/data/v2/adventureSupport";
 import {
   masteryCertificateCurrentJobId,
   masteryCertificateJobs,
@@ -100,6 +101,9 @@ export async function GET() {
   );
   const charSave = (map.get("character.v2") ?? {}) as Record<string, unknown>;
   const staminaConfig = staminaConfigForCharacter(charSave, now);
+  const entryStaminaWaived = adventureSupportBenefits(
+    staminaConfig.adventureSupportTier,
+  ).masteryTowerEntryFree;
   const stamina = applyRegen(
     parseStaminaFromSave(charSave.stamina, now),
     now,
@@ -127,7 +131,10 @@ export async function GET() {
   return Response.json({
     ok: true,
     tower,
-    entryStaminaCost: masteryTowerEntryStaminaCost(tower),
+    entryStaminaCost: masteryTowerEntryStaminaCost(tower, {
+      waived: entryStaminaWaived,
+    }),
+    entryStaminaWaived,
     stamina,
     certificates,
     autoClaimedReward: rollover.autoClaimedReward,

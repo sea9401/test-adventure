@@ -133,6 +133,9 @@ beforeEach(() => {
   mocks.upsertSave.mockResolvedValue(undefined);
 });
 
+import { UNEXPLORED_BOSS_RISK_TITLE_IDS } from "@/adventure/data/v2/unexploredBossRisk";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+
 describe("POST /api/v2/coop/claim — 개인 보스", () => {
   it("핵·연결 재료와 세 독립 고유를 지급하고 최초 칭호를 기록한다", async () => {
     mocks.adventureLog = {
@@ -179,6 +182,68 @@ describe("POST /api/v2/coop/claim — 개인 보스", () => {
       "first_personal_boss",
       "defeat_tracking_weapon",
     ]);
+  });
+
+  it("위험도 세션은 핵을 더 주고, 0.5% 장비 확률과 최소 품질을 올리고, 최고 위험도를 기록한다", async () => {
+    mocks.session = { ...mocks.session, mechanicState: { riskTier: 4 } };
+    mocks.character = {
+      materials: {},
+      unexplored: { achievementIds: ["defeat_tracking_weapon"], bossRisk: { tracking_weapon: 3 } },
+    };
+    // 30%·10% 장비는 빗나가고, 0.5% 장비만 0.85%로 판정한다(위험도 4의 확률 0.9% 안).
+    const rolls = [0.9, 0.9, 0.0085, 0];
+    vi.spyOn(Math, "random").mockImplementation(() => rolls.shift() ?? 0.999);
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reward).toMatchObject({
+      rewardMode: "unexplored_personal",
+      riskTier: 4,
+      bossCore: 5,
+      uniqueIds: [UNEXPLORED_BOSSES.tracking_weapon.uniqueDrops[2].equipmentId],
+    });
+    expect(vi.mocked(mintRolledEquipInstance).mock.calls[0]).toEqual([
+      UNEXPLORED_BOSSES.tracking_weapon.uniqueDrops[2].equipmentId,
+      Math.random,
+      { minimumQualityPct: 20 },
+    ]);
+    const characterWrite = mocks.upsertSave.mock.calls.find(
+      (call) => call[2] === "character.v2",
+    )?.[3] as { materials: Record<string, number>; unexplored: { bossRisk: Record<string, number> } };
+    expect(characterWrite.materials[UNEXPLORED_BOSS_CORE_MATERIAL.id]).toBe(5);
+    expect(characterWrite.unexplored.bossRisk).toEqual({ tracking_weapon: 4 });
+  });
+
+  it("위험도 0 세션의 0.5% 장비는 0.5% 미만일 때만 나온다", async () => {
+    const rolls = [0.9, 0.9, 0.0085, 0];
+    vi.spyOn(Math, "random").mockImplementation(() => rolls.shift() ?? 0.999);
+
+    const body = await (await POST(request())).json();
+
+    expect(body.reward).toMatchObject({ riskTier: 0, bossCore: 1, uniqueIds: [] });
+  });
+
+  it("최고 위험도 합계가 30에 닿으면 칭호를 준다", async () => {
+    mocks.session = { ...mocks.session, mechanicState: { riskTier: 10 } };
+    mocks.character = {
+      materials: {},
+      unexplored: {
+        achievementIds: ["defeat_tracking_weapon"],
+        bossRisk: { tracking_weapon: 9, glacial_colossus: 10, toxic_blood_lord: 10 },
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+
+    await POST(request());
+
+    expect(mocks.grantTitle).toHaveBeenCalledWith(
+      expect.anything(),
+      "owner",
+      UNEXPLORED_BOSS_RISK_TITLE_IDS[30],
+      expect.any(Number),
+    );
   });
 
   it("claim 재시도는 저장된 스냅샷을 그대로 반환하고 재지급하지 않는다", async () => {

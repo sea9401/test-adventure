@@ -11,16 +11,14 @@ describe("continuous mastery growth", () => {
   it("retains fractional mastery and distinguishes mastery inside the same integer range", () => {
     expect(masteryGrowthBonus(2500.5)).toBeCloseTo(Math.log2(1.5001), 12);
     const a = statGrowthRanges(profAt(100_000)).str;
-    const b = statGrowthRanges(profAt(110_000)).str;
+    const b = statGrowthRanges(profAt(105_000)).str;
     expect(a.max).toBe(b.max);
     expect(b.expected).toBeGreaterThan(a.expected!);
     expect(b.upperProbability).toBeGreaterThan(a.upperProbability!);
   });
   it("chooses 0..4 or 0..5 with 30% wider range, then rolls independently", () => {
-    const p = profAt(5000 * (2 ** 3.3 - 1));
-    // Integer stored mastery approximates U=4.3.
-    p.groups.warrior.cumLevel = 44_246;
-    p.jobCumLevel.warrior = 44_246;
+    // Integer stored mastery approximates U=4.3 (로그 항 + 20만당 1의 선형 항).
+    const p = profAt(38_147);
     expect(statGrowthRanges(p).str.upperProbability).toBeCloseTo(0.3, 4);
     expect(rollLevelGrowth({}, "warrior", p, seq(0.29, 0.999)).str).toBe(5);
     expect(rollLevelGrowth({}, "warrior", p, seq(0.31, 0.999)).str).toBe(4);

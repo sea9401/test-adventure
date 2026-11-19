@@ -3,14 +3,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   CheckCircle,
-  HandFist,
   Lock,
   MagnifyingGlass,
-  Shield,
-  Sneaker,
-  Sword,
   X,
-  type Icon,
 } from "@phosphor-icons/react";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -19,7 +14,6 @@ import {
   equipmentPowerDisplayValue,
   v2EquipPowerLabel,
   v2EquipStatRows,
-  type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
   EquipmentTierBadge,
@@ -28,7 +22,7 @@ import {
   UniqueBadge,
   powerNameClass,
 } from "@/adventure/v2/V2ItemCard";
-import { NecklaceIcon, RingIcon } from "@/adventure/v2/EquipmentSlotIcons";
+import { EquipmentTypeIcon } from "@/adventure/v2/EquipmentTypeIcon";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import {
@@ -41,14 +35,6 @@ import {
   type LiberationCandidateRow,
 } from "./equipmentLiberationViewModel";
 
-const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
-  weapon: { Icon: Sword, color: "text-rose-500" },
-  armor: { Icon: Shield, color: "text-sky-500" },
-  gloves: { Icon: HandFist, color: "text-amber-500" },
-  boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: RingIcon, color: "text-violet-500" },
-  necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
-};
 
 const SORT_OPTIONS: readonly {
   key: EnchantmentEquipmentSortMode;
@@ -91,7 +77,6 @@ function EquipmentCandidateCard({
 }) {
   const instance = candidate.item;
   const item = V2_EQUIPMENT[instance.id];
-  const { Icon, color } = SLOT_ICON[candidate.slot];
   return (
     <button
       type="button"
@@ -107,7 +92,7 @@ function EquipmentCandidateCard({
     >
       <span className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5">
-          <Icon size={20} weight="duotone" className={`shrink-0 ${color}`} aria-hidden />
+          <EquipmentTypeIcon item={item} />
           <span
             className={`truncate text-sm font-bold ${powerNameClass(
               item,

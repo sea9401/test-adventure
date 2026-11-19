@@ -172,6 +172,12 @@ beforeEach(() => {
   });
 });
 
+import {
+  COOP_BOSSES,
+  coopBossForBattle,
+  coopBossSessionMaxHp,
+} from "@/adventure/data/v2/coopBosses";
+
 describe("POST /api/v2/coop/attack", () => {
   it("개인 보스가 public으로 손상돼도 소환자 외 공격을 거부한다", async () => {
     mocks.selectRows = [[personalSession({ summonerId: "owner", visibility: "public" })]];
@@ -185,6 +191,30 @@ describe("POST /api/v2/coop/attack", () => {
     });
     expect(mocks.resolveBattle).not.toHaveBeenCalled();
     expect(mocks.updateValues).toHaveLength(0);
+  });
+
+  it("위험도가 적힌 세션은 세션 체력과 위험도 배율로 보스를 만들고 위험도를 지우지 않는다", async () => {
+    const kind = COOP_BOSSES.tracking_weapon;
+    const maxHp = coopBossSessionMaxHp(kind, 10);
+    const session = personalSession({
+      hp: maxHp,
+      maxHp,
+      mechanicState: { trackingThreat: 37, riskTier: 10 },
+    });
+    mocks.selectRows = [[session], [session], [], [{ damage: 20 }]];
+    mocks.updateRows = [[{ hp: maxHp - 20 }]];
+    mocks.insertRows = [[{ id: "attack-1" }]];
+
+    const response = await attack();
+
+    expect(response.status).toBe(200);
+    const boss = mocks.resolveBattle.mock.calls[0][1] as { hp: number; atk: number };
+    const expected = coopBossForBattle(kind, maxHp, { sharedMaxHp: maxHp, riskTier: 10 }).monster;
+    const base = coopBossForBattle(kind, kind.sharedMaxHp).monster;
+    expect(boss.hp).toBe(maxHp);
+    expect(boss.atk).toBe(expected.atk);
+    expect(boss.atk).toBeGreaterThan(base.atk);
+    expect(mocks.updateValues[0]?.mechanicState).toMatchObject({ riskTier: 10 });
   });
 
   it("저장 게이지를 전투에 주입하고 사망 뒤 남은 게이지와 반격 지표를 저장한다", async () => {

@@ -42,6 +42,8 @@ rollUnexploredHuntRewards,
 type UnexploredHuntRewardResult,
 } from "@/adventure/data/v2/unexploredHuntRewards";
 import { EXPLORATION_XP_PER_HUNT_WIN, grantExplorationXp } from "@/adventure/data/v2/unexploredProgression";
+import { explorationGrade, unexploredTraceCap } from "@/adventure/data/v2/unexploredGrade";
+import { announceExplorationGrade } from "@/lib/server/unexploredGradeAnnounce";
 import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
 import { parseEquipmentSave, type EquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
@@ -793,6 +795,7 @@ async function runOneHuntPhased(
         droppedUniques,
       },
       existingTraces: unexploredHunt.save.traces,
+      traceCap: unexploredTraceCap(explorationGrade(unexploredHunt.save)),
     });
     goldGross = unexploredRewards.gold;
     drops = unexploredRewards.drops;
@@ -872,6 +875,7 @@ async function runOneHuntPhased(
               save: progress.save,
               acceptedXp: progress.xpGained,
               pointsGained: progress.pointsGained,
+              gradesGained: progress.gradesGained,
             };
           })()
         : grantExplorationXp(
@@ -879,6 +883,9 @@ async function runOneHuntPhased(
             EXPLORATION_XP_PER_HUNT_WIN,
           )
       : null;
+
+  // 탐사 등급이 올랐으면 알리고, 받을 칭호는 아래에서 사냥 기록과 함께 적는다.
+  const explorationTitleIds = await announceExplorationGrade(tx, userId, explorationGrant);
 
   const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet - lossTax);
 
@@ -1035,16 +1042,15 @@ async function runOneHuntPhased(
           acquiredIds: droppedUniques,
         }
       : undefined;
+    const killArgs = [enemyName, now, uniqueEquipment, explorationTitleIds] as const;
     if (ctx.batchState) {
       ctx.batchState.adventureLog = applyHuntAdventureProgress(
         ctx.batchState.adventureLog ?? {},
-        enemyName,
-        now,
-        uniqueEquipment,
+        ...killArgs,
       );
       ctx.batchState.adventureLogDirty = true;
     } else {
-      await recordMonsterKill(tx, userId, enemyName, now, uniqueEquipment);
+      await recordMonsterKill(tx, userId, ...killArgs);
     }
   }
 

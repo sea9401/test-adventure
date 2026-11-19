@@ -31,6 +31,7 @@ describe("스태미너 — 기본 최대치", () => {
     expect(REGEN_SECONDS_PER_POINT).toBe(12);
     expect(staminaRegenMsPerPoint(0)).toBe(12_000);
     expect(staminaRegenMsPerPoint(20)).toBe(10_000);
+    expect(staminaRegenMsPerPoint(30)).toBe(9_231);
   });
 
   it("활성 지원권은 최대치를 1000 올리고 회복 속도 +20%를 적용한다", () => {
@@ -72,7 +73,7 @@ describe("스태미너 — 기본 최대치", () => {
     });
   });
 
-  it("프리미엄 지원권은 일반권과 합산하지 않고 최대치를 3000 올린다", () => {
+  it("프리미엄 지원권은 일반권과 합산하지 않고 최대치를 4000, 회복을 30% 올린다", () => {
     const now = 1_000;
 
     expect(
@@ -88,8 +89,8 @@ describe("스태미너 — 기본 최대치", () => {
         now,
       ),
     ).toEqual({
-      max: 5_200,
-      regenBonusPct: 20,
+      max: 6_200,
+      regenBonusPct: 30,
       adventureSupportActive: true,
       adventureSupportTier: "premium",
     });

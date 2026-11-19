@@ -130,8 +130,8 @@ export function PeddlerView({ onBack }: { onBack: () => void }) {
       if (!claimed) return "수령 완료";
       return [
         `증표 +${formatNumber(claimed.tokens)}`,
-        `단골 점수 +${formatNumber(claimed.points)}`,
-        ...(claimed.rankAfter > claimed.rankBefore ? [`단골 ${claimed.rankAfter}등급`] : []),
+        `교역 점수 +${formatNumber(claimed.points)}`,
+        ...(claimed.rankAfter > claimed.rankBefore ? [`교역 ${claimed.rankAfter}등급`] : []),
         ...claimed.titleNames.map((name) => `칭호 ${name} 획득`),
       ].join(" · ");
     });
@@ -162,7 +162,7 @@ export function PeddlerView({ onBack }: { onBack: () => void }) {
               교역로마다 매주 월요일 0시에 우대 품목 2종이 바뀌고, 우대 품목은 증표를{" "}
               {(100 + PEDDLER_PREFERRED_BONUS_PCT) / 100}배로 계산합니다.
             </li>
-            <li>보낸 적재 점수만큼 그 교역로의 단골 점수가 쌓이고, 단골 등급이 오르면 적재량이 늘어납니다.</li>
+            <li>보낸 적재 점수만큼 그 교역로의 교역 점수가 쌓이고, 교역 등급이 오르면 적재량이 늘어납니다.</li>
             <li>출발한 수레는 되돌릴 수 없습니다. 행상 증표는 주가 바뀌어도 남습니다.</li>
           </ul>
         }
@@ -183,7 +183,7 @@ export function PeddlerView({ onBack }: { onBack: () => void }) {
         <>
           <div className="grid grid-cols-2 gap-2">
             <StatusCell label="행상 증표" value={formatNumber(view.tokens)} />
-            <StatusCell label="단골 등급 합계" value={formatNumber(view.totalRank)} />
+            <StatusCell label="교역 등급 합계" value={formatNumber(view.totalRank)} />
           </div>
           <SegmentedControl ariaLabel="행상 보기" options={TAB_OPTIONS} value={tab} onChange={setTab} />
 
@@ -268,7 +268,7 @@ function RouteCard({
           </h2>
           {route.unlocked ? (
             <p className="text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
-              단골 {route.rank}등급 · 적재량 {formatNumber(route.capacity)}점
+              교역 {route.rank}등급 · 적재량 {formatNumber(route.capacity)}점
             </p>
           ) : (
             <p className="text-xs text-zinc-600 dark:text-zinc-300">{peddlerRouteUnlockText(unlock)}</p>
@@ -290,7 +290,7 @@ function RouteCard({
           <p>이번 주 우대 품목: {route.preferred.map((item) => item.name).join(", ")}</p>
           <p>
             {route.nextRankAt === null
-              ? "단골 최고 등급"
+              ? "교역 최고 등급"
               : `다음 등급까지 ${formatNumber(Math.max(0, route.nextRankAt - route.standingPoints))}점`}
           </p>
           {dispatch ? (

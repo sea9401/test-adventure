@@ -59,21 +59,39 @@ describe("unexplored exploration XP", () => {
     expect(result.save.explorationXp).toBe(17);
     expect(result.pointsGained).toBe(3);
     expect(result.acceptedXp).toBe(second + third + 17);
-    expect(result.discardedXp).toBe(0);
   });
 
-  it("discards overflow once all 30 XP points are earned", () => {
+  it("30포인트를 채운 뒤에는 경험치가 탐사 등급으로 쌓인다", () => {
     const completed = parseUnexploredSave({
       xpPoints: 30,
-      explorationXp: 99,
+      explorationXp: 14_990,
       explorationProgressVersion: 2,
     });
-    const result = grantExplorationXp(completed, 12345);
+    const result = grantExplorationXp(completed, 15_020);
 
-    expect(result.save).toMatchObject({ xpPoints: 30, explorationXp: 0 });
+    expect(result.save).toMatchObject({ xpPoints: 30, explorationXp: 30_010 });
     expect(result.pointsGained).toBe(0);
-    expect(result.acceptedXp).toBe(0);
-    expect(result.discardedXp).toBe(12444);
+    expect(result.acceptedXp).toBe(15_020);
+    expect(result.gradesGained).toBe(2);
+  });
+
+  it("30번째 포인트를 채우고 남은 경험치는 등급 경험치로 넘긴다", () => {
+    const almost = parseUnexploredSave({
+      xpPoints: 29,
+      explorationXp: 0,
+      explorationProgressVersion: 2,
+    });
+    const result = grantExplorationXp(almost, explorationPointCost(30) + 15_000 + 3);
+
+    expect(result.save).toMatchObject({ xpPoints: 30, explorationXp: 15_003 });
+    expect(result.pointsGained).toBe(1);
+    expect(result.gradesGained).toBe(1);
+  });
+
+  it("30포인트 전에는 등급이 오르지 않는다", () => {
+    const result = grantExplorationXp(emptyUnexploredSave(), 100);
+
+    expect(result.gradesGained).toBe(0);
   });
 });
 

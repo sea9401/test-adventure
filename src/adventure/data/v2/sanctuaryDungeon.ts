@@ -7,6 +7,7 @@ import {
 import { stormExpeditionMapNode, type StormExpeditionMapNode, type StormExpeditionMapNodeId } from "./stormExpeditionMap";
 import { parseUnexploredSave, canChangeUnexploredNodes } from "./unexploredState";
 import { EMBLEM_DIFFICULTIES, parseEmblemState, type Emblem, type EmblemDifficulty } from "./emblems";
+import { deepStageDepthBonus } from "./dungeonDeepStage";
 
 export const SANCTUARY_SAVE_KEY = "sanctuary-dungeon.v1";
 export const SANCTUARY_DAILY_ATTEMPTS = 3;
@@ -69,7 +70,8 @@ export const DEFAULT_SANCTUARY_AUTO_PREFERENCES: SanctuaryAutoPreferences = Obje
 ) as SanctuaryAutoPreferences;
 
 /** 일괄 진행 결과의 탐험 1회. endedAt은 클리어면 최종 보스, 패배면 진 상대 이름. */
-export type SanctuaryAutoRun = { difficulty: SanctuaryDifficulty; cleared: boolean; endedAt: string; gainedEmblems: Emblem[]; lostEmblems: number };
+/** deepStage·deepTokens 는 심층 단계 탐험에만 붙는다. */
+export type SanctuaryAutoRun = { deepStage?: number; deepTokens?: number; difficulty: SanctuaryDifficulty; cleared: boolean; endedAt: string; gainedEmblems: Emblem[]; lostEmblems: number };
 
 export function parseSanctuaryAutoPreferences(raw: unknown): SanctuaryAutoPreferences {
   const obj = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
@@ -94,10 +96,16 @@ export function parseSanctuaryState(raw: unknown, date?: string): SanctuaryState
     const expectedPath = SANCTUARY_NODES.slice(0, index + 1).map((node) => node.id);
     if (index < 0 || active.routeId !== "wreckage" || active.mode !== "normal" || active.visitedNodeIds.join() !== expectedPath.join()) active = null;
   }
+  const difficulty = active ? parseSanctuaryDifficulty(obj.difficulty) ?? "normal" : "normal";
+  // 심층 단계는 하드 위에만 얹는다.
+  if (active?.deepStage && difficulty !== "hard") {
+    active = { ...active };
+    delete active.deepStage;
+  }
   return {
     ...state, active,
     revision: typeof obj.revision === "number" && Number.isSafeInteger(obj.revision) && obj.revision >= 0 ? obj.revision : 0,
-    difficulty: active ? parseSanctuaryDifficulty(obj.difficulty) ?? "normal" : "normal",
+    difficulty,
     pendingEmblems: active ? parseEmblemState({ owned: obj.pendingEmblems }).owned : [],
     autoPreferences: parseSanctuaryAutoPreferences(obj.autoPreferences),
   };
@@ -151,7 +159,8 @@ export function pickSanctuaryAutoChoice(active: StormExpeditionActive, preferenc
 export function sanctuaryEnemy(active: StormExpeditionActive, difficulty: SanctuaryDifficulty = "normal") {
   const node = sanctuaryNode(active);
   if (!node.encounterKind) throw new Error("battle_required");
-  const monster = stormExpeditionEnemy("wreckage", node.encounterKind, active.encounterIndex, difficulty === "hard" ? SANCTUARY_HARD_DEPTH_BONUS : 0);
+  const depthBonus = difficulty === "hard" ? SANCTUARY_HARD_DEPTH_BONUS + deepStageDepthBonus(active.deepStage ?? 0) : 0;
+  const monster = stormExpeditionEnemy("wreckage", node.encounterKind, active.encounterIndex, depthBonus);
   const name = node.encounterKind === "early_trash" ? ["각인석 정찰병", "성소 석상"][active.encounterIndex]
     : node.encounterKind === "late_trash" ? ["문장 회수자", "태초의 석병"][active.encounterIndex] : node.name;
   return { ...monster, name };

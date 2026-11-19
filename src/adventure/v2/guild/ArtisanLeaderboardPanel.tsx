@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { PersonThumb } from "@/components/ui/PersonThumb";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 
 type ArtisanLeaderboardEntry = {
   userId: string;
   rank: number;
   name: string;
+  /** 줄 머리 프사. 예전 응답에는 없을 수 있다. */
+  avatar?: Avatar | null;
+  profileBorder?: ProfileBorderId | null;
   guild: { id: number; name: string } | null;
   level: number;
   xp: number;
@@ -390,6 +396,15 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
               <div className="text-center text-sm font-bold tabular-nums text-zinc-600 dark:text-zinc-300">
                 {rankLabel(entry.rank)}
               </div>
+              <div className="flex min-w-0 items-start gap-2">
+                {entry.avatar && (
+                  <PersonThumb
+                    avatar={entry.avatar}
+                    name={entry.name}
+                    profileBorder={entry.profileBorder}
+                    className="mt-0.5"
+                  />
+                )}
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">
                   <PlayerNameLink name={entry.name} />
@@ -410,6 +425,7 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
                   {entry.weeklyXp.toLocaleString()} · 누적 제작{" "}
                   {entry.cumulativeCrafts.toLocaleString()}회
                 </div>
+              </div>
               </div>
               <div className="text-right text-xs">
                 <div className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">

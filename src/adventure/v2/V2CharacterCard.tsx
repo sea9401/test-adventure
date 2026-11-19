@@ -48,16 +48,13 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
-import {
-  adventureSupportBenefits,
-  type AdventureSupportTier,
-} from "@/adventure/data/v2/adventureSupport";
-import { MAX_STAMINA } from "@/adventure/v2/stamina";
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 import {
+  adventureSupportBenefitLines,
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
   queuedStandardSupportMs,
@@ -686,14 +683,7 @@ function AdventureSupportModal({
     premiumUntil > now
       ? "premium"
       : "standard";
-  const supportConfig = adventureSupportBenefits(supportTier);
-  const benefits = [
-    `에너지 회복량 ${supportConfig.staminaRegenBonusPct}% 증가`,
-    `최대 에너지 ${supportConfig.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + supportConfig.staminaMaxBonus).toLocaleString()})`,
-    `일괄 전투 최대 ${supportConfig.maxHuntBatch}회`,
-    `거래소 등록 ${supportConfig.marketplaceSlotBonus}개 추가`,
-    `거래소 수수료 ${supportConfig.marketplaceTaxRate * 100}%로 감소`,
-  ];
+  const benefits = adventureSupportBenefitLines(supportTier);
   const currentUntil =
     supportTier === "premium" && typeof premiumUntil === "number"
       ? premiumUntil

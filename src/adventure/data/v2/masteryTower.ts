@@ -401,8 +401,12 @@ export function parseMasteryTowerState(
   return base;
 }
 
-export function masteryTowerEntryStaminaCost(state: MasteryTowerState): number {
-  return state.entryStaminaPaid === true
+/** waived: 프리미엄 지원권처럼 하루 첫 입장 비용을 받지 않는 경우. */
+export function masteryTowerEntryStaminaCost(
+  state: MasteryTowerState,
+  options: { waived?: boolean } = {},
+): number {
+  return state.entryStaminaPaid === true || options.waived === true
     ? 0
     : MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST;
 }

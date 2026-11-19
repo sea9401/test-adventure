@@ -19,6 +19,7 @@ import {
   type FishingProgressionView,
 } from "./fishingProgression";
 import { fishingRewardSummaryLabels } from "./fishingRewardSummary";
+import type { MasterProductGain } from "./masterProductGain";
 import { REACTION_WINDOW_MS } from "./fishingSession";
 import {
   fishingCatchItemChancePct,
@@ -100,6 +101,8 @@ export type ReelOutcome =
       /** 이번 챔질로 오른 실제 낚시 직업 숙련도와 증가 후 누적값. */
       masteryGained?: number;
       masteryAfter?: number | null;
+      /** 낚시 전공으로 이번 챔질에 얻은 명장 어획. */
+      masterProduct?: MasterProductGain | null;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
       /** 서버 권위 연속 성공 기록과 현재 버프. */

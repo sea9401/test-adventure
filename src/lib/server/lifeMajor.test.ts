@@ -77,12 +77,9 @@ describe("applyLifeMajorProgress", () => {
     expect(mocks.store.get(LIFE_MAJOR_SAVE_KEY)).toMatchObject({
       masteryXp: { mining: lifeMajorStageXp("mining", 3) + 100 },
       masterProductsEarned: { mining: 5 },
-    });    expect(mocks.insertNotificationWith).toHaveBeenCalledWith(TX, "u1", "master_product", {
-      activity: "mining",
-      materialId: LIFE_MAJOR_PRODUCT_ID.mining,
-      name: "명장 합금",
-      count: 5,
     });
+    // 산물은 결과 화면이 알린다. 얻을 때마다 알림을 남기면 다른 알림이 밀려난다(건의 #863).
+    expect(mocks.insertNotificationWith).not.toHaveBeenCalled();
   });
 
   it("확률을 넘는 굴림은 산물을 주지 않는다", async () => {

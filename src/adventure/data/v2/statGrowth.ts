@@ -33,7 +33,8 @@ import {
 } from "./proficiency";
 
 // 관련 숙련도는 연속적인 범위 선택 확률에 반영한다.
-// 총량 예산이나 고정 천장은 없다. 숙련도가 늘수록 증가 간격이 길어진다.
+// 총량 예산이나 고정 천장은 없다. 로그 항은 숙련도가 늘수록 증가 간격이 길어지고,
+// 선형 항(masteryGrowthTail)은 같은 숙련도마다 같은 폭으로 범위를 넓힌다.
 export type RollLevelGrowthOptions = {
   /** 밸런스 시뮬레이션에서 여러 레벨의 성장량을 한 번에 계산할 때 사용한다. */
   levels?: number;

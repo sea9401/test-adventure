@@ -23,6 +23,11 @@ import {
   emptyFarmReadyNotificationState,
 } from "@/adventure/v2/farmReadyNotification";
 import { FARM_SAVE_KEY, emptyFarmState } from "@/adventure/v2/farm";
+import { PEDDLER_SAVE_KEY } from "@/adventure/v2/peddler";
+import {
+  PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY,
+  createPeddlerArrivalNotification,
+} from "@/adventure/v2/peddlerArrivalNotification";
 import { readSave } from "@/lib/server/savesKv";
 import { PERSONAL_MESSAGE_KINDS } from "@/lib/server/inboxPrivacy";
 
@@ -54,8 +59,15 @@ export async function readChromeStatus(
   userId: string,
   now = Date.now(),
 ): Promise<ChromeStatus> {
-  const [notificationRows, farmRaw, farmNotificationRaw, mailRows, notices] =
-    await Promise.all([
+  const [
+    notificationRows,
+    farmRaw,
+    farmNotificationRaw,
+    peddlerRaw,
+    peddlerNotificationRaw,
+    mailRows,
+    notices,
+  ] = await Promise.all([
       db
         .select({ unreadCount: sql<number>`count(*)::int` })
         .from(v2Notifications)
@@ -73,6 +85,8 @@ export async function readChromeStatus(
         FARM_READY_NOTIFICATION_SAVE_KEY,
         emptyFarmReadyNotificationState(),
       ),
+      readSave(db, userId, PEDDLER_SAVE_KEY, {}),
+      readSave(db, userId, PEDDLER_ARRIVAL_NOTIFICATION_SAVE_KEY, {}),
       db
         .select({ unreadCount: sql<number>`count(*)::int` })
         .from(marketplaceInbox)
@@ -102,6 +116,11 @@ export async function readChromeStatus(
     farmNotificationRaw,
     now,
   );
+  const peddlerArrivalNotification = createPeddlerArrivalNotification(
+    peddlerRaw,
+    peddlerNotificationRaw,
+    now,
+  );
   const latestNotice = notices[0];
   let hasUnreadNotice = false;
   if (latestNotice) {
@@ -120,7 +139,8 @@ export async function readChromeStatus(
   return {
     notificationUnread:
       (notificationRows[0]?.unreadCount ?? 0) +
-      (farmReadyNotification ? 1 : 0),
+      (farmReadyNotification ? 1 : 0) +
+      (peddlerArrivalNotification ? 1 : 0),
     mailUnread: mailRows[0]?.unreadCount ?? 0,
     hasUnreadNotice,
   };

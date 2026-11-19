@@ -8,7 +8,7 @@ import {
 } from "./v2JobCatalog";
 import { skillsForJob } from "./v2SkillsByJob";
 import { elementalSkillsForClass } from "./classes";
-import { aggregateEquippedPassives, V2_SKILLS, spCostOf } from "./v2Skills";
+import { aggregateEquippedPassives, V2_SKILLS, rubricSpCost, spCostOf } from "./v2Skills";
 
 const LINES = [
   ["electromancer", "lightningmage", 18000, 5, "mage"],
@@ -114,6 +114,27 @@ describe("전격 계보 스킬 정의", () => {
       lightningSpellMpCostReductionPct: 20,
       lightningCritHastePct: 20,
     });
+  });
+
+  it("축전·뇌정의 SP는 같은 수치의 기본 공격 치명타 피해 패시브보다 싸지 않다", () => {
+    // 필살(기본 공격 치명타 피해 25%) 4 SP, 필살 II(30%) 5 SP가 기준이다.
+    expect(spCostOf(V2_SKILLS.v2c_shadow_lethality3)).toBe(4);
+    expect(spCostOf(V2_SKILLS.v2c_veteran_lethal)).toBe(5);
+    expect(spCostOf(V2_SKILLS.v2c_electromancer_capacitor)).toBe(3);
+    expect(spCostOf(V2_SKILLS.v2c_thundersovereign_thunderclap)).toBe(5);
+  });
+
+  it("공통 산식은 스킬 치명타 피해를 기본 공격 치명타 피해와 같은 20%당 power 1로 평가한다", () => {
+    expect(rubricSpCost(V2_SKILLS.v2c_electromancer_capacitor)).toBe(3);
+    expect(rubricSpCost(V2_SKILLS.v2c_thundersovereign_thunderclap)).toBe(4);
+    const basicCrit = { ...V2_SKILLS.v2c_electromancer_capacitor, passive: { critDmgPct: 20 } };
+    expect(rubricSpCost(basicCrit)).toBe(rubricSpCost(V2_SKILLS.v2c_electromancer_capacitor));
+  });
+
+  it("산식 보정 전부터 있던 묶음 패시브 셋은 기존 SP를 유지한다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_dragonwing_spirit)).toBe(6);
+    expect(spCostOf(V2_SKILLS.v2c_swordsaint_transcendence)).toBe(13);
+    expect(spCostOf(V2_SKILLS.v2c_heavenlybow_starpath)).toBe(14);
   });
 });
 

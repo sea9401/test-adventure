@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, UsersThree, X } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -39,6 +40,8 @@ import {
 const TABS: { key: RankingMetric; label: string }[] = [
   { key: "combatPower", label: "스탯 합계" },
   { key: "masteryTower", label: "숙련의 탑" },
+  { key: "explorationGrade", label: "탐사 등급" },
+  { key: "stormDeep", label: "심층 단계" },
   { key: "achievementScore", label: "업적" },
   { key: "level", label: "숙련도" },
   { key: "lifeMastery", label: "생활 숙련도" },
@@ -46,9 +49,48 @@ const TABS: { key: RankingMetric; label: string }[] = [
   { key: "guild", label: "길드" },
 ];
 
+/** 심층 단계 탭 안에서 고르는 던전. 탭 키는 stormDeep 하나만 쓴다. */
+export type DeepStageRankingMetric = "stormDeep" | "sanctuaryDeep" | "bossRisk";
+
+export function effectiveRankingMetric<M extends RankingMetric>(
+  metric: M,
+  deepDungeon: DeepStageRankingMetric,
+): M | DeepStageRankingMetric {
+  return metric === "stormDeep" ? deepDungeon : metric;
+}
+
+export function DeepStageRankingControls({
+  dungeon,
+  onChange,
+}: {
+  dungeon: DeepStageRankingMetric;
+  onChange: (next: DeepStageRankingMetric) => void;
+}) {
+  return (
+    <Card as="section" padding="sm" className="space-y-2">
+      <SegmentedControl
+        options={[
+          { key: "stormDeep", label: "폭풍 원정" },
+          { key: "sanctuaryDeep", label: "태초의 성소" },
+          { key: "bossRisk", label: "개인 보스" },
+        ]}
+        value={dungeon}
+        onChange={onChange}
+        ariaLabel="심층 단계 던전"
+      />
+      <p className="text-xs text-zinc-600 dark:text-zinc-300">
+        {dungeon === "bossRisk"
+          ? "미개척지 개인 보스 여섯 종의 최고 처치 위험도를 더한 순위입니다."
+          : "던전별로 실전으로 완주한 가장 높은 심층 단계 순위입니다. 단계가 같으면 먼저 도달한 순입니다."}
+      </p>
+    </Card>
+  );
+}
+
 export function RankingsView() {
   const router = useRouter();
   const [metric, setMetric] = useState<RankingMetric>("combatPower");
+  const [deepDungeon, setDeepDungeon] = useState<DeepStageRankingMetric>("stormDeep");
   const [codexView, setCodexView] = useState<CodexRankingView>("completion");
   const [codexCategory, setCodexCategory] =
     useState<CodexMasteryCategoryScope>("equipment");
@@ -92,7 +134,18 @@ export function RankingsView() {
         </>
       )}
       {metric === "masteryTower" && <MasteryTowerMetricPill />}
+      {metric === "explorationGrade" && (
+        <Card as="section" padding="sm">
+          <p className="text-xs text-zinc-600 dark:text-zinc-300">
+            미개척지 탐사 포인트 30개를 채운 뒤 쌓는 탐사 등급 순위입니다. 등급이 같으면 탐사
+            경험치가 많은 순입니다.
+          </p>
+        </Card>
+      )}
       {metric === "achievementScore" && <AchievementMetricPill />}
+      {metric === "stormDeep" && (
+        <DeepStageRankingControls dungeon={deepDungeon} onChange={setDeepDungeon} />
+      )}
 
       {metric === "guild" ? (
         <GuildRankingsBody />
@@ -118,7 +171,7 @@ export function RankingsView() {
         />
       ) : (
         <UserRankingsBody
-          metric={metric}
+          metric={effectiveRankingMetric(metric, deepDungeon)}
           onSelectName={selectName}
         />
       )}
@@ -499,6 +552,12 @@ function RankingRow({
               ({entry.achievementCompleted}개)
             </span>
           </>
+        ) : metric === "explorationGrade" ? (
+          <>탐사 {(entry.explorationGrade ?? 0).toLocaleString()}등급</>
+        ) : metric === "stormDeep" || metric === "sanctuaryDeep" ? (
+          <>심층 {(entry.deepStage ?? 0).toLocaleString()}단계</>
+        ) : metric === "bossRisk" ? (
+          <>위험도 합계 {(entry.deepStage ?? 0).toLocaleString()}</>
         ) : (
           <>최고 {entry.masteryTowerFloor.toLocaleString()}층</>
         )}

@@ -1,3 +1,13 @@
+import {
+  EXPLORATION_MAX_XP_POINTS,
+  UNEXPLORED_PRESET_UNLOCK_GRADES,
+  explorationGrade,
+  explorationGradeBonusPoints,
+  explorationGradeProgress,
+  nextExplorationGradePointGrade,
+  unexploredPresetSlotCount,
+  unexploredTraceCap,
+} from "@/adventure/data/v2/unexploredGrade";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { unexploredEncounterShares } from "@/adventure/data/v2/unexploredEncounters";
 import {
@@ -50,6 +60,7 @@ export type UnexploredMutation = (
 export type UnexploredMutationError =
   | "level_required"
   | "invalid_preset"
+  | "preset_locked"
   | "preset_changed"
   | "unknown_node"
   | "already_active"
@@ -86,9 +97,10 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     unexploredDifficultyCap(save),
   );
   const currentXpPoint = Math.max(save.xpPoints, level >= 100 ? 1 : 0);
-  const nextPointCost = currentXpPoint >= 30
+  const nextPointCost = currentXpPoint >= EXPLORATION_MAX_XP_POINTS
     ? 0
     : explorationPointCost(currentXpPoint + 1);
+  const gradeProgress = explorationGradeProgress(save);
   return {
     level,
     eligible: canChangeUnexploredNodes(level),
@@ -98,6 +110,15 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     xpPoints: save.xpPoints,
     nextPointCost,
     nextPointRemaining: Math.max(0, nextPointCost - save.explorationXp),
+    // 탐사 등급 — 탐사 포인트 30개를 채운 뒤 쌓이는 경험치와 그 보상.
+    explorationGrade: gradeProgress.grade,
+    gradeXp: gradeProgress.gradeXp,
+    gradeXpCost: gradeProgress.gradeXpCost,
+    gradeBonusPoints: explorationGradeBonusPoints(gradeProgress.grade),
+    nextGradePointGrade: nextExplorationGradePointGrade(gradeProgress.grade),
+    presetSlotCount: unexploredPresetSlotCount(gradeProgress.grade),
+    presetUnlockGrades: [...UNEXPLORED_PRESET_UNLOCK_GRADES],
+    traceCap: unexploredTraceCap(gradeProgress.grade),
     selectedNodeIds: save.selectedNodeIds,
     activePresetIndex: save.activePresetIndex,
     nodePresets: save.nodePresets,
@@ -120,6 +141,8 @@ export function unexploredSnapshot(character: UnexploredCharacterSave) {
     bankedGold: Math.max(0, Math.floor(Number(character.bankedGold) || 0)),
     materials: normalizedMaterials(character.materials),
     achievementIds: save.achievementIds,
+    // 개인 보스별 최고 처치 위험도. 소환할 때 고를 수 있는 위험도가 여기서 나온다.
+    bossRisk: save.bossRisk,
     refundGoldCost: UNEXPLORED_REFUND_GOLD_COST,
   };
 }
@@ -177,6 +200,9 @@ export function applyUnexploredMutation(
   if (mutation.action === "switch_preset") {
     if (!isUnexploredPresetIndex(mutation.presetIndex)) {
       return { ok: false, error: "invalid_preset" };
+    }
+    if (mutation.presetIndex >= unexploredPresetSlotCount(explorationGrade(save))) {
+      return { ok: false, error: "preset_locked" };
     }
     return successfulMutation(character, {
       ...save,

@@ -129,3 +129,59 @@ describe("POST /api/v2/unexplored/summon", () => {
     expect(mocks.upsertSave).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/v2/unexplored/summon — 위험도", () => {
+  const withProgress = (unexplored: Record<string, unknown>) => {
+    mocks.character = {
+      level: 100,
+      materials: { [BOSS.summonMaterialId]: 2 },
+      unexplored: { selectedNodeIds: [], ...unexplored },
+    };
+  };
+
+  it("위험도를 보내지 않으면 지금처럼 위험도 0으로 소환한다", async () => {
+    const response = await POST(request({ bossId: "tracking_weapon" }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.createCoopBossSession.mock.calls[0][1]).toMatchObject({ riskTier: 0 });
+    expect((await response.json()).riskTier).toBe(0);
+  });
+
+  it("그 보스를 처치한 적이 없으면 위험도 1로 소환할 수 없고 소환석을 지킨다", async () => {
+    const response = await POST(request({ bossId: "tracking_weapon", riskTier: 1 }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ ok: false, error: "risk_tier_locked", maxRiskTier: 0 });
+    expect(mocks.createCoopBossSession).not.toHaveBeenCalled();
+    expect(mocks.upsertSave).not.toHaveBeenCalled();
+  });
+
+  it("처치한 위험도 다음 단계까지 소환할 수 있다", async () => {
+    withProgress({ achievementIds: ["defeat_tracking_weapon"], bossRisk: { tracking_weapon: 3 } });
+
+    const locked = await POST(request({ bossId: "tracking_weapon", riskTier: 5 }));
+    expect(locked.status).toBe(409);
+    expect((await locked.json()).maxRiskTier).toBe(4);
+
+    const response = await POST(request({ bossId: "tracking_weapon", riskTier: 4 }));
+    expect(response.status).toBe(200);
+    expect(mocks.createCoopBossSession.mock.calls[0][1]).toMatchObject({ kindId: "tracking_weapon", riskTier: 4 });
+    expect((await response.json()).riskTier).toBe(4);
+  });
+
+  it("다른 보스의 기록으로는 위험도가 열리지 않는다", async () => {
+    withProgress({ achievementIds: ["defeat_glacial_colossus"], bossRisk: { glacial_colossus: 9 } });
+
+    expect((await POST(request({ bossId: "tracking_weapon", riskTier: 1 }))).status).toBe(409);
+  });
+
+  it.each([-1, 1.5, "2", 61])("잘못된 위험도 %s 는 거절한다", async (riskTier) => {
+    withProgress({ achievementIds: ["defeat_tracking_weapon"], bossRisk: { tracking_weapon: 60 } });
+
+    const response = await POST(request({ bossId: "tracking_weapon", riskTier }));
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("invalid_risk_tier");
+    expect(mocks.createCoopBossSession).not.toHaveBeenCalled();
+  });
+});

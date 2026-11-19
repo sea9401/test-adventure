@@ -41,18 +41,50 @@ describe("무슨 코인 상점 상품 그룹", () => {
     }
   });
 
-  it("이용권·소모품은 프리미엄권을 일반권보다 먼저 표시한다", () => {
-    const group = SHOP_ITEM_GROUPS.find(
-      (candidate) => candidate.id === "consumable",
-    );
-    expect(group?.itemIds).toEqual([
-      "adventure_support_premium_30d",
-      "adventure_support_30d",
-      "monthly_stamina_potion_bundle",
-      "growth_leap_package",
-      "rename_permit",
-      "profile_image_permit",
+  it("상품을 모험 지원·꾸미기·프로필·계정 세 탭으로 나눈다", () => {
+    expect(
+      SHOP_ITEM_GROUPS.map((group) => ({
+        id: group.id,
+        title: group.title,
+        itemIds: [...group.itemIds],
+      })),
+    ).toEqual([
+      {
+        id: "support",
+        title: "모험 지원",
+        itemIds: [
+          "adventure_support_premium_30d",
+          "adventure_support_30d",
+          "monthly_stamina_potion_bundle",
+          "growth_leap_package",
+        ],
+      },
+      {
+        id: "cosmetic",
+        title: "꾸미기",
+        itemIds: [
+          "chroma_name_box",
+          "profile_border_box",
+          "chat_badge_box",
+          "cosmetic_extension_30d",
+        ],
+      },
+      {
+        id: "profile",
+        title: "프로필·계정",
+        itemIds: [
+          "profile_badge_display_stand",
+          "rename_permit",
+          "profile_image_permit",
+        ],
+      },
     ]);
+  });
+
+  it("모든 상품은 한 탭에만 속한다", () => {
+    const shopItemIds = SHOP_ITEM_GROUPS.flatMap((group) => group.itemIds);
+
+    expect(new Set(shopItemIds).size).toBe(shopItemIds.length);
   });
 
   it("월간 한도와 평생 구매 여부를 구매 차단 상태로 바꾼다", () => {
@@ -88,28 +120,28 @@ describe("무슨 코인 상점 상품 그룹", () => {
     ).map((benefit) => benefit.label);
 
     expect(labels).toEqual([
-      "최대 에너지 3,000 증가 (기본 2,000 → 5,000)",
-      "에너지 회복량 20% 증가",
+      "최대 에너지 4,000 증가 (기본 2,000 → 6,000)",
+      "에너지 회복량 30% 증가",
       "거래소 등록 20개 추가",
       "거래소 수수료 5%로 감소",
       "일괄 전투 최대 100회",
+      "숙련의 탑 하루 첫 입장 비용 200 면제",
       "꾸미기 30일 연장권 2개 지급",
     ]);
   });
 
-  it("대표 배지 전시대와 꾸미기 상품을 꾸미기 목록 하나에 표시한다", () => {
-    const group = SHOP_ITEM_GROUPS.find(
-      (candidate) => candidate.id === "cosmetic",
+  it("일반 지원권 상세에는 숙련의 탑 면제와 연장권이 없다", () => {
+    const labels = supportBenefitsForItem("adventure_support_30d").map(
+      (benefit) => benefit.label,
     );
-    expect(group?.title).toBe("꾸미기");
-    expect(group?.itemIds).toEqual([
-      "profile_badge_display_stand",
-      "chroma_name_box",
-      "profile_border_box",
-      "chat_badge_box",
-      "cosmetic_extension_30d",
+
+    expect(labels).toEqual([
+      "최대 에너지 1,000 증가 (기본 2,000 → 3,000)",
+      "에너지 회복량 20% 증가",
+      "거래소 등록 10개 추가",
+      "거래소 수수료 5%로 감소",
+      "일괄 전투 최대 50회",
     ]);
-    expect(SHOP_ITEM_GROUPS).toHaveLength(2);
   });
 
   it("꾸미기 획득 목록을 전설부터 일반까지 등급순으로 정렬한다", () => {

@@ -9,7 +9,7 @@ import { combatRandom } from "./combatRandom";
 //   status_block_once/every_n_hits).
 //   PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
 
-import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
+import { HEAL_TO_SHIELD_MAX_PCT_MAX_HP, type SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 
 // 저체력(low_hp) 시그니처 — 현재 HP 가 maxHp 의 임계% 이하일 때 받는 피해 −% 합산.
 //   조건 미충족/미장착 = 0. 여러 개면 합산(% 합).
@@ -144,8 +144,6 @@ export function resolveDirectSkillHitSignatures(
         : null,
   };
 }
-
-export const HEAL_TO_SHIELD_MAX_PCT_MAX_HP = 30;
 
 export type HealToShieldInput = {
   /** 최대 HP 적용 뒤 실제로 회복된 양. 0이면 치유가 성립하지 않아 발동하지 않는다. */

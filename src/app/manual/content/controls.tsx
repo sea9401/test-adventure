@@ -2,6 +2,7 @@ import {
   ADVENTURE_SUPPORT_PASS,
   PREMIUM_ADVENTURE_SUPPORT_PASS,
 } from "@/adventure/data/v2/adventureSupport";
+import { MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST } from "@/adventure/data/v2/masteryTower";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { EMBLEM_GRADE_PCT, EMBLEM_KINDS } from "@/adventure/data/v2/emblems";
 import {
@@ -199,7 +200,8 @@ export function ControlsContent() {
           {PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
-          제공합니다. 사용할 때마다 꾸미기 30일 연장권{" "}
+          제공하고, 숙련의 탑 하루 첫 입장 스태미나{" "}
+          {MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}을 받지 않습니다. 사용할 때마다 꾸미기 30일 연장권{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받으며,
           연장권은 설정 메뉴의 꾸미기에서 사용합니다. 일반 지원권과 혜택이 합쳐지지
           않고, 일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤

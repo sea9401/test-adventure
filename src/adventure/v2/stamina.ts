@@ -43,6 +43,7 @@ export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
 //   기본 2000 * 12 s = 24000 s = 6시간 40분.
 // 지원권은 10초/1, 최대 3000 기준 완충까지 8시간 20분.
+// 프리미엄 지원권은 +30%(약 9.2초/1), 최대 6000 기준 완충까지 약 15시간 23분.
 
 // === 상태 ===========================================================
 

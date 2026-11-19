@@ -24,13 +24,16 @@ export const PREMIUM_ADVENTURE_SUPPORT_PASS = {
   name: "월간 모험 지원권 프리미엄",
   durationDays: 30,
   coinPrice: 2_000,
-  staminaMaxBonus: 3_000,
+  // 2026-11-20 오너 결정: 일반권과 차이가 그릇 크기뿐이라는 의견에 따라 최대치 +3,000 → +4,000,
+  //   회복 +20% → +30%, 숙련의 탑 하루 첫 입장 비용 면제를 더했다.
+  staminaMaxBonus: 4_000,
   staminaActivationGrant: 0,
-  staminaRegenBonusPct: 20,
+  staminaRegenBonusPct: 30,
   marketplaceSlotBonus: 20,
   marketplaceTaxRate: 0.05,
   activeMaxHuntBatch: 100,
   cosmeticExtensionGrant: 2,
+  masteryTowerEntryFree: true,
 } as const;
 
 export const ADVENTURE_SUPPORT_MAX_GRANT_DAYS = 3_650;
@@ -53,6 +56,8 @@ export type AdventureSupportBenefits = {
   marketplaceSlotBonus: number;
   marketplaceTaxRate: number;
   maxHuntBatch: number;
+  /** 숙련의 탑 하루 첫 입장 스태미나를 받지 않는다. */
+  masteryTowerEntryFree: boolean;
 };
 
 export type AdventureSupportGrant = {
@@ -119,6 +124,8 @@ export function adventureSupportBenefits(
       marketplaceTaxRate:
         PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate,
       maxHuntBatch: PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
+      masteryTowerEntryFree:
+        PREMIUM_ADVENTURE_SUPPORT_PASS.masteryTowerEntryFree,
     };
   }
   if (tier === "standard") {
@@ -129,6 +136,7 @@ export function adventureSupportBenefits(
       marketplaceSlotBonus: ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus,
       marketplaceTaxRate: ADVENTURE_SUPPORT_PASS.marketplaceTaxRate,
       maxHuntBatch: ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
+      masteryTowerEntryFree: false,
     };
   }
   return {
@@ -138,6 +146,7 @@ export function adventureSupportBenefits(
     marketplaceSlotBonus: 0,
     marketplaceTaxRate: 0,
     maxHuntBatch: ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch,
+    masteryTowerEntryFree: false,
   };
 }
 

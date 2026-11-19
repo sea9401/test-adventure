@@ -53,6 +53,7 @@ describe("접을 수 있는 캐릭터 요약", () => {
 
     const dialog = screen.getByRole("dialog", { name: "모험 지원권 정보" });
     expect(dialog.textContent).toContain("에너지 회복량 20% 증가");
+    expect(dialog.textContent).not.toContain("숙련의 탑");
     expect(dialog.textContent).toContain("남음");
     expect(dialog.textContent).toContain("까지");
   });
@@ -70,7 +71,7 @@ describe("접을 수 있는 캐릭터 요약", () => {
           tier: "premium",
           premiumUntil: now + 30 * 86_400_000,
           activeUntil: now + 40 * 86_400_000,
-          regenBonusPct: 20,
+          regenBonusPct: 30,
         }}
         expanded={false}
         onExpandedChange={vi.fn()}
@@ -86,7 +87,9 @@ describe("접을 수 있는 캐릭터 요약", () => {
     const dialog = screen.getByRole("dialog", {
       name: "프리미엄 모험 지원권 정보",
     });
-    expect(dialog.textContent).toContain("최대 에너지 3,000 증가");
+    expect(dialog.textContent).toContain("최대 에너지 4,000 증가");
+    expect(dialog.textContent).toContain("에너지 회복량 30% 증가");
+    expect(dialog.textContent).toContain("숙련의 탑 하루 첫 입장 비용 200 면제");
     expect(dialog.textContent).toContain("일괄 전투 최대 100회");
     expect(dialog.textContent).toContain("일반 지원권 10일 대기 중");
   });

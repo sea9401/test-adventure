@@ -297,7 +297,8 @@ export function PastimesContent() {
           {Object.values(LIFE_MAJOR_PRODUCTS).map((product) => product.name).join(", ")}.
           확률은 주전공 {LIFE_MAJOR_PRODUCT_BASE_PCT}%에서 단계마다{" "}
           {LIFE_MAJOR_PRODUCT_PER_STAGE_PCT}%씩 오르며 부전공은 절반입니다. 명장 산물은
-          거래소에서 거래할 수 있고, 얻으면 알림으로 알려 드립니다.
+          거래소에서 거래할 수 있고, 얻으면 그 작업의 결과에 함께 표시됩니다. 지금까지 얻은 수는
+          생활 기록의 생활 전공 카드에서 볼 수 있습니다.
         </li>
         <li>
           처음 지정은 언제든 할 수 있습니다. 지정한 전공을 바꾸거나 비우면{" "}

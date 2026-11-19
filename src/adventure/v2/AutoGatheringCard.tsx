@@ -13,6 +13,7 @@ import {
   type AutoGatheringPlanId,
   type AutoGatheringSessionView,
 } from "./autoGathering";
+import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 export type { AutoGatheringSessionView } from "./autoGathering";
@@ -28,6 +29,7 @@ export type AutoGatheringResultView = {
     name: string;
     amount: number;
   }>;
+  masterProduct?: MasterProductGain | null;
 };
 
 function remainingLabel(readyAt: number, now: number): string {
@@ -188,6 +190,11 @@ export function AutoGatheringCard({
                     `${drop.name} +${drop.amount.toLocaleString()}`,
                 )
                 .join(" · ")}
+            </div>
+          ) : null}
+          {result.masterProduct ? (
+            <div className="mt-1 font-semibold text-amber-700 dark:text-amber-300">
+              명장 산물 · {masterProductGainText(result.masterProduct)}
             </div>
           ) : null}
           <div className="mt-1 text-zinc-500 dark:text-zinc-400">

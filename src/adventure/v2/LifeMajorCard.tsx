@@ -334,6 +334,9 @@ function MajorRow({ entry }: { entry: LifeMajorActivityView }) {
             <span>
               {entry.effectText ? " · " : ""}
               {entry.productName} 확률 {Number(entry.productChancePct.toFixed(3))}%
+              {entry.productsEarned > 0
+                ? ` · 누적 ${entry.productsEarned.toLocaleString("ko-KR")}개`
+                : ""}
             </span>
           ) : null}
         </p>

@@ -889,12 +889,7 @@ describe("mining routes", () => {
         masterProduct: { materialId: "v2_master_alloy", name: "명장 합금", count: 1 },
       });
       expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_alloy: 1 } });
-      expect(masterProductNotify).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.any(String),
-        "master_product",
-        { activity: "mining", materialId: "v2_master_alloy", name: "명장 합금", count: 1 },
-      );
+      expect(masterProductNotify).not.toHaveBeenCalled();
     });
 
     it("자동 채광 정산은 성공 횟수만큼 산물을 굴린다", async () => {

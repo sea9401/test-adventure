@@ -1,3 +1,5 @@
+import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
+
 export type FishingRewardSummaryInput = {
   catchItem?: unknown;
   catchItemStatus?: "awarded" | "roll_miss" | "daily_cap";
@@ -24,6 +26,7 @@ export type FishingRewardSummaryInput = {
   fishingLevel?: number;
   fishingLevelUp?: boolean;
   masteryGained?: number;
+  masterProduct?: MasterProductGain | null;
 };
 
 /** 낚시 완료 카드의 보상 칩 문구 — 낚시 진행 경험치와 직업 숙련도를 구분한다. */
@@ -31,6 +34,9 @@ export function fishingRewardSummaryLabels(
   result: FishingRewardSummaryInput,
 ): string[] {
   const labels: string[] = [];
+  if (result.masterProduct) {
+    labels.push(`명장 산물 · ${masterProductGainText(result.masterProduct)}`);
+  }
   const reachedDailyCoinCap =
     result.coinsGained === 0 &&
     result.dailyCatchCoins != null &&

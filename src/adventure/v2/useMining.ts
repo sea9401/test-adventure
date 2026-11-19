@@ -20,6 +20,7 @@ import {
 import { useGameActivityState } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import { parseMasterProductGain } from "./masterProductGain";
 import {
   parseGatheringSiteUpkeep,
   type GatheringSiteUpkeepState,
@@ -82,6 +83,7 @@ function parseAutoResult(value: unknown): AutoGatheringResultView {
     materialsGained: Math.max(0, Math.floor(Number(item.materialsGained) || 0)),
     xpGained: Math.max(0, Math.floor(Number(item.xpGained) || 0)),
     byproducts,
+    masterProduct: parseMasterProductGain(item),
   };
 }
 
@@ -219,6 +221,7 @@ export function useMining(): MiningHandlers {
                 };
               })
             : [],
+          masterProduct: parseMasterProductGain(json),
           xpGained: Math.max(0, Math.floor(Number(json.xpGained) || 0)),
           log: nextLog,
         };

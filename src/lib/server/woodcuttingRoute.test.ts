@@ -1027,12 +1027,7 @@ describe("woodcutting routes", () => {
         masterProduct: { materialId: "v2_master_wood", name: "명장 목재", count: 1 },
       });
       expect(charOf().materials?.v2_master_wood).toBe(1);
-      expect(masterProductNotify).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.any(String),
-        "master_product",
-        { activity: "woodcutting", materialId: "v2_master_wood", name: "명장 목재", count: 1 },
-      );
+      expect(masterProductNotify).not.toHaveBeenCalled();
       expect(store.get(LIFE_MAJOR_SAVE_KEY)).toMatchObject({
         masteryXp: { woodcutting: lifeMajorStageXp("woodcutting", 3) + json.xpGained },
       });

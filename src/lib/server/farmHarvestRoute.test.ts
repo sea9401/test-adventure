@@ -408,12 +408,7 @@ describe("POST /api/v2/farm/harvest", () => {
       });
       expect(store.get(LIFE_MAJOR_SAVE_KEY)).toMatchObject({ masteryXp: { farming: stage3 + gained } });
       expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_crop: 2 } });
-      expect(masterProductNotify).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.any(String),
-        "master_product",
-        { activity: "farming", materialId: "v2_master_crop", name: "명장 작물", count: 1 },
-      );
+      expect(masterProductNotify).not.toHaveBeenCalled();
     });
 
     it("비전공이면 명장 경험치와 산물이 없다", async () => {

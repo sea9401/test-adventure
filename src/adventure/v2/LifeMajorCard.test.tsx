@@ -26,6 +26,7 @@ function activity(id: LifeMajorView["activities"][number]["id"], name: string, o
     effectText: null,
     productName: id === "cooking" ? null : `명장 ${name}`,
     productChancePct: 0,
+    productsEarned: 0,
     ...overrides,
   };
 }
@@ -128,7 +129,14 @@ describe("생활 전공 카드", () => {
       major: "mining",
       activities: view().activities.map((entry) =>
         entry.id === "mining"
-          ? { ...entry, role: "major" as const, stage: 3, effectText: "추가 광석 확률 +3%p", productChancePct: 0.95 }
+          ? {
+              ...entry,
+              role: "major" as const,
+              stage: 3,
+              effectText: "추가 광석 확률 +3%p",
+              productChancePct: 0.95,
+              productsEarned: 1_234,
+            }
           : entry,
       ),
     });
@@ -136,6 +144,7 @@ describe("생활 전공 카드", () => {
     await screen.findByText("명장 3단계");
     expect(screen.getByText("추가 광석 확률 +3%p")).toBeTruthy();
     expect(screen.getByText(/명장 채광 확률 0\.95%/)).toBeTruthy();
+    expect(screen.getByText(/누적 1,234개/)).toBeTruthy();
     expect(container.innerHTML).toContain("ui-surface-card");
     expect(container.innerHTML).not.toMatch(/bg-[a-z]+-\d+\/\d+/);
   });

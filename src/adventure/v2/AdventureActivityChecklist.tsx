@@ -54,6 +54,7 @@ export function dailyResetRemainingLabel(now: number): string {
 
 function actionableLabel(activity: AdventureActivityView): string {
   if (activity.id === "farm_ready") return "수확";
+  if (activity.id === "peddler_ready") return "받기";
   if (activity.tab === "guild") return "확인";
   return "이동";
 }

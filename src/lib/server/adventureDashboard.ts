@@ -43,6 +43,17 @@ import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 import { buildRepeatSignals, REPEAT_QUESTS_KEY } from "./v2QuestContext";
 import { deriveRepeatBundle, nextDailyResetAt, parseRepeatSave, rolloverRepeatSave } from "@/adventure/data/v2/v2RepeatQuests";
 
+import {
+  COOKING_DAILY_REQUEST_COUNT,
+  COOKING_SAVE_KEY,
+  parseCookingState,
+} from "@/adventure/v2/cooking/state";
+import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
+import { PEDDLER_SAVE_KEY, parsePeddlerState } from "@/adventure/v2/peddler";
+import { PEDDLER_REQUIRED_LIFE_LEVEL, PEDDLER_ROUTE_IDS } from "@/adventure/v2/peddlerRules";
+import { kstWeekMondayKey } from "@/lib/kst";
+import { lifeLevelsFromSaves } from "./lifeMajor";
+
 export const ADVENTURE_HOME_SAVE_KEY = "adventure-home.v1";
 
 export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
@@ -65,6 +76,10 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   "crafting.v2": {},
   // 홈의 "생활 한 번에 정산" 편의가 열렸는지 판단하는 생활 명성용.
   [LIFE_MAJOR_SAVE_KEY]: {},
+  [COOKING_SAVE_KEY]: {},
+  [PEDDLER_SAVE_KEY]: {},
+  // 행상을 한 번도 보내지 않은 계정의 해금(생활 레벨) 판정용.
+  [FISHING_PROGRESS_KEY]: {},
 } satisfies Record<string, unknown>;
 
 export const ADVENTURE_ACTIVITY_IDS = [
@@ -73,8 +88,11 @@ export const ADVENTURE_ACTIVITY_IDS = [
   "farm_weekly",
   "farm_ready",
   "fishing_daily",
+  "cooking_daily",
+  "cooking_weekly",
   "woodcutting_ready",
   "mining_ready",
+  "peddler_ready",
   "mastery_tower_daily",
   "storm_expedition_daily",
   "sanctuary_daily",
@@ -124,6 +142,51 @@ function gatheringActivity(
   };
 }
 
+function peddlerActivity(
+  saves: Record<string, unknown>,
+  now: number,
+): RawActivity {
+  const base = {
+    id: "peddler_ready",
+    group: "ready",
+    tab: "life",
+    title: "행상 파견",
+    href: "/town/peddler",
+    defaultEnabled: true,
+  } as const;
+  const state = parsePeddlerState(saves[PEDDLER_SAVE_KEY], kstWeekMondayKey(new Date(now)));
+  const readyAts = PEDDLER_ROUTE_IDS.flatMap((id) => {
+    const dispatch = state.routes[id].dispatch;
+    return dispatch ? [dispatch.readyAt] : [];
+  });
+  const arrived = readyAts.filter((readyAt) => readyAt <= now).length;
+  if (arrived > 0) {
+    return { ...base, detail: `도착한 수레 ${arrived}대`, state: "actionable" };
+  }
+  if (readyAts.length > 0) {
+    const readyAt = Math.min(...readyAts);
+    return { ...base, detail: minutesRemaining(readyAt, now), state: "in_progress", readyAt };
+  }
+  // 행상 화면과 같은 기준이다. 한 번이라도 보낸 계정은 레벨을 다시 확인하지 않는다.
+  const unlocked =
+    state.dispatchCount > 0 ||
+    Object.values(
+      lifeLevelsFromSaves(
+        {
+          farmRaw: saves[FARM_SAVE_KEY],
+          woodcuttingRaw: saves[WOODCUTTING_LOG_KEY],
+          miningRaw: saves[MINING_LOG_KEY],
+          fishingRaw: saves[FISHING_PROGRESS_KEY],
+          cookingRaw: saves[COOKING_SAVE_KEY],
+        },
+        now,
+      ),
+    ).some((level) => level >= PEDDLER_REQUIRED_LIFE_LEVEL);
+  return unlocked
+    ? { ...base, detail: "보낸 수레 없음", state: "completed" }
+    : { ...base, detail: `생활 Lv.${PEDDLER_REQUIRED_LIFE_LEVEL}에 열립니다`, state: "unavailable" };
+}
+
 export function resolveAdventureActivities(
   saves: Record<string, unknown>,
   now = Date.now(),
@@ -155,6 +218,13 @@ export function resolveAdventureActivities(
   ];
   const fishingClaimed = fishingViews.filter((view) => view.claimed).length;
   const fishingClaimable = fishingViews.filter((view) => view.claimable).length;
+
+  const cooking = parseCookingState(saves[COOKING_SAVE_KEY], now);
+  const cookingDailyCurrent = Math.min(
+    COOKING_DAILY_REQUEST_COUNT,
+    cooking.daily.completedRequestIds.length,
+  );
+  const cookingWeeklyCurrent = cooking.weekly.completed ? 1 : 0;
 
   const tower = parseMasteryTowerState(saves[MASTERY_TOWER_SAVE_KEY], kstDateKey(now));
   const towerClaimable = masteryTowerClaimPreview(tower).total > 0;
@@ -265,6 +335,30 @@ export function resolveAdventureActivities(
       target: fishingViews.length,
       defaultEnabled: true,
     },
+    {
+      id: "cooking_daily",
+      group: "daily",
+      tab: "life",
+      title: "주방 일일 납품",
+      detail: `${cookingDailyCurrent} / ${COOKING_DAILY_REQUEST_COUNT}`,
+      href: "/town/kitchen",
+      state: cookingDailyCurrent >= COOKING_DAILY_REQUEST_COUNT ? "completed" : "in_progress",
+      current: cookingDailyCurrent,
+      target: COOKING_DAILY_REQUEST_COUNT,
+      defaultEnabled: true,
+    },
+    {
+      id: "cooking_weekly",
+      group: "weekly",
+      tab: "life",
+      title: "주방 주간 납품",
+      detail: `${cookingWeeklyCurrent} / 1`,
+      href: "/town/kitchen",
+      state: cookingWeeklyCurrent >= 1 ? "completed" : "in_progress",
+      current: cookingWeeklyCurrent,
+      target: 1,
+      defaultEnabled: true,
+    },
     gatheringActivity(
       "woodcutting_ready",
       "자동 벌목",
@@ -279,6 +373,7 @@ export function resolveAdventureActivities(
       saves[MINING_AUTO_KEY],
       now,
     ),
+    peddlerActivity(saves, now),
     {
       id: "mastery_tower_daily",
       group: "daily",

@@ -8,6 +8,9 @@ import {
   users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import type { Avatar } from "@/adventure/profile/avatars";
+import { readProfileValue } from "@/adventure/profile/profileValue";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   grantTitleIfMissingInTx,
@@ -203,7 +206,7 @@ export async function GET() {
     viewerIndex >= 20 ? [...top, ranked[viewerIndex]] : top;
   const userIds = includeViewer.map((entry) => entry.userId);
 
-  const [profileRows, memberRows] = await Promise.all([
+  const [profileRows, memberRows, cosmeticByUser] = await Promise.all([
     userIds.length === 0
       ? Promise.resolve([])
       : db
@@ -226,13 +229,18 @@ export async function GET() {
           .from(guildMembers)
           .leftJoin(guilds, eq(guilds.id, guildMembers.guildId))
           .where(inArray(guildMembers.userId, userIds)),
+    // 줄 머리 프사의 테두리 꾸미기. 상위 20명과 본인만이라 조회는 한 번이다.
+    readMuseunCosmeticAppearanceMap(userIds),
   ]);
 
   const nameByUser = new Map<string, string>();
+  const avatarByUser = new Map<string, Avatar>();
   for (const row of profileRows) {
     const value = (row.value ?? null) as { name?: string } | null;
     const name = value?.name?.trim();
     if (name) nameByUser.set(row.userId, name);
+    const avatar = readProfileValue(row.value)?.gender;
+    if (avatar) avatarByUser.set(row.userId, avatar);
   }
   const guildByUser = new Map<string, { id: number; name: string }>();
   for (const row of memberRows) {
@@ -248,6 +256,8 @@ export async function GET() {
       ...entry,
       rank: ranked.findIndex((r) => r.userId === entry.userId) + 1,
       name: nameByUser.get(entry.userId) ?? "모험가",
+      avatar: avatarByUser.get(entry.userId) ?? "male1",
+      profileBorder: cosmeticByUser.get(entry.userId)?.profileBorder ?? null,
       guild,
       isMe: entry.userId === viewerId,
     };

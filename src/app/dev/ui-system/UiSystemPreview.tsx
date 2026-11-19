@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntryList, EntryRow } from "@/components/ui/EntryList";
 import { Inset } from "@/components/ui/Inset";
+import { PersonLabel, PersonThumb } from "@/components/ui/PersonThumb";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { StatusBanner } from "@/components/ui/StatusBanner";
@@ -90,6 +91,32 @@ function PreviewPanel() {
         <EntryRow icon={<Compass size={24} aria-hidden />} title="사냥터" description="몬스터를 잡고 경험치와 재료를 얻습니다" onClick={() => {}} />
         <EntryRow icon={<Compass size={24} aria-hidden />} title="레어맵" locked="레어맵 지도를 얻으면 열립니다" onClick={() => {}} />
       </EntryList>
+      <Card className="space-y-3">
+        <SectionHeading title="사람 줄" />
+        <ul className="divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
+          <li className="flex items-center gap-2 py-2">
+            <PersonLabel avatar="female1" name="새벽빛" profileBorder="jade">
+              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                길드장
+              </span>
+            </PersonLabel>
+            <span className="ml-auto font-semibold tabular-nums">48,210</span>
+          </li>
+          <li className="flex items-center gap-2 py-2">
+            <PersonLabel avatar="male1" name="돌담" />
+            <span className="ml-auto font-semibold tabular-nums">8,450</span>
+          </li>
+        </ul>
+        <div className="flex items-start gap-2.5 text-sm">
+          <PersonThumb avatar="female3" name="밤나무" size="chat" className="mt-0.5" />
+          <div className="min-w-0">
+            <div className="font-semibold text-zinc-700 dark:text-zinc-200">
+              밤나무
+            </div>
+            <div className="leading-relaxed">자정에 순위가 정해져요</div>
+          </div>
+        </div>
+      </Card>
       <EmptyState
         icon={<Backpack size={32} aria-hidden />}
         title="재료가 없습니다"

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { ChatCircle, X } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
 import type { ChatMessage } from "./ChatPanel";
+import type { Avatar } from "@/adventure/profile/avatars";
 import { CHAT_CLOSE_REQUEST_EVENT } from "./chat/useMobileChatHistory";
 import {
   fetchMainChatMessages,
@@ -46,6 +47,7 @@ function writeId(key: string, id: number) {
 
 export function ChatButton({
   name,
+  avatar = null,
   className,
   title,
   viewerGuildId,
@@ -53,6 +55,7 @@ export function ChatButton({
   onSent,
 }: {
   name: string;
+  avatar?: Avatar | null;
   className: string;
   title: string | null;
   viewerGuildId: number | null;
@@ -372,6 +375,7 @@ export function ChatButton({
           open={open}
           onClose={() => setOpen(false)}
           name={name}
+          avatar={avatar}
           className={className}
           title={title}
           messages={messages}

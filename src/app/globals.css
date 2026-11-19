@@ -3143,6 +3143,35 @@ body {
   background: rgb(24 24 27);
 }
 
+/* 줄 머리 식별 그림(PersonThumb) — 목록·채팅 줄 맨 앞의 28~32px 그림.
+   작은 크기에 맞춰 모서리를 줄이고, 테두리 꾸미기는 번짐 없이 색 테두리만 남긴다. */
+.ui-row-thumb {
+  border-radius: 0.5rem;
+  box-shadow: none;
+}
+
+.ui-row-thumb :is(.ui-profile-avatar-image, .ui-profile-avatar-fallback) {
+  border-radius: calc(0.5rem - 1px);
+}
+
+.ui-row-thumb.ui-profile-frame-static,
+.dark .ui-row-thumb.ui-profile-frame-static {
+  box-shadow: 0 0 0 1px rgb(var(--profile-frame-rgb) / 0.25);
+}
+
+/* 다크 모드의 기본 프사 틀은 회색으로 덮이므로, 줄 머리 그림은 테두리 색을 다시 칠한다. */
+.dark .ui-row-thumb.ui-profile-avatar-frame-cosmetic {
+  background: var(--profile-frame-gradient);
+  background-size: 100% 100%;
+}
+
+/* 은신 모드와 터미널 모드는 글 위주 화면을 유지한다. 줄 머리 그림은 flex 줄의 한 칸이라
+   숨기면 간격도 함께 사라진다. */
+html.ui-discreet-mode .ui-row-thumb,
+html.ui-terminal-mode .ui-row-thumb {
+  display: none;
+}
+
 .ui-chat-badge {
   box-sizing: border-box;
   flex: 0 0 18px;

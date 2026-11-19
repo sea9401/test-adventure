@@ -21,6 +21,7 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { PersonThumb } from "@/components/ui/PersonThumb";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { GuildRaidBossPicker } from "./GuildRaidBossPicker";
@@ -471,6 +472,13 @@ export function GuildRaidPanelContent({
             <ul className="space-y-2 text-sm">
               {state.members.map((member) => (
                 <li key={member.userId} className="flex items-center gap-2">
+                  {member.avatar && (
+                    <PersonThumb
+                      avatar={member.avatar}
+                      name={member.name}
+                      profileBorder={member.profileBorder}
+                    />
+                  )}
                   <span className="min-w-0 flex-1 truncate">{member.name}</span>
                   <span className="text-xs text-zinc-500">{member.attackCount}회</span>
                   <span className="font-semibold tabular-nums">

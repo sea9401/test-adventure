@@ -34,6 +34,7 @@ import { postMessage, translateChatError } from "./chat/chatApi";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import type { Avatar } from "@/adventure/profile/avatars";
 import {
   EquippedCosmeticBadge,
   chatNameClass,
@@ -91,6 +92,8 @@ export type ChatMessage = {
   itemLink?: ChatEquipmentLink | null;
   createdAt: number;
   mine: boolean;
+  /** 작성자 프사. 예전 응답이나 시스템 알림에는 없을 수 있다. */
+  avatar?: Avatar | null;
   cosmetics?: MuseunCosmeticAppearance | null;
 };
 
@@ -410,6 +413,7 @@ export function ChatPanel({
   open,
   onClose,
   name,
+  avatar = null,
   className,
   title,
   messages,
@@ -426,6 +430,8 @@ export function ChatPanel({
   open: boolean;
   onClose: () => void;
   name: string;
+  /** 내 프사 — 전송 중인 임시 메시지에 써서 전송 전후로 줄이 흔들리지 않게 한다. */
+  avatar?: Avatar | null;
   className: string;
   title: string | null;
   messages: ChatMessage[];
@@ -947,6 +953,7 @@ export function ChatPanel({
       itemLink: outgoingAttachment?.link ?? null,
       createdAt: Date.now(),
       mine: true,
+      avatar,
     };
     setPending((prev) => [...prev, temp]);
     setDraft("");

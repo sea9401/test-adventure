@@ -49,6 +49,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     staminaRegenBonusPct,
     staminaPotions,
     viewerName,
+    viewerGender,
     viewerGuildId,
     gameStateLoaded,
     coreLoopOn,
@@ -190,6 +191,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
       <ChatButton
         name={viewerName}
+        avatar={viewerGender}
         className=""
         title={null}
         viewerGuildId={viewerGuildId}

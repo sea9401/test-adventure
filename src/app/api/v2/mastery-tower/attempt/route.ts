@@ -38,6 +38,7 @@ import {
   staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import { adventureSupportBenefits } from "@/adventure/data/v2/adventureSupport";
 import { parseMasteryTowerAttemptRequest } from "./request";
 
 export async function POST(req: Request) {
@@ -170,8 +171,12 @@ export async function POST(req: Request) {
     }
 
     // 하루 첫 실제 전투에만 200을 받고, 이후 층 진행·실패 후 재입장은 무료다.
-    const entryStaminaCost = masteryTowerEntryStaminaCost(tower);
+    // 프리미엄 지원권은 첫 입장 비용도 받지 않는다.
     const staminaConfig = staminaConfigForCharacter(charSave, now);
+    const entryStaminaCost = masteryTowerEntryStaminaCost(tower, {
+      waived: adventureSupportBenefits(staminaConfig.adventureSupportTier)
+        .masteryTowerEntryFree,
+    });
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const afterStamina =
       entryStaminaCost > 0
@@ -205,7 +210,8 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (entryStaminaCost > 0) {
+    // 면제로 들어간 날도 입장 처리를 남긴다. 같은 날 지원권이 끝나도 다시 받지 않는다.
+    if (tower.entryStaminaPaid !== true) {
       tower = markMasteryTowerEntryStaminaPaid(tower);
     }
     tower = creditMasteryTowerCheckpointStart(tower, floor);

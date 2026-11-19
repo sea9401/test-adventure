@@ -1,7 +1,10 @@
 import {
   PREMIUM_ADVENTURE_SUPPORT_PASS,
+  adventureSupportBenefits,
   type AdventureSupportTier,
 } from "@/adventure/data/v2/adventureSupport";
+import { MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST } from "@/adventure/data/v2/masteryTower";
+import { MAX_STAMINA } from "@/adventure/v2/stamina";
 
 const MINUTE_MS = 60 * 1_000;
 const MINUTES_PER_HOUR = 60;
@@ -83,4 +86,21 @@ export function adventureSupportUseNotice(input: {
     return `월간 모험 지원권 ${input.daysAdded}일 추가 · 프리미엄 종료 뒤부터 이어집니다`;
   }
   return `월간 모험 지원권 ${input.daysAdded}일 적용`;
+}
+
+export const MASTERY_TOWER_ENTRY_FREE_LABEL = `숙련의 탑 하루 첫 입장 비용 ${MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST} 면제`;
+
+// 캐릭터 카드의 "혜택 적용 중" 목록. 등급별 수치를 그대로 읽어 온다.
+export function adventureSupportBenefitLines(
+  tier: AdventureSupportTier,
+): string[] {
+  const benefits = adventureSupportBenefits(tier);
+  return [
+    `에너지 회복량 ${benefits.staminaRegenBonusPct}% 증가`,
+    `최대 에너지 ${benefits.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + benefits.staminaMaxBonus).toLocaleString()})`,
+    `일괄 전투 최대 ${benefits.maxHuntBatch}회`,
+    `거래소 등록 ${benefits.marketplaceSlotBonus}개 추가`,
+    `거래소 수수료 ${benefits.marketplaceTaxRate * 100}%로 감소`,
+    ...(benefits.masteryTowerEntryFree ? [MASTERY_TOWER_ENTRY_FREE_LABEL] : []),
+  ];
 }

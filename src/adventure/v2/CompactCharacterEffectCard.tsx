@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CookingPot, ForkKnife, Sparkle, X } from "@phosphor-icons/react";
-import {
-  adventureSupportBenefits,
-  type AdventureSupportTier,
-} from "@/adventure/data/v2/adventureSupport";
-import { MAX_STAMINA } from "@/adventure/v2/stamina";
+import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import {
@@ -15,6 +11,7 @@ import {
   type ActiveCookingBuff,
 } from "./cooking/foodShared";
 import {
+  adventureSupportBenefitLines,
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
   queuedStandardSupportMs,
@@ -120,15 +117,8 @@ export function CompactCharacterEffectCard({
       : isPrep
         ? detail.itemName
         : detail.effect.name;
-  const supportConfig = adventureSupportBenefits(supportTier);
   const supportBenefits = isSupport
-    ? [
-        `에너지 회복량 ${supportConfig.staminaRegenBonusPct}% 증가`,
-        `최대 에너지 ${supportConfig.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + supportConfig.staminaMaxBonus).toLocaleString()})`,
-        `일괄 전투 최대 ${supportConfig.maxHuntBatch}회`,
-        `거래소 등록 ${supportConfig.marketplaceSlotBonus}개 추가`,
-        `거래소 수수료 ${supportConfig.marketplaceTaxRate * 100}%로 감소`,
-      ]
+    ? adventureSupportBenefitLines(supportTier)
     : [];
   const activeUntil = isSupport
     ? detail.activeUntil

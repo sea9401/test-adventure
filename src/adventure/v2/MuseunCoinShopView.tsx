@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
+  CastleTurret,
   CheckCircle,
   CoinVertical,
   FrameCorners,
@@ -63,6 +64,7 @@ import {
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
+import { MASTERY_TOWER_ENTRY_FREE_LABEL } from "./adventureSupportDisplay";
 import { useSystemToast } from "./RewardToastProvider";
 import { PROFILE_BADGE_STAND_ITEM_ID } from "@/adventure/profile/profileShowcase";
 import {
@@ -269,6 +271,10 @@ export function supportBenefitsForItem(
     },
     ...(premium
       ? [
+          {
+            Icon: CastleTurret,
+            label: MASTERY_TOWER_ENTRY_FREE_LABEL,
+          },
           {
             Icon: Palette,
             label: `꾸미기 30일 연장권 ${PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개 지급`,

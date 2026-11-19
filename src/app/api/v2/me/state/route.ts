@@ -318,7 +318,7 @@ export async function GET(req: Request) {
   const activeAutoSession = activeAutoActivity
     ? autoGatheringStates[activeAutoActivity].session
     : null;
-  // 기본 + 한계의 비약 + 월간 모험 지원권(+1000, 회복 +20%)을 한 번에 산출.
+  // 기본 + 한계의 비약 + 월간 모험 지원권(일반 +1000·회복 +20%, 프리미엄 +4000·회복 +30%)을 한 번에 산출.
   const staminaConfig = staminaConfigForCharacter(charSave, now);
   const staminaMax = staminaConfig.max;
   const stamina = applyRegen(

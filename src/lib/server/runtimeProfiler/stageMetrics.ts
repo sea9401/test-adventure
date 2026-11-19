@@ -1,6 +1,7 @@
 export const PROFILE_RANKING_METRICS = [
   "level", "fame", "combatPower", "lifeMastery", "codexCompletion",
   "masteryTower", "achievementScore", "towerWeek", "towerChallenge",
+  "explorationGrade", "stormDeep", "sanctuaryDeep", "bossRisk",
 ] as const;
 type RankingMetric = typeof PROFILE_RANKING_METRICS[number];
 const COMPUTED_RANKING_METRICS = [

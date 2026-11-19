@@ -142,16 +142,28 @@ describe("월간 모험 지원권", () => {
     expect(PREMIUM_ADVENTURE_SUPPORT_PASS).toMatchObject({
       coinPrice: 2_000,
       durationDays: 30,
-      staminaMaxBonus: 3_000,
+      staminaMaxBonus: 4_000,
       staminaActivationGrant: 0,
-      staminaRegenBonusPct: 20,
+      staminaRegenBonusPct: 30,
       marketplaceSlotBonus: 20,
       marketplaceTaxRate: 0.05,
       activeMaxHuntBatch: 100,
       cosmeticExtensionGrant: 2,
     });
-    expect(adventureSupportBenefits("premium").staminaMaxBonus).toBe(3_000);
+    expect(adventureSupportBenefits("premium").staminaMaxBonus).toBe(4_000);
     expect(adventureSupportBenefits("standard").staminaMaxBonus).toBe(1_000);
     expect(adventureSupportBenefits("none").staminaMaxBonus).toBe(0);
+  });
+
+  it("회복 속도는 프리미엄 30%, 일반 20%다", () => {
+    expect(adventureSupportBenefits("premium").staminaRegenBonusPct).toBe(30);
+    expect(adventureSupportBenefits("standard").staminaRegenBonusPct).toBe(20);
+    expect(adventureSupportBenefits("none").staminaRegenBonusPct).toBe(0);
+  });
+
+  it("숙련의 탑 입장 비용 면제는 프리미엄에만 있다", () => {
+    expect(adventureSupportBenefits("premium").masteryTowerEntryFree).toBe(true);
+    expect(adventureSupportBenefits("standard").masteryTowerEntryFree).toBe(false);
+    expect(adventureSupportBenefits("none").masteryTowerEntryFree).toBe(false);
   });
 });

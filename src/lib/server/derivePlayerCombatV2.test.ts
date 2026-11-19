@@ -2588,4 +2588,36 @@ describe("전투 준비물", () => {
     const expired = { vigor: { itemId: "v2_prep_fishoil_master", expiresAt: Date.now() - 1 } };
     expect(derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: expired } })).toEqual(plain);
   });
+
+  // 건의 #862 — 늘어난 최대치까지 채운 저장값이 준비물을 더하기 전 최대치로 잘리면 안 된다.
+  it("늘어난 최대 MP·HP까지 채운 현재값을 그대로 유지한다", () => {
+    const vigor = { vigor: { itemId: "v2_prep_fishoil_2", expiresAt: future } };
+    const plain = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100 } })!;
+    const fullMp = (plain.player.maxMp ?? 0) + 500;
+    const oiled = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, mp: fullMp, activeBattlePreps: vigor } })!;
+    expect(oiled.player.maxMp).toBe(fullMp);
+    expect(oiled.player.mp).toBe(fullMp);
+
+    const fullHp = plain.maxHp + 1_000;
+    const braced = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, hp: fullHp, activeBattlePreps: prep } })!;
+    expect(braced.player.hp).toBe(fullHp);
+
+    const food = { recipeId: "flame_corn_stew", recipeName: "불꽃 옥수수 스튜", quality: "normal", effect: { combatFlat: { maxMp: 100 } }, expiresAt: future };
+    const fed = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, mp: fullMp, activeFoodBuff: food } })!;
+    expect(fed.player.mp).toBe((plain.player.maxMp ?? 0) + 100);
+  });
+
+  it("현재값 저장이 없는 캐릭터는 늘어난 최대치로 가득 찬 상태로 본다", () => {
+    const vigor = { vigor: { itemId: "v2_prep_fishoil_2", expiresAt: future } };
+    const oiled = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, activeBattlePreps: { ...prep, ...vigor } } })!;
+    expect(oiled.player.mp).toBe(oiled.player.maxMp);
+    expect(oiled.player.hp).toBe(oiled.maxHp);
+  });
+
+  it("최대치보다 낮은 현재값은 준비물을 켜도 바뀌지 않는다", () => {
+    const vigor = { vigor: { itemId: "v2_prep_fishoil_2", expiresAt: future } };
+    const oiled = derivePlayerCombatV2FromSaves({ ...base, character: { level: 100, hp: 10, mp: 7, activeBattlePreps: { ...prep, ...vigor } } })!;
+    expect(oiled.player.mp).toBe(7);
+    expect(oiled.player.hp).toBe(10);
+  });
 });

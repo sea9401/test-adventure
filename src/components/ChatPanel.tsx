@@ -33,7 +33,7 @@ import {
 import { postMessage, translateChatError } from "./chat/chatApi";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
-import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import type { Avatar } from "@/adventure/profile/avatars";
 import {
   EquippedCosmeticBadge,
   chatNameClass,
@@ -76,23 +76,9 @@ import {
   type ChatRoomOrderId,
 } from "@/lib/chat-rooms";
 
-export type ChatChannel = "global" | "trade" | "guild" | "room";
+import type { ChatChannel, ChatMessage } from "./chat/chatTypes";
+export type { ChatChannel, ChatMessage };
 type ChatRoomKey = "chat" | "trade" | "guild" | "notice";
-
-export type ChatMessage = {
-  id: number;
-  authorUserId?: string | null;
-  channel: ChatChannel;
-  roomId?: number | null;
-  name: string;
-  className: string;
-  title: string | null;
-  content: string;
-  itemLink?: ChatEquipmentLink | null;
-  createdAt: number;
-  mine: boolean;
-  cosmetics?: MuseunCosmeticAppearance | null;
-};
 
 // 데스크톱 채팅창 크기 영속 + 최소 크기(드래그 리사이즈).
 const CHAT_SIZE_KEY = "chat-panel-size.v2";
@@ -410,6 +396,7 @@ export function ChatPanel({
   open,
   onClose,
   name,
+  avatar = null,
   className,
   title,
   messages,
@@ -426,6 +413,8 @@ export function ChatPanel({
   open: boolean;
   onClose: () => void;
   name: string;
+  /** 내 프사 — 전송 중인 임시 메시지에 써서 전송 전후로 줄이 흔들리지 않게 한다. */
+  avatar?: Avatar | null;
   className: string;
   title: string | null;
   messages: ChatMessage[];
@@ -947,6 +936,7 @@ export function ChatPanel({
       itemLink: outgoingAttachment?.link ?? null,
       createdAt: Date.now(),
       mine: true,
+      avatar,
     };
     setPending((prev) => [...prev, temp]);
     setDraft("");

@@ -28,7 +28,7 @@ export type PeddlerDispatch = {
   hours: PeddlerDispatchHours;
   startedAt: number;
   readyAt: number;
-  /** 실은 적재 점수. 받을 때 단골 점수로 들어온다. */
+  /** 실은 적재 점수. 받을 때 교역 점수로 들어온다. */
   points: number;
   /** 출발할 때 정해 둔 증표. */
   tokens: number;
@@ -78,7 +78,7 @@ function parseDispatch(raw: unknown): PeddlerDispatch | null {
   return { hours: value.hours, startedAt, readyAt, points, tokens: count(value.tokens) };
 }
 
-/** 주가 바뀌었으면 주간 구매 기록만 비운다. 증표와 단골 점수는 남는다. */
+/** 주가 바뀌었으면 주간 구매 기록만 비운다. 증표와 교역 점수는 남는다. */
 export function parsePeddlerState(raw: unknown, weekId: string): PeddlerState {
   const value = record(raw);
   const routesRaw = record(value.routes);
@@ -103,6 +103,17 @@ export function parsePeddlerState(raw: unknown, weekId: string): PeddlerState {
     shop: { weekId, purchases },
     dispatchCount: count(value.dispatchCount),
   };
+}
+
+export type PeddlerActiveDispatch = { routeId: PeddlerRouteId; dispatch: PeddlerDispatch };
+
+/** 보낸 수레만 읽는다. 도착 알림과 홈 체크처럼 주간 구매 기록이 필요 없는 곳에서 쓴다. */
+export function peddlerActiveDispatches(raw: unknown): PeddlerActiveDispatch[] {
+  const routesRaw = record(record(raw).routes);
+  return PEDDLER_ROUTE_IDS.flatMap((routeId) => {
+    const dispatch = parseDispatch(record(routesRaw[routeId]).dispatch);
+    return dispatch ? [{ routeId, dispatch }] : [];
+  });
 }
 
 export function peddlerRouteRank(state: PeddlerState, routeId: PeddlerRouteId): number {
@@ -186,7 +197,7 @@ export type PeddlerClaimResult = {
   totalRankAfter: number;
 };
 
-/** 도착한 수레의 증표와 단골 점수를 받는다. */
+/** 도착한 수레의 증표와 교역 점수를 받는다. */
 export function claimPeddlerDispatch(
   state: PeddlerState,
   routeId: PeddlerRouteId,
@@ -251,7 +262,7 @@ export function buyPeddlerShopItem(
   };
 }
 
-/** 단골 등급 합계로 얻는 칭호. */
+/** 교역 등급 합계로 얻는 칭호. */
 export function peddlerEarnedTitleIds(totalRank: number): string[] {
   return [
     ...(totalRank >= PEDDLER_REGULAR_TITLE_TOTAL_RANK ? [PEDDLER_REGULAR_TITLE_ID] : []),

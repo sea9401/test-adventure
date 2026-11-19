@@ -10,7 +10,10 @@ import {
   CHAT_MAX_LENGTH,
   CHAT_RATE_LIMIT_MS,
 } from "@/lib/chat-config";
-import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 import {
   CHAT_INAPPROPRIATE_CONTENT_ERROR,
   moderateChatContent,
@@ -117,10 +120,24 @@ async function readChannelRows(input: {
     .limit(CHAT_FETCH_LIMIT);
 }
 
+// 채팅 줄 머리 프사와 닉네임 꾸미기 — 작성자 묶음으로 한 번씩만 읽는다.
+// 새 메시지가 없는 증분 조회는 작성자가 없어 두 함수 모두 DB를 건드리지 않는다.
+async function readAuthorAppearance(authorUserIds: string[]) {
+  const [cosmeticByUser, avatarByUser] = await Promise.all([
+    readMuseunCosmeticAppearanceMap(authorUserIds),
+    readProfileAvatarMap(authorUserIds),
+  ]);
+  return { cosmeticByUser, avatarByUser };
+}
+
+type AuthorAppearance = Awaited<ReturnType<typeof readAuthorAppearance>>;
+
+const DEFAULT_CHAT_AVATAR = "male1";
+
 function serializeRows(
   rows: ChatRow[],
   userId: string,
-  cosmeticByUser: Awaited<ReturnType<typeof readMuseunCosmeticAppearanceMap>>,
+  { cosmeticByUser, avatarByUser }: AuthorAppearance,
 ) {
   const result = rows.map((row) => ({
     id: row.id,
@@ -140,6 +157,7 @@ function serializeRows(
     itemLink: parseChatEquipmentLink(row.itemLink),
     createdAt: row.createdAt.getTime(),
     mine: row.mine === userId,
+    avatar: avatarByUser.get(row.mine) ?? DEFAULT_CHAT_AVATAR,
     cosmetics: cosmeticByUser.get(row.mine) ?? null,
   }));
   return result;
@@ -187,13 +205,13 @@ async function readMainChannels(searchParams: URLSearchParams, userId: string) {
   if (guildAfterId == null) guildRows.reverse();
 
   const allRows = [...globalRows, ...tradeRows, ...guildRows];
-  const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
+  const appearance = await readAuthorAppearance(
     allRows.map((message) => message.mine),
   );
   return Response.json({
-    global: serializeRows(globalRows, userId, cosmeticByUser),
-    trade: serializeRows(tradeRows, userId, cosmeticByUser),
-    guild: serializeRows(guildRows, userId, cosmeticByUser),
+    global: serializeRows(globalRows, userId, appearance),
+    trade: serializeRows(tradeRows, userId, appearance),
+    guild: serializeRows(guildRows, userId, appearance),
   });
 }
 
@@ -314,13 +332,14 @@ export async function GET(req: Request) {
     }));
   if (afterId == null) result.reverse();
 
-  const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
+  const { cosmeticByUser, avatarByUser } = await readAuthorAppearance(
     result.map((message) => message.authorUserId),
   );
 
   return Response.json(
     result.map((message) => ({
       ...message,
+      avatar: avatarByUser.get(message.authorUserId) ?? DEFAULT_CHAT_AVATAR,
       cosmetics: cosmeticByUser.get(message.authorUserId) ?? null,
     })),
   );
@@ -394,7 +413,8 @@ export async function POST(req: Request) {
   const consentFailure = await requireCurrentUgcConsent(userId);
   if (consentFailure) return consentFailure;
 
-  const { name, className, title, cosmetics } = await resolveActor(userId);
+  const { name, avatar, className, title, cosmetics } =
+    await resolveActor(userId);
 
   const since = new Date(Date.now() - CHAT_RATE_LIMIT_MS);
   const [lastRow] = await db
@@ -477,6 +497,7 @@ export async function POST(req: Request) {
     name,
     className,
     title,
+    avatar,
     cosmetics,
     content,
     itemLink: result.itemLink,

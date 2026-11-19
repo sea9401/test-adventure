@@ -253,8 +253,15 @@ describe("정비한 채집지의 느긋한 작업 시간", () => {
     expect(standard.attempts).toBe(200);
   });
 
-  it("기본 시간보다 짧거나 4시간보다 긴 값은 무시한다", () => {
-    for (const extendedDurationMs of [HOUR, 4 * HOUR + 1, Number.NaN, -5]) {
+  it("명장 정비의 6시간까지 받는다", () => {
+    const session = createAutoGatheringSession({ ...base, planId: "extended", extendedDurationMs: 6 * HOUR });
+    expect(session.readyAt).toBe(1_000 + 6 * HOUR);
+    expect(session.durationMs).toBe(6 * HOUR);
+    expect(session.attempts).toBe(2_400);
+  });
+
+  it("기본 시간보다 짧거나 6시간보다 긴 값은 무시한다", () => {
+    for (const extendedDurationMs of [HOUR, 6 * HOUR + 1, Number.NaN, -5]) {
       const session = createAutoGatheringSession({ ...base, planId: "extended", extendedDurationMs });
       expect(session.readyAt).toBe(1_000 + 2 * HOUR);
       expect(session.durationMs).toBe(2 * HOUR);

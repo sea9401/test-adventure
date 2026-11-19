@@ -8,6 +8,7 @@ import {
   RANCH_LINEAGE_GRADE_NAMES,
   RANCH_LINEAGE_MASTER_CROP_COST,
   RANCH_LINEAGE_RARE_CHANCE_PCT,
+  RANCH_LINEAGE_YIELD_BONUS_PCT,
   RANCH_RARE_ITEM_ID,
   RANCH_RARE_ITEM_REPUTATION,
 } from "@/adventure/v2/ranchLineageRules";
@@ -19,6 +20,7 @@ const GRADE_ROWS = RANCH_LINEAGE_GRADE_NAMES.map((name, grade) => {
   const step = RANCH_LINEAGE_BREED_CHANCES[grade];
   return [
     name,
+    `+${RANCH_LINEAGE_YIELD_BONUS_PCT[grade]}%`,
     `${RANCH_LINEAGE_RARE_CHANCE_PCT[grade]}%`,
     step ? `${step.basePct}%` : "",
     step ? `+${step.perFailPct}%p` : "",
@@ -47,7 +49,11 @@ export function RanchLineageManualSection() {
           오른 확률은 처음으로 돌아갑니다. 등급은 내려가지 않습니다.
         </li>
         <li>
-          혈통 등급이 높을수록 산물을 수거할 때 한 주기마다 <Em>희귀 산물</Em>이 나올 확률이 오릅니다.
+          혈통 등급이 높을수록 수거할 때 그 부지의 <Em>산물을 더 받습니다</Em>. 1개가 안 되는 몫은
+          그 부지에 남아 다음 수거에 더해집니다.
+        </li>
+        <li>
+          혈통 등급이 높을수록 산물을 수거할 때 한 주기마다 <Em>희귀 산물</Em>이 나올 확률도 오릅니다.
           희귀 산물은 납품 탭의 희귀 수확 납품으로 농장 증표와 바꿉니다.
         </li>
         <li>
@@ -60,7 +66,7 @@ export function RanchLineageManualSection() {
         </li>
       </UL>
       <Table
-        head={["혈통 등급", "희귀 산물 확률", "다음 등급 교배 성공률", "실패할 때마다"]}
+        head={["혈통 등급", "산물 수량", "희귀 산물 확률", "다음 등급 교배 성공률", "실패할 때마다"]}
         rows={GRADE_ROWS}
       />
       <Table head={["동물", "교배 1회 비용", "희귀 산물", "납품 증표"]} rows={ANIMAL_ROWS} />

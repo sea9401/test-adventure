@@ -341,6 +341,8 @@ export type LifeMajorActivityView = {
   effectText: string | null;
   productName: string | null;
   productChancePct: number;
+  /** 이 생활로 지금까지 얻은 명장 산물 수. */
+  productsEarned: number;
 };
 
 export type LifeMajorCraftingView = {
@@ -406,6 +408,7 @@ export function lifeMajorView(
         effectText: role && bonus > 0 ? `${effect.label} +${formatPct(bonus)}${effect.unit}` : null,
         productName: id === "cooking" ? null : LIFE_MAJOR_PRODUCTS[id].name,
         productChancePct: lifeMajorProductChancePct(state, id),
+        productsEarned: state.masterProductsEarned[id] ?? 0,
       };
     }),
   };

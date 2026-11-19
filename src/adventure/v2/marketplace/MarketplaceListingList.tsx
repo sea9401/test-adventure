@@ -12,6 +12,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { EquipmentCodexBadge } from "@/adventure/v2/EquipmentCodexBadge";
 import { NecklaceIcon, RingIcon } from "@/adventure/v2/EquipmentSlotIcons";
+import { EquipmentTypeIcon } from "@/adventure/v2/EquipmentTypeIcon";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   consumableStatusLine,
@@ -47,6 +48,7 @@ import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
+import { marketplaceFavoriteKey } from "./marketplaceFavorites";
 import {
   Cube,
   Flask,
@@ -318,7 +320,11 @@ export function ListingList({
               <div
                 className={`${SURFACE_INSET} flex h-12 w-12 shrink-0 items-center justify-center text-sky-700 dark:text-sky-300`}
               >
-                <ListingKindIcon size={25} weight="duotone" />
+                {l.kind === "equip" && item ? (
+                  <EquipmentTypeIcon item={item} size={25} colored={false} />
+                ) : (
+                  <ListingKindIcon size={25} weight="duotone" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
@@ -346,13 +352,13 @@ export function ListingList({
                   {onToggleFavorite ? (
                     <button
                       type="button"
-                      onClick={() => onToggleFavorite(`${l.kind}:${l.itemId}`)}
-                      aria-label={`${l.itemName} 즐겨찾기 ${favoriteKeys?.has(`${l.kind}:${l.itemId}`) ? "해제" : "추가"}`}
+                      onClick={() => onToggleFavorite(marketplaceFavoriteKey(l.kind, l.itemId))}
+                      aria-label={`${l.itemName} 즐겨찾기 ${favoriteKeys?.has(marketplaceFavoriteKey(l.kind, l.itemId)) ? "해제" : "추가"}`}
                       className="shrink-0 rounded-md p-1.5 text-amber-500 transition hover:bg-amber-50 dark:hover:bg-amber-950"
                     >
                       <Star
                         size={17}
-                        weight={favoriteKeys?.has(`${l.kind}:${l.itemId}`) ? "fill" : "regular"}
+                        weight={favoriteKeys?.has(marketplaceFavoriteKey(l.kind, l.itemId)) ? "fill" : "regular"}
                       />
                     </button>
                   ) : null}

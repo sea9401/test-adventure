@@ -11,8 +11,8 @@ describe("growth preview", () => {
       const before = JSON.stringify(raw);
       const section = proficiencySection(raw, { class: "warrior", level: 30 });
       const html = renderToStaticMarkup(<GrowthPreview {...section} />);
-      expect(html).toContain("39.23%로 0~6 범위 선택");
-      expect(html).toContain("평균 +2.70");
+      expect(html).toContain("89.23%로 0~6 범위 선택");
+      expect(html).toContain("평균 +2.95");
       expect(html).toContain("다음 전투 재전직 시작");
       expect(html).toContain("HP 268~368");
       expect(html).toContain("현재 레벨업 증가");

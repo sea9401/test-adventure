@@ -171,7 +171,7 @@ describe("POST /api/v2/life-workshop/upkeep", () => {
 
   it("6단계는 그 생활의 주전공 명장 3단계가 있어야 하고 명장 산물을 쓴다", async () => {
     seedMaterials({
-      [WOODCUTTING_MATERIAL_ID.cypress]: 13_200,
+      [WOODCUTTING_MATERIAL_ID.cypress]: 17_600,
       [MINING_MATERIAL_ID.roughGem]: 600,
       [LIFE_MAJOR_PRODUCT_ID.woodcutting]: 25,
     });
@@ -202,7 +202,7 @@ describe("POST /api/v2/life-workshop/upkeep", () => {
     const stages = Object.fromEntries(GATHERING_SITES.map((site) => [site.id, 2]));
     mocks.store.set(LIFE_WORKSHOP_SAVE_KEY, { siteUpkeep: { ...stages, cypress: 1 } });
     seedMaterials({
-      [WOODCUTTING_MATERIAL_ID.cypress]: 1_760 + 3_300,
+      [WOODCUTTING_MATERIAL_ID.cypress]: 1_760 + 3_960,
       [MINING_MATERIAL_ID.stone]: 400,
       [MINING_MATERIAL_ID.coal]: 250,
     });

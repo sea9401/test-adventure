@@ -49,6 +49,14 @@ const SNAPSHOT: UnexploredClientSnapshot = {
   xpPoints: 3,
   nextPointCost: 100,
   nextPointRemaining: 90,
+  explorationGrade: 0,
+  gradeXp: 0,
+  gradeXpCost: 15_000,
+  gradeBonusPoints: 0,
+  nextGradePointGrade: 5,
+  presetSlotCount: 3,
+  presetUnlockGrades: [0, 0, 0, 10, 40],
+  traceCap: 2_500,
   selectedNodeIds: ["start", "inner-0-0"],
   activePresetIndex: 0,
   nodePresets: [["start", "inner-0-0"], [], []],
@@ -89,6 +97,66 @@ function openUnexploredTab(
 }
 
 describe("V2UnexploredTreeView", () => {
+  it("30포인트를 채운 계정에는 탐사 등급과 다음 등급·다음 추가 포인트를 보여 준다", () => {
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          xpPoints: 30,
+          explorationXp: 301_234,
+          nextPointCost: 0,
+          nextPointRemaining: 0,
+          explorationGrade: 20,
+          gradeXp: 1_234,
+          gradeBonusPoints: 2,
+          nextGradePointGrade: 30,
+          presetSlotCount: 4,
+          traceCap: 3_500,
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("탐사 등급")).toBeTruthy();
+    expect(screen.getByText("20등급")).toBeTruthy();
+    expect(screen.getByText("다음 등급까지 1,234 / 15,000")).toBeTruthy();
+    expect(screen.getByText("탐사 포인트 +1: 30등급")).toBeTruthy();
+    expect(screen.queryByText("탐사 경험치")).toBeNull();
+
+    openUnexploredTab("흔적 보관함");
+    expect(screen.getByText(/군마다 3,500개까지 보관합니다/)).toBeTruthy();
+  });
+
+  it("30포인트 전에는 다음 포인트까지의 탐사 경험치를 보여 준다", () => {
+    render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
+
+    expect(screen.getByText("탐사 경험치")).toBeTruthy();
+    expect(screen.getByText("10 / 100")).toBeTruthy();
+    expect(screen.queryByText("탐사 등급")).toBeNull();
+  });
+
+  it("잠긴 프리셋 칸은 필요한 탐사 등급을 적고 누를 수 없다", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{ ...SNAPSHOT, explorationGrade: 12, presetSlotCount: 4 }}
+        onBack={vi.fn()}
+      />,
+    );
+    const presets = screen.getByRole("group", { name: "개척 노드 프리셋" });
+
+    const fourth = within(presets).getByRole("button", { name: "프리셋 4" }) as HTMLButtonElement;
+    expect(fourth.disabled).toBe(false);
+    const fifth = within(presets).getByRole("button", {
+      name: "프리셋 5, 탐사 40등급 필요",
+    }) as HTMLButtonElement;
+    expect(fifth.disabled).toBe(true);
+    expect(within(fifth).getByText("탐사 40등급")).toBeTruthy();
+    fireEvent.click(fifth);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("shows three independent presets and applies the server's switched allocation", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true, snapshot: {
       ...SNAPSHOT, activePresetIndex: 1, spentPoints: 0, selectedNodeIds: [],
@@ -96,7 +164,10 @@ describe("V2UnexploredTreeView", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<V2UnexploredTreeView initialSnapshot={SNAPSHOT} onBack={vi.fn()} />);
     const presets = screen.getByRole("group", { name: "개척 노드 프리셋" });
-    expect(within(presets).getAllByRole("button")).toHaveLength(3);
+    expect(within(presets).getAllByRole("button")).toHaveLength(5);
+    expect(
+      within(presets).getAllByRole("button").filter((button) => !(button as HTMLButtonElement).disabled),
+    ).toHaveLength(3);
     expect(within(presets).getByRole("button", { name: "프리셋 1" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(within(presets).getByRole("button", { name: "프리셋 1" }));
     expect(fetchMock).not.toHaveBeenCalled();
@@ -971,6 +1042,49 @@ describe("V2UnexploredTreeView", () => {
         "/api/v2/unexplored/summon",
         expect.objectContaining({ method: "POST" }),
       ),
+    );
+  });
+
+  it("처치한 적이 있는 보스는 위험도를 골라 소환하고, 고른 위험도의 변화와 보상을 보여 준다", async () => {
+    const tracking = UNEXPLORED_BOSSES.tracking_weapon;
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response(JSON.stringify({ ok: true, sessionId: "risky", summonStonesLeft: 0, riskTier: 4 }), {
+        status: 200, headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <V2UnexploredTreeView
+        initialSnapshot={{
+          ...SNAPSHOT,
+          materials: { [tracking.summonMaterialId]: 1 },
+          achievementIds: ["defeat_tracking_weapon"],
+          bossRisk: { tracking_weapon: 3 },
+        }}
+        onBack={vi.fn()}
+      />,
+    );
+
+    openUnexploredTab("흔적 보관함");
+    const panel = screen.getByRole("tabpanel", { name: "흔적 보관함" });
+    const select = within(panel).getByRole("combobox", { name: "추적 병기 위험도" }) as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent)).toEqual([
+      "위험도 0", "위험도 1", "위험도 2", "위험도 3", "위험도 4",
+    ]);
+    const card = select.closest("article") as HTMLElement;
+    expect(within(card).getByText("최고 처치 위험도 3")).toBeTruthy();
+    // 처치한 적이 없는 보스에는 위험도 선택이 없다.
+    expect(within(panel).queryByRole("combobox", { name: "빙하 거수 위험도" })).toBeNull();
+
+    fireEvent.change(select, { target: { value: "4" } });
+    expect(within(card).getByText("체력 3배 · 공격·방어 1.32배")).toBeTruthy();
+    expect(within(card).getByText("우두머리 핵 5개 · 고유 장비 품질 20% 이상 · 가장 드문 고유 0.9%")).toBeTruthy();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "추적 병기 소환" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ bossId: "tracking_weapon", riskTier: 4 });
+    await waitFor(() =>
+      expect(mocks.notifySystem).toHaveBeenCalledWith("✓ 추적 병기(위험도 4)을 소환했습니다.", "success"),
     );
   });
 

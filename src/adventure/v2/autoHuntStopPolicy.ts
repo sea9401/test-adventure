@@ -12,9 +12,16 @@ export type AutoHuntStopConfig = {
   // 보유 레어맵(희귀 장소 포함)이 보유 한도에 닿으면 정지 — 가득 차면 새 지도 굴림이 생략된다.
   rareMapFullEnabled: boolean;
   level100Enabled: boolean;
+  // 패배한 전투에서 정지 — 충전약으로 체력이 돌아와 계속 싸울 수 있어도 멈춰 전투 기록을 보게 한다.
+  defeatEnabled: boolean;
 };
 
-export type AutoHuntStopReason = "potion" | "rare_map" | "rare_map_full" | "level_100";
+export type AutoHuntStopReason =
+  | "potion"
+  | "rare_map"
+  | "rare_map_full"
+  | "level_100"
+  | "defeat";
 
 export type AutoHuntStopSnapshot = {
   hpCharges: number;
@@ -24,6 +31,8 @@ export type AutoHuntStopSnapshot = {
   /** 전투 후 보유 중인 레어맵 수(종류 무관). 알 수 없으면 0. */
   rareMapCount: number;
   level: number;
+  /** 방금 끝난 전투에서 졌는지. 전투를 시작하기 전 점검에서는 생략한다. */
+  lost?: boolean;
 };
 
 const MAX_POTION_THRESHOLD = 9_999_999;
@@ -36,6 +45,7 @@ export const DEFAULT_AUTO_HUNT_STOP_CONFIG: AutoHuntStopConfig = {
   rareMapEnabled: false,
   rareMapFullEnabled: false,
   level100Enabled: false,
+  defeatEnabled: false,
 };
 
 function normalizePotionTargetPct(value: unknown): number {
@@ -67,6 +77,7 @@ export function normalizeAutoHuntStopConfig(
     rareMapEnabled: raw.rareMapEnabled === true,
     rareMapFullEnabled: raw.rareMapFullEnabled === true,
     level100Enabled: raw.level100Enabled === true,
+    defeatEnabled: raw.defeatEnabled === true,
   };
 }
 
@@ -74,6 +85,7 @@ export function getAutoHuntStopReason(
   config: AutoHuntStopConfig,
   snapshot: AutoHuntStopSnapshot,
 ): AutoHuntStopReason | null {
+  if (config.defeatEnabled && snapshot.lost === true) return "defeat";
   if (config.rareMapEnabled && snapshot.rareMapFound) return "rare_map";
   if (config.rareMapFullEnabled && snapshot.rareMapCount >= RARE_MAP_CAP) {
     return "rare_map_full";

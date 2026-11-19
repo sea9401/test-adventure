@@ -878,12 +878,7 @@ describe("POST /api/v2/fishing/reel", () => {
         masterProduct: { materialId: "v2_master_catch", name: "명장 어획", count: 1 },
       });
       expect(store.get("character.v2")).toMatchObject({ materials: { v2_master_catch: 1 } });
-      expect(masterProductNotify).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.any(String),
-        "master_product",
-        { activity: "fishing", materialId: "v2_master_catch", name: "명장 어획", count: 1 },
-      );
+      expect(masterProductNotify).not.toHaveBeenCalled();
     });
 
     it("던질 때 주전공 단계만큼 특수 어종 가중치를 더한다", async () => {

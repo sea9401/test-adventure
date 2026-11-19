@@ -3,6 +3,11 @@ import {
   UNEXPLORED_BOSSES,
   parseUnexploredBossId,
 } from "@/adventure/data/v2/unexploredBosses";
+import {
+  maxSelectableBossRisk,
+  parseBossRiskTier,
+} from "@/adventure/data/v2/unexploredBossRisk";
+import { parseUnexploredSave } from "@/adventure/data/v2/unexploredState";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
@@ -42,6 +47,10 @@ export async function POST(req: Request) {
   if (!bossId) {
     return Response.json({ ok: false, error: "bad_boss" }, { status: 400 });
   }
+  const riskTier = parseBossRiskTier(body?.riskTier);
+  if (riskTier === null) {
+    return Response.json({ ok: false, error: "invalid_risk_tier" }, { status: 400 });
+  }
 
   const result = await db.transaction(async (tx) => {
     const character = await lockSaveForUpdate<CharacterSave>(
@@ -51,6 +60,18 @@ export async function POST(req: Request) {
       {},
     );
     const boss = UNEXPLORED_BOSSES[bossId];
+    // 위험도는 그 보스를 처치한 위험도 다음 단계까지만 고를 수 있다.
+    const unexplored = parseUnexploredSave(character.unexplored);
+    const maxRiskTier = maxSelectableBossRisk({
+      defeated: unexplored.achievementIds.includes(`defeat_${bossId}`),
+      best: unexplored.bossRisk[bossId] ?? 0,
+    });
+    if (riskTier > maxRiskTier) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "risk_tier_locked" as const, maxRiskTier },
+      };
+    }
     const materials = materialsOf(character.materials);
     const have = materials[boss.summonMaterialId] ?? 0;
     if (have < 1) {
@@ -72,6 +93,7 @@ export async function POST(req: Request) {
       summonerName: profile?.name?.trim() || "모험가",
       now: new Date(),
       visibility: "summoner_only",
+      riskTier,
     });
     if (!created.ok) {
       return {
@@ -91,6 +113,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         bossId,
+        riskTier,
         sessionId: created.sessionId,
         expiresAt: created.expiresAt,
         summonStonesLeft: have - 1,

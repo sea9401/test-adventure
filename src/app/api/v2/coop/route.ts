@@ -16,6 +16,7 @@ import {
   canAccessCoopBoss,
   coopBossFreeSupportLocked,
   COOP_BOSSES,
+  coopBossRiskTier,
   coopBossCurrentMp,
   coopBossMaxMp,
   coopBossTrackingThreat,
@@ -158,6 +159,8 @@ export async function GET() {
         ...crystalEyeDisplay,
         ...immortalBerserkerDisplay,
         expiresAt: s.expiresAt.getTime(),
+        // 미개척지 개인 보스 위험도. 일반 협동 보스는 0이다.
+        riskTier: coopBossRiskTier(s.mechanicState),
         summonedByName: s.summonedByName,
         visibility: parseCoopVisibility(s.visibility),
         allowFreeSupport:

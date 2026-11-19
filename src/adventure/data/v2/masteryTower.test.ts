@@ -176,6 +176,12 @@ describe("masteryTower", () => {
     ).toBe(0);
   });
 
+  it("입장 비용이 면제되면 첫 입장도 스태미나를 받지 않는다", () => {
+    const state = parseMasteryTowerState(null, "2026-07-20");
+    expect(masteryTowerEntryStaminaCost(state, { waived: true })).toBe(0);
+    expect(masteryTowerEntryStaminaCost(state, { waived: false })).toBe(200);
+  });
+
   it("저장된 당일 입장료 납부 여부는 유지하고 날짜 변경 시 초기화한다", () => {
     const paid = parseMasteryTowerState(
       { date: "2026-07-20", entryStaminaPaid: true },

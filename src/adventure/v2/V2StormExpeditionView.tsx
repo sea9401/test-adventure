@@ -18,6 +18,7 @@ import {
   type StormExpeditionRiskEventOffer,
   type StormExpeditionRouteId,
 } from "@/adventure/data/v2/stormExpedition";
+import { deepStageDepthBonus, deepStageTokenReward } from "@/adventure/data/v2/dungeonDeepStage";
 import type { StormExpeditionMapNode, StormExpeditionMapNodeId } from "@/adventure/data/v2/stormExpeditionMap";
 import {
   type StormExpeditionLootRule,
@@ -70,6 +71,8 @@ import {
 
 type ActiveExpedition = {
   version: 3;
+  /** 이번 원정의 심층 단계. 심층이 아니면 없다. */
+  deepStage?: number;
   mode: StormExpeditionMode;
   routeId: StormExpeditionRouteId;
   currentNodeId: StormExpeditionMapNodeId;
@@ -101,6 +104,9 @@ type ExpeditionStatus = {
   attemptsLeft?: number;
   nodeCount?: number;
   gold?: number;
+  /** 심층 단계 — 최고 완주 단계와 지금 고를 수 있는 가장 높은 단계. */
+  deep?: { best: number; maxSelectable: number };
+  deepTokensGained?: number;
   state?: {
     clears: number;
     active: ActiveExpedition | null;
@@ -161,6 +167,8 @@ type ExpeditionStatus = {
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
+  deep_stage_locked: "아직 열리지 않은 심층 단계입니다.",
+  invalid_deep_stage: "심층 단계 값이 올바르지 않습니다.",
   locked: "심해 폐허 최심부를 돌파하면 원정이 열립니다.",
   no_attempts: "오늘의 원정 입장 횟수를 모두 사용했습니다.",
   already_active: "이미 진행 중인 원정이 있습니다.",
@@ -333,6 +341,7 @@ export function V2StormExpeditionView() {
   const [loadError, setLoadError] = useState(false);
   const [skipReplay, setSkipReplay] = useState(false);
   const [selectedMode, setSelectedMode] = useState<StormExpeditionMode>("normal");
+  const [pickedDeepStage, setPickedDeepStage] = useState(0);
   const [openNodeId, setOpenNodeId] = useState<StormExpeditionMapNodeId | null>(null);
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -421,6 +430,9 @@ export function V2StormExpeditionView() {
   }, [refreshGameState, skipReplay]);
 
   const active = status?.state?.active ?? null;
+  // 심층 단계는 열린 단계를 넘지 않게 맞춘다.
+  const deep = status?.deep ?? { best: 0, maxSelectable: 0 };
+  const deepStage = Math.min(pickedDeepStage, deep.maxSelectable);
   const autoplayLocked = autoplay.kind === "running" || autoplay.kind === "stopping";
   const displayedPlan = resumePlan ?? (autoplayLocked ? autoPlan : null);
   const isPracticeRun = active?.mode === "practice" || result?.practice === true;
@@ -447,6 +459,7 @@ export function V2StormExpeditionView() {
     const runResult = await runStormExpeditionAutoplay({
       initialStatus: status,
       plan,
+      deepStage,
       request: async (request) => {
         const response = await requestAction(request, { suppressReplay: true });
         if (!response) throw new Error("network");
@@ -485,7 +498,7 @@ export function V2StormExpeditionView() {
     setResumePlan(plan);
     setAutoplay({ kind: "resume" });
     if (runResult.kind === "stale") void refresh();
-  }, [autoplayLocked, refresh, requestAction, status]);
+  }, [autoplayLocked, deepStage, refresh, requestAction, status]);
 
   const stopAutoplay = useCallback(() => {
     stopAutoplayRef.current = true;
@@ -541,7 +554,7 @@ export function V2StormExpeditionView() {
     if (action.kind === "move") {
       const request = active
         ? stormExpeditionMoveRequest(openNode.id, active.currentNodeId, active.encounterIndex)
-        : stormExpeditionStartRequest(selectedMode, openNode.id);
+        : stormExpeditionStartRequest(selectedMode, openNode.id, deepStage);
       void executeManualRequest(request);
       return;
     }
@@ -553,7 +566,7 @@ export function V2StormExpeditionView() {
     } else {
       void executeManualRequest(stormExpeditionRiskRequest(action.decision, active.currentNodeId, active.encounterIndex));
     }
-  }, [active, executeManualRequest, openNode, selectedMode]);
+  }, [active, deepStage, executeManualRequest, openNode, selectedMode]);
 
   return (
     <main className="mx-auto max-w-[900px] space-y-4 p-4 text-zinc-900 sm:p-6 dark:text-zinc-100">
@@ -588,6 +601,14 @@ export function V2StormExpeditionView() {
             <Metric label="완주" value={`${status.state?.clears ?? 0}회`} />
             <Metric label="보유 골드" value={`${(status.gold ?? 0).toLocaleString("ko-KR")} G`} />
           </div>
+          {status.unlocked && !active && (
+            <StormDeepStagePicker
+              deep={deep}
+              value={deepStage}
+              disabled={busy || autoplayLocked}
+              onChange={setPickedDeepStage}
+            />
+          )}
           {status.spFruitReward && (
             <SpFruitProgress
               reward={status.spFruitReward}
@@ -607,6 +628,7 @@ export function V2StormExpeditionView() {
       {result?.practiceCompleted && <StatusBanner tone="success">폭풍의 심장까지 연습을 마쳤습니다. 입장 횟수와 보상·완주 기록은 변하지 않았습니다.</StatusBanner>}
       {result?.bossClear && !result.practiceCompleted && <StatusBanner tone="success">폭풍의 심장을 쓰러뜨렸습니다. 모든 임시 전리품을 확보했습니다.</StatusBanner>}
       {result?.spFruitDropped && <StatusBanner tone="success">원정 완주 보상으로 SP 열매 V를 획득했습니다. SP 열매 천장 횟수가 초기화됩니다.</StatusBanner>}
+      {result?.deepTokensGained ? <StatusBanner tone="success">심층 증표 {result.deepTokensGained}개를 받았습니다.</StatusBanner> : null}
       {result?.withdrew && <StatusBanner tone="success">안전하게 귀환해 임시 전리품을 모두 확보했습니다.</StatusBanner>}
       {result?.practiceEnded && <StatusBanner tone="info">연습을 종료했습니다. 입장 횟수와 보상·기록은 변하지 않았습니다.</StatusBanner>}
       {result?.failed && <StatusBanner tone="error">{result.practice ? "연습 전투에서 패배해 연습이 종료됐습니다." : "전투에서 패배해 이번 원정의 임시 전리품을 모두 잃었습니다."}</StatusBanner>}
@@ -648,6 +670,11 @@ export function V2StormExpeditionView() {
 
       {active && !replay && (
         <section className="space-y-4">
+          {active.deepStage ? (
+            <StatusBanner tone="info">
+              <strong>심층 {active.deepStage}단계</strong> · 적 깊이 +{deepStageDepthBonus(active.deepStage)}
+            </StatusBanner>
+          ) : null}
           {active.mode === "practice" && (
             <StatusBanner tone="info">
               <strong>연습 모드</strong> · 실전과 같은 전투와 선택을 체험하지만 입장 횟수와 보상·완주 기록은 변하지 않습니다.
@@ -934,6 +961,59 @@ function BoonList({ boons }: { boons: StormExpeditionBoonId[] }) {
       <div className="mt-2 flex flex-wrap gap-1.5">
         {boons.map((boon) => <span key={boon} className="rounded-full bg-violet-100 px-2 py-1 text-[11px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">{STORM_EXPEDITION_ALTAR_CHOICES.find((choice) => choice.id === boon)?.name ?? boon}</span>)}
       </div>
+    </div>
+  );
+}
+
+/** 출발 전에 고르는 심층 단계. 완주 기록이 없으면 여는 조건을 알린다. */
+export function StormDeepStagePicker({
+  deep,
+  value,
+  disabled,
+  onChange,
+}: {
+  deep: { best: number; maxSelectable: number };
+  value: number;
+  disabled: boolean;
+  onChange: (stage: number) => void;
+}) {
+  if (deep.maxSelectable <= 0) {
+    return (
+      <p className="text-sm text-zinc-600 dark:text-zinc-300">
+        원정을 한 번 완주하면 심층 1단계가 열립니다.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-1 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 font-semibold">
+          심층 단계
+          <select
+            aria-label="심층 단계"
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(Number(event.target.value))}
+            className="min-h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          >
+            <option value={0}>심층 없음</option>
+            {Array.from({ length: deep.maxSelectable }, (_, index) => index + 1).map((stage) => (
+              <option key={stage} value={stage}>
+                {stage}단계 · 증표 {deepStageTokenReward(stage)}개
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="text-zinc-600 dark:text-zinc-300">
+          {deep.best > 0 ? `최고 완주 ${deep.best}단계` : "완주한 심층 단계 없음"}
+        </span>
+      </div>
+      {value > 0 && (
+        <p className="text-zinc-600 dark:text-zinc-300">
+          적 깊이 +{deepStageDepthBonus(value)}. 전리품은 지금과 같고, 실전으로 완주하면 심층 증표{" "}
+          {deepStageTokenReward(value)}개를 받습니다. 연습 모드는 증표와 기록이 없습니다.
+        </p>
+      )}
     </div>
   );
 }

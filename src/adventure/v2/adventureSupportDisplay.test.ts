@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adventureSupportBenefitLines,
   adventureSupportRemaining,
   adventureSupportUseNotice,
   formatAdventureSupportExpiry,
@@ -62,5 +63,23 @@ describe("월간 모험 지원권 표시", () => {
     expect(
       adventureSupportUseNotice({ premiumItem: false, daysAdded: 30, tier: "standard" }),
     ).toBe("월간 모험 지원권 30일 적용");
+  });
+
+  it("적용 중인 혜택 목록은 등급별 수치를 그대로 보여 준다", () => {
+    expect(adventureSupportBenefitLines("standard")).toEqual([
+      "에너지 회복량 20% 증가",
+      "최대 에너지 1,000 증가 (기본 2,000 → 3,000)",
+      "일괄 전투 최대 50회",
+      "거래소 등록 10개 추가",
+      "거래소 수수료 5%로 감소",
+    ]);
+    expect(adventureSupportBenefitLines("premium")).toEqual([
+      "에너지 회복량 30% 증가",
+      "최대 에너지 4,000 증가 (기본 2,000 → 6,000)",
+      "일괄 전투 최대 100회",
+      "거래소 등록 20개 추가",
+      "거래소 수수료 5%로 감소",
+      "숙련의 탑 하루 첫 입장 비용 200 면제",
+    ]);
   });
 });

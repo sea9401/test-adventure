@@ -12,7 +12,9 @@ export const RANCH_LINEAGE_BASE_MAX_GRADE = 3;
 export const RANCH_LINEAGE_MASTER_GRADE = 4;
 
 /** 인덱스 = 혈통 등급. 수거할 때 한 주기마다 희귀 산물이 나올 확률(%). */
-export const RANCH_LINEAGE_RARE_CHANCE_PCT = [0, 5, 10, 16, 22] as const;
+export const RANCH_LINEAGE_RARE_CHANCE_PCT = [0, 10, 20, 35, 50] as const;
+/** 인덱스 = 혈통 등급. 수거할 때 그 칸의 산물을 더 받는 비율(%). */
+export const RANCH_LINEAGE_YIELD_BONUS_PCT = [0, 25, 50, 75, 100] as const;
 
 /** 인덱스 = 지금 등급. 다음 등급으로 가는 교배의 기본 성공률(%)과 실패할 때마다 오르는 양(%p). */
 export const RANCH_LINEAGE_BREED_CHANCES: readonly { basePct: number; perFailPct: number }[] = [
@@ -50,6 +52,8 @@ export type RanchLineage = {
   grade: number;
   /** 지금 등급에서 연속으로 실패한 교배 횟수. 성공하면 0으로 돌아간다. */
   fails: number;
+  /** 산물 수량 증가에서 1개가 안 돼 남겨 둔 몫(1~99, 100이 1개). 없으면 싣지 않는다. */
+  yieldCarryPct?: number;
 };
 
 export function normalizeRanchLineage(raw: unknown): RanchLineage {
@@ -58,11 +62,35 @@ export function normalizeRanchLineage(raw: unknown): RanchLineage {
     typeof value === "number" && Number.isFinite(value)
       ? Math.max(0, Math.min(max, Math.floor(value)))
       : 0;
-  return { grade: int(source.grade, RANCH_LINEAGE_MASTER_GRADE), fails: int(source.fails, 1_000) };
+  const carry = source.yieldCarryPct;
+  return {
+    grade: int(source.grade, RANCH_LINEAGE_MASTER_GRADE),
+    fails: int(source.fails, 1_000),
+    ...(typeof carry === "number" && Number.isInteger(carry) && carry >= 1 && carry <= 99
+      ? { yieldCarryPct: carry }
+      : {}),
+  };
 }
 
 export function ranchLineageRareChancePct(grade: number): number {
   return RANCH_LINEAGE_RARE_CHANCE_PCT[normalizeRanchLineage({ grade }).grade];
+}
+
+export function ranchLineageYieldBonusPct(grade: number): number {
+  return RANCH_LINEAGE_YIELD_BONUS_PCT[normalizeRanchLineage({ grade }).grade];
+}
+
+/**
+ * 산물 baseItems개를 수거할 때 혈통이 더 주는 개수와 다음으로 넘길 몫.
+ * 1개가 안 되는 몫은 버리지 않고 그 칸에 남긴다.
+ */
+export function ranchLineageYieldBonus(
+  lineage: RanchLineage,
+  baseItems: number,
+): { bonusItems: number; yieldCarryPct: number } {
+  const progress =
+    (lineage.yieldCarryPct ?? 0) + Math.max(0, Math.floor(baseItems)) * ranchLineageYieldBonusPct(lineage.grade);
+  return { bonusItems: Math.floor(progress / 100), yieldCarryPct: progress % 100 };
 }
 
 /** 지금 등급과 연속 실패 횟수에서의 교배 성공률(%). 최고 등급이면 0. */

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getViewerGuild: vi.fn(),
   readBlockedUserIds: vi.fn(),
   readCosmetics: vi.fn(),
+  readAvatars: vi.fn(),
   rows: [] as Array<Record<string, unknown>>,
   channelRows: [] as Array<Array<Record<string, unknown>>>,
   select: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@/lib/server/bulletinAccess", () => ({
 vi.mock("@/lib/server/chatProgress", () => ({ recordUserChatMessageInTx: vi.fn() }));
 vi.mock("@/lib/server/museunCosmetics", () => ({
   readMuseunCosmeticAppearanceMap: mocks.readCosmetics,
+  readProfileAvatarMap: mocks.readAvatars,
 }));
 vi.mock("@/lib/server/abuseLog", () => ({
   clientIpFromRequest: vi.fn(() => "127.0.0.1"),
@@ -49,6 +51,7 @@ beforeEach(() => {
   mocks.getViewerGuild.mockResolvedValue({ guildId: 7 });
   mocks.readBlockedUserIds.mockResolvedValue([]);
   mocks.readCosmetics.mockResolvedValue(new Map());
+  mocks.readAvatars.mockResolvedValue(new Map());
   mocks.select.mockImplementation(() => {
     const limit = async () =>
       mocks.channelRows.length > 0
@@ -171,6 +174,48 @@ describe("채팅 증분 조회", () => {
     expect(mocks.ensureUser).toHaveBeenCalledTimes(1);
     expect(mocks.readBlockedUserIds).toHaveBeenCalledTimes(1);
     expect(mocks.readCosmetics).toHaveBeenCalledTimes(1);
+  });
+
+  it("메시지마다 작성자의 프사를 붙이고 프로필이 없으면 기본 외형을 쓴다", async () => {
+    mocks.rows = [row(3), row(2)];
+    mocks.readAvatars.mockResolvedValue(new Map([["other", "monster:슬라임"]]));
+    const response = await GET(new Request("http://localhost/api/chat?channel=global"));
+    const body = (await response.json()) as Array<{ id: number; avatar: string }>;
+
+    expect(body.map((message) => [message.id, message.avatar])).toEqual([
+      [2, "male1"],
+      [3, "monster:슬라임"],
+    ]);
+    expect(mocks.readAvatars).toHaveBeenCalledTimes(1);
+    expect(mocks.readAvatars).toHaveBeenCalledWith(["u-chat", "other"]);
+  });
+
+  it("기본 채널 묶음 조회도 프사를 한 번의 조회로 붙인다", async () => {
+    mocks.channelRows = [
+      [row(1)],
+      [{ ...row(2), channel: "trade" }],
+      [{ ...row(3), channel: "guild" }],
+    ];
+    mocks.readAvatars.mockResolvedValue(
+      new Map([
+        ["other", "female2"],
+        ["u-chat", "npc:village_blacksmith_bold"],
+      ]),
+    );
+    const response = await GET(
+      new Request(
+        "http://localhost/api/chat?channels=main&includeGuild=1&globalAfterId=0&tradeAfterId=0&guildAfterId=0",
+      ),
+    );
+    const body = (await response.json()) as Record<
+      string,
+      Array<{ id: number; avatar: string }>
+    >;
+
+    expect(body.global[0]?.avatar).toBe("female2");
+    expect(body.trade[0]?.avatar).toBe("npc:village_blacksmith_bold");
+    expect(body.guild[0]?.avatar).toBe("female2");
+    expect(mocks.readAvatars).toHaveBeenCalledTimes(1);
   });
 });
 

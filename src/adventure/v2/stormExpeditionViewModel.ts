@@ -56,8 +56,13 @@ export function stormExpeditionNodeIntent(
   return { kind: nodeKind === "battle" ? "battle" : "choice" };
 }
 
-export function stormExpeditionStartRequest(mode: StormExpeditionMode, targetNodeId: StormExpeditionMapNodeId) {
-  return { action: "start" as const, mode, targetNodeId };
+/** deepStage 가 0보다 크면 심층 단계로 출발한다(dungeonDeepStage.ts). */
+export function stormExpeditionStartRequest(
+  mode: StormExpeditionMode,
+  targetNodeId: StormExpeditionMapNodeId,
+  deepStage: number = 0,
+): { action: "start"; mode: StormExpeditionMode; targetNodeId: StormExpeditionMapNodeId; deepStage?: number } {
+  return { action: "start", mode, targetNodeId, ...(deepStage > 0 ? { deepStage } : {}) };
 }
 
 export function stormExpeditionMoveRequest(

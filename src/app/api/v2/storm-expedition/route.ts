@@ -67,6 +67,13 @@ import {
   rollStormExpeditionUniqueLoot,
 } from "@/adventure/data/v2/stormExpeditionRewards";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import {
+  deepStageDepthBonus,
+  deepStageRequestError,
+  maxSelectableDeepStage,
+  parseDeepStageRequest,
+} from "@/adventure/data/v2/dungeonDeepStage";
+import { grantDeepStageClear } from "@/lib/server/deepStageRewards";
 import { parseSpFruitUsed } from "@/adventure/data/v2/spFruit";
 import {
   LIMITED_RECOVERY_SKILL_IDS,
@@ -90,6 +97,7 @@ type PostInput = {
   expectedCurrentNodeId?: unknown;
   expectedEncounterIndex?: unknown;
   decision?: unknown;
+  deepStage?: unknown;
 };
 
 export async function GET() {
@@ -151,6 +159,11 @@ export async function POST(req: Request) {
           ? "practice"
           : null;
       if (!mode) return response(400, { ...statusBody(charSave, state), error: "invalid_mode" });
+      // 심층 단계 — 최고 완주 단계 다음 단계까지 고를 수 있다. 연습 모드도 같은 범위다.
+      const deepStage = parseDeepStageRequest(input.deepStage);
+      if (deepStage === null) return response(400, { ...statusBody(charSave, state), error: "invalid_deep_stage" });
+      const deepLocked = deepStageRequestError(deepStage, state);
+      if (deepLocked) return response(409, { ...statusBody(charSave, state), error: deepLocked });
       if (state.active) return response(409, { ...statusBody(charSave, state), error: "already_active" });
       if (mode === "normal" && state.attemptsUsed >= STORM_EXPEDITION_DAILY_ATTEMPTS) {
         return response(409, { ...statusBody(charSave, state), error: "no_attempts" });
@@ -185,6 +198,7 @@ export async function POST(req: Request) {
           altarOffers: createStormAltarOffers(Math.random, riskEvent.boonId),
           chosenChoices: {},
           riskEvent,
+          ...(deepStage > 0 ? { deepStage } : {}),
         },
       };
       await upsertSave(tx, userId, STORM_EXPEDITION_SAVE_KEY, state);
@@ -331,7 +345,12 @@ export async function POST(req: Request) {
       mp: Math.min(effectiveMaxMp, active.mp),
     }, active, node.encounterKind);
     const enemy = applyRiskToEnemy(
-      stormExpeditionEnemy(node.routeId ?? active.routeId, node.encounterKind, active.encounterIndex),
+      stormExpeditionEnemy(
+        node.routeId ?? active.routeId,
+        node.encounterKind,
+        active.encounterIndex,
+        deepStageDepthBonus(active.deepStage ?? 0),
+      ),
       active,
     );
     const isBoss = node.encounterKind === "guardian" || node.encounterKind === "final_boss";
@@ -360,6 +379,7 @@ export async function POST(req: Request) {
     let droppedMaterials: Record<string, number> = {};
     let droppedEquipment: V2EquipInstance | null = null;
     let droppedUniqueEquipment: V2EquipInstance[] = [];
+    let deepTokensGained = 0;
     let spFruitDropped = false;
     const practice = active.mode === "practice";
 
@@ -451,8 +471,12 @@ export async function POST(req: Request) {
         gainedMaterials = claimed.result.gainedMaterials;
         gainedEquipment = claimed.result.gainedEquipment;
         responseCharSave = claimed.character;
+        // 심층 단계 실전 완주 — 증표·최고 단계·칭호.
+        const deep = await grantDeepStageClear(tx, userId, "storm", state, active.deepStage ?? 0);
+        deepTokensGained = deep.tokens;
         state = {
           ...state,
+          ...deep.progress,
           active: null,
           clears: state.clears + 1,
           spFruitPity: spFruitRoll.next.pity,
@@ -479,6 +503,7 @@ export async function POST(req: Request) {
       droppedEquipment,
       droppedUniqueEquipment,
       claimedRewards: finalClear && !practice,
+      deepTokensGained,
       spFruitDropped,
       currentNodeId: active.currentNodeId,
       encounterIndex: active.encounterIndex,
@@ -595,6 +620,8 @@ function statusBody(charSave: CharacterSave, raw: unknown) {
     nodeCount: STORM_EXPEDITION_NODE_COUNT,
     stageCount: STORM_EXPEDITION_NODE_COUNT,
     state,
+    // 심층 단계 — 최고 완주 단계와 지금 고를 수 있는 가장 높은 단계(0이면 잠김).
+    deep: { best: state.deepBest, maxSelectable: maxSelectableDeepStage(state) },
     routes: STORM_EXPEDITION_ROUTES,
     nodes: STORM_EXPEDITION_MAP_NODES,
     entranceNodeIds: STORM_EXPEDITION_ENTRANCE_NODE_IDS,

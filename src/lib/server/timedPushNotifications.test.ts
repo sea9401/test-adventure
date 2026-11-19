@@ -120,3 +120,88 @@ describe("timed ranch push notifications", () => {
     expect(testState.recordedValues).toEqual([]);
   });
 });
+
+describe("timed peddler push notifications", () => {
+  const dispatch = (startedAt: number, hours: number) => ({
+    hours,
+    startedAt,
+    readyAt: startedAt + hours * HOUR,
+    points: 2_000,
+    tokens: 10,
+  });
+
+  beforeEach(() => {
+    testState.rows = [
+      {
+        userId: "user-1",
+        key: "peddler.v1",
+        value: {
+          routes: {
+            river: { standingPoints: 0, dispatch: dispatch(START, 4) },
+            ridge: { standingPoints: 0, dispatch: dispatch(START, 12) },
+          },
+        },
+      },
+    ];
+    testState.deliveredRows = [];
+    testState.recordedValues = [];
+    testState.sendResult = { delivered: 1, failed: 0 };
+    sendWebPushToUser.mockReset();
+    sendWebPushToUser.mockImplementation(async () => testState.sendResult);
+  });
+
+  it("도착한 수레만 푸시로 알리고 수레별 상태 키를 기록한다", async () => {
+    await expect(
+      sendDueTimedPushNotifications(START + 4 * HOUR),
+    ).resolves.toEqual({ users: 1, candidates: 1, delivered: 1, failed: 0 });
+
+    expect(sendWebPushToUser).toHaveBeenCalledWith("user-1", {
+      title: "행상 수레 도착",
+      body: "강나루 장터에 보낸 수레가 돌아왔습니다. 증표를 받으세요.",
+      url: "/town/peddler",
+      tag: "peddler-arrived",
+    });
+    expect(testState.recordedValues).toEqual([
+      { userId: "user-1", eventKey: `peddler:user-1:river:${START}` },
+    ]);
+  });
+
+  it("이미 알린 수레는 다시 보내지 않고 새로 도착한 수레만 알린다", async () => {
+    testState.deliveredRows = [{ eventKey: `peddler:user-1:river:${START}` }];
+
+    await sendDueTimedPushNotifications(START + 5 * HOUR);
+    expect(sendWebPushToUser).not.toHaveBeenCalled();
+
+    await sendDueTimedPushNotifications(START + 12 * HOUR);
+    expect(sendWebPushToUser).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({
+        body: "산마루 광산촌에 보낸 수레가 돌아왔습니다. 증표를 받으세요.",
+      }),
+    );
+  });
+
+  it("여러 대가 함께 도착하면 한 번에 묶어 알린다", async () => {
+    await sendDueTimedPushNotifications(START + 12 * HOUR);
+
+    expect(sendWebPushToUser).toHaveBeenCalledTimes(1);
+    expect(sendWebPushToUser).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ body: "행상 수레 2대가 돌아왔습니다. 증표를 받으세요." }),
+    );
+    expect(testState.recordedValues).toHaveLength(2);
+  });
+
+  it("게임 안에서 이미 확인한 수레는 푸시하지 않는다", async () => {
+    testState.rows.push({
+      userId: "user-1",
+      key: "peddler-arrival-notification.v1",
+      value: { version: 1, acknowledgedDispatches: { river: START } },
+    });
+
+    await expect(
+      sendDueTimedPushNotifications(START + 4 * HOUR),
+    ).resolves.toMatchObject({ candidates: 0, delivered: 0 });
+    expect(sendWebPushToUser).not.toHaveBeenCalled();
+  });
+});

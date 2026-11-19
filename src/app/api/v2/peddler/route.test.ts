@@ -147,7 +147,7 @@ describe("peddler route", () => {
     }
   });
 
-  it("도착한 수레를 받으면 증표와 단골 점수가 들어온다", async () => {
+  it("도착한 수레를 받으면 증표와 교역 점수가 들어온다", async () => {
     await post({ action: "dispatch", routeId: "river", hours: 4, cargo: { [IRON]: 1_000 } });
     const early = await post({ action: "claim", routeId: "river" });
     expect(await early.json()).toMatchObject({ ok: false, error: "not_ready" });
@@ -160,7 +160,7 @@ describe("peddler route", () => {
     expect(grantTitle).not.toHaveBeenCalled();
   });
 
-  it("단골 등급 합계가 15에 닿으면 칭호를 준다", async () => {
+  it("교역 등급 합계가 15에 닿으면 칭호를 준다", async () => {
     const base = emptyPeddlerState(WEEK);
     store.set(PEDDLER_SAVE_KEY, {
       ...base,

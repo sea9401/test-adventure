@@ -395,6 +395,105 @@ describe("개인 랭킹", () => {
     ]);
   });
 
+  it("탐사 등급은 등급이 높은 순으로, 0등급 계정은 빼고 순위를 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-me",
+          name: "막오른탐사가",
+          avatar: "female1",
+          unexplored_save: { xpPoints: 30, explorationXp: 15_000 * 3 + 10, explorationProgressVersion: 2 },
+        },
+        {
+          user_id: "u-top",
+          name: "오래걸은탐사가",
+          avatar: "male1",
+          unexplored_save: { xpPoints: 30, explorationXp: 15_000 * 12, explorationProgressVersion: 2 },
+        },
+        {
+          user_id: "u-zero",
+          name: "막상한에닿음",
+          avatar: "male1",
+          unexplored_save: { xpPoints: 30, explorationXp: 14_999, explorationProgressVersion: 2 },
+        },
+        {
+          user_id: "u-same",
+          name: "같은등급앞선사람",
+          avatar: "male1",
+          unexplored_save: { xpPoints: 30, explorationXp: 15_000 * 3 + 500, explorationProgressVersion: 2 },
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=explorationGrade"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      json.list.map((entry: { name: string; explorationGrade: number; rank: number }) => [
+        entry.rank,
+        entry.name,
+        entry.explorationGrade,
+      ]),
+    ).toEqual([
+      [1, "오래걸은탐사가", 12],
+      [2, "같은등급앞선사람", 3],
+      [3, "막오른탐사가", 3],
+    ]);
+    expect(json.me).toMatchObject({ rank: 3, explorationGrade: 3 });
+  });
+
+  it.each(["stormDeep", "sanctuaryDeep"] as const)("%s 는 최고 완주 단계가 높은 순, 같으면 먼저 도달한 순으로 매긴다", async (metric) => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        { user_id: "u-me", name: "나중에오른사람", avatar: "female1", dungeon_save: { deepBest: 7, deepBestAt: 2_000 } },
+        { user_id: "u-top", name: "가장깊은사람", avatar: "male1", dungeon_save: { deepBest: 21, deepBestAt: 9_000 } },
+        { user_id: "u-zero", name: "심층안감", avatar: "male1", dungeon_save: { clears: 40 } },
+        { user_id: "u-first", name: "먼저오른사람", avatar: "male1", dungeon_save: { deepBest: 7, deepBestAt: 1_000 } },
+      ],
+    });
+
+    const response = await GET(new Request(`http://localhost/api/rankings?metric=${metric}`));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      json.list.map((entry: { rank: number; name: string; deepStage: number }) => [
+        entry.rank,
+        entry.name,
+        entry.deepStage,
+      ]),
+    ).toEqual([
+      [1, "가장깊은사람", 21],
+      [2, "먼저오른사람", 7],
+      [3, "나중에오른사람", 7],
+    ]);
+    expect(json.me).toMatchObject({ rank: 3, deepStage: 7 });
+  });
+
+  it("개인 보스 위험도는 보스별 최고 위험도 합계가 높은 순으로 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        { user_id: "u-me", name: "한보스만", avatar: "female1", unexplored_save: { bossRisk: { tracking_weapon: 9 } } },
+        { user_id: "u-top", name: "여러보스", avatar: "male1", unexplored_save: { bossRisk: { tracking_weapon: 6, glacial_colossus: 7 } } },
+        { user_id: "u-zero", name: "위험도없음", avatar: "male1", unexplored_save: { achievementIds: ["defeat_tracking_weapon"] } },
+      ],
+    });
+
+    const response = await GET(new Request("http://localhost/api/rankings?metric=bossRisk"));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      json.list.map((entry: { rank: number; name: string; deepStage: number }) => [entry.rank, entry.name, entry.deepStage]),
+    ).toEqual([
+      [1, "여러보스", 13],
+      [2, "한보스만", 9],
+    ]);
+  });
+
   it("달성 조건과 수령 기록을 합산해 업적 점수 순위를 매긴다", async () => {
     execute.mockResolvedValueOnce({
       rows: [

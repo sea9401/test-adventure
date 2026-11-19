@@ -84,7 +84,7 @@ const DISPLAY_OPTIONS = [
   {
     id: "discreet",
     label: "은신 모드",
-    detail: "장면 배경과 화려한 장식을 모두 숨깁니다.",
+    detail: "장면 배경, 화려한 장식, 채팅·목록의 작은 프사를 숨깁니다.",
     Icon: EyeSlash,
   },
   {

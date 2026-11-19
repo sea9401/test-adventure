@@ -18,7 +18,7 @@ import {
   parseEquipmentSave,
   powerBandOf,
   POWER_BAND_COUNT,
-  setInstanceLock,
+  setInstancesLock,
   sellPriceOf,
   shopPriceOf,
   shopPriceForSell,
@@ -1800,30 +1800,40 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
 
 });
 
-describe("setInstanceLock", () => {
+// 여러 장비를 한 번에 잠그거나 푼다(건의 #859).
+describe("setInstancesLock", () => {
   const owned = [
     { iid: "a1", id: "v2_iron_sword" as V2EquipmentId },
     { iid: "b2", id: "v2_iron_sword" as V2EquipmentId, locked: true },
+    { iid: "c3", id: "v2_iron_sword" as V2EquipmentId },
   ];
 
-  it("lock=true → 해당 iid 에 locked:true, 나머지 불변", () => {
-    const next = setInstanceLock(owned, "a1", true);
-    expect(next.find((i) => i.iid === "a1")?.locked).toBe(true);
-    expect(next.find((i) => i.iid === "b2")?.locked).toBe(true);
-    // 불변(새 배열·새 객체) — 원본 안 깨짐.
+  it("고른 장비만 잠그고, 이미 잠긴 장비는 바뀐 수에 세지 않는다", () => {
+    const result = setInstancesLock(owned, ["a1", "b2"], true);
+    expect(result.owned.map((i) => i.locked === true)).toEqual([true, true, false]);
+    expect(result.matchedCount).toBe(2);
+    expect(result.changedCount).toBe(1);
     expect(owned[0]).not.toHaveProperty("locked");
   });
 
-  it("lock=false → locked 키 제거(세이브 클린)", () => {
-    const next = setInstanceLock(owned, "b2", false);
-    expect(next.find((i) => i.iid === "b2")).not.toHaveProperty("locked");
+  it("잠금을 풀면 locked 키를 지운다", () => {
+    const result = setInstancesLock(owned, ["a1", "b2"], false);
+    expect(result.owned.find((i) => i.iid === "b2")).not.toHaveProperty("locked");
+    expect(result.changedCount).toBe(1);
   });
 
-  it("없는 iid → 원본 그대로(값 동일)", () => {
-    const next = setInstanceLock(owned, "zzz", true);
-    expect(next.map((i) => ({ iid: i.iid, locked: i.locked }))).toEqual(
-      owned.map((i) => ({ iid: i.iid, locked: i.locked })),
-    );
+  it("보유한 장비가 하나도 없으면 아무것도 바꾸지 않는다", () => {
+    const result = setInstancesLock(owned, ["zzz"], true);
+    expect(result.matchedCount).toBe(0);
+    expect(result.changedCount).toBe(0);
+    expect(result.owned).toEqual(owned);
+  });
+
+  it("보유하지 않은 장비는 건너뛴다", () => {
+    const result = setInstancesLock(owned, ["zzz", "c3"], true);
+    expect(result.matchedCount).toBe(1);
+    expect(result.changedCount).toBe(1);
+    expect(result.owned.find((i) => i.iid === "c3")?.locked).toBe(true);
   });
 });
 
@@ -1962,7 +1972,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
     ).toBe("피격 직전 체력 30% 이하일 때 받는 피해 −25%");
     expect(
       signatureLabel({ trigger: "on_heal", label: "묵주", healToShieldPct: 25 }),
-    ).toBe("회복 시 회복량의 25% 보호막");
+    ).toBe("회복 시 회복량의 25% 보호막(한 번에 최대 HP의 30%까지)");
     expect(
       signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
     ).toBe("3회 공격 적중마다 추가 기본 공격 1회");

@@ -115,7 +115,9 @@ vi.mock(
   },
 );
 
-import { STORM_EXPEDITION_SAVE_KEY } from "@/adventure/data/v2/stormExpedition";
+import { STORM_EXPEDITION_SAVE_KEY, stormExpeditionEnemy } from "@/adventure/data/v2/stormExpedition";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { DEEP_SHOP_SAVE_KEY, parseDeepShopState } from "@/adventure/v2/deepShop";
 import { POST } from "./route";
 
 function active(mode: "normal" | "practice") {
@@ -238,5 +240,109 @@ describe("POST /api/v2/storm-expedition — 일괄 진행 요청 제한", () => 
     }
 
     expect(responses.every((response) => response.status !== 429)).toBe(true);
+  });
+});
+
+describe("POST /api/v2/storm-expedition — 심층 단계", () => {
+  const post = (body: unknown) =>
+    POST(
+      new Request("http://localhost/api/v2/storm-expedition", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  const saved = () =>
+    mocks.saves.get(STORM_EXPEDITION_SAVE_KEY) as {
+      attemptsUsed: number;
+      clears: number;
+      deepBest: number;
+      active: { deepStage?: number; mode: string } | null;
+    };
+  const seed = (extra: Record<string, unknown>) =>
+    mocks.saves.set(STORM_EXPEDITION_SAVE_KEY, {
+      date: "2099-01-01",
+      attemptsUsed: 0,
+      active: null,
+      clears: 0,
+      spFruitPity: 0,
+      spFruitObtained: 0,
+      ...extra,
+    });
+  const tokens = () => parseDeepShopState(mocks.saves.get(DEEP_SHOP_SAVE_KEY)).tokens;
+
+  it("완주한 적이 없으면 심층으로 출발할 수 없다", async () => {
+    seed({});
+
+    const response = await post({ action: "start", routeId: "thunder", deepStage: 1 });
+
+    expect(response.status).toBe(409);
+    const json = await response.json();
+    expect(json.error).toBe("deep_stage_locked");
+    expect(json.deep).toEqual({ best: 0, maxSelectable: 0 });
+    expect(mocks.saves.has(STORM_EXPEDITION_SAVE_KEY) ? saved().active : null).toBeNull();
+  });
+
+  it("잘못된 단계 값은 거절한다", async () => {
+    seed({ clears: 5 });
+
+    for (const deepStage of [-1, 1.5, "2"]) {
+      const response = await post({ action: "start", routeId: "thunder", deepStage });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("invalid_deep_stage");
+    }
+  });
+
+  it("최고 완주 단계 다음 단계까지 실전과 연습으로 출발할 수 있다", async () => {
+    seed({ clears: 5, deepBest: 2 });
+
+    expect((await post({ action: "start", routeId: "thunder", deepStage: 4 })).status).toBe(409);
+    const started = await post({ action: "start", routeId: "thunder", deepStage: 3 });
+    expect(started.status).toBe(200);
+    expect((await started.json()).deep).toEqual({ best: 2, maxSelectable: 3 });
+    expect(saved().active?.deepStage).toBe(3);
+    expect(saved().attemptsUsed).toBe(1);
+
+    seed({ clears: 5, deepBest: 2 });
+    expect((await post({ action: "start", routeId: "thunder", mode: "practice", deepStage: 3 })).status).toBe(200);
+    expect(saved().active).toMatchObject({ mode: "practice", deepStage: 3 });
+    expect(saved().attemptsUsed).toBe(0);
+  });
+
+  it("심층 단계의 적은 단계마다 깊이 8만큼 강하고, 완주하면 증표와 기록을 받는다", async () => {
+    seed({ attemptsUsed: 1, clears: 4, deepBest: 2, active: { ...active("normal"), deepStage: 3 } });
+
+    const response = await post({ action: "fight", expectedNodeIndex: 8 });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    const enemy = vi.mocked(resolveBattle).mock.calls.at(-1)![1] as { hp: number };
+    expect(enemy.hp).toBe(stormExpeditionEnemy("thunder", "final_boss", 0, 24).hp);
+    expect(json.finalClear).toBe(true);
+    expect(json.deepTokensGained).toBe(16);
+    expect(json.deep).toEqual({ best: 3, maxSelectable: 4 });
+    expect(saved()).toMatchObject({ clears: 5, deepBest: 3, active: null });
+    expect(tokens()).toBe(16);
+  });
+
+  it("연습 모드로 심층을 완주해도 증표와 기록은 없다", async () => {
+    seed({ clears: 4, deepBest: 2, active: { ...active("practice"), deepStage: 3 } });
+
+    const json = await (await post({ action: "fight", expectedNodeIndex: 8 })).json();
+
+    expect(json.practiceCompleted).toBe(true);
+    expect(json.deepTokensGained).toBe(0);
+    expect(saved()).toMatchObject({ clears: 4, deepBest: 2 });
+    expect(tokens()).toBe(0);
+  });
+
+  it("심층이 아닌 완주는 증표를 주지 않는다", async () => {
+    seed({ attemptsUsed: 1, clears: 4, active: active("normal") });
+
+    const json = await (await post({ action: "fight", expectedNodeIndex: 8 })).json();
+
+    expect(json.finalClear).toBe(true);
+    expect(json.deepTokensGained).toBe(0);
+    expect(mocks.saves.has(DEEP_SHOP_SAVE_KEY)).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
+  CastleTurret,
   CheckCircle,
   CoinVertical,
   FrameCorners,
@@ -28,6 +29,7 @@ import { MuseunCoinCheckout } from "./MuseunCoinCheckout";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
+import { TabBar } from "@/components/ui/TabBar";
 import { ProfileDecorationMotion } from "@/components/ui/ProfileDecorationMotion";
 import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -63,6 +65,7 @@ import {
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
+import { MASTERY_TOWER_ENTRY_FREE_LABEL } from "./adventureSupportDisplay";
 import { useSystemToast } from "./RewardToastProvider";
 import { PROFILE_BADGE_STAND_ITEM_ID } from "@/adventure/profile/profileShowcase";
 import {
@@ -211,31 +214,44 @@ function itemSummary(itemId: MuseunCashItemId): string {
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";
 }
 
+// 상점 화면의 종류 탭. 파는 상품은 빠짐없이 한 탭에만 넣는다.
 export const SHOP_ITEM_GROUPS = [
   {
-    id: "consumable",
-    title: "이용권·소모품",
-    description: "구매 후 가방에서 사용하는 기능성 상품입니다.",
+    id: "support",
+    title: "모험 지원",
     itemIds: [
       "adventure_support_premium_30d",
       "adventure_support_30d",
       MONTHLY_STAMINA_BUNDLE_ITEM_ID,
       GROWTH_LEAP_PACKAGE_ITEM_ID,
-      "rename_permit",
-      "profile_image_permit",
     ],
   },
   {
     id: "cosmetic",
     title: "꾸미기",
-    description: "프로필 전시 기능, 꾸미기 상자와 30일 연장권입니다.",
+    itemIds: [...MUSEUN_COSMETIC_BOX_ITEM_IDS, "cosmetic_extension_30d"],
+  },
+  {
+    id: "profile",
+    title: "프로필·계정",
     itemIds: [
       PROFILE_BADGE_STAND_ITEM_ID,
-      ...MUSEUN_COSMETIC_BOX_ITEM_IDS,
-      "cosmetic_extension_30d",
+      "rename_permit",
+      "profile_image_permit",
     ],
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  title: string;
+  itemIds: readonly MuseunCashItemId[];
+}>;
+
+type ShopItemGroupId = (typeof SHOP_ITEM_GROUPS)[number]["id"];
+
+const SHOP_ITEM_GROUP_TABS = SHOP_ITEM_GROUPS.map((group) => ({
+  key: group.id,
+  label: group.title,
+}));
 
 export function supportBenefitsForItem(
   itemId:
@@ -269,6 +285,10 @@ export function supportBenefitsForItem(
     },
     ...(premium
       ? [
+          {
+            Icon: CastleTurret,
+            label: MASTERY_TOWER_ENTRY_FREE_LABEL,
+          },
           {
             Icon: Palette,
             label: `꾸미기 30일 연장권 ${PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개 지급`,
@@ -309,6 +329,12 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
   const [limitedBundles, setLimitedBundles] =
     useState<LimitedBundleShopState>(INITIAL_LIMITED_BUNDLE_STATE);
   const [buying, setBuying] = useState<MuseunCashItemId | null>(null);
+  const [groupId, setGroupId] = useState<ShopItemGroupId>(
+    SHOP_ITEM_GROUPS[0].id,
+  );
+  const activeGroup =
+    SHOP_ITEM_GROUPS.find((group) => group.id === groupId) ??
+    SHOP_ITEM_GROUPS[0];
   const { notifySystem } = useSystemToast();
 
   useEffect(() => {
@@ -444,39 +470,30 @@ export function MuseunCoinShopView({ embedded = false }: { embedded?: boolean })
         </div>
       </Card>
 
-      <Card padding="lg">
-        <div>
-          <h2 className="text-base font-bold">아이템 목록</h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            아이템을 누르면 효과와 이용 방법을 확인할 수 있습니다.
-          </p>
-        </div>
-        <div className="mt-5 space-y-6">
-          {SHOP_ITEM_GROUPS.map((group) => (
-            <section key={group.id}>
-              <div className="mb-2">
-                <h3 className="text-sm font-bold">{group.title}</h3>
-                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  {group.description}
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {group.itemIds.map((itemId) => (
-                  <CashItemCard
-                    key={itemId}
-                    itemId={itemId}
-                    owned={cashItems[itemId] ?? 0}
-                    permanentOwned={
-                      itemId === PROFILE_BADGE_STAND_ITEM_ID
-                        ? profileBadgeStandOwned
-                        : false
-                    }
-                    limitedState={limitedBundles}
-                    onClick={() => setDetailItemId(itemId)}
-                  />
-                ))}
-              </div>
-            </section>
+      <Card padding="none" className="overflow-hidden">
+        <TabBar
+          tabs={SHOP_ITEM_GROUP_TABS}
+          active={groupId}
+          onChange={setGroupId}
+          ariaLabel="상품 종류"
+          size="md"
+          scrollable
+          className="px-1"
+        />
+        <div className="grid gap-3 p-4 sm:grid-cols-2">
+          {activeGroup.itemIds.map((itemId) => (
+            <CashItemCard
+              key={itemId}
+              itemId={itemId}
+              owned={cashItems[itemId] ?? 0}
+              permanentOwned={
+                itemId === PROFILE_BADGE_STAND_ITEM_ID
+                  ? profileBadgeStandOwned
+                  : false
+              }
+              limitedState={limitedBundles}
+              onClick={() => setDetailItemId(itemId)}
+            />
           ))}
         </div>
       </Card>

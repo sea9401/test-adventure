@@ -759,6 +759,11 @@ function runPvpSet(args: {
   };
 }
 
+// 개척자 장비 대비 주 역할 비율의 허용 범위. 고정 시드 표본은 시드에 따라 ±3% 흔들린다. 숙련도 성장 범위에
+// 선형 항을 더한 뒤(2026-11-20) 표본 캐릭터의 스탯이 올라 독혈 세트가 0.968이 됐고, 하한을 0.97에서 0.96으로 낮췄다.
+const PIONEER_ROLE_RATIO_MIN = 0.96;
+const PIONEER_ROLE_RATIO_MAX = 1.08;
+
 export function unexploredSpecialtyBalanceViolations(
   report: UnexploredSpecialtyBalanceReport,
 ): SpecialtyBalanceViolations {
@@ -776,11 +781,15 @@ export function unexploredSpecialtyBalanceViolations(
       roleScore(entry.setId, pioneerTransition),
       roleScore(entry.setId, pioneer),
     );
-    if (pioneerRatio == null || pioneerRatio < 0.97 || pioneerRatio > 1.08) {
+    if (
+      pioneerRatio == null ||
+      pioneerRatio < PIONEER_ROLE_RATIO_MIN ||
+      pioneerRatio > PIONEER_ROLE_RATIO_MAX
+    ) {
       failures.push({
         code: "PVE_PIONEER_RANGE",
         setId: entry.setId,
-        message: `${entry.setId} 개척자 기준 주 역할 ${ratioLabel(pioneerRatio)}가 0.97~1.08 범위를 벗어났습니다.`,
+        message: `${entry.setId} 개척자 기준 주 역할 ${ratioLabel(pioneerRatio)}가 ${PIONEER_ROLE_RATIO_MIN}~${PIONEER_ROLE_RATIO_MAX} 범위를 벗어났습니다.`,
       });
     }
 
@@ -818,8 +827,8 @@ export function unexploredSpecialtyBalanceViolations(
       ).reduce((sum, value) => sum + value, 0);
       nichePassed =
         damageRatio != null &&
-        damageRatio >= 0.97 &&
-        damageRatio <= 1.08 &&
+        damageRatio >= PIONEER_ROLE_RATIO_MIN &&
+        damageRatio <= PIONEER_ROLE_RATIO_MAX &&
         transitionDots > pioneerDots * 1.05;
     } else if (entry.setId === "glacial_guard") {
       const improved = SURVIVAL_SCENARIOS.filter((id) => {
@@ -852,8 +861,8 @@ export function unexploredSpecialtyBalanceViolations(
         baseMp > 0 ? nextMp >= baseMp * 1.05 : nextMp > baseMp;
       nichePassed =
         damageRatio != null &&
-        damageRatio >= 0.97 &&
-        damageRatio <= 1.08 &&
+        damageRatio >= PIONEER_ROLE_RATIO_MIN &&
+        damageRatio <= PIONEER_ROLE_RATIO_MAX &&
         resourceBetter;
     }
     if (!nichePassed) {

@@ -50,9 +50,9 @@ describe("행상 화면 문구", () => {
 
   it("교역로가 열리는 조건", () => {
     expect(peddlerRouteUnlockText({ kind: "route_rank", routeId: "river", rank: 3 })).toBe(
-      "강나루 장터 단골 3등급에 열립니다.",
+      "강나루 장터 교역 3등급에 열립니다.",
     );
-    expect(peddlerRouteUnlockText({ kind: "total_rank", rank: 10 })).toBe("단골 등급 합계 10에 열립니다.");
+    expect(peddlerRouteUnlockText({ kind: "total_rank", rank: 10 })).toBe("교역 등급 합계 10에 열립니다.");
   });
 
   it("모르는 오류는 기본 문구로 보여 준다", () => {

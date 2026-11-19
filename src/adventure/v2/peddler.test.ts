@@ -71,7 +71,7 @@ describe("행상 세이브 파싱", () => {
 });
 
 describe("행상 교역로", () => {
-  it("단골 점수로 등급과 적재량이 정해진다", () => {
+  it("교역 점수로 등급과 적재량이 정해진다", () => {
     const state = withStanding({ river: 32_000, ridge: 6_000 });
     expect(peddlerRouteRank(state, "river")).toBe(3);
     expect(peddlerRouteCapacity(state, "river")).toBe(2_600);
@@ -98,7 +98,7 @@ describe("행상 파견", () => {
       points: 2_000,
       tokens: 14,
     });
-    // 증표와 단골 점수는 받을 때 들어온다.
+    // 증표와 교역 점수는 받을 때 들어온다.
     expect(state.tokens).toBe(0);
     expect(state.routes.river.standingPoints).toBe(0);
   });
@@ -132,7 +132,7 @@ describe("행상 수령", () => {
     expect(claimPeddlerDispatch(emptyPeddlerState(WEEK), "river", NOW)).toEqual({ error: "no_dispatch" });
   });
 
-  it("받으면 증표와 단골 점수가 들어오고 수레가 빈다", () => {
+  it("받으면 증표와 교역 점수가 들어오고 수레가 빈다", () => {
     const { state } = started(withStanding({ river: 5_000 }), { preferredPoints: 1_000 });
     const result = claimPeddlerDispatch(state, "river", NOW + 8 * HOUR);
     if ("error" in result) throw new Error(result.error);
@@ -182,7 +182,7 @@ describe("행상 증표 교환", () => {
 });
 
 describe("행상 칭호", () => {
-  it("단골 등급 합계 15와 30에 칭호를 얻는다", () => {
+  it("교역 등급 합계 15와 30에 칭호를 얻는다", () => {
     expect(peddlerEarnedTitleIds(14)).toEqual([]);
     expect(peddlerEarnedTitleIds(15)).toEqual([PEDDLER_REGULAR_TITLE_ID]);
     expect(peddlerEarnedTitleIds(30)).toEqual([PEDDLER_REGULAR_TITLE_ID, PEDDLER_MASTER_TITLE_ID]);

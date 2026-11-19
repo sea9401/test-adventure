@@ -123,3 +123,20 @@ describe("폭풍 원정 2단계 확정 요청", () => {
     });
   });
 });
+
+describe("폭풍 원정 심층 단계 출발 요청", () => {
+  it("심층 단계를 고르면 요청에 싣고, 고르지 않으면 넣지 않는다", () => {
+    expect(stormExpeditionStartRequest("normal", "thunder_outer", 4)).toEqual({
+      action: "start",
+      mode: "normal",
+      targetNodeId: "thunder_outer",
+      deepStage: 4,
+    });
+    expect(stormExpeditionStartRequest("normal", "thunder_outer", 0)).toEqual({
+      action: "start",
+      mode: "normal",
+      targetNodeId: "thunder_outer",
+    });
+  });
+});
+

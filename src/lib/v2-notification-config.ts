@@ -31,11 +31,13 @@ export const V2_NOTIFICATION_TYPES = [
   "coop_defeated",
   "feedback_replied",
   "farm_ready",
+  "peddler_arrived",
   "codex_research_trophy",
   "auction_won",
   "auction_unsold",
   "master_product",
   "grand_grade",
+  "exploration_grade",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -92,6 +94,7 @@ export function guildDisbandedNotificationText(
 
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
 // master_product — 생활 전공으로 명장 산물 획득. name 은 지급 시점 스냅샷.
+//   더는 새로 만들지 않는다(건의 #863: 획득은 각 생활 결과에 표시). 이미 쌓인 알림을 읽기 위해 남긴다.
 export type MasterProductNotificationPayload = {
   activity: string;
   materialId: string;
@@ -116,11 +119,39 @@ export function grandGradeNotificationText(payload: GrandGradeNotificationPayloa
   return `${payload.name} 거장 ${payload.grade.toLocaleString("ko-KR")}등급에 올랐습니다.`;
 }
 
+// exploration_grade — 미개척지 탐사 등급 상승. pointsGained 는 이번에 함께 받은 탐사 포인트 수.
+export type ExplorationGradeNotificationPayload = {
+  grade: number;
+  pointsGained: number;
+};
+
+export function explorationGradeNotificationText(
+  payload: ExplorationGradeNotificationPayload,
+): string {
+  const grade = `미개척지 탐사 ${Number(payload.grade).toLocaleString("ko-KR")}등급에 올랐습니다.`;
+  return Number(payload.pointsGained) > 0
+    ? `${grade} 탐사 포인트 ${Number(payload.pointsGained).toLocaleString("ko-KR")}개를 받았습니다.`
+    : grade;
+}
+
+// peddler_arrived — 도착했고 아직 확인하지 않은 행상 수레를 한 건으로 묶은 동적 알림.
+export type PeddlerArrivedNotificationPayload = {
+  arrivedCount: number;
+};
+
+export function peddlerArrivedNotificationText(
+  payload: PeddlerArrivedNotificationPayload,
+): string {
+  return `행상 수레 ${payload.arrivedCount.toLocaleString("ko-KR")}대가 돌아왔습니다.`;
+}
+
 export type V2NotificationPayload =
   | AuctionWonNotificationPayload
   | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload
   | GrandGradeNotificationPayload
+  | ExplorationGradeNotificationPayload
+  | PeddlerArrivedNotificationPayload
   | GuildKickedNotificationPayload
   | GuildDisbandedNotificationPayload
   // outpost_attacked — 내(길드) 거점 성벽 피격. fortHp = 타격 후 잔량.

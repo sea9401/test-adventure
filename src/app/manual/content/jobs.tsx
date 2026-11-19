@@ -187,7 +187,8 @@ export function JobsContent() {
       <UL>
         <li>
           하루 첫 실제 전투에만 스태미나{" "}
-          <Em>{MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}</Em>을 사용합니다. 이후 층 진행과
+          <Em>{MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}</Em>을 사용합니다. 월간 모험 지원권
+          프리미엄 적용 중에는 이 비용을 받지 않습니다. 이후 층 진행과
           재도전은 무료이며, 한 번 시도한 뒤에는{" "}
           <Em>{MASTERY_TOWER_REENTRY_COOLDOWN_MS / 1_000}초</Em>가 지나면 다시
           입장할 수 있습니다.

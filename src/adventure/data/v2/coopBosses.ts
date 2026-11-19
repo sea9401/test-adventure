@@ -47,6 +47,11 @@ import {
   type UnexploredBossId,
 } from "./unexploredBosses";
 import { UNEXPLORED_POOL_BY_ID } from "./unexploredMonsterPools";
+import {
+  parseBossRiskTier,
+  riskHpMultiplier,
+  riskStatMultiplier,
+} from "./unexploredBossRisk";
 
 // === 소환서 (재료) =====================================================
 // 강화석 패턴 — V2_MATERIALS 카탈로그 등재(인벤 재료 탭·거래소 거래), NPC 환금 비등재,
@@ -427,10 +432,40 @@ export type CoopMechanicState = {
   fortress?: InvincibleFortressBattleState;
   crystalEye?: SkywardCrystalEyeBattleState;
   immortalBerserker?: ImmortalBerserkerBattleState;
+  /** 미개척지 개인 보스 위험도(unexploredBossRisk.ts). 0이면 넣지 않는다. */
+  riskTier?: number;
 };
+
+/** 세션에 적힌 개인 보스 위험도. 없거나 잘못된 값은 0. */
+export function coopBossRiskTier(stateRaw: unknown): number {
+  const raw =
+    stateRaw && typeof stateRaw === "object" && !Array.isArray(stateRaw)
+      ? (stateRaw as { riskTier?: unknown }).riskTier
+      : undefined;
+  return parseBossRiskTier(raw) ?? 0;
+}
+
+export function withCoopBossRiskTier(
+  stateRaw: unknown,
+  riskTier: number,
+): CoopMechanicState {
+  const rest = { ...parseCoopMechanicState(stateRaw) };
+  delete rest.riskTier;
+  const tier = parseBossRiskTier(riskTier) ?? 0;
+  return tier > 0 ? { ...rest, riskTier: tier } : rest;
+}
+
+/** 세션 최대 체력. 개인 보스만 위험도 배율을 곱한다. */
+export function coopBossSessionMaxHp(kind: CoopBossKind, riskTier: number): number {
+  return kind.rewardMode === "unexplored_personal"
+    ? Math.round(kind.sharedMaxHp * riskHpMultiplier(riskTier))
+    : kind.sharedMaxHp;
+}
 
 export function parseCoopMechanicState(value: unknown): CoopMechanicState {
   if (!value || typeof value !== "object") return {};
+  const riskTier = coopBossRiskTier(value);
+  const riskHp = riskHpMultiplier(riskTier);
   const src = value as {
     bossMp?: unknown;
     bossSkillMpRevision?: unknown;
@@ -440,6 +475,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
     immortalBerserker?: unknown;
   };
   const next: CoopMechanicState = {};
+  if (riskTier > 0) next.riskTier = riskTier;
   if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
     next.bossMp = Math.max(0, Math.floor(src.bossMp));
   }
@@ -462,7 +498,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
     );
   }
   if (src.fortress != null) {
-    const maxHp = UNEXPLORED_BOSSES.invincible_fortress.sharedMaxHp;
+    const maxHp = Math.round(UNEXPLORED_BOSSES.invincible_fortress.sharedMaxHp * riskHp);
     next.fortress = normalizeInvincibleFortressState(
       src.fortress,
       maxHp,
@@ -473,7 +509,7 @@ export function parseCoopMechanicState(value: unknown): CoopMechanicState {
     next.crystalEye = normalizeSkywardCrystalEyeState(src.crystalEye);
   }
   if (src.immortalBerserker != null) {
-    const maxHp = UNEXPLORED_BOSSES.immortal_berserker.sharedMaxHp;
+    const maxHp = Math.round(UNEXPLORED_BOSSES.immortal_berserker.sharedMaxHp * riskHp);
     const raw = src.immortalBerserker as { lifeIndex?: unknown };
     const rawLifeIndex =
       typeof raw?.lifeIndex === "number" && Number.isFinite(raw.lifeIndex)
@@ -1467,16 +1503,24 @@ export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
 export function coopBossForBattle(
   kind: CoopBossKind,
   currentHp: number,
-  options: { conditionalEnrageWeakened?: boolean; bossMp?: number } = {},
+  options: {
+    conditionalEnrageWeakened?: boolean;
+    bossMp?: number;
+    /** 세션의 최대 체력. 개인 보스 위험도처럼 기본 체력과 다를 때 넘긴다. */
+    sharedMaxHp?: number;
+    /** 개인 보스 위험도. 능력치 배율에 곱한다. */
+    riskTier?: number;
+  } = {},
 ): { monster: Monster; enrageNotes: string[] } {
   // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
   //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
   const scaled = scaleMonsterForFloor(kind.base, kind.anchorDepth, false);
   const statMultiplier = kind.rewardMode === "unexplored_personal"
-    ? UNEXPLORED_BOSS_STAT_MULTIPLIER
+    ? UNEXPLORED_BOSS_STAT_MULTIPLIER * riskStatMultiplier(options.riskTier ?? 0)
     : 1;
-  const hp = Math.max(1, Math.min(Math.floor(currentHp), kind.sharedMaxHp));
-  const frac = hp / kind.sharedMaxHp;
+  const sharedMaxHp = options.sharedMaxHp ?? kind.sharedMaxHp;
+  const hp = Math.max(1, Math.min(Math.floor(currentHp), sharedMaxHp));
+  const frac = hp / sharedMaxHp;
   let atk = Math.round(scaled.atk * statMultiplier);
   let def = Math.round(scaled.def * statMultiplier);
   let magicDef = scaled.magicDef == null

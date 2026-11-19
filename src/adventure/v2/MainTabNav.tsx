@@ -258,7 +258,7 @@ const TABS: TabDef[] = [
       { label: "아레나", href: "/battle/arena", Icon: Trophy, color: "text-amber-500" },
       { label: "대련장", href: "/battle/sparring", Icon: BoxingGlove, color: "text-sky-500" },
       { label: "숙련의 탑", href: "/battle/mastery-tower", Icon: CastleTurret, color: "text-emerald-500" },
-      { label: "던전", href: "/battle/dungeons", activityHrefs: ["/battle/storm-expedition", "/battle/sanctuary"], Icon: CloudLightning, color: "text-sky-500" },
+      { label: "던전", href: "/battle/dungeons", activityHrefs: ["/battle/storm-expedition", "/battle/sanctuary", "/battle/deep-shop"], Icon: CloudLightning, color: "text-sky-500" },
     ],
   },
   {

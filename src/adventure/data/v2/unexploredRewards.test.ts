@@ -47,17 +47,35 @@ describe("unexplored rewards", () => {
     }
   });
 
-  it("sanitizes persisted traces and caps every pool at 2500", () => {
+  it("저장된 흔적은 가장 높은 보관 상한 5,000으로만 자르고, 받을 때는 기본 상한 2,500을 쓴다", () => {
     const parsed = parseUnexploredTraces({
       iron_legion: 2499.9,
       venom_colony: 999999,
       frozen_legion: -3,
       unknown: 50,
     });
-    expect(parsed).toEqual({ iron_legion: 2499, venom_colony: 2500 });
+    expect(parsed).toEqual({ iron_legion: 2499, venom_colony: 5000 });
     expect(grantUnexploredTrace(parsed, "iron_legion", 5)).toEqual({
-      traces: { iron_legion: 2500, venom_colony: 2500 },
+      traces: { iron_legion: 2500, venom_colony: 5000 },
       granted: 1,
+    });
+  });
+
+  it("탐사 등급으로 늘어난 보관 상한까지 흔적을 받는다", () => {
+    expect(grantUnexploredTrace({ iron_legion: 2499 }, "iron_legion", 5, 3_500)).toEqual({
+      traces: { iron_legion: 2504 },
+      granted: 5,
+    });
+    expect(grantUnexploredTrace({ iron_legion: 3_499 }, "iron_legion", 5, 3_500)).toEqual({
+      traces: { iron_legion: 3_500 },
+      granted: 1,
+    });
+  });
+
+  it("이미 상한보다 많이 가진 흔적은 줄이지 않는다", () => {
+    expect(grantUnexploredTrace({ iron_legion: 3_000 }, "iron_legion", 2, 2_500)).toEqual({
+      traces: { iron_legion: 3_000 },
+      granted: 0,
     });
   });
 

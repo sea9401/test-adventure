@@ -1,5 +1,7 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  StormDeepStagePicker,
   buildStormExpeditionAutoplayResultModel,
   confirmStormExpeditionExit,
   shouldShowAcceptedRisk,
@@ -181,3 +183,33 @@ describe("폭풍 원정 축약 오류 응답", () => {
     expect(stormExpeditionResultAfterResponse("start", response, true)).toBe(response);
   });
 });
+
+describe("폭풍 원정 심층 단계 선택", () => {
+  it("열린 단계까지 고를 수 있고 최고 완주 단계를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <StormDeepStagePicker deep={{ best: 2, maxSelectable: 3 }} value={3} disabled={false} onChange={() => undefined} />,
+    );
+
+    expect(html).toContain("심층 없음");
+    expect(html).toContain("1단계 · 증표 12개");
+    expect(html).toContain("3단계 · 증표 16개");
+    expect(html).not.toContain("4단계");
+    expect(html).toContain("최고 완주 2단계");
+    expect(html).toContain("적 깊이 +24");
+  });
+
+  it("완주 기록이 없으면 여는 조건을 알린다", () => {
+    const html = renderToStaticMarkup(
+      <StormDeepStagePicker deep={{ best: 0, maxSelectable: 0 }} value={0} disabled={false} onChange={() => undefined} />,
+    );
+
+    expect(html).toContain("원정을 한 번 완주하면 심층 1단계가 열립니다.");
+    expect(html).not.toContain("<select");
+  });
+
+  it("심층 단계 오류를 사용자 말로 안내한다", () => {
+    expect(stormExpeditionErrorMessage({ error: "deep_stage_locked" })).toBe("아직 열리지 않은 심층 단계입니다.");
+    expect(stormExpeditionErrorMessage({ error: "invalid_deep_stage" })).toBe("심층 단계 값이 올바르지 않습니다.");
+  });
+});
+

@@ -190,4 +190,85 @@ describe("MessageList", () => {
     );
     expect(html).not.toContain("arena-tournament-replay");
   });
+  it("일반 메시지는 줄 맨 앞에 작성자 프사를 두고 칭호·이름·본문 두 줄을 유지한다", () => {
+    const html = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[
+          {
+            ...message,
+            name: "새벽빛",
+            className: "모험가",
+            title: "수다쟁이",
+            content: "같이 도실 분 계신가요",
+            avatar: "female1",
+            cosmetics: {
+              profileBorder: "prismatic",
+              chatBadge: null,
+              chatNameEffect: null,
+              championshipBadge: null,
+            },
+          },
+        ]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("ui-row-thumb");
+    expect(html).toContain("size-8");
+    expect(html).toContain("ui-profile-frame-prismatic");
+    expect(html.indexOf("ui-row-thumb")).toBeLessThan(html.indexOf("[수다쟁이]"));
+    expect(html.indexOf("[수다쟁이]")).toBeLessThan(
+      html.indexOf("같이 도실 분 계신가요"),
+    );
+    expect(html).toContain("whitespace-pre-wrap");
+  });
+
+  it("남의 프사는 이름과 같은 프로필 열기 동작을 하되 탭 순서에는 넣지 않는다", () => {
+    const others = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[{ ...message, name: "돌담", className: "모험가", avatar: "male1" }]}
+        onSelectName={vi.fn()}
+      />,
+    );
+    const mine = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[
+          { ...message, name: "은방울", className: "모험가", avatar: "male2", mine: true },
+        ]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(others).toMatch(/<button[^>]*tabindex="-1"[^>]*aria-hidden="true"/);
+    expect(mine).toContain("ui-row-thumb");
+    expect(mine).not.toContain('tabindex="-1"');
+  });
+
+  it("시스템 알림과 프사 정보가 없는 메시지에는 프사를 붙이지 않는다", () => {
+    const notice = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="notice"
+        messages={[{ ...message, avatar: "male1" }]}
+        onSelectName={vi.fn()}
+      />,
+    );
+    const legacy = renderToStaticMarkup(
+      <MessageList
+        open
+        tab="chat"
+        messages={[{ ...message, name: "돌담", className: "모험가" }]}
+        onSelectName={vi.fn()}
+      />,
+    );
+
+    expect(notice).not.toContain("ui-row-thumb");
+    expect(legacy).not.toContain("ui-row-thumb");
+  });
 });

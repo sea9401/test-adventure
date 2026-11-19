@@ -2,6 +2,7 @@ import {
   ADVENTURE_SUPPORT_PASS,
   PREMIUM_ADVENTURE_SUPPORT_PASS,
 } from "@/adventure/data/v2/adventureSupport";
+import { MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST } from "@/adventure/data/v2/masteryTower";
 import { MUSEUN_COSMETIC_ACCESS_DAYS } from "@/adventure/data/v2/museunCosmetics";
 import { EMBLEM_GRADE_PCT, EMBLEM_KINDS } from "@/adventure/data/v2/emblems";
 import {
@@ -129,13 +130,15 @@ export function ControlsContent() {
         </li>
         <li>
           <Em>은신 모드</Em>: 장면 배경과 화려한 프로필·닉네임 연출을 모두
-          숨기고, 화면을 중립적인 스프레드시트 형태로 바꿉니다. 기능을 구분하는
-          장비·음식 같은 아이콘은 그대로 유지됩니다.
+          숨기고, 화면을 중립적인 스프레드시트 형태로 바꿉니다. 채팅과 길드
+          기여도·순위 목록의 작은 프사도 숨깁니다. 기능을 구분하는 장비·음식 같은
+          아이콘은 그대로 유지됩니다.
         </li>
         <li>
           <Em>터미널 모드</Em>: 검은 배경과 모노스페이스 글꼴을 사용하고 이미지,
           그림자, 둥근 모서리와 애니메이션을 최소화해 업무용 콘솔처럼 표시합니다.
-          기능에 필요한 아이콘과 이미지는 어둡고 단색에 가깝게 남겨 둡니다.
+          기능에 필요한 아이콘과 이미지는 어둡고 단색에 가깝게 남겨 두고, 채팅과
+          길드 기여도·순위 목록의 작은 프사는 숨깁니다.
         </li>
         <li>
           <Em>사냥터 그림</Em>: 화면 모드와 따로 사냥터 목록의 지역 그림만
@@ -197,11 +200,18 @@ export function ControlsContent() {
           {PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
-          제공합니다. 사용할 때마다 꾸미기 30일 연장권{" "}
+          제공하고, 숙련의 탑 하루 첫 입장 스태미나{" "}
+          {MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}을 받지 않습니다. 사용할 때마다 꾸미기 30일 연장권{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받으며,
           연장권은 설정 메뉴의 꾸미기에서 사용합니다. 일반 지원권과 혜택이 합쳐지지
           않고, 일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤
           이어집니다.
+        </li>
+        <li>
+          이용 기간이 끝나도 이미 올린 거래소 매물은 내려가지 않고 그대로
+          진행됩니다. 새 매물은 진행 중인 매물이 기본 등록 수 아래로 줄어든 뒤에
+          올릴 수 있습니다. 판매세는 등록할 때가 아니라 판매 대금이 정산될 때의
+          지원권 상태로 계산합니다.
         </li>
       </UL>
 

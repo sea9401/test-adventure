@@ -55,6 +55,7 @@ import {
 import {
   claimGuildTrainingDrill,
   GUILD_TRAINING_DRILLS,
+  GUILD_TRAINING_SAVE_KEY,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
   GUILD_TRAINING_WEEKLY_SECOND_BONUS_MASTERY,
@@ -69,7 +70,7 @@ import {
   todayGuildTrainingWeekKey,
 } from "@/adventure/data/v2/guildTrainingGround";
 
-const TRAINING_SAVE_KEY = "guild-training.v1";
+const TRAINING_SAVE_KEY = GUILD_TRAINING_SAVE_KEY;
 
 type CharacterSave = Record<string, unknown> & {
   class?: unknown;

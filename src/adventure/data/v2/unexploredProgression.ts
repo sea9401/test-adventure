@@ -3,13 +3,14 @@ import {
   parseUnexploredBossId,
   type UnexploredBossId,
 } from "./unexploredBosses";
+import { EXPLORATION_MAX_XP_POINTS, explorationGrade } from "./unexploredGrade";
 import {
   UNEXPLORED_ACHIEVEMENT_IDS,
   type UnexploredAchievementId,
   type UnexploredSave,
 } from "./unexploredState";
 
-const MAX_XP_POINTS = 30;
+const MAX_XP_POINTS = EXPLORATION_MAX_XP_POINTS;
 const PAID_XP_POINTS = MAX_XP_POINTS - 1;
 // 탐사 경험치 1은 100레벨 실제 사냥 승리 1회다. 전투 EXP 버프나 희귀 탐사의
 // 압축 보상 횟수와 분리해, 플레이 방식에 따라 30포인트 기간이 무너지는 것을 막는다.
@@ -60,10 +61,13 @@ export function withFirstExplorationPoint(save: UnexploredSave): UnexploredSave 
 export type ExplorationXpGrant = {
   save: UnexploredSave;
   pointsGained: number;
+  /** 탐사 포인트 30개를 채운 뒤 오른 탐사 등급 수. */
+  gradesGained: number;
   acceptedXp: number;
-  discardedXp: number;
 };
 
+// 30포인트까지는 explorationXp 가 다음 포인트까지의 진행도이고, 그 뒤에는 탐사 등급 경험치로
+// 계속 쌓인다(unexploredGrade.ts). 30번째 포인트를 채우고 남은 경험치도 그대로 넘긴다.
 export function grantExplorationXp(
   save: UnexploredSave,
   rawAmount: number,
@@ -72,14 +76,7 @@ export function grantExplorationXp(
     ? Math.max(0, Math.floor(rawAmount))
     : 0;
   const startingPoints = Math.min(MAX_XP_POINTS, Math.max(0, save.xpPoints));
-  if (startingPoints >= MAX_XP_POINTS) {
-    return {
-      save: save.explorationXp === 0 ? save : { ...save, explorationXp: 0 },
-      pointsGained: 0,
-      acceptedXp: 0,
-      discardedXp: Math.max(0, save.explorationXp) + incoming,
-    };
-  }
+  const gradeBefore = explorationGrade(save);
 
   let points = Math.max(1, startingPoints);
   let xp = Math.max(0, Math.floor(save.explorationXp)) + incoming;
@@ -90,16 +87,12 @@ export function grantExplorationXp(
     points += 1;
   }
 
-  let discardedXp = 0;
-  if (points >= MAX_XP_POINTS) {
-    discardedXp = xp;
-    xp = 0;
-  }
+  const next: UnexploredSave = { ...save, xpPoints: points, explorationXp: xp };
   return {
-    save: { ...save, xpPoints: points, explorationXp: xp },
+    save: next,
     pointsGained: points - startingPoints,
+    gradesGained: explorationGrade(next) - gradeBefore,
     acceptedXp: incoming,
-    discardedXp,
   };
 }
 

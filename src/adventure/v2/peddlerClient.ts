@@ -107,10 +107,10 @@ export function peddlerRouteUnlockText(unlock: PeddlerRouteUnlock): string {
       return "";
     case "route_rank": {
       const name = PEDDLER_ROUTES.find((route) => route.id === unlock.routeId)!.name;
-      return `${name} 단골 ${unlock.rank}등급에 열립니다.`;
+      return `${name} 교역 ${unlock.rank}등급에 열립니다.`;
     }
     case "total_rank":
-      return `단골 등급 합계 ${unlock.rank}에 열립니다.`;
+      return `교역 등급 합계 ${unlock.rank}에 열립니다.`;
   }
 }
 

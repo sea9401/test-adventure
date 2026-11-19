@@ -331,7 +331,11 @@ export function AdventurerFarmPanel({
           result.rareItemName
             ? ` 희귀 수확: ${result.rareItemName} ${result.rareQuantity}개.`
             : ""
-        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}.`,
+        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}.${
+          notice.masterProduct
+            ? ` 명장 산물: ${notice.masterProduct.name} ${notice.masterProduct.count}개.`
+            : ""
+        }`,
       };
     }
     if (notice.kind === "shop") {
@@ -404,6 +408,7 @@ export function AdventurerFarmPanel({
           undefined,
           notice.farmingXpGained,
           notice.seedsReturned,
+          notice.masterProduct,
         ),
       };
     }

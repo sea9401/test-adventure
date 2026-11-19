@@ -42,9 +42,9 @@ export async function POST(req: Request) {
   }
   const dummyConfig = sanitizeSparringDummyConfig(body);
 
-  const derived = await derivePlayerCombatV2(userId, db, {
-    includeCookingBuff: false,
-  });
+  // 허수아비 대련은 사냥 빌드를 재 보는 곳이라 음식·전투 준비물을 사냥과 똑같이 싣는다(건의 #862).
+  //   유저 친선전은 다른 1대1 대전과 같은 규칙이라 계속 제외한다(friendlySparring).
+  const derived = await derivePlayerCombatV2(userId, db);
   if (!derived) {
     return Response.json(
       { ok: false, error: "no_character" },

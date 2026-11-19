@@ -25,6 +25,13 @@ import {
   parseUnexploredBossId,
 } from "@/adventure/data/v2/unexploredBosses";
 import { rollUnexploredBossReward } from "@/adventure/data/v2/unexploredBossRewards";
+import {
+  recordBossRiskClear,
+  riskMinimumQualityPct,
+  totalBossRisk,
+  unexploredBossRiskTitleIds,
+} from "@/adventure/data/v2/unexploredBossRisk";
+import { coopBossRiskTier } from "@/adventure/data/v2/coopBosses";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
 import {
@@ -82,7 +89,9 @@ type CoopRewardSnapshot = {
 
 type PersonalRewardSnapshot = {
   rewardMode: "unexplored_personal";
-  bossCore: 1;
+  /** 이 세션의 위험도. 위험도 기능 전에 받은 보상에는 없다. */
+  riskTier?: number;
+  bossCore: number;
   bossCoreMaterialId: string;
   poolMaterialId: string;
   poolMaterialCount: 1;
@@ -187,10 +196,13 @@ export async function POST(req: Request) {
       };
     }
     if (personalBossId) {
+      // 위험도 — 핵 수, 가장 드문 고유의 확률, 고유 장비의 최소 품질이 오른다.
+      const riskTier = coopBossRiskTier(session.mechanicState);
       const rolled = rollUnexploredBossReward(
         personalBossId,
         Math.random,
         Math.random,
+        riskTier,
       );
       const nextMaterials = mergeDrops(charSave.materials, {
         [rolled.bossCoreMaterialId]: rolled.bossCore,
@@ -200,7 +212,11 @@ export async function POST(req: Request) {
         ? await appendEquipInstances(
             tx,
             userId,
-            rolled.uniqueIds.map((id) => mintRolledEquipInstance(id)),
+            rolled.uniqueIds.map((id) =>
+              mintRolledEquipInstance(id, Math.random, {
+                minimumQualityPct: riskMinimumQualityPct(riskTier),
+              }),
+            ),
           )
         : null;
       const logSave = await lockSaveForUpdate<{
@@ -215,12 +231,20 @@ export async function POST(req: Request) {
       const nextKinds = priorKinds.includes(personalBossId)
         ? priorKinds
         : [...priorKinds, personalBossId];
-      const nextUnexplored = grantUnexploredAchievements(
+      const achieved = grantUnexploredAchievements(
         parseUnexploredSave(charSave.unexplored),
         unexploredAchievementCandidates({
           defeatedBossIds: nextKinds,
         }),
       ).save;
+      // 이 보스를 처치한 가장 높은 위험도를 기록한다. 다음 위험도가 여기서 열린다.
+      const nextUnexplored = {
+        ...achieved,
+        bossRisk: recordBossRiskClear(achieved.bossRisk, personalBossId, riskTier),
+      };
+      const riskTitlesBefore = new Set(
+        unexploredBossRiskTitleIds(totalBossRisk(achieved.bossRisk)),
+      );
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         materials: nextMaterials,
@@ -259,9 +283,13 @@ export async function POST(req: Request) {
       }
       const boss = UNEXPLORED_BOSSES[personalBossId];
       await grantTitleIfMissingInTx(tx, userId, boss.titleId, now);
+      for (const titleId of unexploredBossRiskTitleIds(totalBossRisk(nextUnexplored.bossRisk))) {
+        if (!riskTitlesBefore.has(titleId)) await grantTitleIfMissingInTx(tx, userId, titleId, now);
+      }
 
       const reward: PersonalRewardSnapshot = {
         rewardMode: "unexplored_personal",
+        riskTier,
         bossCore: rolled.bossCore,
         bossCoreMaterialId: rolled.bossCoreMaterialId,
         poolMaterialId: rolled.poolMaterialId,

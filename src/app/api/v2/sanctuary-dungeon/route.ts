@@ -19,11 +19,17 @@ import {
   parseSanctuaryDifficulty, type SanctuaryDifficulty,
 } from "@/adventure/data/v2/sanctuaryDungeon";
 import type { StormExpeditionActive, StormExpeditionChoiceKind, StormExpeditionEncounterKind } from "@/adventure/data/v2/stormExpedition";
+import { deepStageRequestError, maxSelectableDeepStage, parseDeepStageRequest } from "@/adventure/data/v2/dungeonDeepStage";
+import { grantDeepStageClear } from "@/lib/server/deepStageRewards";
 
 type Character = Record<string, unknown> & { level?: number; unexplored?: unknown };
 function statusBody(character: Character, raw: unknown) {
   const state = parseSanctuaryState(raw);
-  return { ok: true, unlocked: V2_UNEXPLORED && canEnterSanctuary(character), attemptsLeft: SANCTUARY_DAILY_ATTEMPTS - state.attemptsUsed, state };
+  return {
+    ok: true, unlocked: V2_UNEXPLORED && canEnterSanctuary(character), attemptsLeft: SANCTUARY_DAILY_ATTEMPTS - state.attemptsUsed, state,
+    // 심층 단계 — 최고 완주 단계와 지금 고를 수 있는 가장 높은 단계(0이면 잠김).
+    deep: { best: state.deepBest, maxSelectable: maxSelectableDeepStage(state) },
+  };
 }
 export async function GET() {
   const userId = await ensureUser();
@@ -66,8 +72,9 @@ export async function POST(req: Request) {
     };
     type Prepared = NonNullable<Awaited<ReturnType<typeof prepareV2BattleActor>>>;
     const prepare = () => prepareV2BattleActor({ tx, userId, charSave: character, deriveSkills: "sanitized" });
-    const startRun = (prepared: Prepared, difficulty: SanctuaryDifficulty) => {
-      state = { ...state, attemptsUsed: state.attemptsUsed + 1, active: createSanctuaryActive(prepared.player.player.maxHp, prepared.player.player.maxMp ?? 0), difficulty, pendingEmblems: [] };
+    const startRun = (prepared: Prepared, difficulty: SanctuaryDifficulty, deepStage: number) => {
+      const active = createSanctuaryActive(prepared.player.player.maxHp, prepared.player.player.maxMp ?? 0);
+      state = { ...state, attemptsUsed: state.attemptsUsed + 1, active: deepStage > 0 ? { ...active, deepStage } : active, difficulty, pendingEmblems: [] };
     };
     // 난이도를 보내지 않은 구형 요청은 노말로 본다.
     const requestedDifficulty = input.difficulty === undefined ? "normal" : parseSanctuaryDifficulty(input.difficulty);
@@ -98,12 +105,17 @@ export async function POST(req: Request) {
       const pendingEmblems = [...state.pendingEmblems, ...droppedEmblems];
       const lostEmblems = success ? 0 : state.pendingEmblems.length;
       let gainedEmblems: Emblem[] = [];
+      const deepStage = active.deepStage ?? 0;
+      let deepTokens = 0;
       if (!success) {
         state = { ...state, active: null, difficulty: "normal", pendingEmblems: [] };
       } else if (finalClear) {
         gainedEmblems = pendingEmblems;
         await claim(gainedEmblems);
-        state = { ...state, active: null, difficulty: "normal", pendingEmblems: [], clears: state.clears + 1 };
+        // 심층 단계 실전 완주 — 증표·최고 단계·칭호.
+        const deep = await grantDeepStageClear(tx, userId, "sanctuary", state, deepStage);
+        deepTokens = deep.tokens;
+        state = { ...state, ...deep.progress, active: null, difficulty: "normal", pendingEmblems: [], clears: state.clears + 1 };
       } else {
         state = { ...state, pendingEmblems, active: advanceSanctuary({
           ...active, maxHp, maxMp,
@@ -113,19 +125,26 @@ export async function POST(req: Request) {
           usedRecoverySkillIds: [...new Set([...active.usedRecoverySkillIds, ...LIMITED_RECOVERY_SKILL_IDS.filter((id) => (battle.finalState.v2SkillCooldowns[id] ?? 0) > 0)])],
         }) };
       }
-      return { success, finalClear, difficulty, droppedEmblems, gainedEmblems, lostEmblems, enemy, battle, player };
+      return { success, finalClear, difficulty, droppedEmblems, gainedEmblems, lostEmblems, enemy, battle, player, deepStage, deepTokens };
     };
     const readPlayerName = async () => {
       const profile = await readSave<{ name?: string; gender?: string }>(tx, userId, "character-profile.v2", {});
       return { playerName: profile.name?.trim() || "모험가", gender: profile.gender ?? "male1" };
     };
     if ((input.action === "start" || input.action === "auto") && !requestedDifficulty) return fail("invalid_difficulty", 400);
+    // 심층 단계는 하드로만 들어가고, 최고 완주 단계 다음 단계까지만 고를 수 있다.
+    const requestedDeepStage = parseDeepStageRequest(input.deepStage);
+    if (input.action === "start" || input.action === "auto") {
+      if (requestedDeepStage === null || (requestedDeepStage > 0 && requestedDifficulty !== "hard")) return fail("invalid_deep_stage", 400);
+      const locked = deepStageRequestError(requestedDeepStage, state);
+      if (locked) return fail(locked);
+    }
     if (input.action === "start") {
       if (state.active) return fail("already_active");
       if (state.attemptsUsed >= SANCTUARY_DAILY_ATTEMPTS) return fail("no_attempts");
       const prepared = await prepare();
       if (!prepared) return fail("no_character", 404);
-      startRun(prepared, requestedDifficulty!);
+      startRun(prepared, requestedDifficulty!, requestedDeepStage ?? 0);
       return save();
     }
     if (input.action === "auto") {
@@ -138,7 +157,7 @@ export async function POST(req: Request) {
       state = { ...state, autoPreferences: preferences };
       const runs: SanctuaryAutoRun[] = [];
       while (state.active || state.attemptsUsed < SANCTUARY_DAILY_ATTEMPTS) {
-        if (!state.active) startRun(prepared, requestedDifficulty!);
+        if (!state.active) startRun(prepared, requestedDifficulty!, requestedDeepStage ?? 0);
         let run: SanctuaryAutoRun | null = null;
         while (!run) {
           const active = state.active!;
@@ -151,8 +170,9 @@ export async function POST(req: Request) {
           }
           if (!node.encounterKind) throw new Error("sanctuary_auto_battle_missing");
           const result = await fightStep(active, node.encounterKind, prepared, playerName);
-          if (!result.success) run = { difficulty: result.difficulty, cleared: false, endedAt: result.enemy.name, gainedEmblems: [], lostEmblems: result.lostEmblems };
-          else if (result.finalClear) run = { difficulty: result.difficulty, cleared: true, endedAt: result.enemy.name, gainedEmblems: result.gainedEmblems, lostEmblems: 0 };
+          const deep = result.deepStage > 0 ? { deepStage: result.deepStage, deepTokens: result.deepTokens } : {};
+          if (!result.success) run = { ...deep, difficulty: result.difficulty, cleared: false, endedAt: result.enemy.name, gainedEmblems: [], lostEmblems: result.lostEmblems };
+          else if (result.finalClear) run = { ...deep, difficulty: result.difficulty, cleared: true, endedAt: result.enemy.name, gainedEmblems: result.gainedEmblems, lostEmblems: 0 };
         }
         runs.push(run);
       }
@@ -180,8 +200,8 @@ export async function POST(req: Request) {
     const prepared = await prepare();
     if (!prepared) return fail("no_character", 404);
     const { playerName, gender } = await readPlayerName();
-    const { success, finalClear, droppedEmblems, gainedEmblems, enemy, battle, player } = await fightStep(active, node.encounterKind, prepared, playerName);
-    return save({ success, finalClear, failed: !success, droppedEmblems, gainedEmblems, enemyName: enemy.name, turns: battle.turns,
+    const { success, finalClear, droppedEmblems, gainedEmblems, enemy, battle, player, deepTokens } = await fightStep(active, node.encounterKind, prepared, playerName);
+    return save({ success, finalClear, failed: !success, droppedEmblems, gainedEmblems, deepTokensGained: deepTokens, enemyName: enemy.name, turns: battle.turns,
       startPlayerHp: player.hp, playerName, gender, replay: toReplayPayload(battle.finalState, { playerCombat: player }) });
   });
 }

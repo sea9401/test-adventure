@@ -49,9 +49,9 @@ export const AUTO_GATHERING_PLANS: Record<
 };
 export const AUTO_GATHERING_PLAN_LIST = Object.values(AUTO_GATHERING_PLANS);
 /** 정비한 채집지에서 느긋한 작업이 가질 수 있는 가장 긴 시간. 이보다 긴 값은 받지 않는다. */
-export const AUTO_GATHERING_EXTENDED_MAX_DURATION_MS = 4 * 60 * 60 * 1_000;
+export const AUTO_GATHERING_EXTENDED_MAX_DURATION_MS = 6 * 60 * 60 * 1_000;
 
-/** 작업 시간 표시 — "30분", "2시간", "2시간 12분". */
+/** 작업 시간 표시 — "30분", "2시간", "2시간 30분". */
 export function autoGatheringDurationLabel(durationMs: number): string {
   const totalMinutes = Math.max(0, Math.round(durationMs / 60_000));
   const hours = Math.floor(totalMinutes / 60);

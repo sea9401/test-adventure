@@ -19,6 +19,7 @@ import {
   type UnexploredNode,
   type UnexploredRefundError,
 } from "@/adventure/data/v2/unexploredTree";
+import type { UnexploredBossRiskRecord } from "@/adventure/data/v2/unexploredBossRisk";
 import type { UnexploredAchievementId, UnexploredNodePresets, UnexploredPresetIndex } from "@/adventure/data/v2/unexploredState";
 import type { UnexploredEncounterShare } from "@/adventure/data/v2/unexploredEncounters";
 import type { UnexploredEffects } from "@/adventure/data/v2/unexploredTree";
@@ -41,6 +42,19 @@ export type UnexploredClientSnapshot = {
   xpPoints: number;
   nextPointCost: number;
   nextPointRemaining: number;
+  /** 탐사 등급. 탐사 포인트 30개를 채운 뒤 쌓이는 경험치로 오른다(상한 없음). */
+  explorationGrade: number;
+  /** 지금 등급 안에서 쌓은 경험치와 한 등급에 필요한 경험치. */
+  gradeXp: number;
+  gradeXpCost: number;
+  /** 등급으로 받은 추가 탐사 포인트 수와 다음 포인트를 받는 등급. */
+  gradeBonusPoints: number;
+  nextGradePointGrade: number;
+  /** 지금 쓸 수 있는 프리셋 칸 수와 칸마다 필요한 탐사 등급. */
+  presetSlotCount: number;
+  presetUnlockGrades: number[];
+  /** 군마다 보관할 수 있는 흔적 수. */
+  traceCap: number;
   selectedNodeIds: string[];
   activePresetIndex: UnexploredPresetIndex;
   nodePresets: UnexploredNodePresets;
@@ -67,6 +81,8 @@ export type UnexploredClientSnapshot = {
   bankedGold: number;
   materials: Record<string, number>;
   achievementIds: UnexploredAchievementId[];
+  /** 개인 보스별 최고 처치 위험도. 위험도 기능 전의 응답에는 없다. */
+  bossRisk?: UnexploredBossRiskRecord;
   refundGoldCost: number;
   summonStoneCraftCost: {
     baseGoldCost: number;

@@ -47,7 +47,8 @@ export const DRAGON_KNIGHT_SKILLS: Record<DragonKnightSkillId, V2SkillDefinition
     id: "v2c_dragonwing_spirit", name: "용의 기백", stat: "str", category: "passive", tier: 3,
     description: "용의 기백으로 힘을 끌어올리고 치명상을 깊게 새긴다.",
     detail: { mechanics: ["모든 직업에서 힘 20%, 기본 공격 치명타 피해 25%, 스킬 치명타 피해 15% 증가."] },
-    mpCost: 0, cooldown: 0, learnCost: 8000, effects: [],
+    // 스킬 치명타 피해 산식 보정(60%→20%당 power 1) 전의 6 SP를 유지한다.
+    mpCost: 0, cooldown: 0, learnCost: 8000, spCostDiscount: 1, effects: [],
     passive: { statPct: { str: 20 }, critDmgPct: 25, skillCritDmgPct: 15 },
   },
   v2c_dragonsovereign_breath: {

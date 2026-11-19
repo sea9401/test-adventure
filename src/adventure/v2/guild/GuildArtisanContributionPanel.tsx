@@ -1,4 +1,5 @@
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { PersonThumb } from "@/components/ui/PersonThumb";
 import type { GuildInfoResponse } from "./guildShared";
 
 export function GuildArtisanContributionPanel({
@@ -10,6 +11,8 @@ export function GuildArtisanContributionPanel({
     .map((m) => ({
       userId: m.userId,
       name: m.name,
+      avatar: m.avatar,
+      profileBorder: m.profileBorder,
       level: m.artisan?.blacksmith?.level ?? 1,
       xpIntoLevel: m.artisan?.blacksmith?.xpIntoLevel ?? 0,
       xpForNext: m.artisan?.blacksmith?.xpForNext ?? 100,
@@ -46,14 +49,21 @@ export function GuildArtisanContributionPanel({
               <div className="text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
                 #{idx + 1}
               </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
-                  <PlayerNameLink name={m.name} />
-                </div>
-                <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  Lv {m.level.toLocaleString()} · 숙련도{" "}
-                  {m.xpIntoLevel.toLocaleString()}/
-                  {m.xpForNext.toLocaleString()}
+              <div className="flex min-w-0 items-center gap-2">
+                <PersonThumb
+                  avatar={m.avatar}
+                  name={m.name}
+                  profileBorder={m.profileBorder}
+                />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">
+                    <PlayerNameLink name={m.name} />
+                  </div>
+                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    Lv {m.level.toLocaleString()} · 숙련도{" "}
+                    {m.xpIntoLevel.toLocaleString()}/
+                    {m.xpForNext.toLocaleString()}
+                  </div>
                 </div>
               </div>
               <div className="text-right text-xs">

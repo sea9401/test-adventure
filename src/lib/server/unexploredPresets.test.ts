@@ -24,23 +24,23 @@ function apply(character: UnexploredCharacterSave, mutation: UnexploredMutation)
 }
 
 describe("independent unexplored presets", () => {
-  it("migrates the old allocation into slot 1 and supplies two empty slots", () => {
+  it("migrates the old allocation into slot 1 and supplies empty slots for the rest", () => {
     const save = parseUnexploredSave(legacyCharacter().unexplored);
     expect(save.activePresetIndex).toBe(0);
-    expect(save.nodePresets).toEqual([["start", "inner-0-0"], [], []]);
+    expect(save.nodePresets).toEqual([["start", "inner-0-0"], [], [], [], []]);
     expect(parseUnexploredSave(save)).toEqual(save);
     expect(unexploredSnapshot(legacyCharacter())).toMatchObject({
-      activePresetIndex: 0, nodePresets: [["start", "inner-0-0"], [], []],
+      activePresetIndex: 0, nodePresets: [["start", "inner-0-0"], [], [], [], []],
     });
   });
 
-  it("normalizes three slots, drops unknown and duplicate nodes, and uses the active allocation", () => {
+  it("normalizes five slots, drops unknown and duplicate nodes, and uses the active allocation", () => {
     const save = parseUnexploredSave({
       activePresetIndex: 1,
       selectedNodeIds: ["start", "inner-0-1"],
       nodePresets: [["start", "unknown", "start"], ["start"], null, ["start"]],
     });
-    expect(save.nodePresets).toEqual([["start"], ["start", "inner-0-1"], []]);
+    expect(save.nodePresets).toEqual([["start"], ["start", "inner-0-1"], [], ["start"], []]);
     expect(save.selectedNodeIds).toEqual(["start", "inner-0-1"]);
     expect(parseUnexploredSave({ activePresetIndex: 99 }).activePresetIndex).toBe(0);
   });
@@ -68,7 +68,7 @@ describe("independent unexplored presets", () => {
     });
     expect(first.snapshot).toMatchObject({
       selectedNodeIds: ["start", "inner-0-0"],
-      nodePresets: [["start", "inner-0-0"], ["start", "inner-0-1"], ["start"]],
+      nodePresets: [["start", "inner-0-0"], ["start", "inner-0-1"], ["start"], [], []],
       gold: 1_000_000, bankedGold: 2_000_000,
     });
     expect(first.character.unexplored.craftReceipts).toEqual([
@@ -83,7 +83,7 @@ describe("independent unexplored presets", () => {
       unexplored: {
         xpPoints: 3, activePresetIndex: 1,
         selectedNodeIds: ["start", "inner-0-1"],
-        nodePresets: [["start", "inner-0-0"], ["start", "inner-0-1"], ["start"]],
+        nodePresets: [["start", "inner-0-0"], ["start", "inner-0-1"], ["start"], [], []],
       },
     };
     const mutation = action === "reset"
@@ -92,7 +92,7 @@ describe("independent unexplored presets", () => {
     const result = apply(source, mutation);
     expect(result.snapshot).toMatchObject({
       gold: 500_000, bankedGold: 2_000_000, selectedNodeIds: ["start"],
-      nodePresets: [["start", "inner-0-0"], ["start"], ["start"]],
+      nodePresets: [["start", "inner-0-0"], ["start"], ["start"], [], []],
     });
     expect(applyUnexploredMutation({ ...source, gold: 0, bankedGold: 499_999 }, mutation))
       .toEqual({ ok: false, error: "insufficient_gold" });
@@ -112,7 +112,7 @@ describe("independent unexplored presets", () => {
     }
   });
 
-  it.each([-1, 3, 1.5, NaN, "1"])("rejects invalid preset %s without resetting the tree", (presetIndex) => {
+  it.each([-1, 5, 1.5, NaN, "1"])("rejects invalid preset %s without resetting the tree", (presetIndex) => {
     expect(applyUnexploredMutation(legacyCharacter(), {
       action: "switch_preset", presetIndex,
     } as UnexploredMutation)).toEqual({ ok: false, error: "invalid_preset" });
@@ -133,7 +133,7 @@ describe("independent unexplored presets", () => {
     const xp = grantExplorationXp(switched.character.unexplored, 100_000);
     const grant = grantUnexploredAchievements(xp.save, ["first_special_kill"]);
     const normalized = parseUnexploredSave(grant.save);
-    expect(normalized.nodePresets).toEqual([["start", "inner-0-0"], [], []]);
+    expect(normalized.nodePresets).toEqual([["start", "inner-0-0"], [], [], [], []]);
     expect(normalized.activePresetIndex).toBe(1);
     expect(unexploredEarnedPoints(100, normalized)).toBeGreaterThan(4);
     const first = apply({ ...switched.character, unexplored: normalized }, {
@@ -154,7 +154,7 @@ describe("independent unexplored presets", () => {
       ...legacyCharacter(),
       unexplored: {
         xpPoints: 30, selectedNodeIds: shortestUnexploredPath("pool-iron_legion"),
-        activePresetIndex: 0, nodePresets: [[], ["start"], []],
+        activePresetIndex: 0, nodePresets: [[], ["start"], [], [], []],
       },
     };
     const switched = apply(source, { action: "switch_preset", presetIndex: 1 });
@@ -172,11 +172,11 @@ describe("independent unexplored presets", () => {
       ...legacyCharacter(), gold: 1_000_000,
       unexplored: {
         xpPoints: 3, selectedNodeIds: ["start", "inner-0-0", "inner-0-1"],
-        activePresetIndex: 2, nodePresets: [["start", "inner-0-0"], [], []],
+        activePresetIndex: 2, nodePresets: [["start", "inner-0-0"], [], [], [], []],
       },
     };
     const reset = apply(source, { action: "reset", expectedPresetIndex: 2 });
-    expect(reset.snapshot).toMatchObject({ gold: 0, nodePresets: [["start", "inner-0-0"], [], ["start"]] });
+    expect(reset.snapshot).toMatchObject({ gold: 0, nodePresets: [["start", "inner-0-0"], [], ["start"], [], []] });
     const first = apply(reset.character, { action: "switch_preset", presetIndex: 0, expectedPresetIndex: 2 });
     const restored = apply(first.character, { action: "switch_preset", presetIndex: 2 });
     expect(restored.snapshot.selectedNodeIds).toEqual(["start"]);

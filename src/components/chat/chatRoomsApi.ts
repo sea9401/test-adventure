@@ -2,6 +2,8 @@ import type {
   ChatRoomOrderId,
   ChatRoomVisibility,
 } from "@/lib/chat-rooms";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { ChatMessage } from "../ChatPanel";
 import { fetchChatMessages } from "./chatMessagesApi";
 
@@ -33,6 +35,8 @@ export type CustomChatRoomMember = {
   name: string;
   role: "owner" | "member";
   joinedAt: number;
+  avatar?: Avatar | null;
+  profileBorder?: ProfileBorderId | null;
 };
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {

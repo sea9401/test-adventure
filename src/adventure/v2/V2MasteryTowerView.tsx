@@ -70,6 +70,17 @@ type TowerStartOption = {
   guardian: TowerGuardian;
 };
 
+/** 입장 버튼 위에 보이는 오늘 입장 비용 안내. */
+export function masteryTowerEntryNotice(
+  entryStaminaCost: number,
+  waived: boolean,
+): string {
+  if (entryStaminaCost > 0) return `오늘 최초 입장 스태미나 ${entryStaminaCost}`;
+  return waived
+    ? "프리미엄 지원권 적용 중 · 입장 스태미나 면제"
+    : "오늘 입장료 지불 완료 · 재도전 무료";
+}
+
 type TowerStartChoice = Pick<TowerStartOption, "floor" | "checkpointFloor">;
 
 type TowerStatus = {
@@ -77,6 +88,8 @@ type TowerStatus = {
   error?: string;
   tower: TowerState;
   entryStaminaCost: number;
+  /** 프리미엄 지원권으로 하루 첫 입장 비용을 받지 않는 상태. */
+  entryStaminaWaived?: boolean;
   stamina: StaminaState;
   certificates: number;
   autoClaimedReward?: {
@@ -310,9 +323,10 @@ export function V2MasteryTowerView({
                       </p>
                     )}
                   <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {entryStaminaCost > 0
-                      ? `오늘 최초 입장 스태미나 ${entryStaminaCost}`
-                      : "오늘 입장료 지불 완료 · 재도전 무료"}
+                    {masteryTowerEntryNotice(
+                      entryStaminaCost,
+                      status.entryStaminaWaived === true,
+                    )}
                   </p>
                   {isPractice && (
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

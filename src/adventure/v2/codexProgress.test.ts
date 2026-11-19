@@ -68,4 +68,20 @@ describe("filterCodexEquipmentIds", () => {
       ),
     ).toEqual(["b"]);
   });
+
+  it("즐겨찾기만 보기는 다른 보기 조건과 함께 걸린다", () => {
+    const favorites = new Set(["a", "c"]);
+    expect(
+      filterCodexEquipmentIds(ids, "all", registered, registerable, favorites),
+    ).toEqual(["a", "c"]);
+    expect(
+      filterCodexEquipmentIds(
+        ids,
+        "unregistered",
+        registered,
+        registerable,
+        favorites,
+      ),
+    ).toEqual(["c"]);
+  });
 });

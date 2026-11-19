@@ -1,6 +1,8 @@
 import type { GuildRaidReward } from "@/adventure/data/v2/guildRaid";
 import type { GuildRaidBossId } from "@/adventure/data/v2/guildRaidBosses";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import type { Avatar } from "@/adventure/profile/avatars";
 
 export type GuildRaidBossSummary = {
   id: GuildRaidBossId;
@@ -60,6 +62,9 @@ export type GuildRaidState = {
     damage: number;
     attackCount: number;
     eligible: boolean;
+    /** 줄 머리 프사. 예전 응답에는 없을 수 있다. */
+    avatar?: Avatar | null;
+    profileBorder?: ProfileBorderId | null;
   }[];
   leaderboard: {
     guildId: number;

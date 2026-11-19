@@ -5,6 +5,7 @@ import {
   collectRanchProducts,
   emptyRanchState,
   parseRanchState,
+  ranchSlotCollectableItems,
   rebuildRanchSlot,
   settleRanch,
   swapRanchSlots,
@@ -453,16 +454,62 @@ describe("adventurer ranch", () => {
 
     it("수거할 때 주기마다 혈통 등급의 확률로 희귀 산물이 나온다", () => {
       const ranch = { ...fedChickens(), lineage: { "slot-1": { grade: 3, fails: 0 } } };
-      // slot-1(명품 16%) 세 주기: 0.1 / 0.2 / 0.15 → 0.16 미만이 두 번. slot-2(보통)는 굴리지 않는다.
-      const rolls = [0.1, 0.2, 0.15];
+      // slot-1(명품 35%) 세 주기: 0.1 / 0.4 / 0.34 → 0.35 미만이 두 번. slot-2(보통)는 굴리지 않는다.
+      const rolls = [0.1, 0.4, 0.34];
       const collected = collectRanchProducts(ranch, 1_000 + 6 * HOUR, () => rolls.shift() ?? 0);
-      expect(collected.items).toEqual({ egg: 12 });
       expect(collected.rareItems).toEqual({ golden_egg: 2 });
       expect(rolls).toEqual([]);
-      expect(collected.ranch.lineage).toEqual({ "slot-1": { grade: 3, fails: 0 } });
 
       const plain = collectRanchProducts(fedChickens(), 1_000 + 6 * HOUR, () => 0);
+      expect(plain.items).toEqual({ egg: 12 });
       expect(plain.rareItems).toEqual({});
+    });
+
+    it("혈통 등급만큼 산물을 더 받고 1개가 안 되는 몫은 그 칸에 남겨 다음 수거에 더한다", () => {
+      const ranch = { ...fedChickens(), lineage: { "slot-1": { grade: 3, fails: 0 } } };
+      // slot-1(명품 +75%): 달걀 6개 → 4.5개 더. 4개를 받고 50%가 남는다. slot-2(보통)는 6개 그대로.
+      expect(ranchSlotCollectableItems(ranch, "slot-1")).toBe(10);
+      expect(ranchSlotCollectableItems(ranch, "slot-2")).toBe(6);
+      const collected = collectRanchProducts(ranch, 1_000 + 6 * HOUR, () => 0.99);
+      expect(collected.items).toEqual({ egg: 16 });
+      expect(collected.ranch.stats.eggsCollected).toBe(16);
+      expect(collected.ranch.lineage).toEqual({
+        "slot-1": { grade: 3, fails: 0, yieldCarryPct: 50 },
+      });
+    });
+
+    it("남겨 둔 몫이 1개를 채우면 받고 기록을 지운다", () => {
+      // 우량(+25%) 닭 한 칸이 한 주기(달걀 2개)씩 수거한다.
+      let ranch: RanchState = {
+        ...addRanchFeed(unlockThrough(1), "slot-1", 2, 1_000),
+        lineage: { "slot-1": { grade: 1, fails: 2 } },
+      };
+      const first = collectRanchProducts(ranch, 1_000 + 2 * HOUR, () => 0.99);
+      expect(first.items).toEqual({ egg: 2 });
+      expect(first.ranch.lineage).toEqual({ "slot-1": { grade: 1, fails: 2, yieldCarryPct: 50 } });
+
+      ranch = first.ranch;
+      expect(ranchSlotCollectableItems(settleRanch(ranch, 1_000 + 4 * HOUR), "slot-1")).toBe(3);
+      const second = collectRanchProducts(ranch, 1_000 + 4 * HOUR, () => 0.99);
+      expect(second.items).toEqual({ egg: 3 });
+      expect(second.ranch.lineage).toEqual({ "slot-1": { grade: 1, fails: 2 } });
+    });
+
+    it("남겨 둔 몫은 세이브를 다시 읽어도 유지되고 범위를 벗어난 값은 버린다", () => {
+      const parsed = parseRanchState(
+        {
+          ...unlockThrough(2),
+          lineage: {
+            "slot-1": { grade: 2, fails: 0, yieldCarryPct: 75 },
+            "slot-2": { grade: 1, fails: 0, yieldCarryPct: 250 },
+          },
+        },
+        1_000,
+      );
+      expect(parsed.lineage).toEqual({
+        "slot-1": { grade: 2, fails: 0, yieldCarryPct: 75 },
+        "slot-2": { grade: 1, fails: 0 },
+      });
     });
 
     it("칸을 맞바꾸면 혈통이 따라가고, 동물을 바꾸면 그 칸의 혈통은 사라진다", () => {

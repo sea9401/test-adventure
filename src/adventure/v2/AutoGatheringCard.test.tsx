@@ -61,6 +61,34 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain("단단한 돌 +2");
   });
 
+  it("자동 채집 정산에서 얻은 명장 산물을 결과에 표시한다", () => {
+    const render = (masterProduct: { name: string; count: number } | null) =>
+      renderToStaticMarkup(
+        <AutoGatheringCard
+          activityName="채광"
+          spotId="iron_mine"
+          session={null}
+          result={{
+            attempts: 800,
+            successes: 600,
+            materialName: "철광석",
+            materialsGained: 430,
+            xpGained: 2_100,
+            masterProduct,
+          }}
+          loading={false}
+          blockedByActivity={null}
+          buttonVariant="warning"
+          onStart={vi.fn(async () => {})}
+          onClaim={vi.fn(async () => {})}
+          onCancel={vi.fn(async () => {})}
+        />,
+      );
+
+    expect(render({ name: "명장 합금", count: 3 })).toContain("명장 산물 · 명장 합금 +3");
+    expect(render(null)).not.toContain("명장 산물");
+  });
+
   it("긴 작업 장소명과 별개로 남은 시간을 줄어들지 않는 영역에 표시한다", () => {
     const html = renderToStaticMarkup(
       <AutoGatheringCard

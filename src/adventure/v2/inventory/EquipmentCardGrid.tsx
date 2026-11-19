@@ -3,14 +3,9 @@
 import {
   CheckCircle,
   Diamond,
-  HandFist,
   Lock,
-  Shield,
-  Sneaker,
-  Sword,
-  type Icon,
 } from "@phosphor-icons/react";
-import { NecklaceIcon, RingIcon } from "../EquipmentSlotIcons";
+import { EquipmentTypeIcon } from "../EquipmentTypeIcon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
@@ -23,7 +18,6 @@ import {
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
-  type V2EquipSlot,
   type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
@@ -45,15 +39,6 @@ import {
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 import { enchantmentStage } from "../liberation/equipmentLiberationViewModel";
 
-// 슬롯별 아이콘/색 — 카드 좌상단 표식.
-const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
-  weapon: { Icon: Sword, color: "text-rose-500" },
-  armor: { Icon: Shield, color: "text-sky-500" },
-  gloves: { Icon: HandFist, color: "text-amber-500" },
-  boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: RingIcon, color: "text-violet-500" },
-  necklace: { Icon: NecklaceIcon, color: "text-pink-500" },
-};
 
 // 카드 스탯 목록 — 개체 굴림 반영 기본 전투 스탯 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
 //   치명피해). 티어 숫자 표기는 제거(이름·전투 스탯·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
@@ -98,9 +83,9 @@ export type EquipmentSaleCardSelection = {
   selectedIids: ReadonlySet<string>;
   onToggle: (inst: V2EquipInstance) => void;
   // 기본은 판매 선택. 비교 선택은 잠금 장비도 고를 수 있고, 장착 장비는 기준 열로
-  //   자동 포함되므로 고를 수 없다.
-  purpose?: "sale" | "compare";
-  // 비교 선택 상한. 닿으면 고르지 않은 카드는 막는다.
+  //   자동 포함되므로 고를 수 없다. 잠금 선택(건의 #859)은 잠금·장착 장비도 모두 고른다.
+  purpose?: "sale" | "compare" | "lock";
+  // 비교·잠금 선택 상한. 닿으면 고르지 않은 카드는 막는다.
   max?: number;
 };
 
@@ -126,8 +111,8 @@ export function EquipmentCardGrid({
   // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
   // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
   selectedIid?: string | null;
-  // 인벤토리 선택 판매·비교 선택 모드. 판매는 장착·잠금 카드를 서버 규칙과 동일하게
-  //   선택할 수 없고, 비교는 장착 카드와 상한 초과만 막는다.
+  // 인벤토리 선택 판매·비교 선택·잠금 선택 모드. 판매는 장착·잠금 카드를 서버 규칙과 동일하게
+  //   선택할 수 없고, 비교는 장착 카드와 상한 초과만, 잠금은 상한 초과만 막는다.
   saleSelection?: EquipmentSaleCardSelection;
   // 획득순에서 첫 카드가 최신임을 즉시 알아볼 수 있도록 표시한다.
   recentlyAcquiredIid?: string;
@@ -137,10 +122,14 @@ export function EquipmentCardGrid({
 }) {
   const selectable = selectedIid !== undefined;
   const saleSelectionActive = saleSelection?.active === true;
-  const comparing = saleSelection?.purpose === "compare";
-  const selectionVerb = comparing ? "비교" : "판매";
+  const purpose = saleSelection?.purpose ?? "sale";
+  const comparing = purpose === "compare";
+  const locking = purpose === "lock";
+  // 판매(되돌릴 수 없음)만 장미색, 비교·잠금 선택은 선택 색(인디고)으로 표시한다.
+  const neutralPick = comparing || locking;
+  const selectionVerb = comparing ? "비교" : locking ? "잠금" : "판매";
   const selectionFull =
-    comparing &&
+    neutralPick &&
     saleSelection?.max != null &&
     saleSelection.selectedIids.size >= saleSelection.max;
   if (cards.length === 0) {
@@ -159,20 +148,21 @@ export function EquipmentCardGrid({
     <div className="grid grid-cols-2 gap-2">
       {cards.map(({ inst, isEquipped }) => {
         const item = V2_EQUIPMENT[inst.id];
-        const { Icon, color } = SLOT_ICON[item.slot];
         const pct = rollQualityPct(item, inst.roll);
         const isSelected = selectable && inst.iid === selectedIid;
         const isSaleSelected =
           saleSelectionActive && saleSelection.selectedIids.has(inst.iid);
-        const saleBlockedReason = isEquipped
-          ? "장착 중"
-          : comparing
-            ? selectionFull && !isSaleSelected
-              ? `최대 ${saleSelection?.max}개`
-              : null
-            : inst.locked
-              ? "잠금됨"
-              : null;
+        const overMaxReason =
+          selectionFull && !isSaleSelected ? `최대 ${saleSelection?.max}개` : null;
+        const saleBlockedReason = locking
+          ? overMaxReason
+          : isEquipped
+            ? "장착 중"
+            : comparing
+              ? overMaxReason
+              : inst.locked
+                ? "잠금됨"
+                : null;
         const highlighted = saleSelectionActive
           ? isSaleSelected
           : selectable
@@ -186,7 +176,7 @@ export function EquipmentCardGrid({
           <div
             key={inst.iid}
             className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 ${
-              isSaleSelected && comparing
+              isSaleSelected && neutralPick
                 ? "is-active border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200 dark:border-indigo-500 dark:bg-zinc-900 dark:ring-indigo-900/70"
                 : isSaleSelected
                 ? "is-active border-rose-400 bg-rose-50 ring-1 ring-rose-200 dark:border-rose-500 dark:bg-zinc-900 dark:ring-rose-900/70"
@@ -215,7 +205,7 @@ export function EquipmentCardGrid({
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
               <span className="flex items-center gap-1">
-                <Icon size={20} weight="duotone" className={color} />
+                <EquipmentTypeIcon item={item} />
                 {inst.locked && (
                   <Lock
                     size={13}
@@ -238,7 +228,7 @@ export function EquipmentCardGrid({
                   <CheckCircle
                     size={18}
                     weight="fill"
-                    className={comparing ? "text-indigo-500" : "text-rose-500"}
+                    className={neutralPick ? "text-indigo-500" : "text-rose-500"}
                     aria-hidden
                   />
                 ) : null}

@@ -207,8 +207,8 @@ describe("woodcutting routes", () => {
     const json = await response.json();
     expect(json.autoSession).toMatchObject({
       planId: "extended",
-      readyAt: NOW + 3 * 60 * 60_000,
-      durationMs: 3 * 60 * 60_000,
+      readyAt: NOW + 270 * 60_000,
+      durationMs: 270 * 60_000,
       materialEfficiency: 0.6,
     });
 
@@ -1027,12 +1027,7 @@ describe("woodcutting routes", () => {
         masterProduct: { materialId: "v2_master_wood", name: "명장 목재", count: 1 },
       });
       expect(charOf().materials?.v2_master_wood).toBe(1);
-      expect(masterProductNotify).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.any(String),
-        "master_product",
-        { activity: "woodcutting", materialId: "v2_master_wood", name: "명장 목재", count: 1 },
-      );
+      expect(masterProductNotify).not.toHaveBeenCalled();
       expect(store.get(LIFE_MAJOR_SAVE_KEY)).toMatchObject({
         masteryXp: { woodcutting: lifeMajorStageXp("woodcutting", 3) + json.xpGained },
       });

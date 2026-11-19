@@ -46,6 +46,7 @@ import {
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 export type MiningLogView = {
@@ -85,6 +86,7 @@ export type MiningOutcome =
       materialGained: number;
       nextActionAt?: number | null;
       byproducts: MiningByproductView[];
+      masterProduct?: MasterProductGain | null;
       xpGained: number;
       log: MiningLogView;
     }
@@ -812,6 +814,11 @@ export function MiningView({
                             `${drop.name} +${drop.amount.toLocaleString()}`,
                         )
                         .join(" · ")}
+                    </div>
+                  ) : null}
+                  {result.masterProduct ? (
+                    <div className="ui-result-highlight text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      명장 산물 · {masterProductGainText(result.masterProduct)}
                     </div>
                   ) : null}
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">

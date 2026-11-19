@@ -81,16 +81,8 @@ export async function applyLifeMajorProgress(
       : added.state;
   await upsertSave(tx, userId, LIFE_MAJOR_SAVE_KEY, next);
   await announceGrandGrade(tx, userId, activity, state, next);
-  if (productCount > 0 && activity !== "cooking") {
-    // 결과 화면이 활동마다 달라 산물 획득은 알림으로 통일해 알린다(같은 트랜잭션).
-    const product = LIFE_MAJOR_PRODUCTS[activity];
-    await insertNotificationWith(tx, userId, "master_product", {
-      activity,
-      materialId: product.id,
-      name: product.name,
-      count: productCount,
-    });
-  }
+  // 산물 획득은 알림을 남기지 않는다. 응답의 lifeMajor.masterProduct 를 각 결과 화면이 보여 준다.
+  // 얻을 때마다 남기면 유저당 보존 한도(50건)를 이 알림이 채워 다른 알림을 밀어낸다(건의 #863).
   return {
     masteryXpGained: added.gained,
     productId:

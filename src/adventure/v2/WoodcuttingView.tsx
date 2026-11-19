@@ -52,6 +52,7 @@ import {
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
 export type WoodcuttingLogView = {
@@ -94,6 +95,7 @@ export type WoodcuttingOutcome =
         seedName: string;
         quantity: number;
       } | null;
+      masterProduct?: MasterProductGain | null;
       log: WoodcuttingLogView;
     }
   | {
@@ -1388,6 +1390,11 @@ export function WoodcuttingView({
                       {result.seedDrop.quantity}
                     </div>
                   )}
+                  {result.masterProduct ? (
+                    <div className="ui-result-highlight text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      명장 산물 · {masterProductGainText(result.masterProduct)}
+                    </div>
+                  ) : null}
                   <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     벌목 XP +{result.xpGained}
                   </div>

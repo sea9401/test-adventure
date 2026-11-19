@@ -183,6 +183,14 @@ describe("거장 등급", () => {
     expect(farming).toMatchObject({ stage: 0, grandGrade: 0 });
   });
 
+  it("화면용 값에 지금까지 얻은 명장 산물 수를 싣는다", () => {
+    const current = state({ major: "mining", masterProductsEarned: { mining: 37 } });
+    const byId = Object.fromEntries(
+      lifeMajorView(current, ALL_100).activities.map((entry) => [entry.id, entry.productsEarned]),
+    );
+    expect(byId).toMatchObject({ mining: 37, farming: 0 });
+  });
+
   it("생활별 10등급과 합계 50등급에서 칭호 조건을 채운다", () => {
     expect(LIFE_MAJOR_GRAND_TITLE_GRADE).toBe(10);
     expect(LIFE_MAJOR_GRAND_TOTAL_TITLE_GRADE).toBe(50);

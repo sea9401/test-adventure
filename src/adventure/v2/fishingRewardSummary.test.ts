@@ -62,4 +62,14 @@ describe("fishingRewardSummaryLabels", () => {
       "연속 61회 · 코인 보너스 +5 활성 (일일 제한으로 이번 지급 0)",
     ]);
   });
+
+  it("명장 어획을 얻으면 보상 맨 앞에 적는다", () => {
+    expect(
+      fishingRewardSummaryLabels({
+        coinsGained: 4,
+        masterProduct: { name: "명장 어획", count: 1 },
+      }),
+    ).toEqual(["명장 산물 · 명장 어획 +1", "코인 +4"]);
+    expect(fishingRewardSummaryLabels({ coinsGained: 4, masterProduct: null })).toEqual(["코인 +4"]);
+  });
 });

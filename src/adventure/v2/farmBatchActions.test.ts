@@ -262,3 +262,54 @@ describe("runFarmHarvestAndReplant", () => {
     );
   });
 });
+
+describe("명장 작물 합산", () => {
+  const product = (count: number) => ({
+    masteryXpGained: 0,
+    masterProduct: { materialId: "v2_master_crop", name: "명장 작물", count },
+  });
+
+  it("여러 밭 수확에서 얻은 명장 작물을 합친다", async () => {
+    const responses = [product(1), { masteryXpGained: 0, masterProduct: null }, product(1)];
+    const request = vi.fn(async () =>
+      Response.json({ ok: true, lifeMajor: responses.shift(), result: { farmingXpGained: 5 } }),
+    );
+
+    const result = await runFarmPlotBatch({
+      action: "harvest",
+      plotIds: ["p1", "p2", "p3"],
+      request,
+      onSuccess: vi.fn(),
+    });
+
+    expect(result.masterProduct).toEqual({ name: "명장 작물", count: 2 });
+  });
+
+  it("수확하고 다시 심기 결과에도 합계를 넘긴다", async () => {
+    const request = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith("/harvest")
+        ? Response.json({ ok: true, lifeMajor: product(1), result: { farmingXpGained: 5 } })
+        : Response.json({ ok: true, result: { planted: 2, stoppedError: null } }),
+    );
+
+    const outcome = await runFarmHarvestAndReplant({
+      plots: [
+        { plotId: "p1", cropId: "wheat" },
+        { plotId: "p2", cropId: "wheat" },
+      ],
+      request,
+      onSuccess: vi.fn(),
+    });
+
+    expect(outcome.masterProduct).toEqual({ name: "명장 작물", count: 2 });
+    expect(farmReplantOutcomeText(outcome)).toBe(
+      "2칸을 수확하고 2칸에 다시 심었습니다. 농사 XP +10. 명장 작물 +2.",
+    );
+  });
+
+  it("일괄 수확 문장 끝에 명장 작물을 적는다", () => {
+    expect(
+      farmBatchOutcomeText("harvest", 3, null, undefined, 135, 0, { name: "명장 작물", count: 1 }),
+    ).toBe("3칸을 모두 수확했습니다. 농사 XP +135. 명장 작물 +1.");
+  });
+});

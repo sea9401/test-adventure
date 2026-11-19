@@ -92,6 +92,7 @@ export function guildDisbandedNotificationText(
 
 // type 별 payload — 거점 이름은 클라에서 OUTPOST_BY_ID 해석, 라벨은 시점 스냅샷.
 // master_product — 생활 전공으로 명장 산물 획득. name 은 지급 시점 스냅샷.
+//   더는 새로 만들지 않는다(건의 #863: 획득은 각 생활 결과에 표시). 이미 쌓인 알림을 읽기 위해 남긴다.
 export type MasterProductNotificationPayload = {
   activity: string;
   materialId: string;

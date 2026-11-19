@@ -123,7 +123,7 @@ describe("farm breed route", () => {
         cropId: "wheat",
         cropName: "밀",
         stage: 1,
-        rareChancePct: 2,
+        rareChancePct: 4,
         cost: { crops: 40, rare: 2, masterCrop: 0 },
         grantedTitleIds: [],
       },
@@ -153,7 +153,7 @@ describe("farm breed route", () => {
   it("명장 품종은 농사 주전공 명장 3단계부터다", async () => {
     store.set(
       FARM_SAVE_KEY,
-      farmWith({ wheat: 1_200, golden_wheat: 40 }, { wheat: 5 }),
+      farmWith({ wheat: 1_600, golden_wheat: 40 }, { wheat: 5 }),
     );
     store.set("character.v2", { materials: { v2_master_crop: 9 } });
 
@@ -178,13 +178,13 @@ describe("farm breed route", () => {
     expect(await minor.json()).toEqual({ ok: false, error: "breeding_master_locked" });
 
     expect(upsertSave).not.toHaveBeenCalled();
-    expect(savedFarm().inventory.wheat).toBe(1_200);
+    expect(savedFarm().inventory.wheat).toBe(1_600);
   });
 
   it("명장 작물이 모자라면 어느 세이브도 저장하지 않는다", async () => {
     store.set(
       FARM_SAVE_KEY,
-      farmWith({ wheat: 1_200, golden_wheat: 40 }, { wheat: 5 }),
+      farmWith({ wheat: 1_600, golden_wheat: 40 }, { wheat: 5 }),
     );
     store.set("character.v2", { gold: 7, materials: { v2_master_crop: 2 } });
     setFarmingMajor(3);
@@ -199,7 +199,7 @@ describe("farm breed route", () => {
   it("명장 품종은 명장 작물 3개를 캐릭터 재료에서 차감한다", async () => {
     store.set(
       FARM_SAVE_KEY,
-      farmWith({ wheat: 1_250, golden_wheat: 40 }, { wheat: 5 }),
+      farmWith({ wheat: 1_650, golden_wheat: 40 }, { wheat: 5 }),
     );
     store.set("character.v2", {
       gold: 7,
@@ -211,7 +211,7 @@ describe("farm breed route", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      breedResult: { stage: 6, rareChancePct: 13, cost: { masterCrop: 3 } },
+      breedResult: { stage: 6, rareChancePct: 30, cost: { masterCrop: 3 } },
       breeding: { masterUnlocked: true, masterCropHeld: 0 },
     });
     expect(savedFarm().breeding).toEqual({ wheat: 6 });

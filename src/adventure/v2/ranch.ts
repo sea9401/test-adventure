@@ -2,6 +2,7 @@ import {
   RANCH_RARE_ITEM_ID,
   normalizeRanchLineage,
   ranchLineageRareChancePct,
+  ranchLineageYieldBonus,
   type RanchLineage,
   type RanchRareItemId,
 } from "./ranchLineageRules";
@@ -434,13 +435,21 @@ function parseLineage(
     const value = normalizeRanchLineage((raw as Record<string, unknown>)[definition.id]);
     // 최고 등급에는 더 쌓을 실패가 없다.
     const fails = value.grade >= 4 ? 0 : value.fails;
-    if (value.grade > 0 || fails > 0) lineage[definition.id] = { grade: value.grade, fails };
+    // 남겨 둔 산물 몫은 등급이 있을 때만 뜻이 있다.
+    if (value.grade > 0) lineage[definition.id] = { ...value, fails };
+    else if (fails > 0) lineage[definition.id] = { grade: 0, fails };
   }
   return lineage;
 }
 
 export function ranchSlotLineage(state: RanchState, slotId: RanchSlotId): RanchLineage {
   return state.lineage?.[slotId] ?? { grade: 0, fails: 0 };
+}
+
+/** 지금 수거하면 그 칸에서 받는 산물 수. 혈통의 수량 증가를 더한 값이다. */
+export function ranchSlotCollectableItems(state: RanchState, slotId: RanchSlotId): number {
+  const ready = state.slots[slotId].readyItems;
+  return ready + ranchLineageYieldBonus(ranchSlotLineage(state, slotId), ready).bonusItems;
 }
 
 /** 한 칸의 혈통을 바꾼 목장 상태. 보통 등급에 실패도 없으면 그 칸의 기록을 지운다. */
@@ -598,6 +607,7 @@ export function collectRanchProducts(
 ): RanchCollection {
   const settled = settleRanch(state, now);
   const slots = { ...settled.slots };
+  let lineageState = settled;
   const items: Partial<Record<RanchProductItemId, number>> = {};
   const rareItems: Partial<Record<RanchRareItemId, number>> = {};
   const cycles: Record<RanchAnimalId, number> = { chicken: 0, cow: 0, pig: 0 };
@@ -607,11 +617,23 @@ export function collectRanchProducts(
     const slot = slots[slotDefinition.id];
     if (!slot.animalId || slot.readyItems < 1 || slot.readyCycles < 1) continue;
     const animal = RANCH_ANIMAL_DEFINITIONS[slot.animalId];
+    const lineage = ranchSlotLineage(settled, slotDefinition.id);
+    // 혈통 등급이 있는 칸은 산물을 더 받고, 1개가 안 되는 몫은 그 칸에 남긴다.
+    const { bonusItems, yieldCarryPct } = ranchLineageYieldBonus(lineage, slot.readyItems);
     items[animal.outputItemId] =
-      (items[animal.outputItemId] ?? 0) + slot.readyItems;
+      (items[animal.outputItemId] ?? 0) + slot.readyItems + bonusItems;
+    if (yieldCarryPct !== (lineage.yieldCarryPct ?? 0)) {
+      const { yieldCarryPct: _carry, ...rest } = lineage;
+      void _carry;
+      lineageState = withRanchSlotLineage(
+        lineageState,
+        slotDefinition.id,
+        yieldCarryPct > 0 ? { ...rest, yieldCarryPct } : rest,
+      );
+    }
     cycles[animal.id] += slot.readyCycles;
     // 혈통 등급이 있는 칸은 주기마다 희귀 산물을 굴린다.
-    const rareChance = ranchLineageRareChancePct(ranchSlotLineage(settled, slotDefinition.id).grade) / 100;
+    const rareChance = ranchLineageRareChancePct(lineage.grade) / 100;
     if (rareChance > 0) {
       let rare = 0;
       for (let cycle = 0; cycle < slot.readyCycles; cycle += 1) {
@@ -629,7 +651,7 @@ export function collectRanchProducts(
   if (farmingXp < 1) throw new RanchError("nothing_to_collect");
   return {
     ranch: {
-      ...settled,
+      ...lineageState,
       slots,
       stats: {
         ...settled.stats,

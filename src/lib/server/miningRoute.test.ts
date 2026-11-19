@@ -194,8 +194,8 @@ describe("mining routes", () => {
     ).json();
     expect(extended.autoSession).toMatchObject({
       planId: "extended",
-      readyAt: NOW + 156 * 60_000,
-      durationMs: 156 * 60_000,
+      readyAt: NOW + 210 * 60_000,
+      durationMs: 210 * 60_000,
       materialEfficiency: 0.6,
     });
     await AUTO(request("auto", { action: "cancel" }));

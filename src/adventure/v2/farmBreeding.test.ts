@@ -41,17 +41,17 @@ describe("농장 품종 개량", () => {
     const crops = (id: FarmCropId) =>
       [1, 2, 3, 4, 5, 6].map((stage) => farmBreedingCost(id, stage)!.crops);
 
-    expect(crops("wheat")).toEqual([40, 100, 240, 480, 800, 1200]);
-    expect(crops("tomato")).toEqual([40, 100, 240, 480, 800, 1200]);
-    expect(crops("cacao")).toEqual([40, 100, 240, 480, 800, 1200]);
-    expect(crops("herb")).toEqual([30, 75, 180, 360, 600, 900]);
-    expect(crops("strawberry")).toEqual([30, 75, 180, 360, 600, 900]);
-    expect(crops("corn")).toEqual([65, 165, 390, 780, 1300, 1950]);
-    expect(crops("rice")).toEqual([65, 165, 390, 780, 1300, 1950]);
-    expect(crops("potato")).toEqual([55, 140, 330, 660, 1100, 1650]);
-    expect(crops("soybean")).toEqual([55, 140, 330, 660, 1100, 1650]);
-    expect(crops("onion")).toEqual([45, 115, 270, 540, 900, 1350]);
-    expect(crops("sugarcane")).toEqual([50, 125, 300, 600, 1000, 1500]);
+    expect(crops("wheat")).toEqual([40, 100, 280, 600, 1040, 1600]);
+    expect(crops("tomato")).toEqual([40, 100, 280, 600, 1040, 1600]);
+    expect(crops("cacao")).toEqual([40, 100, 280, 600, 1040, 1600]);
+    expect(crops("herb")).toEqual([30, 75, 210, 450, 780, 1200]);
+    expect(crops("strawberry")).toEqual([30, 75, 210, 450, 780, 1200]);
+    expect(crops("corn")).toEqual([65, 165, 455, 975, 1690, 2600]);
+    expect(crops("rice")).toEqual([65, 165, 455, 975, 1690, 2600]);
+    expect(crops("potato")).toEqual([55, 140, 385, 825, 1430, 2200]);
+    expect(crops("soybean")).toEqual([55, 140, 385, 825, 1430, 2200]);
+    expect(crops("onion")).toEqual([45, 115, 315, 675, 1170, 1800]);
+    expect(crops("sugarcane")).toEqual([50, 125, 350, 750, 1300, 2000]);
   });
 
   it("희귀 작물·명장 작물 비용과 범위 밖 단계", () => {
@@ -79,7 +79,7 @@ describe("농장 품종 개량", () => {
     }
     expect(FARM_CROP_LIST).toHaveLength(11);
     expect(rare).toBe(715);
-    expect(crops).toBe(21_385);
+    expect(crops).toBe(26_535);
   });
 
   it("현재 단계를 읽는다", () => {
@@ -103,11 +103,11 @@ describe("농장 품종 개량", () => {
     expect(reason(farmWith({}, { wheat: 5 }))).toBe("breeding_master_locked");
     expect(reason(farmWith({ wheat: 9_999, golden_wheat: 99 }, { wheat: 5 }))).toBe("breeding_master_locked");
     const master = { masterUnlocked: true, masterCropHeld: 2 };
-    expect(reason(farmWith({ wheat: 1_199, golden_wheat: 40 }, { wheat: 5 }), master)).toBe("not_enough_crops");
-    expect(reason(farmWith({ wheat: 1_200, golden_wheat: 39 }, { wheat: 5 }), master)).toBe("not_enough_rare_crops");
-    expect(reason(farmWith({ wheat: 1_200, golden_wheat: 40 }, { wheat: 5 }), master)).toBe("not_enough_master_crop");
+    expect(reason(farmWith({ wheat: 1_599, golden_wheat: 40 }, { wheat: 5 }), master)).toBe("not_enough_crops");
+    expect(reason(farmWith({ wheat: 1_600, golden_wheat: 39 }, { wheat: 5 }), master)).toBe("not_enough_rare_crops");
+    expect(reason(farmWith({ wheat: 1_600, golden_wheat: 40 }, { wheat: 5 }), master)).toBe("not_enough_master_crop");
     expect(
-      reason(farmWith({ wheat: 1_200, golden_wheat: 40 }, { wheat: 5 }), {
+      reason(farmWith({ wheat: 1_600, golden_wheat: 40 }, { wheat: 5 }), {
         masterUnlocked: true,
         masterCropHeld: 3,
       }),
@@ -124,7 +124,7 @@ describe("농장 품종 개량", () => {
       cropId: "wheat",
       cropName: "밀",
       stage: 1,
-      rareChancePct: 2,
+      rareChancePct: 4,
       cost: {
         cropItemId: "wheat",
         crops: 40,
@@ -139,8 +139,8 @@ describe("농장 품종 개량", () => {
     expect(farm.breeding).toEqual({ herb: 2 });
   });
 
-  it("명장 품종은 13%p 가 되고 명장 작물 비용을 결과에 싣는다", () => {
-    const farm = farmWith({ wheat: 1_200, golden_wheat: 40 }, { wheat: 5 });
+  it("명장 품종은 30%p 가 되고 명장 작물 비용을 결과에 싣는다", () => {
+    const farm = farmWith({ wheat: 1_600, golden_wheat: 40 }, { wheat: 5 });
     const { state, result } = breedFarmCrop(farm, "wheat", {
       masterUnlocked: true,
       masterCropHeld: 3,
@@ -149,7 +149,7 @@ describe("농장 품종 개량", () => {
     expect(state.breeding).toEqual({ wheat: 6 });
     expect(state.inventory).toEqual({});
     expect(result.stage).toBe(6);
-    expect(result.rareChancePct).toBe(13);
+    expect(result.rareChancePct).toBe(30);
     expect(result.cost.masterCrop).toBe(3);
   });
 

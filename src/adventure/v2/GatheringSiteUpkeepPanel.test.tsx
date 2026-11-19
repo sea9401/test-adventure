@@ -16,7 +16,7 @@ function view(overrides: Partial<GatheringSiteUpkeepView> = {}): GatheringSiteUp
       [MINING_MATERIAL_ID.coal]: 90,
       [MINING_MATERIAL_ID.copper]: 1_650,
       [MINING_MATERIAL_ID.stone]: 200,
-      [WOODCUTTING_MATERIAL_ID.cypress]: 13_200,
+      [WOODCUTTING_MATERIAL_ID.cypress]: 17_600,
       [MINING_MATERIAL_ID.roughGem]: 600,
       [LIFE_MAJOR_PRODUCT_ID.woodcutting]: 20,
     },
@@ -71,8 +71,8 @@ describe("GatheringSiteUpkeepPanel", () => {
     const iron = await screen.findByTestId("gathering-upkeep-iron");
     expect(within(iron).getByText("철 광맥")).toBeTruthy();
     expect(within(iron).getByText("3단계")).toBeTruthy();
-    expect(within(iron).getByText("느긋한 작업 2시간 36분")).toBeTruthy();
-    expect(within(iron).getByText("철광석 20,000 / 16,000")).toBeTruthy();
+    expect(within(iron).getByText("느긋한 작업 3시간 30분")).toBeTruthy();
+    expect(within(iron).getByText("철광석 20,000 / 20,480")).toBeTruthy();
     // 모자란 재료는 색으로 구분한다.
     expect(within(iron).getByText("석탄 90 / 500").className).toContain("rose");
     expect(
@@ -113,7 +113,7 @@ describe("GatheringSiteUpkeepPanel", () => {
     await waitFor(() => expect(posted).toEqual([{ siteId: "copper" }]));
     expect(
       await screen.findByText(
-        "구리 광맥을 1단계로 정비했습니다. 느긋한 작업 2시간 12분 · 칭호 개척자 획득",
+        "구리 광맥을 1단계로 정비했습니다. 느긋한 작업 2시간 30분 · 칭호 개척자 획득",
       ),
     ).toBeTruthy();
     expect(within(screen.getByTestId("gathering-upkeep-copper")).getByText("1단계")).toBeTruthy();

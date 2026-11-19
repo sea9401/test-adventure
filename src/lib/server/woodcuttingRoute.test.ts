@@ -207,8 +207,8 @@ describe("woodcutting routes", () => {
     const json = await response.json();
     expect(json.autoSession).toMatchObject({
       planId: "extended",
-      readyAt: NOW + 3 * 60 * 60_000,
-      durationMs: 3 * 60 * 60_000,
+      readyAt: NOW + 270 * 60_000,
+      durationMs: 270 * 60_000,
       materialEfficiency: 0.6,
     });
 

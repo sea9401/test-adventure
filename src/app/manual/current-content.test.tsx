@@ -306,13 +306,14 @@ describe("최신 게임 안내서 내용", () => {
 
     expect(html).toContain("채집지 정비");
     expect(html).toContain("느긋한 자동 작업 시간");
-    expect(html).toContain("3시간 30분");
-    expect(html).toContain("2시간 12분");
+    expect(html).toContain("2시간 30분");
+    expect(html).toContain("4시간 30분");
+    expect(html).toContain("6시간");
     expect(html).toContain("단단한 돌 200");
     expect(html).toContain("원석 보석 600");
     // 철 광맥 1단계와 편백나무숲 6단계의 원자재 수량.
     expect(html).toContain("1,920");
-    expect(html).toContain("13,200");
+    expect(html).toContain("17,600");
     expect(html).toContain("채광, 숲이면 벌목 주전공");
     expect(html).toContain("개척자");
     expect(html).toContain("산과 숲의 주인");

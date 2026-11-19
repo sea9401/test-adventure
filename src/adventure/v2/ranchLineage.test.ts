@@ -57,6 +57,17 @@ describe("교배", () => {
     expect(done.state.inventory).toEqual({ egg: 1, compound_feed: 5 });
   });
 
+  it("교배해도 그 칸에 남겨 둔 산물 몫은 사라지지 않는다", () => {
+    const state = farm(
+      { egg: 120, compound_feed: 40 },
+      { "slot-1": { grade: 1, fails: 0, yieldCarryPct: 50 } },
+    );
+    const failed = breedFarmRanchSlot(state, "slot-1", NO_MASTER, () => 0.99, NOW);
+    expect(failed.state.ranch.lineage).toEqual({ "slot-1": { grade: 1, fails: 1, yieldCarryPct: 50 } });
+    const succeeded = breedFarmRanchSlot(failed.state, "slot-1", NO_MASTER, () => 0, NOW);
+    expect(succeeded.state.ranch.lineage).toEqual({ "slot-1": { grade: 2, fails: 0, yieldCarryPct: 50 } });
+  });
+
   it("실패하면 재료만 쓰고 그 칸의 실패 기록이 는다", () => {
     const state = farm({ milk: 30, compound_feed: 20 });
     // 성공률 50% → 0.5는 실패.

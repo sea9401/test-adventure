@@ -112,6 +112,18 @@ export function SignInButtons({ ageConfirmed = false }: { ageConfirmed?: boolean
         <KakaoIcon />
         카카오톡으로 로그인
       </button>
+      {/* 게임에서 로그아웃해도 브라우저의 카카오 로그인은 남아, 기본 로그인은 카카오가
+          묻지 않고 직전 계정으로 이어 준다. prompt=login 은 카카오 로그인 화면을 다시
+          띄워 다른 계정을 고를 수 있게 한다(카카오톡 인앱 브라우저는 카카오가 지원하지 않음). */}
+      <button
+        type="button"
+        onClick={() =>
+          signIn("kakao", { callbackUrl: "/create" }, { prompt: "login" })
+        }
+        className="-my-1 min-h-10 self-center px-2 text-xs text-zinc-400 underline underline-offset-2 transition-colors hover:text-zinc-200"
+      >
+        다른 카카오 계정으로 로그인
+      </button>
 
       <details className="group mt-1 border-t border-white/10 pt-2 text-left">
         <summary className="cursor-pointer list-none text-center text-xs text-zinc-400 transition-colors hover:text-zinc-200 [&::-webkit-details-marker]:hidden">

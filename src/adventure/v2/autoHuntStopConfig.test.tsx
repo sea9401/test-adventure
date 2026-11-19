@@ -25,6 +25,7 @@ describe("자동사냥 물약 설정 계정 동기화", () => {
       rareMapEnabled: false,
       rareMapFullEnabled: true,
       level100Enabled: true,
+      defeatEnabled: true,
     };
     localStorage.setItem(
       STORAGE_KEY,
@@ -59,6 +60,7 @@ describe("자동사냥 물약 설정 계정 동기화", () => {
       rareMapEnabled: true,
       rareMapFullEnabled: false,
       level100Enabled: false,
+      defeatEnabled: false,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(localConfig));
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) =>

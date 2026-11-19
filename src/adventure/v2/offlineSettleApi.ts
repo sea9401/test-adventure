@@ -27,6 +27,7 @@ export function offlineSettleStopReasonLabel(
   if (reason === "rare_map") return "희귀 탐사맵 발견으로 정지";
   if (reason === "rare_map_full") return "레어맵 보유 한도 도달로 정지";
   if (reason === "level_100") return "레벨 100 도달로 정지";
+  if (reason === "defeat") return "전투 패배로 정지";
   if (reason === "hp") return "체력 부족으로 정지";
   if (reason === "error") return "처리 오류로 정지";
   return null;

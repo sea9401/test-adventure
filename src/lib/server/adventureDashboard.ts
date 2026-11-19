@@ -51,8 +51,37 @@ import {
 import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 import { PEDDLER_SAVE_KEY, parsePeddlerState } from "@/adventure/v2/peddler";
 import { PEDDLER_REQUIRED_LIFE_LEVEL, PEDDLER_ROUTE_IDS } from "@/adventure/v2/peddlerRules";
-import { kstWeekMondayKey } from "@/lib/kst";
+import { kstDayKey, kstWeekMondayKey } from "@/lib/kst";
 import { lifeLevelsFromSaves } from "./lifeMajor";
+import {
+  GUILD_TRAINING_SAVE_KEY,
+  guildTrainingDrillViews,
+  parseGuildTrainingState,
+  todayGuildTrainingKey,
+  todayGuildTrainingWeekKey,
+} from "@/adventure/data/v2/guildTrainingGround";
+import {
+  GUILD_WORKSHOP_DELIVERY_IDS,
+  parseGuildWorkshopDeliveryState,
+  todayDeliveryKey,
+} from "@/adventure/data/v2/guildWorkshopDelivery";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import { trainingGroundUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import {
+  FISHING_SHOP_STATE_KEY,
+  FISHING_STAMINA_POTION_ITEM_ID,
+  FISHING_STAMINA_POTION_WEEKLY_LIMIT,
+  parseFishingShopState,
+} from "@/adventure/v2/fishingShop";
+import {
+  COOP_SHOP_ENTRIES,
+  COOP_SHOP_STATE_KEY,
+  coopShopPurchaseCount,
+  parseCoopShopState,
+} from "@/adventure/v2/coop/coopShop";
+import { LIFE_FESTIVAL_SAVE_KEY, parseLifeFestivalState } from "@/adventure/v2/lifeFestival";
+import { LIFE_FESTIVAL_SHOP_ITEM_BY_ID } from "@/adventure/data/v2/lifeFestival";
 
 export const ADVENTURE_HOME_SAVE_KEY = "adventure-home.v1";
 
@@ -80,6 +109,10 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [PEDDLER_SAVE_KEY]: {},
   // 행상을 한 번도 보내지 않은 계정의 해금(생활 레벨) 판정용.
   [FISHING_PROGRESS_KEY]: {},
+  [GUILD_TRAINING_SAVE_KEY]: {},
+  [FISHING_SHOP_STATE_KEY]: {},
+  [COOP_SHOP_STATE_KEY]: {},
+  [LIFE_FESTIVAL_SAVE_KEY]: {},
 } satisfies Record<string, unknown>;
 
 export const ADVENTURE_ACTIVITY_IDS = [
@@ -97,7 +130,22 @@ export const ADVENTURE_ACTIVITY_IDS = [
   "storm_expedition_daily",
   "sanctuary_daily",
   "arena_daily",
+  "guild_training_daily",
+  "guild_workshop_delivery_daily",
+  "fishing_potion_weekly",
+  "coop_potion_weekly",
+  "festival_potion_weekly",
 ] as const;
+
+/** 길드원은 길드 시설, 길드가 없는 계정은 모험가 협회 시설을 쓴다. 제작소 일일 납품은 길드에만 있다. */
+export type AdventureFacilityContext =
+  | { scope: "guild"; trainingGroundLevel: number; smithyLevel: number }
+  | { scope: "association"; trainingGroundLevel: number };
+
+const DEFAULT_FACILITY_CONTEXT: AdventureFacilityContext = {
+  scope: "association",
+  trainingGroundLevel: 1,
+};
 
 type RawActivity = Omit<AdventureActivityView, "enabled">;
 
@@ -187,9 +235,163 @@ function peddlerActivity(
     : { ...base, detail: `생활 Lv.${PEDDLER_REQUIRED_LIFE_LEVEL}에 열립니다`, state: "unavailable" };
 }
 
+function guildTrainingActivity(
+  saves: Record<string, unknown>,
+  now: number,
+  facilities: AdventureFacilityContext,
+): RawActivity {
+  const guild = facilities.scope === "guild";
+  const base = {
+    id: "guild_training_daily",
+    group: "daily",
+    tab: guild ? "guild" : "town",
+    title: "훈련장",
+    href: guild ? "/guild?tab=facilities&facility=training_ground" : "/town/association",
+    defaultEnabled: true,
+  } as const;
+  const level = facilities.trainingGroundLevel;
+  if (level <= 0) return { ...base, detail: "훈련장이 없습니다", state: "unavailable" };
+
+  const character = (saves[CHARACTER_STATE_KEY] ?? {}) as Record<string, unknown>;
+  const cls = parseV2Class(character.class);
+  const group = tier1ClassOf(cls);
+  const jobId = jobIdFromLegacy(
+    cls,
+    typeof character.specChoice === "string" ? character.specChoice : null,
+  );
+  if (group === "none" || jobId === "none") {
+    return { ...base, detail: "전직 후 이용 가능", state: "unavailable" };
+  }
+
+  const date = new Date(now);
+  const drills = guildTrainingDrillViews({
+    state: parseGuildTrainingState(
+      saves[GUILD_TRAINING_SAVE_KEY],
+      todayGuildTrainingKey(date),
+      todayGuildTrainingWeekKey(date),
+    ),
+    buildingLevel: level,
+    characterLevel: Math.max(1, Math.floor(Number(character.level) || 1)),
+    hasJob: true,
+    currentClass: group,
+  });
+  const claimed = drills.filter((drill) => drill.claimed).length;
+  const dailyLimit = Math.max(1, trainingGroundUpgradeForLevel(level).unlockedDrillCount);
+  // 오늘 더 받을 수 있는 훈련 수. 남은 횟수와 지금 조건이 맞는 훈련 수 중 작은 쪽이다.
+  const claimable = Math.min(
+    drills.filter((drill) => drill.available).length,
+    Math.max(0, dailyLimit - claimed),
+  );
+  const target = claimed + claimable;
+  if (target <= 0) {
+    return { ...base, detail: "지금 할 수 있는 훈련 없음", state: "unavailable" };
+  }
+  return {
+    ...base,
+    detail: `${claimed} / ${target}`,
+    state: claimable > 0 ? "actionable" : "completed",
+    current: claimed,
+    target,
+  };
+}
+
+function guildWorkshopDeliveryActivity(
+  saves: Record<string, unknown>,
+  now: number,
+  facilities: AdventureFacilityContext,
+): RawActivity {
+  const base = {
+    id: "guild_workshop_delivery_daily",
+    group: "daily",
+    tab: "guild",
+    title: "제작소 일일 납품",
+    href: "/guild?tab=facilities&facility=guild_smithy",
+    // 납품마다 맞는 제작 장비가 있어야 하고 명장 제작품 납품도 있어서 매일 다 채우는 일이 아니다.
+    countsTowardCompletion: false,
+    defaultEnabled: true,
+  } as const;
+  if (facilities.scope !== "guild") {
+    return { ...base, detail: "길드에 가입하면 열립니다", state: "unavailable" };
+  }
+  if (facilities.smithyLevel <= 0) {
+    return { ...base, detail: "제작소가 없습니다", state: "unavailable" };
+  }
+  const crafting = (saves["crafting.v2"] ?? {}) as Record<string, unknown>;
+  const claimed = parseGuildWorkshopDeliveryState(
+    crafting.delivery,
+    todayDeliveryKey(new Date(now)),
+  ).claimed.length;
+  const target = GUILD_WORKSHOP_DELIVERY_IDS.length;
+  return {
+    ...base,
+    detail: `${claimed} / ${target}`,
+    state: claimed >= target ? "completed" : "in_progress",
+    current: claimed,
+    target,
+  };
+}
+
+/** 주간 한도가 있는 스태미나 회복약 교환. 재화가 있어야 하므로 완료 집계에는 넣지 않는다. */
+function weeklyPotionActivity(
+  base: Pick<RawActivity, "id" | "tab" | "title" | "href">,
+  bought: number,
+  limit: number,
+): RawActivity {
+  const current = Math.min(limit, Math.max(0, bought));
+  return {
+    ...base,
+    group: "weekly",
+    detail: `${current} / ${limit}`,
+    state: current >= limit ? "completed" : "in_progress",
+    current,
+    target: limit,
+    countsTowardCompletion: false,
+    defaultEnabled: true,
+  };
+}
+
+function weeklyPotionActivities(saves: Record<string, unknown>, now: number): RawActivity[] {
+  const date = new Date(now);
+  const dayKey = kstDayKey(date);
+  const weekKey = kstWeekMondayKey(date);
+  const fishingShop = parseFishingShopState(saves[FISHING_SHOP_STATE_KEY], dayKey, weekKey);
+  const coopShop = parseCoopShopState(saves[COOP_SHOP_STATE_KEY], dayKey, weekKey);
+  const coopPotion = COOP_SHOP_ENTRIES.find(
+    (entry) => entry.output.kind === "stamina_potion" && entry.limit?.scope === "weekly",
+  );
+  const festival = parseLifeFestivalState(saves[LIFE_FESTIVAL_SAVE_KEY], weekKey);
+  const festivalPotion = LIFE_FESTIVAL_SHOP_ITEM_BY_ID.get("stamina_potion");
+  return [
+    weeklyPotionActivity(
+      { id: "fishing_potion_weekly", tab: "town", title: "낚시 상점 회복약", href: "/town/exchange?shop=fishing" },
+      fishingShop.weekly.purchases[FISHING_STAMINA_POTION_ITEM_ID] ?? 0,
+      FISHING_STAMINA_POTION_WEEKLY_LIMIT,
+    ),
+    ...(coopPotion?.limit
+      ? [
+          weeklyPotionActivity(
+            { id: "coop_potion_weekly", tab: "town", title: "협동전 상점 회복약", href: "/town/exchange?shop=coop" },
+            coopShopPurchaseCount(coopShop, coopPotion),
+            coopPotion.limit.count,
+          ),
+        ]
+      : []),
+    ...(festivalPotion?.weeklyLimit
+      ? [
+          weeklyPotionActivity(
+            { id: "festival_potion_weekly", tab: "life", title: "생활 축제 포션", href: "/town/festival" },
+            festival.weeklyPurchases[festivalPotion.id] ?? 0,
+            festivalPotion.weeklyLimit,
+          ),
+        ]
+      : []),
+  ];
+}
+
 export function resolveAdventureActivities(
   saves: Record<string, unknown>,
   now = Date.now(),
+  facilities: AdventureFacilityContext = DEFAULT_FACILITY_CONTEXT,
 ): RawActivity[] {
   const farm = normalizeFarmForDay(
     parseFarmState(saves[FARM_SAVE_KEY] ?? emptyFarmState(now), now),
@@ -431,5 +633,8 @@ export function resolveAdventureActivities(
       countsTowardCompletion: false,
       defaultEnabled: true,
     },
+    guildTrainingActivity(saves, now, facilities),
+    guildWorkshopDeliveryActivity(saves, now, facilities),
+    ...weeklyPotionActivities(saves, now),
   ];
 }

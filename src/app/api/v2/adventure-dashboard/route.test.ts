@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   userId: "dashboard-user" as string | null,
   saves: {} as Record<string, unknown>,
   upsertSave: vi.fn(async () => undefined),
+  facilities: { scope: "association", trainingGroundLevel: 1 } as
+    | { scope: "association"; trainingGroundLevel: number }
+    | { scope: "guild"; trainingGroundLevel: number; smithyLevel: number },
 }));
 
 vi.mock("@/db", () => ({ db: {} }));
@@ -18,6 +21,10 @@ vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: mocks.upsertSave,
 }));
 
+vi.mock("@/lib/server/adventureDashboardFacilities", () => ({
+  readAdventureFacilityContext: vi.fn(async () => mocks.facilities),
+}));
+
 import { GET } from "./route";
 import { PATCH } from "./preferences/route";
 import { ADVENTURE_HOME_SAVE_KEY } from "@/lib/server/adventureDashboard";
@@ -26,7 +33,23 @@ describe("모험 대시보드 API", () => {
   beforeEach(() => {
     mocks.userId = "dashboard-user";
     mocks.saves = {};
+    mocks.facilities = { scope: "association", trainingGroundLevel: 1 };
     mocks.upsertSave.mockClear();
+  });
+
+  it("길드원에게는 길드 시설 기준으로 훈련장과 제작소 납품을 보여 준다", async () => {
+    mocks.saves = { "character.v2": { class: "warrior", level: 50 } };
+    const solo = (await (await GET()).json()).activities as { id: string; tab: string; state: string }[];
+    expect(solo.find((item) => item.id === "guild_training_daily")).toMatchObject({ tab: "town", state: "actionable" });
+    expect(solo.find((item) => item.id === "guild_workshop_delivery_daily")).toMatchObject({ state: "unavailable" });
+
+    mocks.facilities = { scope: "guild", trainingGroundLevel: 2, smithyLevel: 1 };
+    const json = await (await GET()).json();
+    const member = json.activities as { id: string; tab: string; state: string }[];
+    expect(member.find((item) => item.id === "guild_training_daily")).toMatchObject({ tab: "guild", state: "actionable" });
+    expect(member.find((item) => item.id === "guild_workshop_delivery_daily")).toMatchObject({ tab: "guild", state: "in_progress" });
+    expect(json.notifications.tabs.guild).toBe(true);
+    expect(json.notifications.paths["/guild?tab=facilities&facility=training_ground"]).toBe(true);
   });
 
   it("비로그인 사용자를 거부한다", async () => {

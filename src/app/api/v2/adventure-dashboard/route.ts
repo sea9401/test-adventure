@@ -2,6 +2,7 @@ import { LIFE_MAJOR_SAVE_KEY, lifeRenownFromSave } from "@/adventure/v2/lifeMajo
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSaves } from "@/lib/server/savesKv";
+import { readAdventureFacilityContext } from "@/lib/server/adventureDashboardFacilities";
 import {
   activitySummary,
   activityTabDots,
@@ -23,18 +24,17 @@ export async function GET() {
   }
 
   const serverNow = Date.now();
-  const saves = await readSaves(
-    db,
-    userId,
-    ADVENTURE_DASHBOARD_SAVE_FALLBACKS,
-  );
+  const [saves, facilities] = await Promise.all([
+    readSaves(db, userId, ADVENTURE_DASHBOARD_SAVE_FALLBACKS),
+    readAdventureFacilityContext(userId),
+  ]);
   const preferences = normalizeAdventureHomePreferences(
     saves[ADVENTURE_HOME_SAVE_KEY],
     ADVENTURE_ACTIVITY_IDS,
   );
   const activities = sortAdventureActivities(
     applyActivityPreferences(
-      resolveAdventureActivities(saves, serverNow),
+      resolveAdventureActivities(saves, serverNow, facilities),
       preferences,
     ),
   );

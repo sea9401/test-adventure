@@ -65,7 +65,7 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
   const idle = activity.group === "ready" && activity.state === "completed";
   const completed = activity.state === "completed" && !idle;
   const stateLabel =
-    activity.countsTowardCompletion === false
+    activity.countsTowardCompletion === false && !completed
       ? "반복"
       : idle
         ? "대기"

@@ -20,6 +20,11 @@ import {
 } from "@/adventure/v2/cooking/state";
 import { PEDDLER_SAVE_KEY, emptyPeddlerState } from "@/adventure/v2/peddler";
 import { PEDDLER_REQUIRED_LIFE_LEVEL } from "@/adventure/v2/peddlerRules";
+import { GUILD_TRAINING_SAVE_KEY } from "@/adventure/data/v2/guildTrainingGround";
+import { GUILD_WORKSHOP_DELIVERY_IDS } from "@/adventure/data/v2/guildWorkshopDelivery";
+import { FISHING_SHOP_STATE_KEY, FISHING_STAMINA_POTION_WEEKLY_LIMIT } from "@/adventure/v2/fishingShop";
+import { COOP_SHOP_STATE_KEY } from "@/adventure/v2/coop/coopShop";
+import { LIFE_FESTIVAL_SAVE_KEY } from "@/adventure/v2/lifeFestival";
 
 describe("일일 퀘스트 보상 레드닷", () => {
   it.each([
@@ -272,5 +277,126 @@ describe("행상 파견 체크 항목", () => {
     expect(peddlerActivity({ [COOKING_SAVE_KEY]: cooking })).toMatchObject({
       detail: "보낸 수레 없음", state: "completed",
     });
+  });
+});
+
+describe("훈련장 체크 항목", () => {
+  const now = Date.parse("2026-11-20T12:00:00+09:00");
+  const guild = { scope: "guild", trainingGroundLevel: 1, smithyLevel: 1 } as const;
+  const training = (
+    saves: Record<string, unknown>,
+    facilities: Parameters<typeof resolveAdventureActivities>[2] = guild,
+  ) =>
+    resolveAdventureActivities({ ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS, ...saves }, now, facilities)
+      .find((activity) => activity.id === "guild_training_daily");
+  const warrior = { [CHARACTER_STATE_KEY]: { class: "warrior", level: 50 } };
+
+  it("오늘 할 수 있는 훈련이 남았으면 길드 탭에 알린다", () => {
+    expect(training(warrior)).toMatchObject({
+      group: "daily", tab: "guild", title: "훈련장",
+      href: "/guild?tab=facilities&facility=training_ground",
+      detail: "0 / 1", current: 0, target: 1, state: "actionable",
+    });
+  });
+
+  it("오늘 횟수를 다 쓰면 완료하고 날짜가 바뀌면 다시 센다", () => {
+    const done = { dayKey: "2026-11-20", claimed: ["basic_stance"] };
+    expect(training({ ...warrior, [GUILD_TRAINING_SAVE_KEY]: done })).toMatchObject({
+      detail: "1 / 1", state: "completed",
+    });
+    const yesterday = { dayKey: "2026-11-19", claimed: ["basic_stance"] };
+    expect(training({ ...warrior, [GUILD_TRAINING_SAVE_KEY]: yesterday })).toMatchObject({
+      detail: "0 / 1", state: "actionable",
+    });
+  });
+
+  it("전직하지 않은 계정은 집계에서 빼고 조건을 보여 준다", () => {
+    expect(training({ [CHARACTER_STATE_KEY]: { class: "none", level: 5 } })).toMatchObject({
+      detail: "전직 후 이용 가능", state: "unavailable",
+    });
+  });
+
+  it("길드가 없으면 모험가 협회 훈련장으로 안내한다", () => {
+    expect(training(warrior, { scope: "association", trainingGroundLevel: 1 })).toMatchObject({
+      tab: "town", href: "/town/association", state: "actionable",
+    });
+  });
+});
+
+describe("제작소 일일 납품 체크 항목", () => {
+  const now = Date.parse("2026-11-20T12:00:00+09:00");
+  const delivery = (
+    saves: Record<string, unknown>,
+    facilities: Parameters<typeof resolveAdventureActivities>[2],
+  ) =>
+    resolveAdventureActivities({ ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS, ...saves }, now, facilities)
+      .find((activity) => activity.id === "guild_workshop_delivery_daily");
+  const guild = { scope: "guild", trainingGroundLevel: 1, smithyLevel: 3 } as const;
+  const total = GUILD_WORKSHOP_DELIVERY_IDS.length;
+
+  it("오늘 납품한 건수를 보여 주고 완료 집계에는 넣지 않는다", () => {
+    const crafting = { delivery: { dayKey: "2026-11-20", claimed: ["daily_crafted_any"] } };
+    expect(delivery({ "crafting.v2": crafting }, guild)).toMatchObject({
+      group: "daily", tab: "guild", title: "제작소 일일 납품",
+      href: "/guild?tab=facilities&facility=guild_smithy",
+      detail: `1 / ${total}`, state: "in_progress", countsTowardCompletion: false,
+    });
+  });
+
+  it("모두 납품하면 완료하고 어제 기록은 세지 않는다", () => {
+    const all = { delivery: { dayKey: "2026-11-20", claimed: [...GUILD_WORKSHOP_DELIVERY_IDS] } };
+    expect(delivery({ "crafting.v2": all }, guild)).toMatchObject({
+      detail: `${total} / ${total}`, state: "completed",
+    });
+    const old = { delivery: { dayKey: "2026-11-19", claimed: [...GUILD_WORKSHOP_DELIVERY_IDS] } };
+    expect(delivery({ "crafting.v2": old }, guild)).toMatchObject({
+      detail: `0 / ${total}`, state: "in_progress",
+    });
+  });
+
+  it("길드가 없으면 여는 조건을 보여 준다", () => {
+    expect(delivery({}, { scope: "association", trainingGroundLevel: 1 })).toMatchObject({
+      detail: "길드에 가입하면 열립니다", state: "unavailable",
+    });
+  });
+});
+
+describe("주간 스태미나 회복약 교환 체크 항목", () => {
+  const now = Date.parse("2026-11-20T12:00:00+09:00");
+  const weekKey = "2026-11-16";
+  const find = (saves: Record<string, unknown>, id: string) =>
+    resolveAdventureActivities({ ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS, ...saves }, now)
+      .find((activity) => activity.id === id);
+
+  it("낚시 상점의 이번 주 교환 수를 보여 준다", () => {
+    const shop = { weekly: { key: weekKey, purchases: { stamina_potion: 12 } } };
+    expect(find({ [FISHING_SHOP_STATE_KEY]: shop }, "fishing_potion_weekly")).toMatchObject({
+      group: "weekly", tab: "town", title: "낚시 상점 회복약",
+      href: "/town/exchange?shop=fishing",
+      detail: `12 / ${FISHING_STAMINA_POTION_WEEKLY_LIMIT}`, state: "in_progress",
+      countsTowardCompletion: false,
+    });
+  });
+
+  it("협동전 상점은 한도까지 교환하면 완료한다", () => {
+    const shop = { weekly: { key: weekKey, purchases: { stamina_potion: 30 } } };
+    expect(find({ [COOP_SHOP_STATE_KEY]: shop }, "coop_potion_weekly")).toMatchObject({
+      title: "협동전 상점 회복약", href: "/town/exchange?shop=coop",
+      detail: "30 / 30", state: "completed", countsTowardCompletion: false,
+    });
+  });
+
+  it("생활 축제 교환소의 포션을 세고 지난주 기록은 버린다", () => {
+    expect(find(
+      { [LIFE_FESTIVAL_SAVE_KEY]: { weekId: weekKey, weeklyPurchases: { stamina_potion: 2 } } },
+      "festival_potion_weekly",
+    )).toMatchObject({
+      tab: "life", title: "생활 축제 포션", href: "/town/festival",
+      detail: "2 / 2", state: "completed",
+    });
+    expect(find(
+      { [LIFE_FESTIVAL_SAVE_KEY]: { weekId: "2026-11-09", weeklyPurchases: { stamina_potion: 2 } } },
+      "festival_potion_weekly",
+    )).toMatchObject({ detail: "0 / 2", state: "in_progress" });
   });
 });

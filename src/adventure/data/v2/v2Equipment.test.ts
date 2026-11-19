@@ -1962,7 +1962,7 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
     ).toBe("피격 직전 체력 30% 이하일 때 받는 피해 −25%");
     expect(
       signatureLabel({ trigger: "on_heal", label: "묵주", healToShieldPct: 25 }),
-    ).toBe("회복 시 회복량의 25% 보호막");
+    ).toBe("회복 시 회복량의 25% 보호막(한 번에 최대 HP의 30%까지)");
     expect(
       signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
     ).toBe("3회 공격 적중마다 추가 기본 공격 1회");

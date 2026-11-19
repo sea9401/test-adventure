@@ -521,6 +521,9 @@ export type SignatureEffect = {
   everyNHits?: number;
 };
 
+/** on_heal 보호막 전환이 한 번의 회복으로 만들 수 있는 최대치(최대 HP 대비 %). 엔진과 툴팁이 함께 쓴다. */
+export const HEAL_TO_SHIELD_MAX_PCT_MAX_HP = 30;
+
 // 시그니처 효과 → 사람이 읽는 한 줄(아이템/세트 툴팁용). 트리거+파라미터를 한국어로.
 export function signatureLabel(sig: SignatureEffect): string {
   switch (sig.trigger) {
@@ -529,7 +532,7 @@ export function signatureLabel(sig: SignatureEffect): string {
     case "low_hp":
       return `피격 직전 체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
     case "on_heal":
-      return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
+      return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막(한 번에 최대 HP의 ${HEAL_TO_SHIELD_MAX_PCT_MAX_HP}%까지)`;
     case "on_dodge":
       if (sig.spdBuffPct)
         return `회피 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;

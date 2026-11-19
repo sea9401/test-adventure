@@ -153,9 +153,14 @@ export function filterCodexEquipmentIds(
   filter: CodexEquipmentFilter,
   registeredIds: ReadonlySet<string>,
   registerableIds: ReadonlySet<string>,
+  /** 즐겨찾기만 보기를 켰을 때 남길 장비. 꺼져 있으면 넘기지 않는다. */
+  favoriteOnlyIds?: ReadonlySet<string> | null,
 ): V2EquipmentId[] {
-  if (filter === "all") return [...ids];
-  return ids.filter(
+  const pool = favoriteOnlyIds
+    ? ids.filter((id) => favoriteOnlyIds.has(id))
+    : [...ids];
+  if (filter === "all") return pool;
+  return pool.filter(
     (id) =>
       !registeredIds.has(id) &&
       (filter === "unregistered" || registerableIds.has(id)),

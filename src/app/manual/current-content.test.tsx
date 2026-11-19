@@ -1060,6 +1060,7 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("묶음 전체");
     expect(html).toContain("나누어 여러 매물을 등록");
     expect(html).toContain("별표 즐겨찾기");
+    expect(html).toContain("장비 도감</strong>에서 별표를 달아 두면");
     expect(html).toContain("최근 30일 체결가 추이");
     expect(html).toContain("목표 개당 가격 이하");
     expect(html).toContain("시작 입찰가 이상");

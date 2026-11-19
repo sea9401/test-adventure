@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle,
   HandFist,
   Shield,
   Sneaker,
+  Star,
   Sword,
   type Icon,
 } from "@phosphor-icons/react";
 import { NecklaceIcon, RingIcon } from "./EquipmentSlotIcons";
+import { buttonClassName } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
@@ -48,6 +50,11 @@ import {
   filterCodexEquipmentIds,
   type CodexEquipmentFilter,
 } from "./codexProgress";
+import { useStoredFavoriteIds } from "./favoriteIds";
+import {
+  MARKETPLACE_FAVORITES_KEY,
+  equipmentFavoriteKey,
+} from "./marketplace/marketplaceFavorites";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -233,6 +240,10 @@ export function CodexEquipmentPanel({
     useState<V2EquipSlot>("weapon");
   const [equipmentCodexFilter, setEquipmentCodexFilter] =
     useState<CodexEquipmentFilter>("all");
+  // 거래소 별표 즐겨찾기와 같은 저장소. 여기서 단 별표가 거래소 "즐겨찾기만 보기"에 그대로 잡힌다.
+  const { favoriteIds: marketFavoriteKeys, toggleFavorite: toggleMarketFavorite } =
+    useStoredFavoriteIds(MARKETPLACE_FAVORITES_KEY);
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [bulkDialogSlot, setBulkDialogSlot] = useState<V2EquipSlot | null>(null);
   const [bulkCandidates, setBulkCandidates] = useState<
     EquipmentCodexBulkCandidate[]
@@ -421,6 +432,15 @@ export function CodexEquipmentPanel({
   }
 
   const equipmentEntries = EQUIPMENT_CODEX_ENTRIES;
+  const favoriteEquipmentIds = useMemo(
+    () =>
+      new Set(
+        EQUIPMENT_IDS.filter((id) =>
+          marketFavoriteKeys.has(equipmentFavoriteKey(id)),
+        ),
+      ),
+    [marketFavoriteKeys],
+  );
   const equippedIids = new Set(Object.values(equippedEquipment).filter(Boolean));
   const equipmentCounts = (() => {
     const owned = new Map<string, number>();
@@ -440,16 +460,20 @@ export function CodexEquipmentPanel({
   })();
   const equipmentSlotEntries = equipmentEntries
     .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot);
+  const equipmentSlotFavoriteCount = equipmentSlotEntries.filter((id) =>
+    favoriteEquipmentIds.has(id),
+  ).length;
   const equipmentSlotVisibleEntries = filterCodexEquipmentIds(
     equipmentSlotEntries,
     equipmentCodexFilter,
     equipmentRegisteredIds,
     new Set(equipmentCounts.eligible.keys()),
+    favoriteOnly ? favoriteEquipmentIds : null,
   );
   const equipmentSlotPager = usePagination(
     equipmentSlotVisibleEntries,
     EQUIPMENT_CODEX_PAGE_SIZE,
-    `${equipmentCodexSlot}:${equipmentCodexFilter}`,
+    `${equipmentCodexSlot}:${equipmentCodexFilter}:${favoriteOnly}`,
   );
   const equipmentSlotRegisteredCount = equipmentSlotEntries.filter((id) =>
     equipmentRegisteredIds.has(id),
@@ -691,29 +715,53 @@ export function CodexEquipmentPanel({
                   {V2_SLOT_LABEL[equipmentCodexSlot]}{" "}
                   {equipmentSlotRegisteredCount}/{equipmentSlotEntries.length}종
                 </div>
-                <button
-                  type="button"
-                  disabled={
-                    equipmentCodexBusy !== null ||
-                    equipmentSlotRegisterableCount === 0
-                  }
-                  onClick={() => openEquipmentBulkDialog(equipmentCodexSlot)}
-                  className="rounded bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-                >
-                  {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
-                    ? "일괄 등록 중"
-                    : "보유 장비 일괄 등록"}
-                </button>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-pressed={favoriteOnly}
+                    onClick={() => setFavoriteOnly((value) => !value)}
+                    className={buttonClassName({ variant: "secondary", size: "xs" })}
+                  >
+                    <Star
+                      size={14}
+                      weight={favoriteOnly ? "fill" : "regular"}
+                      className="shrink-0 text-amber-500"
+                      aria-hidden
+                    />
+                    {favoriteOnly ? "즐겨찾기만 보는 중" : "즐겨찾기만 보기"}
+                    <span className="tabular-nums">{equipmentSlotFavoriteCount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      equipmentCodexBusy !== null ||
+                      equipmentSlotRegisterableCount === 0
+                    }
+                    onClick={() => openEquipmentBulkDialog(equipmentCodexSlot)}
+                    className="rounded bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                  >
+                    {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
+                      ? "일괄 등록 중"
+                      : "보유 장비 일괄 등록"}
+                  </button>
+                </div>
               </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                별표한 장비는 거래소의 즐겨찾기만 보기에 함께 나옵니다.
+              </p>
 
               {equipmentSlotVisibleEntries.length === 0 ? (
                 <Card padding="md">
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     {equipmentSlotEntries.length === 0
                       ? "이 부위에는 등록할 장비가 없습니다."
-                      : equipmentCodexFilter === "registerable"
-                        ? "지금 등록할 수 있는 보유 장비가 없습니다. 잠금을 풀거나 장착을 해제하면 등록할 수 있습니다."
-                        : "이 부위의 장비를 모두 등록했습니다."}
+                      : favoriteOnly && equipmentSlotFavoriteCount === 0
+                        ? "이 부위에 별표한 장비가 없습니다. 장비 카드의 별표를 누르면 즐겨찾기에 저장됩니다."
+                        : favoriteOnly
+                          ? "별표한 장비 중 조건에 맞는 장비가 없습니다."
+                          : equipmentCodexFilter === "registerable"
+                            ? "지금 등록할 수 있는 보유 장비가 없습니다. 잠금을 풀거나 장착을 해제하면 등록할 수 있습니다."
+                            : "이 부위의 장비를 모두 등록했습니다."}
                   </p>
                 </Card>
               ) : (
@@ -735,6 +783,7 @@ export function CodexEquipmentPanel({
                           ? "장착·잠금"
                           : "보유 없음";
                     const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
+                    const favorite = favoriteEquipmentIds.has(id);
                     return (
                     <div
                       key={id}
@@ -749,7 +798,7 @@ export function CodexEquipmentPanel({
                         onClick={(e) => onShowCard({ item, anchor: anchorOf(e.currentTarget) })}
                         className="flex flex-1 flex-col gap-1 text-left"
                       >
-                        <div className="flex items-start justify-between gap-1">
+                        <div className="flex items-start justify-between gap-1 pr-8">
                           <Icon size={20} weight="duotone" className={color} />
                           {registered ? (
                             <span className="inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
@@ -798,6 +847,20 @@ export function CodexEquipmentPanel({
                             ) : null}
                           </div>
                         ) : null}
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={favorite}
+                        aria-label={`${item.name} 거래소 즐겨찾기 ${favorite ? "해제" : "추가"}`}
+                        title={favorite ? "거래소 즐겨찾기 해제" : "거래소 즐겨찾기"}
+                        onClick={() => toggleMarketFavorite(equipmentFavoriteKey(id))}
+                        className={`absolute right-0 top-0 flex size-10 items-center justify-center rounded-lg transition-colors ${
+                          favorite
+                            ? "text-amber-500"
+                            : "text-zinc-400 hover:text-amber-500 dark:text-zinc-500"
+                        }`}
+                      >
+                        <Star size={17} weight={favorite ? "fill" : "regular"} aria-hidden />
                       </button>
                       {!registered && (
                         <button

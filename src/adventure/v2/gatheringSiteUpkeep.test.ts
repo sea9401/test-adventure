@@ -76,10 +76,10 @@ describe("채집지 구성", () => {
 });
 
 describe("비용과 작업 시간", () => {
-  it("철 광맥은 1회분 640으로 3·8·15·25·40·60회분이 든다", () => {
+  it("철 광맥은 1회분 640으로 3·8·18·32·55·80회분이 든다", () => {
     expect(
       [1, 2, 3, 4, 5, 6].map((stage) => gatheringSiteCost("iron", stage)?.materials),
-    ).toEqual([1_920, 5_120, 9_600, 16_000, 25_600, 38_400]);
+    ).toEqual([1_920, 5_120, 11_520, 20_480, 35_200, 51_200]);
     expect(gatheringSiteCost("iron", 1)).toEqual({
       materialId: MINING_MATERIAL_ID.iron,
       materials: 1_920,
@@ -109,7 +109,7 @@ describe("비용과 작업 시간", () => {
   it("숲의 명장 정비는 명장 목재를 쓴다", () => {
     expect(gatheringSiteCost("cypress", GATHERING_SITE_MASTER_STAGE)).toEqual({
       materialId: WOODCUTTING_MATERIAL_ID.cypress,
-      materials: 13_200,
+      materials: 17_600,
       byproductId: MINING_MATERIAL_ID.roughGem,
       byproducts: 600,
       masterProductId: LIFE_MAJOR_PRODUCT_ID.woodcutting,
@@ -120,7 +120,7 @@ describe("비용과 작업 시간", () => {
     expect(gatheringSiteCost("cypress", 1.5)).toBeNull();
   });
 
-  it("12곳 5단계까지 원자재 합계는 447,720개다", () => {
+  it("12곳 5단계까지 원자재 합계는 570,720개다", () => {
     const total = ALL_IDS.reduce(
       (sum, id) =>
         sum +
@@ -130,15 +130,15 @@ describe("비용과 작업 시간", () => {
         ),
       0,
     );
-    expect(total).toBe(447_720);
+    expect(total).toBe(570_720);
   });
 
-  it("느긋한 작업 시간은 2시간에서 3시간 30분까지 늘어난다", () => {
+  it("느긋한 작업 시간은 2시간에서 30분씩 늘어 명장 정비에서 6시간이 된다", () => {
     expect(
       [0, 1, 2, 3, 4, 5, 6].map((stage) => gatheringSiteExtendedDurationMs(stage) / MINUTE),
-    ).toEqual([120, 132, 144, 156, 168, 180, 210]);
+    ).toEqual([120, 150, 180, 210, 240, 270, 360]);
     // 범위를 벗어난 단계는 0~6으로 맞춘다.
-    expect(gatheringSiteExtendedDurationMs(99) / MINUTE).toBe(210);
+    expect(gatheringSiteExtendedDurationMs(99) / MINUTE).toBe(360);
     expect(gatheringSiteExtendedDurationMs(-3) / MINUTE).toBe(120);
     expect(gatheringSiteExtendedDurationMs(Number.NaN) / MINUTE).toBe(120);
   });
@@ -186,7 +186,7 @@ describe("정비", () => {
       siteId: "iron",
       siteName: "철 광맥",
       stage: 1,
-      extendedDurationMs: 132 * MINUTE,
+      extendedDurationMs: 150 * MINUTE,
     });
   });
 
@@ -204,8 +204,8 @@ describe("정비", () => {
 
   it("6단계는 그 생활의 명장 정비가 열려야 하고 명장 산물이 든다", () => {
     const rich = {
-      [MINING_MATERIAL_ID.adamantite]: 13_200,
-      [WOODCUTTING_MATERIAL_ID.cypress]: 13_200,
+      [MINING_MATERIAL_ID.adamantite]: 17_600,
+      [WOODCUTTING_MATERIAL_ID.cypress]: 17_600,
       [MINING_MATERIAL_ID.roughGem]: 1_200,
       [LIFE_MAJOR_PRODUCT_ID.mining]: 20,
       [LIFE_MAJOR_PRODUCT_ID.woodcutting]: 19,
@@ -226,7 +226,7 @@ describe("정비", () => {
     expect(done.state.adamantite).toBe(GATHERING_SITE_MASTER_STAGE);
     expect(done.materials[LIFE_MAJOR_PRODUCT_ID.mining]).toBeUndefined();
     expect(done.materials[MINING_MATERIAL_ID.roughGem]).toBe(600);
-    expect(done.result.extendedDurationMs).toBe(210 * MINUTE);
+    expect(done.result.extendedDurationMs).toBe(360 * MINUTE);
     expect(
       gatheringSiteBlockReason(done.state, "adamantite", context(rich, { mining: true })),
     ).toBe("upkeep_max");

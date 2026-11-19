@@ -80,8 +80,8 @@ describe("농장 품종 개량 패널", () => {
     const { wheat } = renderPanel(farmWith({}, { wheat: 3 }));
 
     expect(wheat.getByText("3단계")).toBeTruthy();
-    expect(wheat.getByText("희귀 수확 +6%p")).toBeTruthy();
-    expect(wheat.getByText("밀 0 / 480")).toBeTruthy();
+    expect(wheat.getByText("희귀 수확 +12%p")).toBeTruthy();
+    expect(wheat.getByText("밀 0 / 600")).toBeTruthy();
     expect(wheat.getByText("황금 밀 0 / 18")).toBeTruthy();
   });
 
@@ -122,7 +122,7 @@ describe("농장 품종 개량 패널", () => {
     const { wheat } = renderPanel(farmWith({ wheat: 5_000 }, { wheat: 6 }));
 
     expect(wheat.getByText("6단계")).toBeTruthy();
-    expect(wheat.getByText("희귀 수확 +13%p")).toBeTruthy();
+    expect(wheat.getByText("희귀 수확 +30%p")).toBeTruthy();
     expect(wheat.getByText("최고 단계")).toBeTruthy();
     expect(wheat.queryByRole("button")).toBeNull();
   });

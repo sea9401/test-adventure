@@ -1,6 +1,6 @@
 // 목장 혈통 교배 — 칸마다 가축의 혈통 등급이 있고, 그 동물의 산물과 배합 사료를 써서 교배하면
 // 확률로 한 등급 오른다. 실패하면 등급은 그대로이고 그 칸의 다음 성공률이 오른다. 등급만큼 수거할 때
-// 희귀 산물이 나온다. 순수 모듈. 명장 작물(character.v2 재료) 차감은 라우트가 한다.
+// 산물을 더 받고 희귀 산물이 나온다. 순수 모듈. 명장 작물(character.v2 재료) 차감은 라우트가 한다.
 
 import { FarmError, spendFarmItems, type FarmItemId, type FarmState } from "./farm";
 import {
@@ -102,9 +102,10 @@ export function breedFarmRanchSlot(
   const cost = ranchBreedCost(animalId, lineage.grade)!;
   const chancePct = ranchLineageBreedChancePct(lineage);
   const success = rng() * 100 < chancePct;
+  // 남겨 둔 산물 몫(yieldCarryPct)은 교배와 상관없이 그 칸에 남는다.
   const next = success
-    ? { grade: lineage.grade + 1, fails: 0 }
-    : { grade: lineage.grade, fails: lineage.fails + 1 };
+    ? { ...lineage, grade: lineage.grade + 1, fails: 0 }
+    : { ...lineage, fails: lineage.fails + 1 };
   return {
     state: {
       ...state,

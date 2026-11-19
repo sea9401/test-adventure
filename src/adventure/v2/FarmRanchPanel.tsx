@@ -17,6 +17,7 @@ import {
   RANCH_REBUILD_COSTS,
   RANCH_SLOT_DEFINITIONS,
   ranchFeedPlan,
+  ranchSlotCollectableItems,
   ranchSlotLineage,
   type RanchAnimalDefinition,
   type RanchAnimalId,
@@ -133,7 +134,7 @@ export function FarmRanchPanel({
   >({});
   const ranchUnlocked = learnedSkillIds.includes(FARM_CROP_REQUIRED_SKILL_ID);
   const totalReady = RANCH_SLOT_DEFINITIONS.reduce(
-    (sum, definition) => sum + farm.ranch.slots[definition.id].readyItems,
+    (sum, definition) => sum + ranchSlotCollectableItems(farm.ranch, definition.id),
     0,
   );
   const unlockedCount = RANCH_SLOT_DEFINITIONS.filter(
@@ -402,7 +403,7 @@ export function FarmRanchPanel({
                     <div className="mt-2 flex items-center gap-2">
                       <FarmItemIcon itemId={animal.outputItemId} className="size-9" />
                       <span className="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                        {animal.outputName} {slot.readyItems.toLocaleString("ko-KR")}개
+                        {animal.outputName} {ranchSlotCollectableItems(farm.ranch, slotDefinition.id).toLocaleString("ko-KR")}개
                       </span>
                     </div>
                   </div>

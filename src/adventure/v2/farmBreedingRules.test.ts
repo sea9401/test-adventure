@@ -15,7 +15,7 @@ describe("농장 품종 개량 규칙", () => {
 
   it("단계별 희귀 수확 보너스", () => {
     expect([0, 1, 2, 3, 4, 5, 6].map(farmBreedingRareChancePct)).toEqual([
-      0, 2, 4, 6, 8, 10, 13,
+      0, 4, 8, 12, 16, 20, 30,
     ]);
   });
 
@@ -25,7 +25,7 @@ describe("농장 품종 개량 규칙", () => {
     expect(normalizeFarmBreedingStage(9)).toBe(6);
     expect(normalizeFarmBreedingStage("3")).toBe(0);
     expect(normalizeFarmBreedingStage(Number.NaN)).toBe(0);
-    expect(farmBreedingRareChancePct(99)).toBe(13);
+    expect(farmBreedingRareChancePct(99)).toBe(30);
     expect(farmBreedingRareChancePct(-4)).toBe(0);
   });
 
@@ -33,10 +33,10 @@ describe("농장 품종 개량 규칙", () => {
     expect(FARM_BREEDING_STAGE_COSTS).toEqual([
       { harvests: 10, rare: 2, masterCrop: 0 },
       { harvests: 25, rare: 5, masterCrop: 0 },
-      { harvests: 60, rare: 10, masterCrop: 0 },
-      { harvests: 120, rare: 18, masterCrop: 0 },
-      { harvests: 200, rare: 30, masterCrop: 0 },
-      { harvests: 300, rare: 40, masterCrop: 3 },
+      { harvests: 70, rare: 10, masterCrop: 0 },
+      { harvests: 150, rare: 18, masterCrop: 0 },
+      { harvests: 260, rare: 30, masterCrop: 0 },
+      { harvests: 400, rare: 40, masterCrop: 3 },
     ]);
   });
 });

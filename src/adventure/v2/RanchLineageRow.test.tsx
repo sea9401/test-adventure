@@ -20,7 +20,8 @@ describe("RanchLineageRow", () => {
   it("혈통 등급과 희귀 산물 확률, 다음 교배의 성공률과 비용을 보여 준다", () => {
     render(<RanchLineageRow {...base} lineage={{ grade: 1, fails: 2 }} />);
     expect(screen.getByText("혈통 우량")).toBeTruthy();
-    expect(screen.getByText("진한 우유 확률 5%")).toBeTruthy();
+    expect(screen.getByText("산물 +25%")).toBeTruthy();
+    expect(screen.getByText("진한 우유 확률 10%")).toBeTruthy();
     expect(screen.getByText("교배 성공률 26%")).toBeTruthy();
     expect(screen.getByText("우유 45 / 30").className).not.toContain("rose");
     // 모자란 재료는 색으로 구분하고 교배를 막는다.
@@ -67,7 +68,7 @@ describe("RanchLineageRow", () => {
   it("최고 등급이면 교배 버튼 대신 최고 혈통이라고 알린다", () => {
     render(<RanchLineageRow {...base} lineage={{ grade: 4, fails: 0 }} />);
     expect(screen.getByText("혈통 명장 혈통")).toBeTruthy();
-    expect(screen.getByText("진한 우유 확률 22%")).toBeTruthy();
+    expect(screen.getByText("진한 우유 확률 50%")).toBeTruthy();
     expect(screen.getByText("최고 혈통")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "부지 2 교배" })).toBeNull();
   });
@@ -81,7 +82,7 @@ describe("RanchLineageRow", () => {
       cost: { productItemId: "egg" as const, products: 60, feed: 20, masterCrop: 0 },
     };
     expect(ranchBreedNoticeText({ ...result, success: true, grade: 1, fails: 0 })).toBe(
-      "닭 교배 성공: 혈통 우량. 황금 달걀 확률 5%.",
+      "닭 교배 성공: 혈통 우량. 산물 +25%, 황금 달걀 확률 10%.",
     );
     expect(ranchBreedNoticeText({ ...result, success: false, grade: 0, fails: 1 })).toBe(
       "닭 교배 실패: 혈통은 그대로이고 다음 성공률이 60%로 올랐습니다.",

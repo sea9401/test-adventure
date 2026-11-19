@@ -13,6 +13,7 @@ import {
   RANCH_RARE_ITEM_ID,
   ranchLineageBreedChancePct,
   ranchLineageRareChancePct,
+  ranchLineageYieldBonusPct,
   type RanchLineage,
 } from "./ranchLineageRules";
 
@@ -30,12 +31,12 @@ export function ranchBreedNoticeText(result: RanchBreedResult): string {
       ranchLineageBreedChancePct({ grade: result.grade, fails: result.fails }),
     )}%로 올랐습니다.`;
   }
-  return `${result.animalName} 교배 성공: 혈통 ${RANCH_LINEAGE_GRADE_NAMES[result.grade]}. ${
-    FARM_ITEMS[RANCH_RARE_ITEM_ID[result.animalId]].name
-  } 확률 ${pct(ranchLineageRareChancePct(result.grade))}%.`;
+  return `${result.animalName} 교배 성공: 혈통 ${RANCH_LINEAGE_GRADE_NAMES[result.grade]}. 산물 +${ranchLineageYieldBonusPct(
+    result.grade,
+  )}%, ${FARM_ITEMS[RANCH_RARE_ITEM_ID[result.animalId]].name} 확률 ${pct(ranchLineageRareChancePct(result.grade))}%.`;
 }
 
-// 목장 부지 카드 안의 혈통 줄 — 지금 혈통과 희귀 산물 확률, 다음 교배의 성공률·비용·버튼.
+// 목장 부지 카드 안의 혈통 줄 — 지금 혈통의 산물 수량 증가와 희귀 산물 확률, 다음 교배의 성공률·비용·버튼.
 export function RanchLineageRow({
   slotLabel,
   animalId,
@@ -69,6 +70,9 @@ export function RanchLineageRow({
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             혈통 {RANCH_LINEAGE_GRADE_NAMES[lineage.grade]}
+          </span>
+          <span className="text-zinc-600 dark:text-zinc-300">
+            산물 +{ranchLineageYieldBonusPct(lineage.grade)}%
           </span>
           <span className="text-zinc-600 dark:text-zinc-300">
             {FARM_ITEMS[RANCH_RARE_ITEM_ID[animalId]].name} 확률 {pct(ranchLineageRareChancePct(lineage.grade))}%

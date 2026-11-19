@@ -891,7 +891,9 @@ export function V2DungeonFloorView({
           b.stoppedReason === "potion" ||
           b.stoppedReason === "rare_map" ||
           b.stoppedReason === "rare_map_full" ||
-          b.stoppedReason === "level_100"
+          b.stoppedReason === "level_100" ||
+          // 서버는 패배한 묶음을 늘 멈춘다. 자동 반복까지 멈출지는 정지 조건이 정한다.
+          (b.stoppedReason === "defeat" && autoStopConfigRef.current.defeatEnabled)
             ? b.stoppedReason
             : rareMapIid && (b.rareMapRunsLeft ?? 0) <= 0
               ? "rare_map_exhausted"
@@ -1132,10 +1134,12 @@ export function V2DungeonFloorView({
                   RARE_MAP_KINDS[r.rareMapDrop]?.category === "hunt",
                 rareMapCount: r.rareMapCount ?? 0,
                 level: r.levelAfter ?? currentLevel + r.levelsGained,
+                lost: !r.won,
               },
             );
+            // 쓰러져 체력이 0이면 패배 조건이 켜져 있어도 전처럼 쓰러짐으로 알린다.
             const stopReason: HuntEndReason | null =
-              configuredStopReason ??
+              (configuredStopReason === "defeat" && r.hpAfter <= 0 ? "death" : configuredStopReason) ??
               (rareMapIid && (r.rareMapRunsLeft ?? 0) <= 0
                 ? "rare_map_exhausted"
                 : r.hpAfter <= 0
@@ -1614,6 +1618,16 @@ export function V2DungeonFloorView({
                   className="size-4 accent-emerald-600"
                 />
                 <span>레벨 {AUTO_HUNT_LEVEL_TARGET} 도달 시</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoStopConfig.defeatEnabled}
+                  onChange={(e) => updateAutoStopConfig({ defeatEnabled: e.target.checked })}
+                  className="size-4 accent-emerald-600"
+                />
+                <span>전투 패배 시</span>
               </label>
             </div>
           </div>

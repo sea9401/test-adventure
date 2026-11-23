@@ -1820,11 +1820,6 @@ export function V2DungeonFloorView({
           ) : (
             <HuntResultCard
               encounter={encounter}
-              onShowReplay={
-                latestPresentedResult.result.replay
-                  ? showReplaySection
-                  : undefined
-              }
               result={latestPresentedResult.result}
               hpCharges={latestPresentedResult.result.hpCharges}
               mpCharges={latestPresentedResult.result.mpCharges}
@@ -1846,8 +1841,7 @@ export function V2DungeonFloorView({
               {RARE_MAP_KINDS[resultRareMap.kind].name}
             </Button>
           )}
-          {!encounter &&
-            latestPresentedResult.kind === "single" &&
+          {latestPresentedResult.kind === "single" &&
             latestPresentedResult.result.replay && (
               <Button
                 type="button"

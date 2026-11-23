@@ -6,7 +6,6 @@
 // 다시 넣기로 했다(사냥 화면에 싸운 상대가 전혀 안 보이던 문제). 턴 수는 여전히 넣지 않는다.
 
 import type { ReactNode } from "react";
-import { CaretRight } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -239,15 +238,12 @@ export function HuntResultCard({
   hasMp,
   onEnterRareMap,
   encounter,
-  onShowReplay,
 }: {
   /**
    * 싸운 상대와 승패를 보여 주는 머리. 주면 "전투 결과" 한 줄을 대신하고, 보상은 보유량 칸
    * 대신 이번에 얻은 양만 적은 칩으로 줄인다(보유량은 상단바와 캐릭터 화면에 있다).
    */
   encounter?: ReactNode;
-  /** encounter와 함께 주면 카드 안에 "전투 기록 보기"를 둔다. */
-  onShowReplay?: () => void;
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
   hpCharges?: number;
@@ -452,7 +448,8 @@ export function HuntResultCard({
                   className="rounded-md bg-zinc-100 px-2.5 py-1 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
                 >
                   {item.label}{" "}
-                  <b className="font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
+                  {/* 숫자 색은 보유량 칸과 같은 뜻으로 쓴다: 골드 노랑, 숙련도 하늘, 숙달 보라, 경험치 초록. */}
+                  <b className={`font-bold tabular-nums ${item.currentClassName}`}>
                     +{item.gained.toLocaleString()}
                   </b>
                 </span>
@@ -463,21 +460,11 @@ export function HuntResultCard({
               </span>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="min-w-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {(statGainsText || hpMpGainsText) && (
+            <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
               {[statGainsText, hpMpGainsText].filter(Boolean).join(" · ")}
-            </span>
-            {onShowReplay && (
-              <button
-                type="button"
-                onClick={onShowReplay}
-                className="flex min-h-9 shrink-0 items-center gap-0.5 text-sm font-medium text-selected hover:text-selected-hover"
-              >
-                전투 기록 보기
-                <CaretRight size={14} weight="bold" aria-hidden className="shrink-0" />
-              </button>
-            )}
-          </div>
+            </p>
+          )}
         </div>
       ) : (
         <RewardBalanceGrid items={rewardBalances} />

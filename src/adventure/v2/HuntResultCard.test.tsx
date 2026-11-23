@@ -295,7 +295,7 @@ describe("HuntResultCard 방금 전투 머리가 있을 때", () => {
     mpGain: 3,
   };
 
-  function render(onShowReplay?: () => void) {
+  function render() {
     return renderToStaticMarkup(
       <HuntResultCard
         result={won}
@@ -303,7 +303,6 @@ describe("HuntResultCard 방금 전투 머리가 있을 때", () => {
         mpCharges={100_000}
         hasMp
         encounter={<div data-testid="encounter">방금 전투 승리</div>}
-        onShowReplay={onShowReplay}
       />,
     );
   }
@@ -316,6 +315,10 @@ describe("HuntResultCard 방금 전투 머리가 있을 때", () => {
     expect(html).toMatch(/골드\s*<b[^>]*>\+15<\/b>/);
     expect(html).toMatch(/경험치\s*<b[^>]*>\+30<\/b>/);
     expect(html).toMatch(/숙달 포인트\s*<b[^>]*>\+2<\/b>/);
+    // 얻은 양의 숫자는 종류마다 색이 다르다.
+    expect(html).toMatch(/골드\s*<b class="[^"]*text-yellow-700[^"]*">\+15<\/b>/);
+    expect(html).toMatch(/숙달 포인트\s*<b class="[^"]*text-violet-700[^"]*">\+2<\/b>/);
+    expect(html).toMatch(/경험치\s*<b class="[^"]*text-emerald-700[^"]*">\+30<\/b>/);
     // 얻은 것이 없는 항목과 보유량 칸은 그리지 않는다.
     expect(html).not.toContain("직업 숙련도");
     expect(html).not.toContain("전투 후 보유량과 이번 변동");
@@ -331,11 +334,10 @@ describe("HuntResultCard 방금 전투 머리가 있을 때", () => {
     expect(html).not.toContain("레벨 업!");
   });
 
-  it("전투 기록 보기를 카드 안에 두고 충전약 줄은 능력치 줄에 맡긴다", () => {
-    const html = render(vi.fn());
+  it("충전약 줄은 능력치 줄에 맡기고, 전투 기록 보기는 카드 밖 아래쪽 버튼에 둔다", () => {
+    const html = render();
 
-    expect(html).toContain("전투 기록 보기");
     expect(html).not.toContain("HP 충전약");
-    expect(render()).not.toContain("전투 기록 보기");
+    expect(html).not.toContain("전투 기록 보기");
   });
 });

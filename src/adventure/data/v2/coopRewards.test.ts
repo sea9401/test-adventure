@@ -77,7 +77,23 @@ describe("coopRewards", () => {
     );
   });
 
-  it("티어별 확정 보상은 단조 증가하고 상자는 SILVER부터 확률", () => {
+  it("기본 보상은 모두 같고 추가 보상 단계는 그 위에 쌓인다", () => {
+    // 2026-11-24 개편: 기본 = 옛 GOLD 수준, EPIC·LEGEND 합계는 개편 전과 같다.
+    expect(COOP_EXTRA_REWARD_RULES).toEqual({
+      base: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.06 },
+      gold: { coin: 22, bossMaterial: 6, equipmentBoxChance: 0.09 },
+      epic: { coin: 28, bossMaterial: 8, equipmentBoxChance: 0.12 },
+      legend: { coin: 45, bossMaterial: 15, equipmentBoxChance: 0.2 },
+    });
+    expect(COOP_HARD_EXTRA_REWARD_RULES).toEqual({
+      base: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.1 },
+      gold: { coin: 22, bossMaterial: 5, equipmentBoxChance: 0.17 },
+      epic: { coin: 28, bossMaterial: 7, equipmentBoxChance: 0.25 },
+      legend: { coin: 45, bossMaterial: 12, equipmentBoxChance: 1 },
+    });
+  });
+
+  it("단계별 확정 보상은 단조 증가하고 기본 보상에도 상자 확률이 있다", () => {
     let prevCoin = 0;
     let prevMat = 0;
     for (const tier of COOP_TIER_ORDER) {
@@ -89,30 +105,28 @@ describe("coopRewards", () => {
       prevCoin = rule.coin;
       prevMat = rule.bossMaterial;
     }
-    expect(COOP_EXTRA_REWARD_RULES.bronze.equipmentBoxChance).toBe(0);
-    expect(COOP_EXTRA_REWARD_RULES.silver.equipmentBoxChance).toBeGreaterThan(0);
+    expect(COOP_EXTRA_REWARD_RULES.base.equipmentBoxChance).toBeGreaterThan(0);
   });
 
-  it("하드 산군 보상은 흔적 중심 + GOLD 이상 상자", () => {
+  it("하드 산군 보상은 흔적 중심이고 LEGEND는 상자 확정", () => {
     expect(COOP_BOSS_MATERIAL.mountain_chief_hard.name).toBe("산군의 흔적");
     expect(COOP_EQUIPMENT_BOX.mountain_chief_hard).toMatchObject({
       name: "흉포한 산군 5T 장비 상자",
       displayTier: 5,
       catalogTiers: [13],
     });
-    expect(COOP_HARD_EXTRA_REWARD_RULES.bronze.bossMaterial).toBe(1);
-    expect(COOP_HARD_EXTRA_REWARD_RULES.silver.bossMaterial).toBe(2);
-    expect(COOP_HARD_EXTRA_REWARD_RULES.gold.bossMaterial).toBe(4);
+    expect(COOP_HARD_EXTRA_REWARD_RULES.base.bossMaterial).toBe(4);
+    expect(COOP_HARD_EXTRA_REWARD_RULES.gold.bossMaterial).toBe(5);
     expect(COOP_HARD_EXTRA_REWARD_RULES.epic.bossMaterial).toBe(7);
     expect(COOP_HARD_EXTRA_REWARD_RULES.legend.bossMaterial).toBe(12);
     expect(
-      coopExtraRewardRuleFor("mountain_chief_hard", "silver")
+      coopExtraRewardRuleFor("mountain_chief_hard", "base")
         .equipmentBoxChance,
-    ).toBe(0);
+    ).toBe(0.1);
     expect(
       coopExtraRewardRuleFor("mountain_chief_hard", "gold")
         .equipmentBoxChance,
-    ).toBe(0.1);
+    ).toBe(0.17);
     expect(
       coopExtraRewardRuleFor("mountain_chief_hard", "legend")
         .equipmentBoxChance,
@@ -123,8 +137,8 @@ describe("coopRewards", () => {
       displayTier: 5,
       catalogTiers: [13],
     });
-    expect(coopExtraRewardRuleFor("abyssal_tyrant", "silver").equipmentBoxChance)
-      .toBe(0);
+    expect(coopExtraRewardRuleFor("abyssal_tyrant", "base").equipmentBoxChance)
+      .toBe(0.1);
     expect(coopExtraRewardRuleFor("abyssal_tyrant", "legend").equipmentBoxChance)
       .toBe(1);
   });
@@ -153,8 +167,8 @@ describe("coopRewards", () => {
       ],
     });
     for (const boss of ["canyon_predator_hard", "lake_sovereign_hard"] as const) {
-      expect(coopExtraRewardRuleFor(boss, "bronze")).toEqual(
-        COOP_HARD_EXTRA_REWARD_RULES.bronze,
+      expect(coopExtraRewardRuleFor(boss, "base")).toEqual(
+        COOP_HARD_EXTRA_REWARD_RULES.base,
       );
       expect(coopExtraRewardRuleFor(boss, "legend")).toEqual(
         COOP_HARD_EXTRA_REWARD_RULES.legend,
@@ -164,18 +178,18 @@ describe("coopRewards", () => {
   });
 
   it("rollCoopExtraRewards — 확정 보상 + 상자 확률 경계", () => {
-    const noBox = rollCoopExtraRewards("mountain_chief", "silver", () => 0.99);
-    expect(noBox.coin).toBe(COOP_EXTRA_REWARD_RULES.silver.coin);
+    const noBox = rollCoopExtraRewards("mountain_chief", "base", () => 0.99);
+    expect(noBox.coin).toBe(COOP_EXTRA_REWARD_RULES.base.coin);
     expect(noBox.bossMaterialId).toBe(COOP_BOSS_MATERIAL.mountain_chief.id);
     expect(noBox.equipmentBoxId).toBeNull();
 
-    const gotBox = rollCoopExtraRewards("mountain_chief", "silver", () => 0);
+    const gotBox = rollCoopExtraRewards("mountain_chief", "base", () => 0);
     expect(gotBox.equipmentBoxId).toBe(COOP_EQUIPMENT_BOX.mountain_chief.id);
 
     const hardNoBox = rollCoopExtraRewards(
       "mountain_chief_hard",
-      "silver",
-      () => 0,
+      "base",
+      () => 0.5,
     );
     expect(hardNoBox.equipmentBoxId).toBeNull();
     expect(hardNoBox.bossMaterialName).toBe("산군의 흔적");

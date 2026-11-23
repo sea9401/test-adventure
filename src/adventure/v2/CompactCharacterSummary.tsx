@@ -359,7 +359,7 @@ export function CompactCharacterSummary({
         </div>
         </div>
 
-        <div className="grid grid-cols-6 gap-1 border-t border-zinc-200 p-2 sm:gap-2 sm:p-3 dark:border-zinc-700">
+        <div className="grid grid-cols-6 border-t border-zinc-200 px-1 dark:border-zinc-700">
           {EQUIPMENT_SLOTS.map(({ slot, label, Icon, color }) => {
             const instance = equippedBySlot.get(slot);
             const item = instance ? V2_EQUIPMENT[instance.id] : null;
@@ -373,21 +373,19 @@ export function CompactCharacterSummary({
                   }
                   aria-hidden
                 />
-                <span className="truncate text-[9px] text-zinc-500 dark:text-zinc-400">
+                <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                   {label}
                 </span>
               </>
             );
 
             return instance && item ? (
-              <Inset
+              <button
                 key={slot}
-                as="button"
                 type="button"
                 data-compact-equipment-slot={slot}
                 aria-label={`${item.name} 아이템 옵션 보기`}
                 aria-haspopup="dialog"
-                padding="none"
                 title={`${label} · ${item.name}`}
                 onClick={(event) =>
                   setSelectedDetail({
@@ -397,20 +395,19 @@ export function CompactCharacterSummary({
                     anchor: anchorOf(event.currentTarget),
                   })
                 }
-                className="flex min-h-11 min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 p-1 transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:hover:text-white"
+                className="flex min-h-12 min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md py-2 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:hover:bg-zinc-800"
               >
                 {content}
-              </Inset>
+              </button>
             ) : (
-              <Inset
+              <div
                 key={slot}
                 data-compact-equipment-slot={slot}
-                padding="none"
                 title={`${label} · 비어 있음`}
-                className="flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 p-1"
+                className="flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 py-2"
               >
                 {content}
-              </Inset>
+              </div>
             );
           })}
         </div>

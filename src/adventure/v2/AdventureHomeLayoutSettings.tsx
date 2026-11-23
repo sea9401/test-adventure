@@ -17,6 +17,7 @@ import type { AdventureHomeWidgetId } from "./adventureDashboard";
 const WIDGET_LABELS: Record<AdventureHomeWidgetId, string> = {
   character_summary: "캐릭터",
   stamina: "스태미나",
+  hunt_entry: "사냥터",
   activity_checklist: "오늘의 모험 체크",
   life_collect: "생활 한 번에 정산",
   quest_rewards: "퀘스트",

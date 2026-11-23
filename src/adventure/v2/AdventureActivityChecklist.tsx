@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   CaretDown,
-  Check,
   CheckSquare,
   ClockCountdown,
   WarningCircle,
@@ -12,7 +11,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
 import { StatusBanner } from "@/components/ui/StatusBanner";
-import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import {
   sortAdventureActivities,
   type AdventureActivityGroup,
@@ -73,10 +71,20 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
         ? actionableLabel(activity)
         : STATE_LABELS[activity.state];
 
+  // 횟수를 채워 가는 활동은 "진행 중" 글자 대신 얼마나 찼는지를 막대로 보여 준다.
+  const progress =
+    activity.state === "in_progress" &&
+    activity.countsTowardCompletion !== false &&
+    typeof activity.current === "number" &&
+    typeof activity.target === "number" &&
+    activity.target > 0
+      ? { current: activity.current, target: activity.target }
+      : null;
+
   return (
     <a
       href={activity.href}
-      className="flex min-h-11 items-center gap-2 border-b border-zinc-200 px-3 py-2 last:border-b-0 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+      className="flex min-h-11 items-center gap-2 px-3 py-2 hover:bg-zinc-50 sm:px-4 dark:hover:bg-zinc-800"
       aria-label={`${activity.title}, ${activity.detail}, ${stateLabel}`}
     >
       {completed ? (
@@ -97,17 +105,37 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
           {activity.detail}
         </span>
       </span>
-      <span
-        className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${
-          actionable
-            ? "bg-amber-500 text-white"
-            : completed
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-        }`}
-      >
-        {stateLabel}
-      </span>
+      {actionable ? (
+        <span className="shrink-0 rounded-md bg-amber-500 px-2 py-1 text-xs font-semibold text-white">
+          {stateLabel}
+        </span>
+      ) : progress ? (
+        <span
+          role="progressbar"
+          aria-label="진행도"
+          aria-valuemin={0}
+          aria-valuenow={progress.current}
+          aria-valuemax={progress.target}
+          className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
+        >
+          <span
+            className="block h-full bg-primary"
+            style={{
+              width: `${Math.min(100, (progress.current / progress.target) * 100)}%`,
+            }}
+          />
+        </span>
+      ) : (
+        <span
+          className={`shrink-0 text-xs font-semibold ${
+            completed
+              ? "text-emerald-700 dark:text-emerald-300"
+              : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
+          {stateLabel}
+        </span>
+      )}
     </a>
   );
 }
@@ -132,16 +160,16 @@ function ActivityGroup({
   );
   const completed = tracked.filter((item) => item.state === "completed").length;
   return (
-    <Inset as="section" padding="none" className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-700">
-        <h3 className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
+    <section className="border-t border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between px-3 pb-1 pt-3 sm:px-4">
+        <h3 className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
           {GROUP_LABELS[group]}
         </h3>
         <span className="text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
           {group === "ready" ? `준비 ${items.length}개` : `${completed} / ${tracked.length}`}
         </span>
       </div>
-      <div>
+      <div className="pb-1">
         {visible.map((activity) => (
           <ActivityRow key={activity.id} activity={activity} />
         ))}
@@ -151,13 +179,13 @@ function ActivityGroup({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((open) => !open)}
-          className="flex min-h-10 w-full items-center justify-center gap-1 border-t border-zinc-200 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="flex min-h-10 w-full items-center justify-center gap-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           {expanded ? "접기" : `나머지 ${hiddenCount}개 보기`}
           <CaretDown size={14} aria-hidden className={expanded ? "rotate-180" : ""} />
         </button>
       )}
-    </Inset>
+    </section>
   );
 }
 
@@ -191,21 +219,19 @@ export function AdventureActivityChecklist({
       aria-labelledby="adventure-check-title"
       className="overflow-hidden"
     >
-      <div className={`${SURFACE_ACCENT} flex items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-3 py-3 shadow-none sm:px-4`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
-            <Check size={22} weight="bold" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <h2 id="adventure-check-title" className="truncate text-sm font-bold text-amber-950 dark:text-amber-100">
-              오늘의 모험 체크
-            </h2>
-            <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
-              {resetLabel}
-            </p>
-          </div>
+      <div className="flex items-baseline justify-between gap-3 px-3 pt-3 sm:px-4 sm:pt-4">
+        <div className="min-w-0">
+          <h2
+            id="adventure-check-title"
+            className="truncate text-base font-bold text-zinc-900 dark:text-zinc-100"
+          >
+            오늘의 모험 체크
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {resetLabel}
+          </p>
         </div>
-        <strong className="shrink-0 text-sm font-extrabold tabular-nums text-amber-800 dark:text-amber-200">
+        <strong className="shrink-0 text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
           {summary.completed} / {summary.total} 완료
         </strong>
       </div>
@@ -241,12 +267,12 @@ export function AdventureActivityChecklist({
       ) : (
         <div
           data-testid="checklist-groups"
-          className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4"
+          className="mt-3 grid sm:grid-cols-2 sm:divide-x sm:divide-zinc-200 dark:sm:divide-zinc-700"
         >
-          <div className="space-y-3">
+          <div>
             <ActivityGroup group="daily" activities={daily} />
           </div>
-          <div className="space-y-3">
+          <div>
             <ActivityGroup group="weekly" activities={secondary} />
             <ActivityGroup group="ready" activities={secondary} />
           </div>

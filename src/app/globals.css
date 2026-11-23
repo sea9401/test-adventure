@@ -3172,6 +3172,12 @@ html.ui-terminal-mode .ui-row-thumb {
   display: none;
 }
 
+/* 장면 그림 띠(HuntEntryCard 등) — 카드 머리의 가로로 긴 그림. 글 위주 모드에서는 숨긴다. */
+html.ui-discreet-mode .ui-scene-strip,
+html.ui-terminal-mode .ui-scene-strip {
+  display: none;
+}
+
 .ui-chat-badge {
   box-sizing: border-box;
   flex: 0 0 18px;

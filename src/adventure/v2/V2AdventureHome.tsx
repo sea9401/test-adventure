@@ -35,6 +35,7 @@ import {
 import { AdventureHomeWidgetGrid } from "./AdventureHomeWidgetGrid";
 import { AdventureActivityChecklist } from "./AdventureActivityChecklist";
 import { CompactCharacterSummary } from "./CompactCharacterSummary";
+import { HuntEntryCard } from "./HuntEntryCard";
 import { RecentBulletinPreview } from "./RecentBulletinPreview";
 import { StaminaBar } from "./StaminaBar";
 import { useGameState } from "./GameStateProvider";
@@ -216,6 +217,13 @@ export function V2AdventureHome() {
         regenBonusPct={staminaRegenBonusPct}
         potions={staminaPotions}
         onUsePotion={usePotion}
+      />
+    ),
+    hunt_entry: (
+      <HuntEntryCard
+        stamina={stamina}
+        staminaMax={staminaMax}
+        regenBonusPct={staminaRegenBonusPct}
       />
     ),
     activity_checklist: (

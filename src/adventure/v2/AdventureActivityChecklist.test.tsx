@@ -165,3 +165,55 @@ describe("오늘의 모험 체크 접기", () => {
     expect(screen.getByRole("button", { name: "접기" }).getAttribute("aria-expanded")).toBe("true");
   });
 });
+
+describe("오늘의 모험 체크 정리된 모양", () => {
+  const hunt: AdventureActivityView = {
+    id: "daily_hunt",
+    group: "daily",
+    tab: "battle",
+    title: "일일 사냥",
+    detail: "12 / 30",
+    href: "/battle/dungeon",
+    state: "in_progress",
+    current: 12,
+    target: 30,
+    enabled: true,
+    defaultEnabled: true,
+  };
+
+  it("진행 중인 횟수 활동은 상태 배지 대신 진행 막대로 보여 준다", () => {
+    render(
+      <AdventureActivityChecklist
+        activities={[hunt]}
+        summary={{ completed: 0, total: 1, actionableCount: 0 }}
+        serverNow={0}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByRole("link", { name: /일일 사냥/ });
+    const bar = row.querySelector('[role="progressbar"]');
+    expect(bar?.getAttribute("aria-valuenow")).toBe("12");
+    expect(bar?.getAttribute("aria-valuemax")).toBe("30");
+    expect(row.textContent).not.toContain("진행 중");
+    // 읽어 주는 문구에는 상태가 그대로 남는다.
+    expect(row.getAttribute("aria-label")).toBe("일일 사냥, 12 / 30, 진행 중");
+  });
+
+  it("머리는 강조 색면 없이 제목과 진행도만 두고, 묶음을 상자 안의 상자로 감싸지 않는다", () => {
+    render(
+      <AdventureActivityChecklist
+        activities={[hunt, ...activities]}
+        summary={{ completed: 1, total: 2, actionableCount: 1 }}
+        serverNow={0}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    const title = screen.getByRole("heading", { name: "오늘의 모험 체크" });
+    expect(title.closest(".ui-surface-accent")).toBeNull();
+    const groups = screen.getByTestId("checklist-groups");
+    expect(groups.querySelector(".ui-surface-inset")).toBeNull();
+    expect(groups.querySelectorAll("section")).toHaveLength(2);
+  });
+});

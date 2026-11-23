@@ -4,10 +4,10 @@ import { useState } from "react";
 import { AdventureActivityChecklist } from "@/adventure/v2/AdventureActivityChecklist";
 import type { AdventureActivityView } from "@/adventure/v2/adventureDashboard";
 import { CompactCharacterSummary } from "@/adventure/v2/CompactCharacterSummary";
-import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { HuntEntryCard } from "@/adventure/v2/HuntEntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 
-// 모험 탭 홈 미리보기 — 로그인 없이 그릴 수 있는 위젯(캐릭터 요약·스태미나·오늘의 모험)만 예시 데이터로 렌더.
+// 모험 탭 홈 미리보기 — 로그인 없이 그릴 수 있는 위젯(캐릭터 요약·사냥터·오늘의 모험)만 예시 데이터로 렌더.
 const ACTIVITIES: AdventureActivityView[] = [
   { id: "farm_ready", group: "ready", tab: "life", title: "농장 수확", detail: "수확 가능 2칸", href: "/town/farm", state: "actionable", enabled: true, defaultEnabled: true },
   { id: "daily_hunt", group: "daily", tab: "battle", title: "일일 사냥", detail: "12 / 30", href: "/battle/dungeons", state: "in_progress", current: 12, target: 30, enabled: true, defaultEnabled: true },
@@ -30,7 +30,8 @@ export default function AdventureHomePreviewPage() {
       >
         <div className="p-4 text-sm text-zinc-500">펼친 캐릭터 카드는 로그인 화면에서 확인합니다.</div>
       </CompactCharacterSummary>
-      <StaminaBar state={{ current: 1840, lastUpdatedAt: now }} max={3000} regenBonusPct={20} potions={2} onUsePotion={() => undefined} />
+      {/* 기본 배치에서는 스태미나 막대가 숨겨져 있고 사냥터 카드가 스태미너를 함께 보여 준다. */}
+      <HuntEntryCard stamina={{ current: 1840, lastUpdatedAt: now }} staminaMax={3000} regenBonusPct={20} now={now} />
       <AdventureActivityChecklist
         activities={ACTIVITIES}
         summary={{ completed: 1, total: 3, actionableCount: 1 }}

@@ -231,6 +231,52 @@ export function GoldLossNotice({
   );
 }
 
+/**
+ * 이번에 얻은 것을 칩으로 — "방금 전투" 머리가 있는 결과 카드에서 보유량 네 칸 대신 쓴다.
+ * 숫자 색은 보유량 칸과 같은 뜻이다: 골드 노랑, 숙련도 하늘, 숙달 포인트 보라, 경험치 초록.
+ * 한 번 사냥과 여러 번 사냥(합계)이 같은 모양을 쓴다.
+ */
+export function HuntGainChips({
+  items,
+  levelsGained,
+  detail,
+}: {
+  items: RewardBalanceItem[];
+  levelsGained: number;
+  /** 레벨 업으로 오른 능력치 등 칩 아래에 한 줄로 붙일 설명. */
+  detail?: string;
+}) {
+  return (
+    <div className="mt-3 space-y-1.5 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+      <div className="flex flex-wrap gap-1.5" aria-label="이번 전투에서 얻은 것">
+        {items
+          .filter((item) => item.gained > 0)
+          .map((item) => (
+            <span
+              key={item.label}
+              className="rounded-md bg-zinc-100 px-2.5 py-1 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {item.label}{" "}
+              <b className={`font-bold tabular-nums ${item.currentClassName}`}>
+                +{item.gained.toLocaleString()}
+              </b>
+            </span>
+          ))}
+        {levelsGained > 0 && (
+          <span className="ui-reward-flash rounded-md bg-amber-100 px-2.5 py-1 text-sm font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            레벨 업 +{levelsGained}
+          </span>
+        )}
+      </div>
+      {detail ? (
+        <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {detail}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function HuntResultCard({
   result,
   hpCharges,
@@ -435,37 +481,11 @@ export function HuntResultCard({
       )}
 
       {encounter ? (
-        <div className="mt-3 space-y-1.5 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-          <div
-            className="flex flex-wrap gap-1.5"
-            aria-label="이번 전투에서 얻은 것"
-          >
-            {rewardBalances
-              .filter((item) => item.gained > 0)
-              .map((item) => (
-                <span
-                  key={item.label}
-                  className="rounded-md bg-zinc-100 px-2.5 py-1 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                >
-                  {item.label}{" "}
-                  {/* 숫자 색은 보유량 칸과 같은 뜻으로 쓴다: 골드 노랑, 숙련도 하늘, 숙달 보라, 경험치 초록. */}
-                  <b className={`font-bold tabular-nums ${item.currentClassName}`}>
-                    +{item.gained.toLocaleString()}
-                  </b>
-                </span>
-              ))}
-            {result.levelsGained > 0 && (
-              <span className="ui-reward-flash rounded-md bg-amber-100 px-2.5 py-1 text-sm font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                레벨 업 +{result.levelsGained}
-              </span>
-            )}
-          </div>
-          {(statGainsText || hpMpGainsText) && (
-            <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-              {[statGainsText, hpMpGainsText].filter(Boolean).join(" · ")}
-            </p>
-          )}
-        </div>
+        <HuntGainChips
+          items={rewardBalances}
+          levelsGained={result.levelsGained}
+          detail={[statGainsText, hpMpGainsText].filter(Boolean).join(" · ")}
+        />
       ) : (
         <RewardBalanceGrid items={rewardBalances} />
       )}

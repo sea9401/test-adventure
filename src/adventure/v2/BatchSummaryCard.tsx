@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import {
   V2_MATERIALS,
@@ -19,6 +19,7 @@ import {
   formatStatGains,
   formatHpMpGains,
   GoldLossNotice,
+  HuntGainChips,
   RewardBalanceGrid,
   type RewardBalanceItem,
 } from "@/adventure/v2/HuntResultCard";
@@ -36,6 +37,8 @@ import { RareMapCountdownText } from "@/adventure/v2/RareMapCountdownText";
 import { sortHuntRareMaps } from "@/adventure/v2/RareMapQuickEntry";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
+
+const VISIBLE_REPLAY_COUNT = 10;
 
 export type BatchReplayEntry = {
   index: number;
@@ -99,6 +102,8 @@ export function BatchSummaryCard({
   onSelectReplay?: (entry: BatchReplayEntry) => void;
   onEnterRareMap?: (map: RareMapInstance) => void;
 }) {
+  // 50회·100회 사냥에서 기록 버튼이 화면을 길게 차지하지 않게 앞의 몇 개만 먼저 보인다.
+  const [replaysExpanded, setReplaysExpanded] = useState(false);
   const dropEntries = Object.entries(summary.drops).filter(
     ([, n]) => (n ?? 0) > 0,
   ) as Array<[V2MaterialId, number]>;
@@ -321,7 +326,15 @@ export function BatchSummaryCard({
           goldAfter={summary.finalGoldAfter}
         />
       )}
-      <RewardBalanceGrid items={rewardBalances} />
+      {encounter ? (
+        <HuntGainChips
+          items={rewardBalances}
+          levelsGained={summary.levelsGained}
+          detail={[statGainsText, hpMpGainsText].filter(Boolean).join(" · ")}
+        />
+      ) : (
+        <RewardBalanceGrid items={rewardBalances} />
+      )}
 
       <div className="mt-2 space-y-1 text-center text-sm">
         {(summary.spMilestonesGained ?? 0) > 0 && (
@@ -337,7 +350,7 @@ export function BatchSummaryCard({
         )}
       </div>
 
-      {summary.levelsGained > 0 && (
+      {!encounter && summary.levelsGained > 0 && (
         <div className="ui-reward-flash mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
             레벨 업! +{summary.levelsGained}
@@ -367,7 +380,10 @@ export function BatchSummaryCard({
             전투 기록
           </div>
           <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
-            {summary.replays!.map((entry) => (
+            {(replaysExpanded
+              ? summary.replays!
+              : summary.replays!.slice(0, VISIBLE_REPLAY_COUNT)
+            ).map((entry) => (
               <button
                 key={entry.index}
                 type="button"
@@ -383,6 +399,18 @@ export function BatchSummaryCard({
               </button>
             ))}
           </div>
+          {summary.replays!.length > VISIBLE_REPLAY_COUNT && (
+            <button
+              type="button"
+              aria-expanded={replaysExpanded}
+              onClick={() => setReplaysExpanded((open) => !open)}
+              className="mt-1 flex min-h-10 w-full items-center justify-center text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {replaysExpanded
+                ? "기록 접기"
+                : `나머지 ${summary.replays!.length - VISIBLE_REPLAY_COUNT}개 보기`}
+            </button>
+          )}
         </div>
       )}
     </Card>

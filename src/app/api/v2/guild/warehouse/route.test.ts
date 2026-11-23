@@ -56,6 +56,9 @@ vi.mock("@/lib/server/guildWarehouse", async (importOriginal) => {
     upsertGuildWarehouse: vi.fn(async () => undefined),
   };
 });
+vi.mock("@/lib/server/museunCosmetics", () => ({
+  readMuseunCosmeticAppearanceMap: vi.fn(async () => new Map()),
+}));
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: vi.fn(async () => undefined),
 }));
@@ -497,5 +500,39 @@ describe("창고 조회의 착용 장비 비교 정보", () => {
     expect(response.status).toBe(200);
     expect(body.personalEquipment.map((item: { iid: string }) => item.iid)).toEqual([EQUIPMENT.iid]);
     expect(body.equippedEquipment).toEqual([equipped]);
+  });
+
+  it("최근 입출고 기록에 넣고 뺀 사람의 프사를 함께 내려준다", async () => {
+    vi.mocked(readSave).mockResolvedValue({ owned: [], equipped: {} });
+    vi.mocked(readGuildWarehouse).mockResolvedValue({ materials: {}, equipment: [] });
+    const results = [
+      [{ guildId: 7 }],
+      [{ userId: "u-keeper", role: "member" }],
+      [
+        {
+          id: 5,
+          type: "warehouse_deposit",
+          actorUserId: "u-keeper",
+          meta: { itemName: "철검", itemKind: "equipment" },
+          createdAt: "2026-11-23T00:00:00.000Z",
+        },
+      ],
+      [{ userId: "u-keeper", value: { name: "창고지기", gender: "female2" } }],
+    ];
+    vi.mocked(db.select).mockImplementation(() => {
+      const rows = results.shift() ?? [];
+      const query = Object.assign(Promise.resolve(rows), {
+        from: () => query, where: () => query, limit: () => query, orderBy: () => query,
+      });
+      return query as never;
+    });
+
+    const body = await (await GET()).json();
+
+    expect(body.activity[0]).toMatchObject({
+      actorName: "창고지기",
+      actorAvatar: "female2",
+      actorProfileBorder: null,
+    });
   });
 });

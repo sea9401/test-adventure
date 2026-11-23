@@ -139,3 +139,39 @@ describe("원정대 회수 활동 로그", () => {
     );
   });
 });
+
+describe("활동 내역 줄 머리 프사", () => {
+  const base: GuildActivity = {
+    id: 200,
+    type: "gold_deposit",
+    actorName: "금고지기",
+    targetName: null,
+    meta: { amount: 1000 },
+    createdAt: new Date().toISOString(),
+  };
+
+  it("활동한 사람의 프사를 줄 맨 앞에 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildActivityList
+        activity={[
+          {
+            ...base,
+            person: { name: "금고지기", avatar: "female2", profileBorder: null },
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("ui-row-thumb");
+    expect(html.indexOf("ui-row-thumb")).toBeLessThan(
+      html.indexOf("금고지기 님이 금고에"),
+    );
+  });
+
+  it("프사 정보가 없는 예전 응답은 점 표시로 남는다", () => {
+    const html = renderToStaticMarkup(<GuildActivityList activity={[base]} />);
+
+    expect(html).not.toContain("ui-row-thumb");
+    expect(html).toContain("bg-yellow-500");
+  });
+});

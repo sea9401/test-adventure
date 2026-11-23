@@ -81,6 +81,9 @@ export type GuildRaidState = {
     damageDealt: number;
     stagesCleared: number;
     at: number;
+    /** 줄 머리 프사. 예전 응답에는 없을 수 있다. */
+    avatar?: Avatar | null;
+    profileBorder?: ProfileBorderId | null;
   }[];
   recentPagination: GuildRaidPagination;
 };

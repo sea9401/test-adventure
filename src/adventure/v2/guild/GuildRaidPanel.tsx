@@ -21,7 +21,8 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { PersonThumb } from "@/components/ui/PersonThumb";
+import { PersonThumb, ROW_THUMB_CLASS } from "@/components/ui/PersonThumb";
+import { GuildEmblemImage } from "./GuildEmblemImage";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { GuildRaidBossPicker } from "./GuildRaidBossPicker";
@@ -446,6 +447,11 @@ export function GuildRaidPanelContent({
                 <span className="w-7 text-center font-black tabular-nums">
                   {row.rank}
                 </span>
+                <GuildEmblemImage
+                  emblem={row.guildEmblem}
+                  guildName={row.guildName}
+                  className={`${ROW_THUMB_CLASS} size-7`}
+                />
                 <span className="min-w-0 flex-1 truncate font-semibold">
                   {row.guildName}
                 </span>
@@ -504,6 +510,13 @@ export function GuildRaidPanelContent({
                     href={`/guild/raid/log/${attack.id}`}
                     className={`${SURFACE_INSET} flex items-center gap-2 px-3 py-2 hover:border-amber-400`}
                   >
+                    {attack.avatar && (
+                      <PersonThumb
+                        avatar={attack.avatar}
+                        name={attack.name}
+                        profileBorder={attack.profileBorder}
+                      />
+                    )}
                     <span className="min-w-0 flex-1 truncate">{attack.name}</span>
                     <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">
                       {formatNumber(attack.damageDealt)}

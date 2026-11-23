@@ -13,6 +13,12 @@ import { db } from "@/db";
 import { marketplaceInbox, userBlocks, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import {
   ANONYMOUS_MARKETPLACE_MAIL_KINDS,
   PERSONAL_MESSAGE_KINDS,
   visibleInboxSenderName,
@@ -77,6 +83,7 @@ export async function GET(req: Request) {
         listingId: marketplaceInbox.listingId,
         fromName: marketplaceInbox.fromName,
         fromUserId: marketplaceInbox.fromUserId,
+        recipientUserId: marketplaceInbox.userId,
         recipientName: users.gameName,
         createdAt: marketplaceInbox.createdAt,
         readAt: marketplaceInbox.readAt,
@@ -95,6 +102,9 @@ export async function GET(req: Request) {
       .orderBy(desc(marketplaceInbox.createdAt))
       .limit(HISTORY_LIMIT);
 
+    const personOf = await mailPersonResolver(
+      rows.map((r) => (r.recipientName ? r.recipientUserId : null)),
+    );
     return Response.json({
       items: rows.map((r) => ({
         id: r.id,
@@ -105,6 +115,7 @@ export async function GET(req: Request) {
         fromName: visibleInboxSenderName(r.kind, r.fromName),
         fromUserId: r.fromUserId,
         recipientName: r.recipientName,
+        person: personOf(r.recipientUserId, r.recipientName),
         direction: "sent" as const,
         createdAt: r.createdAt.toISOString(),
         readAt: r.readAt ? r.readAt.toISOString() : null,
@@ -164,6 +175,11 @@ export async function GET(req: Request) {
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
   );
 
+  // 카드 맨 앞 프사 — 사람이 보낸 우편에만. 거래소 체결 상대는 익명이라 읽지 않는다.
+  const senderIdOf = (r: (typeof rows)[number]) =>
+    visibleInboxSenderName(r.kind, r.fromName) ? r.fromUserId : null;
+  const personOf = await mailPersonResolver(rows.map(senderIdOf));
+
   return Response.json({
     items: rows.map((r) => {
       const claimState = inboxClaimState(r.kind, r.payload);
@@ -176,6 +192,10 @@ export async function GET(req: Request) {
         fromName: visibleInboxSenderName(r.kind, r.fromName),
         fromUserId: r.fromUserId,
         recipientName: r.recipientName,
+        person: personOf(
+          senderIdOf(r),
+          visibleInboxSenderName(r.kind, r.fromName),
+        ),
         direction: "received" as const,
         createdAt: r.createdAt.toISOString(),
         readAt: r.readAt ? r.readAt.toISOString() : null,
@@ -186,4 +206,32 @@ export async function GET(req: Request) {
     }),
     unreadCount: rows.filter((row) => row.readAt == null).length,
   });
+}
+
+type MailPerson = {
+  name: string;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
+};
+
+/** 우편 목록에 나오는 사람들의 프사·테두리를 한 번에 읽고, 줄마다 꺼내 쓰는 함수를 돌려준다. */
+async function mailPersonResolver(userIds: readonly (string | null)[]) {
+  const ids = [
+    ...new Set(userIds.filter((id): id is string => Boolean(id))),
+  ];
+  const [avatarByUser, cosmeticByUser] =
+    ids.length === 0
+      ? [new Map<string, Avatar>(), new Map()]
+      : await Promise.all([
+          readProfileAvatarMap(ids),
+          readMuseunCosmeticAppearanceMap(ids),
+        ]);
+  return (userId: string | null, name: string | null): MailPerson | null =>
+    userId && name
+      ? {
+          name,
+          avatar: avatarByUser.get(userId) ?? "male1",
+          profileBorder: cosmeticByUser.get(userId)?.profileBorder ?? null,
+        }
+      : null;
 }

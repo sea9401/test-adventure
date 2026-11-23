@@ -1,6 +1,7 @@
 // 우편함 클라이언트 API. v2 가 쓰는 우편함 조회 + 쪽지 보내기만 유지
 // (거래소 listings/buy/create/cancel 흐름은 v2 미사용으로 제거됨).
 
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
   isTradeSuspensionMessagePayload,
   tradeSuspensionMessage,
@@ -31,6 +32,12 @@ export type InboxItem = {
   fromName: string | null;
   fromUserId?: string | null;
   recipientName: string | null;
+  /** 카드 맨 앞 프사로 보여 줄 상대(받은 우편은 보낸 사람, 보낸 우편은 받는 사람). 시스템 우편은 null. */
+  person?: {
+    name: string;
+    avatar: string;
+    profileBorder: ProfileBorderId | null;
+  } | null;
   direction?: "received" | "sent";
   createdAt: string;
   readAt: string | null;

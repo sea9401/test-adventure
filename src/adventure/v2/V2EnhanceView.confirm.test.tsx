@@ -2,9 +2,16 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import {
+  ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
+} from "@/adventure/data/v2/v2Enhance";
 import { STAMINA_SHARD_MATERIAL_ID } from "@/adventure/data/v2/staminaPotionCrafting";
-import { V2EnhanceView } from "./V2EnhanceView";
+import {
+  V2EnhanceView,
+  effectiveEnhanceChoice,
+  enhanceChoiceOptions,
+} from "./V2EnhanceView";
 
 const context = vi.hoisted(() => ({
   coreLoopOn: true,
@@ -27,7 +34,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function openEnhancement(level: number, stone: "red" | "blue") {
+const STONE_BUTTON = {
+  red: /^붉은 강화석/,
+  blue: /^푸른 강화석/,
+  superior_red: /^상급 붉은 강화석/,
+  superior_blue: /^상급 푸른 강화석/,
+} as const;
+
+async function openEnhancement(level: number, stone: keyof typeof STONE_BUTTON) {
   const posts: RequestInit[] = [];
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/v2/me/enhance") {
@@ -41,12 +55,14 @@ async function openEnhancement(level: number, stone: "red" | "blue") {
     if (url === "/api/v2/me/inventory") return Response.json({ materials: {
       [ENHANCE_STONE_MATERIAL_ID.red]: 10000,
       [ENHANCE_STONE_MATERIAL_ID.blue]: 10000,
+      [SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red]: 321,
+      [SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue]: 654,
     } });
     return Response.json({ character: { gold: 1_000_000_000, bankedGold: 0 }, rareMaps: [] });
   }));
   render(<V2EnhanceView onBack={() => {}} />);
   fireEvent.click(await screen.findByRole("button", { name: /철검/ }));
-  fireEvent.click(screen.getByRole("button", { name: stone === "red" ? /붉은 강화석/ : /푸른 강화석/ }));
+  fireEvent.click(screen.getByRole("button", { name: STONE_BUTTON[stone] }));
   return posts;
 }
 
@@ -84,10 +100,64 @@ describe("파괴 위험 강화 확인", () => {
     }
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(posts).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: /푸른 강화석/ }));
+    fireEvent.click(screen.getByRole("button", { name: STONE_BUTTON.blue }));
     fireEvent.click(screen.getAllByRole("button", { name: /^강화 \(성공/ })[0]);
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(confirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("상급 강화석 선택", () => {
+  it("+13 도전부터 상급 강화석 두 종류가 보이고 골드만은 빠진다", () => {
+    expect(enhanceChoiceOptions(11)).toEqual(["none", "blue", "red"]);
+    expect(enhanceChoiceOptions(12)).toEqual([
+      "blue",
+      "red",
+      "superior_blue",
+      "superior_red",
+    ]);
+  });
+
+  it("상급을 고른 채 +12 아래로 내려가면 같은 색 일반 강화석으로 돌아간다", () => {
+    expect(effectiveEnhanceChoice(12, "superior_blue")).toBe("superior_blue");
+    expect(effectiveEnhanceChoice(11, "superior_blue")).toBe("blue");
+    expect(effectiveEnhanceChoice(11, "superior_red")).toBe("red");
+    expect(effectiveEnhanceChoice(11, "none")).toBe("none");
+  });
+
+  it("+12 도전 화면에는 상급 강화석이 없다", async () => {
+    await openEnhancement(11, "blue");
+    expect(screen.queryByRole("button", { name: STONE_BUTTON.superior_blue })).toBeNull();
+    expect(screen.queryByRole("button", { name: STONE_BUTTON.superior_red })).toBeNull();
+  });
+
+  it("상급 푸른 강화석 +13 도전은 파괴가 없어 확인 없이 요청한다", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const posts = await openEnhancement(12, "superior_blue");
+    const button = screen.getByRole("button", { name: STONE_BUTTON.superior_blue });
+    expect(button.textContent).toContain("성공 10%");
+    expect(button.textContent).not.toContain("파괴");
+    expect(button.textContent).toContain("보유 654");
+    expect(screen.getAllByText(/상급 푸른 강화석 ×7/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: /^강화 \(성공/ })[0]);
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(JSON.parse(posts[0].body as string)).toEqual({
+      iid: "test-sword",
+      stone: "superior_blue",
+    });
+  });
+
+  it("상급 붉은 강화석은 파괴 확률을 확인한 뒤 요청한다", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const posts = await openEnhancement(12, "superior_red");
+    expect(
+      screen.getByRole("button", { name: STONE_BUTTON.superior_red }).textContent,
+    ).toContain("성공 30% · 파괴 22%");
+    fireEvent.click(screen.getAllByRole("button", { name: /^강화 \(성공/ })[0]);
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/\+12 → \+13[\s\S]*22%/));
+    expect(JSON.parse(posts[0].body as string)).toMatchObject({ stone: "superior_red" });
   });
 });
 

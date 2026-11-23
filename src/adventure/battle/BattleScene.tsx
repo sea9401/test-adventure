@@ -17,6 +17,7 @@ import {
   type AppNotification,
   type NotificationKind,
 } from "@/lib/notifications";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -65,7 +66,14 @@ export type BattleOutcomeAction = {
   busyLabel?: string;
   busy?: boolean;
   hint?: ReactNode;
+  /** 주 행동 아래에 함께 보여 줄 보조 행동. */
+  secondary?: BattleOutcomeSecondaryAction;
 };
+
+export type BattleOutcomeSecondaryAction = Omit<
+  BattleOutcomeAction,
+  "hint" | "secondary"
+>;
 
 const RECENT_KIND_COLOR: Record<NotificationKind, string> = {
   battle_win: "text-emerald-700 dark:text-emerald-400",
@@ -606,6 +614,21 @@ export function BattleScene({
                   ? (outcomeAction.busyLabel ?? "진행 중...")
                   : outcomeAction.label}
               </button>
+              {outcomeAction.secondary && (
+                <Button
+                  size="md"
+                  className="min-w-40"
+                  onClick={outcomeAction.secondary.onClick}
+                  disabled={
+                    outcomeAction.secondary.disabled ||
+                    outcomeAction.secondary.busy
+                  }
+                >
+                  {outcomeAction.secondary.busy
+                    ? (outcomeAction.secondary.busyLabel ?? "진행 중...")
+                    : outcomeAction.secondary.label}
+                </Button>
+              )}
               {outcomeAction.hint ? (
                 <div className="text-xs text-zinc-600 dark:text-zinc-300">
                   {outcomeAction.hint}

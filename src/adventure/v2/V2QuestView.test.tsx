@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  isFirstBattlePending,
   claimAllRewardText,
   GrowthLeapMissionPanel,
   GuideEmptyState,
@@ -235,7 +236,66 @@ describe("업적 메인 추적", () => {
   });
 });
 
+describe("성장 패스 단계 줄", () => {
+  const step = {
+    id: "gp_tier4",
+    line: "growth_pass_3" as const,
+    title: "4차 전직",
+    desc: "캐릭터 > 성장의 신전에서 4차 직업으로 전직하세요.",
+    href: "/character/shrine",
+    reward: { boundStaminaPotions: 5, masteryCertificates: 1_000 },
+    status: "claimable" as const,
+    points: 0,
+    progress: null,
+    goal: null,
+    detailKind: null,
+  };
+
+  it("신규 모험가에게는 추가 보상을 따로 적는다", () => {
+    const html = renderToStaticMarkup(
+      <QuestRow
+        quest={{ ...step, newcomerBonus: { boundStaminaPotions: 5 } }}
+        busy={false}
+        onClaim={vi.fn()}
+      />,
+    );
+    expect(html).toContain("보상 귀속 스태미나 회복약 5개 · 숙련 증서 1,000개");
+    expect(html).toContain("신규 모험가 추가 보상 귀속 스태미나 회복약 5개");
+  });
+
+  it("잠긴 단계에는 추가 보상 줄을 되풀이하지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <QuestRow
+        quest={{ ...step, status: "locked", newcomerBonus: { boundStaminaPotions: 5 } }}
+        busy={false}
+        onClaim={vi.fn()}
+      />,
+    );
+    expect(html).not.toContain("신규 모험가");
+  });
+
+  it("해당하지 않는 계정에는 추가 보상 줄이 없다", () => {
+    const html = renderToStaticMarkup(
+      <QuestRow quest={{ ...step, newcomerBonus: null }} busy={false} onClaim={vi.fn()} />,
+    );
+    expect(html).not.toContain("신규 모험가");
+  });
+});
+
 describe("업적 일괄 수령 보상 안내", () => {
+  it("귀속 회복약과 숙련 증서를 함께 적는다", () => {
+    expect(
+      claimAllRewardText({
+        gold: 0,
+        equipment: [],
+        staminaPotions: 0,
+        boundStaminaPotions: 35,
+        masteryCertificates: 3_000,
+        titleIds: [],
+      }),
+    ).toBe("귀속 스태미나 회복약 35개 · 숙련 증서 3,000개");
+  });
+
   it("여러 장비와 칭호를 개수로 뭉개지 않고 실제 이름과 수량으로 보여준다", () => {
     expect(
       claimAllRewardText({
@@ -285,5 +345,28 @@ describe("몬스터 처치 현황 카드", () => {
     expect(html).toContain("미처치 1종");
     expect(html).toContain("모래도마뱀");
     expect(html).not.toContain(">들개<");
+  });
+});
+
+describe("첫 전투 전 판정", () => {
+  const quest = (status: "active" | "claimable" | "claimed") => ({
+    id: "g_first_battle",
+    line: "growth",
+    title: "첫 발걸음",
+    desc: "",
+    href: "/battle/dungeon/2",
+    reward: {},
+    status,
+    points: 0,
+    progress: null,
+    goal: null,
+    detailKind: null,
+  });
+
+  it("첫 전투 목표가 진행 중일 때만 첫 전투 전으로 본다", () => {
+    expect(isFirstBattlePending([quest("active")])).toBe(true);
+    expect(isFirstBattlePending([quest("claimable")])).toBe(false);
+    expect(isFirstBattlePending([quest("claimed")])).toBe(false);
+    expect(isFirstBattlePending([])).toBe(false);
   });
 });

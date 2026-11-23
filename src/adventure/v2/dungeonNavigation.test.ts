@@ -40,3 +40,11 @@ describe("rareMapEntryHref", () => {
     ).toBe("/hidden/rename?map=rename-1");
   });
 });
+
+describe("첫 사냥 화면 주소", () => {
+  it("새 캐릭터는 들판 입구의 사냥 화면으로 간다", async () => {
+    const { firstHuntHref } = await import("./dungeonNavigation");
+    expect(firstHuntHref()).toBe("/battle/dungeon/2");
+    expect(firstHuntHref({ intro: true })).toBe("/battle/dungeon/2?first=1");
+  });
+});

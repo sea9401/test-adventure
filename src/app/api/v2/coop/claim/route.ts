@@ -359,7 +359,7 @@ export async function POST(req: Request) {
     }
 
     // === 4. 보상 결정 + 적용 (SP 열매 + 협동 주화/보스 재료/상자 — 전부 본인 세이브) ===
-    // 도달한 보상 티어를 독립 굴림 → 통과 수 = 이 보스 등급 열매 개수(BRONZE/SILVER=0, LEGEND≤3).
+    // 도달한 보상 단계를 독립 굴림 → 통과 수 = 이 보스 등급 열매 개수(기본 1번, LEGEND≤3).
     const fruitTier = fruitTierForBoss(kindId);
     const fruitDef = fruitTier !== null ? SP_FRUIT[fruitTier] : null;
     const fruitCount = fruitDef ? rollCoopSpFruits(tier, Math.random) : 0;

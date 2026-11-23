@@ -46,6 +46,7 @@ import {
   marketplaceLifeItemDefinition,
   type MarketplaceLifeItemId,
 } from "@/adventure/v2/marketplace/lifeItemCatalog";
+import { marketplaceAutoRelistCutPct } from "@/adventure/v2/marketplace/autoRelist";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -197,15 +198,31 @@ export function marketplacePublicListing<
     itemId?: string;
     highestBidderId: string | null;
     highestBid: number | null;
+    autoRelistLeft?: number;
+    autoRelistCutPct?: number;
   },
 >(row: T, viewerId: string, hasMyBid = false) {
-  const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
-    row;
+  const {
+    sellerId,
+    sellerName: _sellerName,
+    highestBidderId,
+    autoRelistLeft,
+    autoRelistCutPct,
+    ...publicRow
+  } = row;
   const foodPreview = marketplaceFoodPreview(row.itemId);
+  const isMine = sellerId === viewerId;
   return {
     ...publicRow,
     ...(foodPreview ? { foodPreview } : {}),
-    isMine: sellerId === viewerId,
+    // 유찰되면 가격이 내려간다는 사실은 판매자 본인에게만 알린다. 구매자가 알면 입찰을 미룬다.
+    ...(isMine && (autoRelistLeft ?? 0) > 0
+      ? {
+          autoRelist: true as const,
+          autoRelistCutPct: marketplaceAutoRelistCutPct(autoRelistCutPct),
+        }
+      : {}),
+    isMine,
     isHighestBidder: highestBidderId === viewerId,
     hasMyBid,
     nextBid: marketplaceNextBidMinimum(row.price, row.highestBid),

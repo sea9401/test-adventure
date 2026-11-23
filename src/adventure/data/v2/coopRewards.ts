@@ -277,13 +277,15 @@ export type CoopExtraRewardRule = {
   equipmentBoxChance: number;
 };
 
+// 단계별 보상 합계. base 는 최소 기여도를 채운 모두가 받는 기본 보상이고,
+// gold·epic·legend 는 기본 보상에 기여 추가 보상을 더한 합계다.
+// 2026-11-24 개편: 기본 보상을 옛 GOLD 수준으로 올리고 BRONZE·SILVER를 없앴다. EPIC·LEGEND 합계는 그대로다.
 export const COOP_EXTRA_REWARD_RULES: Record<
   CoopRewardTier,
   CoopExtraRewardRule
 > = {
-  bronze: { coin: 3, bossMaterial: 1, equipmentBoxChance: 0 },
-  silver: { coin: 8, bossMaterial: 2, equipmentBoxChance: 0.03 },
-  gold: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.06 },
+  base: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.06 },
+  gold: { coin: 22, bossMaterial: 6, equipmentBoxChance: 0.09 },
   epic: { coin: 28, bossMaterial: 8, equipmentBoxChance: 0.12 },
   legend: { coin: 45, bossMaterial: 15, equipmentBoxChance: 0.2 },
 };
@@ -292,9 +294,8 @@ export const COOP_HARD_EXTRA_REWARD_RULES: Record<
   CoopRewardTier,
   CoopExtraRewardRule
 > = {
-  bronze: { coin: 3, bossMaterial: 1, equipmentBoxChance: 0 },
-  silver: { coin: 8, bossMaterial: 2, equipmentBoxChance: 0 },
-  gold: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.1 },
+  base: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.1 },
+  gold: { coin: 22, bossMaterial: 5, equipmentBoxChance: 0.17 },
   epic: { coin: 28, bossMaterial: 7, equipmentBoxChance: 0.25 },
   legend: { coin: 45, bossMaterial: 12, equipmentBoxChance: 1 },
 };

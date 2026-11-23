@@ -19,6 +19,7 @@ import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
   COOP_TIER_LABEL,
+  coopTierLabel,
   COOP_VISIBILITY_LABEL,
   COOP_VISIBILITY_OPTIONS,
   coopAttackCooldownMs,
@@ -578,7 +579,7 @@ export function V2CoopBossDetailView({
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
             {lastReward.rewardMode === "unexplored_personal"
               ? "개인 토벌 보상 획득!"
-              : `${COOP_TIER_LABEL[lastReward.tier]} 보상 획득!`}
+              : `${coopTierLabel(lastReward.tier)} 보상 획득!`}
           </p>
           <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
             {lastReward.rewardMode === "unexplored_personal" ? (

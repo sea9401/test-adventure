@@ -18,6 +18,7 @@ import {
   ShieldWarning,
   Skull,
   Sword,
+  Ticket,
   Trophy,
   UserMinus,
   UsersThree,
@@ -27,6 +28,10 @@ import { unreadInboxItems } from "@/adventure/v2/inboxViewState";
 import { acknowledgeFarmReadyNotification } from "@/adventure/v2/farmReadyNotificationClient";
 import { acknowledgeV2Notification } from "@/adventure/v2/notificationReadClient";
 import { acknowledgePeddlerArrivalNotification } from "@/adventure/v2/peddlerArrivalNotificationClient";
+import {
+  supportPassNotificationText,
+  type SupportPassNotificationPayload,
+} from "@/adventure/v2/supportPassNotice";
 import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -180,6 +185,20 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-amber-600 dark:text-amber-400"
+    />
+  ),
+  support_pass_expiring: (
+    <Ticket
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-amber-600 dark:text-amber-400"
+    />
+  ),
+  support_pass_expired: (
+    <Ticket
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-zinc-500 dark:text-zinc-400"
     />
   ),
   codex_research_trophy: (
@@ -347,6 +366,9 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
         눌러서 증표를 받아 주세요
       </>
     );
+  }
+  if (n.type === "support_pass_expiring" || n.type === "support_pass_expired") {
+    return <>{supportPassNotificationText(n.type, n.payload as SupportPassNotificationPayload)}</>;
   }
   if (n.type === "codex_research_trophy") {
     const p = n.payload as { seasonId: string; themeName: string; tier: import("@/adventure/data/v2/codexMasteryTrophies").CodexMasteryTrophyTier; finalRank: number };

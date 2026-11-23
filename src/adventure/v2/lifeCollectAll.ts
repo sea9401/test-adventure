@@ -1,4 +1,4 @@
-// 생활 한 번에 정산 — 자동 채집 정산·재시작, 밭 수확·다시 심기, 목장 수거·사료 채우기를 차례로 요청한다.
+// 생활 한 번에 정산 — 자동 채집 정산·재시작(예약 작업 포함), 밭 수확·다시 심기, 목장 수거·사료 채우기를 차례로 요청한다.
 // 새 서버 동작은 없다. 각 화면이 쓰는 기존 요청을 순서대로 보낼 뿐이라 규칙과 제한은 그대로 적용된다.
 // 한 단계가 실패해도 나머지는 이어서 처리하고, 단계마다 결과 한 줄을 돌려준다.
 
@@ -72,13 +72,69 @@ async function collectGathering(request: Request): Promise<LifeCollectLine> {
     0,
     Math.floor(Number(claim.json.materialsGained) || 0),
   ).toLocaleString("ko-KR")}${masterProduct ? ` · ${masterProductGainText(masterProduct)}` : ""}`;
-  if (typeof session.spotId !== "string" || !session.spotId) {
+  const planOf = (value: unknown) => (value === "extended" ? "extended" : "standard");
+  const hasSpot = typeof session.spotId === "string" && session.spotId.length > 0;
+
+  // 예약해 둔 다음 작업이 이어서 시작됐을 때. 끝나 있으면 그것도 정산하고 같은 순서로 다시 건다.
+  const chained = (claim.json.chainedAuto ?? null) as Json | null;
+  const next = (chained?.session ?? null) as Json | null;
+  if (chained && next && isAutoActivity(chained.activity)) {
+    const nextActivity = chained.activity;
+    const nextName = ACTIVITY_NAME[nextActivity];
+    if (Number(claim.json.serverNow) < Number(next.readyAt)) {
+      const reserved = hasSpot
+        ? await call(request, `/api/v2/${activity}/auto`, {
+            action: "reserve",
+            spotId: session.spotId,
+            planId: planOf(session.planId),
+          })
+        : null;
+      return line(
+        "ok",
+        reserved?.ok
+          ? `자동 ${name}: ${gained}. 예약한 ${nextName}이 이어서 진행 중이고, ${name}을 다음 작업으로 다시 예약했습니다.`
+          : `자동 ${name}: ${gained}. 예약한 ${nextName}이 이어서 진행 중입니다.`,
+      );
+    }
+    const nextClaim = await call(request, `/api/v2/${nextActivity}/auto`, { action: "claim" });
+    if (!nextClaim.ok) {
+      return line("info", `자동 ${name}: ${gained}. 예약한 ${nextName}은 정산하지 못했습니다.`);
+    }
+    const nextGained = `${String(nextClaim.json.materialName ?? "재료")} +${Math.max(
+      0,
+      Math.floor(Number(nextClaim.json.materialsGained) || 0),
+    ).toLocaleString("ko-KR")}`;
+    const both = `자동 ${name}: ${gained}. 예약한 ${nextName}: ${nextGained}.`;
+    if (!hasSpot) return line("ok", both);
+    const restarted = await call(request, `/api/v2/${activity}/auto`, {
+      action: "start",
+      spotId: session.spotId,
+      planId: planOf(session.planId),
+    });
+    if (!restarted.ok) return line("info", `${both} 다시 시작하지 못했습니다.`);
+    const reserved =
+      typeof next.spotId === "string" && next.spotId
+        ? await call(request, `/api/v2/${nextActivity}/auto`, {
+            action: "reserve",
+            spotId: next.spotId,
+            planId: planOf(next.planId),
+          })
+        : null;
+    return line(
+      "ok",
+      reserved?.ok
+        ? `${both} 두 작업을 다시 걸었습니다.`
+        : `${both} ${name}만 다시 시작했습니다.`,
+    );
+  }
+
+  if (!hasSpot) {
     return line("ok", `자동 ${name}: ${gained}.`);
   }
   const restart = await call(request, `/api/v2/${activity}/auto`, {
     action: "start",
     spotId: session.spotId,
-    planId: session.planId === "extended" ? "extended" : "standard",
+    planId: planOf(session.planId),
   });
   if (restart.ok) {
     return line(

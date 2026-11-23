@@ -8,6 +8,7 @@ import {
   parseAutoGatheringState,
 } from "@/adventure/v2/autoGathering";
 import { activeAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
+import { autoGatheringReservationStatus } from "@/lib/server/autoGatheringReservation";
 import {
   MINING_LOG_KEY,
   miningMaterialBalances,
@@ -47,6 +48,16 @@ export async function GET() {
   const workshop = parseLifeWorkshopState(workshopRaw);
   const toolTier = workshop.tools.mining;
   const autoState = parseAutoGatheringState(autoRaw);
+  const activeAutoActivity = activeAutoGatheringActivity({
+    woodcutting: parseAutoGatheringState(woodcuttingAutoRaw),
+    mining: autoState,
+  });
+  const reservation = await autoGatheringReservationStatus(
+    db,
+    userId,
+    charSave,
+    activeAutoActivity !== null,
+  );
   return Response.json({
     ok: true,
     serverNow: Date.now(),
@@ -58,9 +69,7 @@ export async function GET() {
     autoSession: autoState.session,
     siteUpkeep: workshop.siteUpkeep ?? {},
     lifeRenown: lifeRenownFromSave(lifeMajorRaw),
-    activeAutoActivity: activeAutoGatheringActivity({
-      woodcutting: parseAutoGatheringState(woodcuttingAutoRaw),
-      mining: autoState,
-    }),
+    activeAutoActivity,
+    ...reservation,
   });
 }

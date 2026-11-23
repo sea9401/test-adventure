@@ -35,7 +35,43 @@ const PREVIEW: GatheringSiteUpkeepView = {
 
 const noop = async () => {};
 
-// 개발 전용 — 생활 공방의 채집지 정비 탭과 자동 채집 카드의 시간 표시를 로그인 없이 확인한다.
+const HOUR = 60 * 60 * 1_000;
+const RUNNING_SESSION = {
+  sessionId: "preview-auto",
+  planId: "extended" as const,
+  sourceId: "copper",
+  sourceName: "구리 광맥",
+  materialId: "v2_copper_ore",
+  startedAt: Date.now() - HOUR,
+  readyAt: Date.now() + HOUR,
+  durationMs: 2 * HOUR,
+  spotId: "copper_gallery",
+  attempts: 1_133,
+};
+const PINE_RESERVATION = {
+  activity: "woodcutting" as const,
+  spotId: "pine_grove",
+  planId: "extended" as const,
+  sourceId: "pine",
+  sourceName: "소나무",
+  durationMs: 3.5 * HOUR,
+  reservedAt: Date.now(),
+};
+const RESERVATION_PREVIEW = {
+  activityName: "채광" as const,
+  spotId: "iron_quarry",
+  spotName: "철 채석장",
+  result: null,
+  loading: false,
+  buttonVariant: "warning" as const,
+  onStart: noop,
+  onClaim: noop,
+  onCancel: noop,
+  onReserve: noop,
+  onUnreserve: noop,
+};
+
+// 개발 전용 — 생활 공방의 채집지 정비 탭과 자동 채집 카드의 시간 표시와 다음 작업 예약 상태를 로그인 없이 확인한다.
 // 정비는 화면 안 mock 상태에만 적용된다.
 export default function GatheringUpkeepPreview() {
   return (
@@ -53,6 +89,39 @@ export default function GatheringUpkeepPreview() {
         onStart={noop}
         onClaim={noop}
         onCancel={noop}
+      />
+      {/* 다음 작업 예약: 예약 가능 · 예약됨 · 다른 쪽이 도는 중 · 지원권 없음 · 이어 시작 알림 */}
+      <AutoGatheringCard
+        {...RESERVATION_PREVIEW}
+        session={RUNNING_SESSION}
+        blockedByActivity={null}
+        reservationAllowed
+      />
+      <AutoGatheringCard
+        {...RESERVATION_PREVIEW}
+        session={RUNNING_SESSION}
+        blockedByActivity={null}
+        reservation={PINE_RESERVATION}
+        reservationAllowed
+      />
+      <AutoGatheringCard
+        {...RESERVATION_PREVIEW}
+        session={null}
+        blockedByActivity="woodcutting"
+        reservationAllowed
+      />
+      <AutoGatheringCard
+        {...RESERVATION_PREVIEW}
+        session={RUNNING_SESSION}
+        blockedByActivity={null}
+        reservationAllowed={false}
+      />
+      <AutoGatheringCard
+        {...RESERVATION_PREVIEW}
+        session={null}
+        blockedByActivity="woodcutting"
+        reservationAllowed
+        chain={{ activity: "woodcutting", sourceName: "소나무" }}
       />
     </main>
   );

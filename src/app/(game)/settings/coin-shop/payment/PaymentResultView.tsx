@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import type { MuseunCoinPaymentOrderStatus } from "@/db/schema";
+import { reportCheckoutStep } from "@/adventure/v2/museunCoinCheckoutStepClient";
 
 export function paymentFailureMessage(code: string | null) {
   if (code === "PAY_PROCESS_CANCELED" || code === "USER_CANCEL") {
@@ -43,6 +44,14 @@ export function PaymentResultView({ mode }: { mode: "success" | "fail" }) {
         : paymentStatusMessage("failed"),
   );
   const sent = useRef(false);
+  const failCode = params.get("code");
+
+  // 실패 화면으로 돌아온 사유를 남긴다. 주문 상태는 바꾸지 않는다.
+  useEffect(() => {
+    if (mode !== "fail" || sent.current) return;
+    sent.current = true;
+    reportCheckoutStep(orderId, "fail_redirect", failCode);
+  }, [failCode, mode, orderId]);
 
   useEffect(() => {
     if (mode !== "success" || sent.current) return;

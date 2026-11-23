@@ -1,13 +1,7 @@
-import {
-  gatheringSiteExtendedDurationMs,
-  gatheringSiteStage,
-} from "@/adventure/v2/gatheringSiteUpkeep";
-import { randomUUID } from "node:crypto";
-import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import { lifeXpOverflow } from "@/adventure/v2/lifeMajor";
 import {
   applyLifeMajorProgress,
   lifeMajorResponse,
-  readLifeMajorState,
   withMasterProduct,
 } from "@/lib/server/lifeMajor";
 import { db } from "@/db";
@@ -36,13 +30,9 @@ import {
   MINING_LOG_KEY,
   isMiningNodeId,
   miningMaterialBalances,
-  parseMiningLog,
   parseMiningLogWithLevelMigration,
-  pickMiningNodeId,
 } from "@/adventure/v2/miningSession";
 import {
-  miningDurationWithPassive,
-  miningFailureRate,
   miningProgressionView,
   miningXpForLevel,
 } from "@/adventure/v2/miningProgression";
@@ -54,7 +44,6 @@ import {
   autoGatheringCompletedAttempts,
   beginAutoGathering,
   cancelAutoGathering,
-  createAutoGatheringSession,
   isAutoGatheringPlanId,
   settleAutoGathering,
 } from "@/adventure/v2/autoGathering";
@@ -63,10 +52,6 @@ import {
   lockActiveManualLifeActivity,
   lockAutoGatheringStatesForUpdate,
 } from "@/lib/server/lifeActivityLock";
-import {
-  equippedMiningBonuses,
-  parseV2SkillsState,
-} from "@/adventure/data/v2/v2Skills";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -81,18 +66,13 @@ import {
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
-import { MINING_SETTLE_MS } from "@/adventure/v2/miningAnimation";
 import {
-  LIFE_TOOL_BONUS_MATERIAL_PCT,
-  LIFE_TOOL_DURATION_REDUCTION_PCT,
   LIFE_WORKSHOP_SAVE_KEY,
-  lifeGatheringBonusPct,
   parseLifeWorkshopState,
 } from "@/adventure/v2/lifeWorkshop";
-import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
-  applyLifeFieldDurationReduction,
   lifeFieldEnvironmentSnapshot,
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import {
@@ -101,6 +81,12 @@ import {
 } from "@/adventure/v2/lifeFieldRecords";
 import { recordLifeFieldSuccessInTx } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import { buildMiningAutoSession } from "@/lib/server/autoGatheringSessionBuilder";
+import {
+  autoGatheringReservationResponse,
+  clearAutoGatheringReservationInTx,
+  startReservedAutoGatheringInTx,
+} from "@/lib/server/autoGatheringReservation";
 
 type CharSave = {
   class?: unknown;
@@ -126,6 +112,9 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
     | { action?: unknown; spotId?: unknown; planId?: unknown }
     | null;
+  if (body?.action === "reserve" || body?.action === "unreserve") {
+    return autoGatheringReservationResponse(userId, "mining", body);
+  }
   if (body?.action === "start") {
     if (typeof body.spotId !== "string" || !isMiningSpotId(body.spotId)) {
       return Response.json({ ok: false, error: "bad_spot" }, { status: 400 });
@@ -134,85 +123,18 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, error: "bad_plan" }, { status: 400 });
     }
     const now = Date.now();
-    const [logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures] = await Promise.all([
-      readSave(db, userId, MINING_LOG_KEY, {}),
-      readSave(db, userId, "skills.v2", {}),
-      readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
-      readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
-      readLifeFieldFeatureSettings(),
-    ]);
     const verificationRequired = activityVerificationGateResponse(
-      parseActivityGuardState(guardRaw),
+      parseActivityGuardState(await readSave(db, userId, ACTIVITY_GUARD_KEY, {})),
       "mining",
     );
     if (verificationRequired) return verificationRequired;
 
-    const nodeId = pickMiningNodeId(body.spotId);
-    const node = MINING_NODES[nodeId];
-    const parsedLog = parseMiningLog(logRaw);
-    const progression = miningProgressionView(parsedLog.successes, parsedLog.xp);
-    const levelBonuses = miningPost50Bonuses(progression.level);
-    const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
-    const workshop = parseLifeWorkshopState(workshopRaw);
-    const toolTier = workshop.tools.mining;
-    const activeAid = workshop.crafting.activeAids.mining;
-    const aidSpec = activeAid?.enabled ? lifeAidSpec(activeAid.itemId) : null;
-    const aidApplies = Boolean(aidSpec && node.grade >= aidSpec.gradeMin && node.grade <= aidSpec.gradeMax);
-    const durationReductionPct =
-      bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier];
-    const bonusMaterialRate = Math.min(
-      1,
-      (bonuses.bonusOreChancePct +
-        LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
-        lifeGatheringBonusPct("mining", workshop, progression.level) +
-        levelBonuses.bonusOreChancePct +
-        lifeFestivalBonus("mining", new Date(now)).chancePct +
-        lifeMajorBonusPct(await readLifeMajorState(db, userId), "mining")) /
-        100,
+    const { session, materialName, lifeEnvironment } = await buildMiningAutoSession(
+      db,
+      userId,
+      body.spotId,
+      { planId: body.planId, now },
     );
-    const baseCycleDurationMs = miningDurationWithPassive(
-      node.durationMs,
-      progression.level,
-      durationReductionPct,
-    );
-    const lifeEnvironment = lifeFeatures.environmentEnabled
-      ? lifeFieldEnvironmentSnapshot("mining", body.spotId, now)
-      : null;
-    const cycleDurationMs = applyLifeFieldDurationReduction(
-      node.durationMs,
-      baseCycleDurationMs,
-      lifeEnvironment?.environment.effect.durationReductionPct ?? 0,
-    );
-    const failureRate =
-      miningFailureRate(node.baseFailureRate, progression.level) *
-      (1 - bonuses.failureReductionPct / 100);
-    const successRate = 1 - failureRate * (1 - bonuses.failureRecoveryPct / 100);
-    const session = createAutoGatheringSession({
-      sessionId: randomUUID(),
-      sourceId: nodeId,
-      sourceName: node.name,
-      materialId: node.materialId,
-      planId: body.planId,
-      extendedDurationMs: gatheringSiteExtendedDurationMs(
-        gatheringSiteStage(workshop.siteUpkeep ?? {}, nodeId),
-      ),
-      now,
-      cycleDurationMs: cycleDurationMs + MINING_SETTLE_MS,
-      successRate,
-      bonusMaterialRate,
-      baseXp: node.xp,
-      aidItemId: aidApplies ? activeAid?.itemId : undefined,
-      aidBonusMaterialRate: aidApplies ? (aidSpec?.bonusPct ?? 0) / 100 : 0,
-      aidByproductMultiplier: aidApplies ? aidSpec?.byproductMultiplier ?? 1 : 1,
-      spotId: body.spotId,
-      lifeEnvironmentId: lifeEnvironment?.environment.id,
-      lifeEnvironmentDayKey: lifeEnvironment?.dayKey,
-      environmentPrimaryBonusChance:
-        lifeEnvironment?.environment.effect.primaryBonusChance,
-      environmentXpBonusPct: lifeEnvironment?.environment.effect.xpBonusPct,
-      environmentByproductMultiplier:
-        lifeEnvironment?.environment.effect.byproductMultiplier,
-    });
     const startResult = await db.transaction(async (tx) => {
       const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
       const activeAutoActivity = activeAutoGatheringActivity(autoStates);
@@ -227,6 +149,7 @@ export async function POST(req: Request) {
       if (activeManualActivity) {
         return { error: "manual_active" as const, activeManualActivity };
       }
+      await clearAutoGatheringReservationInTx(tx, userId);
       await upsertSave(
         tx,
         userId,
@@ -242,7 +165,7 @@ export async function POST(req: Request) {
       ok: true,
       serverNow: Date.now(),
       autoSession: startResult.session,
-      materialName: MINING_MATERIALS[node.materialId].name,
+      materialName,
       lifeEnvironment,
     });
   }
@@ -463,6 +386,15 @@ export async function POST(req: Request) {
       };
     }
     await upsertSaves(tx, userId, dirtySaves);
+    // 예약해 둔 다음 작업이 있으면 이어서 시작한 것으로 올린다.
+    const reserved = await startReservedAutoGatheringInTx(tx, userId, {
+      settledActivity: "mining",
+      settledSession: session,
+      settledState: settlement.state,
+      otherState: autoStates.woodcutting,
+      canceled: canceling,
+      now,
+    });
     return {
       settlement,
       lifeMajor: lifeMajorResponse(lifeMajorProgress),
@@ -483,9 +415,11 @@ export async function POST(req: Request) {
       })),
       log,
       canceled: canceling,
-      activeAutoActivity: autoStates.woodcutting.session
-        ? "woodcutting" as const
-        : null,
+      activeAutoActivity:
+        reserved.chained?.activity ??
+        (autoStates.woodcutting.session ? ("woodcutting" as const) : null),
+      chainedAuto: reserved.chained,
+      reservationDropped: reserved.dropped,
       blueprintRecipeId: blueprint.recipe?.id ?? null,
       discoveryRewardGained,
       discoveryRewardXp,
@@ -560,6 +494,10 @@ export async function POST(req: Request) {
     log: result.log,
     autoSession: null,
     activeAutoActivity: result.activeAutoActivity,
+    serverNow: Date.now(),
+    chainedAuto: result.chainedAuto,
+    autoReservation: null,
+    ...(result.reservationDropped ? { reservationDropped: true } : {}),
     ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

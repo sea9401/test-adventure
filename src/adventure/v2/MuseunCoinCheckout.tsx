@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { checkoutErrorCode, reportCheckoutStep } from "./museunCoinCheckoutStepClient";
 
 type OrderStatus =
   | "ready"
@@ -78,6 +79,8 @@ export function MuseunCoinCheckout() {
     inFlight.current = true;
     setBusyPackage(packageId);
     setError(null);
+    // 결제가 어느 단계에서 끊기는지 남긴다. 주문을 만든 뒤부터 기록한다.
+    let stepOrderId: string | null = null;
     try {
       const response = await fetch("/api/v2/museun-coin-payments/orders", {
         method: "POST",
@@ -99,16 +102,20 @@ export function MuseunCoinCheckout() {
         throw new Error("order_failed");
       }
       const { orderId, orderName, amountKrw, customerKey, clientKey } = body;
+      stepOrderId = orderId;
       const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
       const toss = await loadTossPayments(clientKey);
       const widgets = toss.widgets({ customerKey });
       await widgets.setAmount({ value: amountKrw, currency: "KRW" });
       const paymentWindow = await widgets.renderPaymentWindow();
+      reportCheckoutStep(orderId, "window_opened");
       paymentWindow.on("cancel", async () => {
+        reportCheckoutStep(orderId, "window_closed");
         inFlight.current = false;
         setBusyPackage(null);
       });
       paymentWindow.on("paymentRequest", async () => {
+        reportCheckoutStep(orderId, "payment_requested");
         try {
           await widgets.requestPayment({
             orderId,
@@ -116,14 +123,16 @@ export function MuseunCoinCheckout() {
             successUrl: `${window.location.origin}/settings/coin-shop/payment/success`,
             failUrl: `${window.location.origin}/settings/coin-shop/payment/fail`,
           });
-        } catch {
+        } catch (caught) {
+          reportCheckoutStep(orderId, "request_error", checkoutErrorCode(caught));
           await paymentWindow.destroy().catch(() => undefined);
           setError("결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
           inFlight.current = false;
           setBusyPackage(null);
         }
       });
-    } catch {
+    } catch (caught) {
+      reportCheckoutStep(stepOrderId, "request_error", checkoutErrorCode(caught));
       setError("결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.");
       inFlight.current = false;
       setBusyPackage(null);

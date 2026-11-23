@@ -157,4 +157,104 @@ describe("runLifeCollectAll", () => {
     expect(lines[0].text).toBe("자동 채광: 철광석 +430 · 명장 합금 +3. 철 광맥에서 다시 시작했습니다.");
     expect(lines[1].text).toBe("밭: 1칸을 수확하고 1칸에 다시 심었습니다. 농사 XP +20. 명장 작물 +1.");
   });
+
+  describe("예약한 다음 작업이 이어졌을 때", () => {
+    const farmAndRanch = {
+      "GET /api/v2/farm": () => ({ json: idleFarm }),
+      "POST /api/v2/farm/ranch/collect": () => ({ json: { ok: true } }),
+      "POST /api/v2/farm/ranch/feed": () => ({ json: { ok: true } }),
+    };
+    const chainedWoodcutting = (readyAt: number) => ({
+      activity: "woodcutting",
+      session: { sessionId: "s2", planId: "extended", sourceId: "pine", sourceName: "소나무", spotId: "pine_grove", startedAt: NOW - 3_600_000, readyAt },
+    });
+
+    it("예약 작업이 아직 도는 중이면 방금 끝난 작업을 다음 작업으로 다시 예약한다", async () => {
+      const reserved: Array<Record<string, unknown>> = [];
+      const { calls, request } = fakeRequest({
+        ...farmAndRanch,
+        "GET /api/v2/mining/status": () => ({ json: readyMining }),
+        "POST /api/v2/mining/auto#claim": () => ({
+          json: { ok: true, serverNow: NOW, materialName: "철광석", materialsGained: 430, chainedAuto: chainedWoodcutting(NOW + 3_600_000) },
+        }),
+        "POST /api/v2/mining/auto#reserve": (body) => {
+          reserved.push(body);
+          return { json: { ok: true } };
+        },
+      });
+
+      const lines = await runLifeCollectAll(request);
+
+      expect(calls.slice(0, 3)).toEqual([
+        "GET /api/v2/mining/status",
+        "POST /api/v2/mining/auto#claim",
+        "POST /api/v2/mining/auto#reserve",
+      ]);
+      expect(reserved).toEqual([{ action: "reserve", spotId: "iron_quarry", planId: "extended" }]);
+      expect(lines[0]).toEqual({
+        area: "gathering",
+        tone: "ok",
+        text: "자동 채광: 철광석 +430. 예약한 벌목이 이어서 진행 중이고, 채광을 다음 작업으로 다시 예약했습니다.",
+      });
+    });
+
+    it("예약 작업까지 끝나 있으면 둘 다 정산하고 같은 순서로 다시 건다", async () => {
+      const sent: string[] = [];
+      const { calls, request } = fakeRequest({
+        ...farmAndRanch,
+        "GET /api/v2/mining/status": () => ({ json: readyMining }),
+        "POST /api/v2/mining/auto#claim": () => ({
+          json: { ok: true, serverNow: NOW, materialName: "철광석", materialsGained: 430, chainedAuto: chainedWoodcutting(NOW - 10) },
+        }),
+        "POST /api/v2/woodcutting/auto#claim": () => ({
+          json: { ok: true, serverNow: NOW, materialName: "소나무 원목", materialsGained: 300, chainedAuto: null },
+        }),
+        "POST /api/v2/mining/auto#start": (body) => {
+          sent.push(`start:${String(body.spotId)}:${String(body.planId)}`);
+          return { json: { ok: true } };
+        },
+        "POST /api/v2/woodcutting/auto#reserve": (body) => {
+          sent.push(`reserve:${String(body.spotId)}:${String(body.planId)}`);
+          return { json: { ok: true } };
+        },
+      });
+
+      const lines = await runLifeCollectAll(request);
+
+      expect(calls.slice(0, 5)).toEqual([
+        "GET /api/v2/mining/status",
+        "POST /api/v2/mining/auto#claim",
+        "POST /api/v2/woodcutting/auto#claim",
+        "POST /api/v2/mining/auto#start",
+        "POST /api/v2/woodcutting/auto#reserve",
+      ]);
+      expect(sent).toEqual(["start:iron_quarry:extended", "reserve:pine_grove:extended"]);
+      expect(lines[0]).toEqual({
+        area: "gathering",
+        tone: "ok",
+        text: "자동 채광: 철광석 +430. 예약한 벌목: 소나무 원목 +300. 두 작업을 다시 걸었습니다.",
+      });
+    });
+
+    it("다시 예약하지 못하면 처음 작업만 다시 시작했다고 알린다", async () => {
+      const { request } = fakeRequest({
+        ...farmAndRanch,
+        "GET /api/v2/mining/status": () => ({ json: readyMining }),
+        "POST /api/v2/mining/auto#claim": () => ({
+          json: { ok: true, serverNow: NOW, materialName: "철광석", materialsGained: 430, chainedAuto: chainedWoodcutting(NOW - 10) },
+        }),
+        "POST /api/v2/woodcutting/auto#claim": () => ({
+          json: { ok: true, serverNow: NOW, materialName: "소나무 원목", materialsGained: 300 },
+        }),
+        "POST /api/v2/mining/auto#start": () => ({ json: { ok: true } }),
+        "POST /api/v2/woodcutting/auto#reserve": () => ({ status: 403, json: { ok: false, error: "support_required" } }),
+      });
+
+      const lines = await runLifeCollectAll(request);
+
+      expect(lines[0].text).toBe(
+        "자동 채광: 철광석 +430. 예약한 벌목: 소나무 원목 +300. 채광만 다시 시작했습니다.",
+      );
+    });
+  });
 });

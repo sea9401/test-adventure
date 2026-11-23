@@ -184,6 +184,10 @@ export function buildQuestCtx(args: {
   const prof = parseProficiencyForChar(args.proficiencyRaw, charSave);
   const g = prof.groups[group];
   const cultivations = g?.cultivations ?? 0;
+  const cultivationsTotal = Object.values(prof.groups).reduce(
+    (sum, value) => sum + (value?.cultivations ?? 0),
+    0,
+  );
   // 성장 패스 — 지금 직업이 아니라 전직해 본 직업 전체로 본다(낮은 직업으로 돌아와도 유지).
   let maxJobTier: number = tier;
   const tierMastery: Record<number, number> = {};
@@ -335,6 +339,8 @@ export function buildQuestCtx(args: {
     skillsEquipped,
     maxJobTier,
     tierMastery,
+    cultivationsTotal,
+    coopBossKindIds: [...killedKinds],
     newcomer: isGrowthPassNewcomer(args.extras.accountCreatedAt, args.now ?? Date.now()),
     skillsLearned,
     hasEditedSkillLoadout,

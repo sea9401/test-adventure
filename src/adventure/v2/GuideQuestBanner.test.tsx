@@ -97,19 +97,19 @@ describe("홈의 성장 패스 안내", () => {
   });
   const passClaimable = view({
     id: "gp_tier4",
-    line: "growth_pass",
+    line: "growth_pass_4",
     title: "4차 전직",
     status: "claimable",
     reward: { boundStaminaPotions: 5, masteryCertificates: 1_000 },
   });
   const passActive = view({
     id: "gp_t4_6000",
-    line: "growth_pass",
+    line: "growth_pass_4",
     title: "4차 숙련도 6,000",
     progress: 5_339,
     goal: 6_000,
   });
-  const passLocked = view({ id: "gp_t4_12000", line: "growth_pass", status: "locked" });
+  const passLocked = view({ id: "gp_t4_12000", line: "growth_pass_4", status: "locked" });
   const achievement = view({ id: "gold_100k", title: "두둑한 지갑" });
 
   it("기초 튜토리얼이 남아 있으면 체크리스트에 성장 패스 단계를 섞지 않는다", () => {
@@ -145,14 +145,27 @@ describe("홈의 성장 패스 안내", () => {
     expect(plan.goal).toBeNull();
   });
 
+  it("진행 중인 목표가 여럿이면 달성에 가장 가까운 것을 보여 준다", () => {
+    const boss = view({ id: "gp_boss_canyon", line: "growth_pass_4", title: "스콜피온 킹 토벌" });
+    const tower = view({
+      id: "gp_tower10",
+      line: "growth_pass_4",
+      title: "숙련의 탑 10층",
+      progress: 9,
+      goal: 10,
+    });
+    expect(homeGuidePlan([boss, passActive, tower], boss, null).goal?.id).toBe("gp_tower10");
+    expect(homeGuidePlan([boss], boss, null).goal?.id).toBe("gp_boss_canyon");
+  });
+
   it("성장 패스를 모두 받은 계정은 전과 같이 추천 업적을 본다", () => {
-    const done = view({ id: "gp_tier7", line: "growth_pass", status: "claimed" });
+    const done = view({ id: "gp_tier7", line: "growth_pass_4", status: "claimed" });
     expect(homeGuidePlan([done, achievement], achievement, null).goal?.id).toBe(
       "gold_100k",
     );
   });
 
-  it("받을 수 있는 단계 수와 첫 단계 이름을 보여 준다", () => {
+  it("받을 수 있는 목표 수와 첫 목표 이름을 보여 준다", () => {
     const html = renderToStaticMarkup(
       <GrowthPassRewardBanner
         items={[passClaimable, { ...passClaimable, id: "gp_t4_6000", title: "4차 숙련도 6,000" }]}
@@ -160,7 +173,7 @@ describe("홈의 성장 패스 안내", () => {
       />,
     );
     expect(html).toContain("성장 패스");
-    expect(html).toContain("받을 수 있는 단계 보상 2개");
+    expect(html).toContain("받을 수 있는 목표 보상 2개");
     expect(html).toContain("4차 전직 외 1개");
   });
 

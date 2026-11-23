@@ -34,7 +34,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/winter-board", title: "겨울 이벤트 — 주사위 말판", desc: "배너·말판 삽화·칸 아이콘. mock 상태로 굴리기만 동작." },
   { href: "/dev/cooking-surplus", title: "주방 — 작물 떨이 교환", desc: "20개 단건 교환과 최대 수량 교환 확인 창. 옥수수 105개 mock." },
   { href: "/dev/farm-breeding", title: "농장 — 품종 개량", desc: "작물별 품종 단계·비용·명장 품종 잠금. mock 재고로 개량만 동작." },
-  { href: "/dev/growth-pass", title: "퀘스트 — 성장 패스", desc: "튜토리얼 탭의 성장 패스 줄과 모험 화면 알림. 신규 4차, 방금 4차 전직, 기존 6차 계정 세 상태." },
+  { href: "/dev/growth-pass", title: "퀘스트 — 성장 패스", desc: "튜토리얼 탭의 성장 패스 구간과 모험 화면 알림. 신규 3차, 신규 4차, 기존 6차 계정 세 상태." },
   { href: "/dev/gathering-upkeep", title: "생활 공방 — 채집지 정비", desc: "광맥·숲 정비 단계와 비용, 명장 정비 잠금, 자동 채집 카드의 시간 표시. mock 재고로 정비만 동작." },
 ];
 

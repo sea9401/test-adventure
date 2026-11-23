@@ -30,12 +30,7 @@ import {
 } from "../titles";
 import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalogMeta";
 import { LIFE_HOUSING_ENABLED } from "../../v2/lifeCrafting";
-import {
-  GROWTH_PASS,
-  GROWTH_PASS_LINE_ID,
-  GROWTH_PASS_NEWCOMER_DAYS,
-  growthPassOpen,
-} from "./growthPass";
+import { GROWTH_PASS, GROWTH_PASS_LINES } from "./growthPass";
 
 export type QuestLineId = string;
 export type AchievementBadgeTier =
@@ -125,6 +120,10 @@ export type QuestCtx = {
   tierMastery?: Partial<Record<number, number>>;
   /** 가입한 지 얼마 안 된 계정인가(성장 패스 추가 보상). users.created_at. */
   newcomer?: boolean;
+  /** 모든 직업군의 수행 횟수 합. proficiency.v2 groups. */
+  cultivationsTotal?: number;
+  /** 토벌 보상을 받은 협동 보스 종류. adventure-log.v2.coopBossKinds + 레거시 칭호 보유분. */
+  coopBossKindIds?: readonly string[];
   /** 학습한 스킬 수. skills.v2.learned. */
   skillsLearned: number;
   /** 스킬 화면에서 로드아웃을 직접 저장한 적 있는가. 옛 튜토리얼 완료 호환용. */
@@ -1173,14 +1172,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
     sequential: true,
     tutorial: true,
   },
-  {
-    id: GROWTH_PASS_LINE_ID,
-    name: "성장 패스",
-    subtitle: `전직과 숙련도 단계를 달성할 때마다 보상을 받습니다. 이미 지난 단계도 받을 수 있고, 가입 후 ${GROWTH_PASS_NEWCOMER_DAYS}일 안에 받으면 귀속 회복약이 더 붙습니다.`,
-    sequential: true,
-    tutorial: true,
-    visibleWhen: growthPassOpen,
-  },
+  ...GROWTH_PASS_LINES,
   { id: "combat", name: "전투와 토벌", subtitle: "전투 횟수·몬스터 도감·협동 보스 기록.", sequential: false },
   { id: "frontier", name: "사냥터 개척", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
   { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·전투직 재전직 기록.", sequential: false },

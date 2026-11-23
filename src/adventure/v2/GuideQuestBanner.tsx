@@ -9,7 +9,7 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import { isTutorialLine, type QuestView } from "@/adventure/data/v2/v2Quests";
-import { GROWTH_PASS_LINE_ID } from "@/adventure/data/v2/growthPass";
+import { isGrowthPassLine } from "@/adventure/data/v2/growthPass";
 import type {
   RepeatBundleView,
   RepeatScope,
@@ -29,6 +29,23 @@ export type HomeGuidePlan = {
   goal: QuestView | null;
 };
 
+/** 진행 중인 목표 가운데 달성에 가장 가까운 것. 진행도가 없는 목표는 맨 뒤로 본다. */
+function closestToDone(active: readonly QuestView[]): QuestView | null {
+  let best: QuestView | null = null;
+  let bestRatio = -1;
+  for (const quest of active) {
+    const ratio =
+      quest.progress != null && quest.goal
+        ? Math.min(1, quest.progress / quest.goal)
+        : 0;
+    if (ratio > bestRatio) {
+      best = quest;
+      bestRatio = ratio;
+    }
+  }
+  return best;
+}
+
 /**
  * 홈에 무엇을 올릴지 정한다.
  * 성장 패스는 받을 단계가 있으면 늘 알리고, 없으면 진행 중인 단계를 목표로 보여 준다.
@@ -39,7 +56,7 @@ export function homeGuidePlan(
   current: QuestView | null,
   trackedQuestId: string | null,
 ): HomeGuidePlan {
-  const isPass = (q: QuestView) => q.line === GROWTH_PASS_LINE_ID;
+  const isPass = (q: QuestView) => isGrowthPassLine(q.line);
   const tutorialTodo = quests
     .filter(
       (q) =>
@@ -60,7 +77,7 @@ export function homeGuidePlan(
   const tracked = current && current.id === trackedQuestId ? current : null;
   const passActive =
     passClaimable.length === 0
-      ? (quests.find((q) => isPass(q) && q.status === "active") ?? null)
+      ? closestToDone(quests.filter((q) => isPass(q) && q.status === "active"))
       : null;
   const recommended = current && !isPass(current) ? current : null;
   return {
@@ -142,7 +159,7 @@ export function GuideQuestBanner() {
       />
     );
   } else if (goal) {
-    const pass = goal.line === GROWTH_PASS_LINE_ID;
+    const pass = isGrowthPassLine(goal.line);
     guideBanner = (
       <CurrentGoalBanner
         current={goal}
@@ -235,7 +252,7 @@ export function RepeatRewardBanner({
   );
 }
 
-/** 받을 수 있는 성장 패스 단계. 누르면 퀘스트의 튜토리얼 탭으로 간다. */
+/** 받을 수 있는 성장 패스 목표. 누르면 퀘스트의 튜토리얼 탭으로 간다. */
 export function GrowthPassRewardBanner({
   items,
   onOpen,
@@ -257,7 +274,7 @@ export function GrowthPassRewardBanner({
           성장 패스
         </p>
         <p className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-          받을 수 있는 단계 보상 {items.length}개
+          받을 수 있는 목표 보상 {items.length}개
         </p>
         <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
           {rest > 0 ? `${items[0].title} 외 ${rest}개` : items[0].title}

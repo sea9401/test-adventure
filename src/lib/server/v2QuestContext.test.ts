@@ -73,6 +73,28 @@ describe("buildQuestCtx 성장 패스 신호", () => {
     expect(ctx.tierMastery?.[4]).toBe(7_000);
   });
 
+  it("수행 횟수는 모든 직업군을 합치고 토벌한 협동 보스 종류를 전달한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: { class: "warrior" },
+      proficiencyRaw: {
+        masteryScaleVersion: 2,
+        groups: {
+          warrior: { cultivations: 12, tier: 1, cumLevel: 10 },
+          mage: { cultivations: 20, tier: 1, cumLevel: 10 },
+        },
+      },
+      advLogRaw: { coopBossKinds: ["canyon_predator", 7] },
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      extras: EXTRAS,
+      now: NOW,
+    });
+    expect(ctx.cultivations).toBe(12);
+    expect(ctx.cultivationsTotal).toBe(32);
+    expect(ctx.coopBossKindIds).toEqual(["canyon_predator"]);
+  });
+
   it("기록이 전혀 없으면 지금 직업의 차수를 쓴다", () => {
     const ctx = build({});
     expect(ctx.maxJobTier).toBe(ctx.tier);

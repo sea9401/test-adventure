@@ -238,7 +238,7 @@ describe("업적 메인 추적", () => {
 describe("성장 패스 단계 줄", () => {
   const step = {
     id: "gp_tier4",
-    line: "growth_pass" as const,
+    line: "growth_pass_3" as const,
     title: "4차 전직",
     desc: "캐릭터 > 성장의 신전에서 4차 직업으로 전직하세요.",
     href: "/character/shrine",

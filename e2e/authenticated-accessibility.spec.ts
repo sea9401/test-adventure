@@ -164,6 +164,9 @@ test("데이터가 채워진 성장·생활·거래 화면에 자동 탐지 접�
   ).toBeVisible();
   // 방금 누른 판매 탭의 색 전환이 끝나기 전에 측정하면 중간 색의 명암비로 오탐한다.
   await waitForCssTransitions(page);
+  // 휴대폰에서는 재료 탭을 누르려고 화면이 내려가 위쪽 탭이 고정 머리 밑에 반쯤 가려진다.
+  // 가려진 채로 재면 터치 영역이 모자란 것으로 나오므로 맨 위로 돌아가 잰다.
+  await page.evaluate(() => window.scrollTo(0, 0));
   violations = await a11yViolationSummary(page);
   if (violations.length > 0) {
     stateViolations.push({ state: "marketplace-selling", violations });

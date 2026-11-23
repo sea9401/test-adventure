@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { UnexploredBossEffectKind } from "@/adventure/data/v2/unexploredBossUniqueEffects";
+import { UNEXPLORED_BOSS_UNIQUE_EFFECTS, type UnexploredBossEffectKind } from "@/adventure/data/v2/unexploredBossUniqueEffects";
 import {
   beginBossUniqueAttack,
+  bossUniqueBeginLogText,
   bossUniqueDamageTaken,
   bossUniqueLethalSave,
   bossUniqueResourceSnapshot,
@@ -83,6 +84,21 @@ describe("추적 병기", () => {
     expect(strike.defenseMult).toBe(0.5);
     expect(strike.logs).toContain("궤도 절단");
     expect(begin(strike.runtime, effects).damageMult).toBe(1);
+  });
+});
+
+describe("공격 시작 전투 기록 문구", () => {
+  it.each([
+    ["궤도 절단", "v2_unexplored_infinite_orbit_heart", "방어·마법방어 50% 무시, 피해 +100%", "피해 +100%"],
+    ["빙결 일격", "v2_unexplored_absolute_zero_core", "빙결된 적에게 피해 +30%", "피해 +30%"],
+    ["보정 사격", "v2_unexplored_prismatic_firing_gauntlets", "피해 +25%", "피해 +25%"],
+    ["별궤 조준", "v2_unexplored_starpath_aiming_ring", "피해 +15%", "피해 +15%"],
+  ])("%s 기록은 장비 설명과 같은 수치를 쓴다", (label, equipmentId, text, bonus) => {
+    expect(bossUniqueBeginLogText(label, "적")).toBe(text);
+    expect(UNEXPLORED_BOSS_UNIQUE_EFFECTS[equipmentId].description).toContain(bonus);
+  });
+  it("투기장 기록은 대상을 상대로 부른다", () => {
+    expect(bossUniqueBeginLogText("빙결 일격", "상대")).toBe("빙결된 상대에게 피해 +30%");
   });
 });
 

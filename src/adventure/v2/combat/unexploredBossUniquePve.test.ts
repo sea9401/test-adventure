@@ -80,6 +80,8 @@ describe("PvE boss unique wiring", () => {
     const strike = attack(runtime(initial, { pursuit: 10 }), player);
     expect(initial.enemyHp - strike.enemyHp).toBeGreaterThan(plain * 1.8);
     expect(logsOf(strike, "[궤도 절단]")).toHaveLength(1);
+    // 건의 #875: 실제 피해는 +100%인데 전투 기록만 +80%로 남아 있었다.
+    expect(logsOf(strike, "[궤도 절단]")[0].text).toBe("[궤도 절단] 방어·마법방어 50% 무시, 피해 +100%");
     expect(strike.unexploredBossRuntime?.pursuit).toBe(1);
   });
 

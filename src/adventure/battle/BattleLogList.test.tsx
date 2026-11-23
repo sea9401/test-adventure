@@ -1478,7 +1478,7 @@ describe("다음 공격을 강화하는 고유 효과 표시", () => {
     "[보정 사격] 피해 +25%",
     "[별궤 조준] 피해 +15%",
     "[빙결 일격] 빙결된 적에게 피해 +30%",
-    "[궤도 절단] 방어·마법방어 50% 무시, 피해 +80%",
+    "[궤도 절단] 방어·마법방어 50% 무시, 피해 +100%",
   ])("%s 는 앞 행동 아래가 아니라 강화된 행동 카드에 표시한다", (text) => {
     const items = groupBattleLogActions(boostedCast(text)).filter(
       (item) => item.kind !== "entry" || item.entry.kind !== "hp_bar",

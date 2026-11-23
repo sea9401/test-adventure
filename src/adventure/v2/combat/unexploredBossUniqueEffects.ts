@@ -130,6 +130,27 @@ export function initialBossUniqueRuntime(
   };
 }
 
+const bonusPct = (mult: number) => Math.round((mult - 1) * 100);
+
+/**
+ * 공격 시작 훅이 남긴 라벨의 전투 기록 문구. 수치를 위 상수에서 만들어, 밸런스 조정 때
+ * 기록만 옛 값으로 남지 않게 한다(건의 #875: 궤도 절단이 +100%인데 기록은 +80%였다).
+ */
+export function bossUniqueBeginLogText(label: string, target: "적" | "상대"): string {
+  switch (label) {
+    case "궤도 절단":
+      return `방어·마법방어 ${Math.round((1 - ORBIT_DEFENSE_MULT) * 100)}% 무시, 피해 +${bonusPct(ORBIT_DAMAGE_MULT)}%`;
+    case "빙결 일격":
+      return `빙결된 ${target}에게 피해 +${bonusPct(FREEZE_DAMAGE_MULT)}%`;
+    case "보정 사격":
+      return `피해 +${bonusPct(CORRECTION_MULT)}%`;
+    case "별궤 조준":
+      return `피해 +${bonusPct(STARPATH_MULT)}%`;
+    default:
+      return "발동";
+  }
+}
+
 /** 공격 시도마다 한 번. 다단 공격 전체에 같은 배율을 쓰고, 소비형 보너스는 시도 시 소비한다. */
 export function beginBossUniqueAttack(
   runtime: BossUniqueRuntime,

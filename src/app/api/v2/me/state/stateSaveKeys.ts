@@ -6,6 +6,7 @@ import {
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
 import { AUTO_GATHERING_RESERVATION_KEY } from "@/adventure/v2/autoGatheringReservation";
+import { SUPPORT_PASS_NOTICE_SAVE_KEY } from "@/adventure/v2/supportPassNotice";
 import { COOKING_SAVE_KEY } from "@/adventure/v2/cooking/state";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
 import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
@@ -30,6 +31,7 @@ export const STATE_SAVE_KEYS = [
   WOODCUTTING_AUTO_KEY,
   MINING_AUTO_KEY,
   AUTO_GATHERING_RESERVATION_KEY,
+  SUPPORT_PASS_NOTICE_SAVE_KEY,
   PROFILE_SHOWCASE_SAVE_KEY,
   GUILD_DINING_USER_SAVE_KEY,
 ] as const;
@@ -50,4 +52,5 @@ export const CORE_STATE_SAVE_KEYS = [
   WOODCUTTING_AUTO_KEY,
   MINING_AUTO_KEY,
   AUTO_GATHERING_RESERVATION_KEY,
+  SUPPORT_PASS_NOTICE_SAVE_KEY,
 ] as const satisfies readonly StateSaveKey[];

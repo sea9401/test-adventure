@@ -197,6 +197,10 @@ export function ControlsContent() {
           이어집니다.
         </li>
         <li>
+          이용 기간이 끝나기 3일 전과 끝난 뒤에 알림 목록으로 한 번씩 알려 드립니다.
+          끝난 뒤 7일 넘게 접속하지 않았다면 끝났다는 알림은 보내지 않습니다.
+        </li>
+        <li>
           <Em>월간 모험 지원권 프리미엄</Em>은 최대 스태미나 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString(
             "ko-KR",

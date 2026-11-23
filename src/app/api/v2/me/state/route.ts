@@ -47,6 +47,8 @@ import {
   parseAutoGatheringState,
 } from "@/adventure/v2/autoGathering";
 import { activeAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
+import { SUPPORT_PASS_NOTICE_SAVE_KEY } from "@/adventure/v2/supportPassNotice";
+import { recordDueSupportPassNoticesSoon } from "@/lib/server/supportPassNotice";
 import {
   AUTO_GATHERING_RESERVATION_KEY,
   autoGatheringNextStatus,
@@ -351,6 +353,13 @@ export async function GET(req: Request) {
   );
   const adventureSupportState = parseAdventureSupportState(
     (charSave as { adventureSupport?: unknown }).adventureSupport,
+  );
+  // 지원권이 곧 끝나거나 끝났으면 알림 목록에 한 번 남긴다.
+  recordDueSupportPassNoticesSoon(
+    userId,
+    (charSave as { adventureSupport?: unknown }).adventureSupport,
+    stateSaves.get(SUPPORT_PASS_NOTICE_SAVE_KEY),
+    now,
   );
 
   const hpStored = Math.max(0, charSave.hp ?? maxHp);

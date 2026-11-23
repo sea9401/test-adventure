@@ -38,6 +38,8 @@ export const V2_NOTIFICATION_TYPES = [
   "master_product",
   "grand_grade",
   "exploration_grade",
+  "support_pass_expiring",
+  "support_pass_expired",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -146,6 +148,8 @@ export function peddlerArrivedNotificationText(
 }
 
 export type V2NotificationPayload =
+  // support_pass_expiring · support_pass_expired — 월간 모험 지원권이 곧 끝나거나 끝났음.
+  | import("@/adventure/v2/supportPassNotice").SupportPassNotificationPayload
   | AuctionWonNotificationPayload
   | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload

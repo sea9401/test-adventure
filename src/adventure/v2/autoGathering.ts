@@ -102,6 +102,51 @@ export function correctedAutoGatheringReadyAt(
   return Math.floor(clientNow + (readyAt - serverNow));
 }
 
+function isAutoGatheringActivity(value: unknown): value is AutoGatheringActivity {
+  return value === "woodcutting" || value === "mining";
+}
+
+/** 상태 응답의 `autoGathering`을 읽는다. 서버 시각 기준 값을 기기 시각 기준으로 옮긴다. */
+export function parseAutoGatheringStatusPayload(
+  raw: unknown,
+  clientNow: number = Date.now(),
+): AutoGatheringStatus | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Record<string, unknown>;
+  const serverNow = item.serverNow;
+  if (
+    !isAutoGatheringActivity(item.activity) ||
+    typeof item.sourceId !== "string" ||
+    typeof item.sourceName !== "string" ||
+    typeof item.readyAt !== "number" ||
+    typeof serverNow !== "number"
+  ) {
+    return null;
+  }
+  const next =
+    item.next && typeof item.next === "object"
+      ? (item.next as Record<string, unknown>)
+      : null;
+  return {
+    activity: item.activity,
+    sourceId: item.sourceId,
+    sourceName: item.sourceName,
+    readyAt: correctedAutoGatheringReadyAt(item.readyAt, serverNow, clientNow),
+    ...(next &&
+    isAutoGatheringActivity(next.activity) &&
+    typeof next.sourceName === "string" &&
+    typeof next.readyAt === "number"
+      ? {
+          next: {
+            activity: next.activity,
+            sourceName: next.sourceName,
+            readyAt: correctedAutoGatheringReadyAt(next.readyAt, serverNow, clientNow),
+          },
+        }
+      : {}),
+  };
+}
+
 export function parseAutoGatheringSessionView(
   value: unknown,
   options: {

@@ -191,6 +191,12 @@ export function ControlsContent() {
           {ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을 받습니다.
         </li>
         <li>
+          지원권(일반·프리미엄) 적용 중에는 자동 벌목·채광이 끝난 뒤 이어서 시작할{" "}
+          <Em>다음 작업 {ADVENTURE_SUPPORT_PASS.autoGatheringReservations}건</Em>을
+          예약할 수 있습니다. 예약한 뒤에 이용 기간이 끝나도 이미 건 예약은 그대로
+          이어집니다.
+        </li>
+        <li>
           <Em>월간 모험 지원권 프리미엄</Em>은 최대 스태미나 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString(
             "ko-KR",

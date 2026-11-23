@@ -88,7 +88,7 @@ export function adventureSupportUseNotice(input: {
   return `월간 모험 지원권 ${input.daysAdded}일 적용`;
 }
 
-export const MASTERY_TOWER_ENTRY_FREE_LABEL = `숙련의 탑 하루 첫 입장 비용 ${MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST} 면제`;
+export const MASTERY_TOWER_ENTRY_FREE_LABEL = `숙련의 탑 입장 스태미나 ${MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST} 면제 (하루 한 번 내는 비용)`;
 
 // 캐릭터 카드의 "혜택 적용 중" 목록. 등급별 수치를 그대로 읽어 온다.
 export function adventureSupportBenefitLines(

@@ -38,7 +38,11 @@ import {
   TORN_MAP_FRAGMENT_MATERIAL_ID,
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
-import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import {
+  ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
+} from "@/adventure/data/v2/v2Enhance";
 import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
 
 function request(
@@ -157,6 +161,60 @@ describe("POST /api/v2/me/scavenged-crafting", () => {
     expect(character().materials[ENHANCE_EMBER_MATERIAL_ID]).toBe(2);
     expect(character().materials[ENHANCE_STONE_MATERIAL_ID.blue]).toBe(8);
     expect(character().gold).toBe(COMBINE_GOLD_COST);
+  });
+
+  it("푸른 강화석 5개로 상급 푸른 강화석 1개를 만든다", async () => {
+    store.set("character.v2", {
+      gold: COMBINE_GOLD_COST * 3,
+      materials: {
+        [ENHANCE_STONE_MATERIAL_ID.blue]: SUPERIOR_ENHANCE_STONE_COMBINE_COST * 2 + 3,
+        [ENHANCE_STONE_MATERIAL_ID.red]: 9,
+      },
+    });
+
+    const response = await POST(request("superior_blue_enhance_stone", undefined, 2));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      recipe: "superior_blue_enhance_stone",
+      quantity: 2,
+      materialLeft: 3,
+      outputMaterialId: SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue,
+      outputCount: 2,
+    });
+    expect(character().materials).toEqual({
+      [ENHANCE_STONE_MATERIAL_ID.blue]: 3,
+      [ENHANCE_STONE_MATERIAL_ID.red]: 9,
+      [SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue]: 2,
+    });
+    expect(character().gold).toBe(COMBINE_GOLD_COST);
+  });
+
+  it("붉은 강화석 5개로 상급 붉은 강화석 1개를 만들고 모자라면 바꾸지 않는다", async () => {
+    store.set("character.v2", {
+      gold: COMBINE_GOLD_COST * 3,
+      materials: {
+        [ENHANCE_STONE_MATERIAL_ID.red]: SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+        [ENHANCE_STONE_MATERIAL_ID.blue]: 100,
+      },
+    });
+
+    const ok = await POST(request("superior_red_enhance_stone"));
+    expect(ok.status).toBe(200);
+    expect(character().materials).toEqual({
+      [ENHANCE_STONE_MATERIAL_ID.blue]: 100,
+      [SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red]: 1,
+    });
+
+    const before = structuredClone(store.get("character.v2"));
+    const short = await POST(request("superior_red_enhance_stone"));
+    expect(short.status).toBe(400);
+    await expect(short.json()).resolves.toMatchObject({
+      error: "insufficient_material",
+      need: SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+    });
+    expect(store.get("character.v2")).toEqual(before);
   });
 
   it("restores a weighted random rare map at the selected conquered stage", async () => {

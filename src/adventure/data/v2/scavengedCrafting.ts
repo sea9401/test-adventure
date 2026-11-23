@@ -35,6 +35,8 @@ export const SCAVENGED_CRAFT_MATERIALS = {
 export type ScavengedCraftRecipeId =
   | "blue_enhance_stone"
   | "red_enhance_stone"
+  | "superior_blue_enhance_stone"
+  | "superior_red_enhance_stone"
   | "rare_map";
 
 export function isScavengedCraftRecipeId(
@@ -43,6 +45,8 @@ export function isScavengedCraftRecipeId(
   return (
     value === "blue_enhance_stone" ||
     value === "red_enhance_stone" ||
+    value === "superior_blue_enhance_stone" ||
+    value === "superior_red_enhance_stone" ||
     value === "rare_map"
   );
 }

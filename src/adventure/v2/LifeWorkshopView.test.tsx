@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  LeftoverDishCompostControls,
   LifeWorkshopMaxConfirmDialog,
   LifeWorkshopProcessingRecipeCard,
   RanchFeedRecipeCard,
@@ -258,6 +259,82 @@ describe("생활 조합 작업장 오류 안내", () => {
     expect(
       lifeWorkshopErrorText({ error: "not_enough_failed_dishes" }),
     ).toBe("실패 음식이 부족합니다.");
+  });
+});
+
+describe("남은 요리 퇴비 제작", () => {
+  const dishes = [
+    { id: "food2:rustic_bread:normal:o0:s0", name: "투박한 밀빵 (일반)", count: 47 },
+    { id: "food2:herb_soup:normal:o0:s0", name: "허브 수프 (일반)", count: 5 },
+  ];
+
+  it("고른 요리의 보유량으로 최대 수량을 정하고 그 요리로 제작한다", () => {
+    const onSubmit = vi.fn();
+    render(
+      <LeftoverDishCompostControls
+        recipeName="남은 요리 퇴비"
+        normalDishCost={3}
+        batchLimit={40}
+        craftable
+        dishes={dishes}
+        busy={false}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(screen.getByText("일반 품질 요리 3개 (보유 47개)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "최대 15개" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("남은 요리 퇴비 재료 선택"), {
+      target: { value: "food2:herb_soup:normal:o0:s0" },
+    });
+
+    expect(screen.getByText("일반 품질 요리 3개 (보유 5개)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "최대 1개" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "1개 제작" }));
+    expect(onSubmit).toHaveBeenCalledWith("food2:herb_soup:normal:o0:s0", 1);
+  });
+
+  it("일괄 한도를 넘겨 만들지 않는다", () => {
+    render(
+      <LeftoverDishCompostControls
+        recipeName="남은 요리 퇴비"
+        normalDishCost={3}
+        batchLimit={5}
+        craftable
+        dishes={dishes}
+        busy={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "최대 5개" })).toBeTruthy();
+  });
+
+  it("일반 품질 요리가 없으면 고를 것이 없다고 알린다", () => {
+    render(
+      <LeftoverDishCompostControls
+        recipeName="남은 요리 퇴비"
+        normalDishCost={3}
+        batchLimit={5}
+        craftable
+        dishes={[]}
+        busy={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("가진 일반 품질 요리가 없습니다.")).toBeTruthy();
+    expect(screen.queryByLabelText("남은 요리 퇴비 재료 선택")).toBeNull();
+  });
+
+  it("요리 부족 오류를 안내한다", () => {
+    expect(lifeWorkshopErrorText({ error: "not_enough_dishes" })).toBe(
+      "고른 요리가 부족합니다.",
+    );
+    expect(lifeWorkshopErrorText({ error: "bad_dish" })).toBe(
+      "일반 품질 요리만 퇴비로 만들 수 있습니다.",
+    );
   });
 });
 

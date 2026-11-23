@@ -107,6 +107,10 @@ import {
 import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
+import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+
+const LEFTOVER_DISH_COMPOST_COST =
+  LIFE_CRAFTING_RECIPE_BY_ID.get("leftover_dish_compost")?.normalDishCost ?? 3;
 
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
 const BATTLE_PREP_MASTER_HOURS =
@@ -464,6 +468,11 @@ export function PastimesContent() {
           소금·후추·기름·식초·향신료·효모는 재료 가공 탭의 주방 상점에서 구매합니다.
           밀가루·버터·치즈·육수·소스·크림은 농장·목장 재료로 직접 가공합니다. 요리 직업과
           장착 생활 스킬의 경험치·품질·재료 절약 보너스도 계속 적용됩니다.
+        </li>
+        <li>
+          남는 <Em>일반 품질 요리</Em>는 생활 조합 작업장의 생활 제작 탭에서 한 종류{" "}
+          {LEFTOVER_DISH_COMPOST_COST}개를 유기질 거름 1개로 바꿀 수 있습니다. 정성작 이상은
+          재료로 쓰지 않습니다.
         </li>
       </UL>
       <CookingBranchManualSection />

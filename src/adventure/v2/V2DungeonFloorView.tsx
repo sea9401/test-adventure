@@ -1604,7 +1604,7 @@ export function V2DungeonFloorView({
                   <span>레어맵 {RARE_MAP_CAP}장 보유 시</span>
                 </label>
                 <p className="pl-6 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  개명 신전·비밀 상점 지도를 포함해 보유 한도가 차면 정지합니다.
+                  비밀 상점 지도를 포함해 보유 한도가 차면 정지합니다.
                 </p>
               </div>
 

@@ -10,13 +10,57 @@
 
 // ── 다이얼 (라이브 실측 후 캘리브) ──────────────────────────────────────────
 export type EnhanceStoneId = "red" | "blue";
+// 상급 강화석(2026-11-24 건의 #877, 오너 결정) — 일반 강화석 5개를 합쳐 만들고 +13 도전부터 쓴다.
+//   색의 성격은 그대로 잇는다: 상급 붉은 = 성공률, 상급 푸른 = 파괴 방어.
+//   드랍은 없다(조합 전용). 그래서 드랍·상점 표가 쓰는 EnhanceStoneId 와 타입을 나눈다.
+export type SuperiorEnhanceStoneId = "superior_red" | "superior_blue";
 // 강화 방식 — 골드만(기본, +7까지) 또는 돌. +8부터는 돌 필수(고강 입장권 — 돌 시장가의 근거).
-export type EnhanceChoice = EnhanceStoneId | "none";
+export type EnhanceChoice = EnhanceStoneId | SuperiorEnhanceStoneId | "none";
 
 export const ENHANCE_STONES: Record<EnhanceStoneId, { name: string }> = {
   red: { name: "붉은 강화석" },
   blue: { name: "푸른 강화석" },
 };
+
+export const SUPERIOR_ENHANCE_STONES: Record<
+  SuperiorEnhanceStoneId,
+  { name: string; base: EnhanceStoneId }
+> = {
+  superior_red: { name: "상급 붉은 강화석", base: "red" },
+  superior_blue: { name: "상급 푸른 강화석", base: "blue" },
+};
+
+// 이 레벨의 시도(+12 → +13)부터 상급 강화석을 쓸 수 있다.
+export const SUPERIOR_ENHANCE_STONE_FROM = 12;
+// 같은 색 일반 강화석 이만큼으로 상급 1개를 만든다.
+export const SUPERIOR_ENHANCE_STONE_COMBINE_COST = 5;
+// 상급 붉은: 성공 +20%p(일반은 +10%p·파괴 +5%p), 파괴는 늘지 않는다.
+export const SUPERIOR_RED_SUCCESS_BONUS = 20;
+// 상급 푸른: +13 도전은 파괴 없음, 그 뒤로는 파괴 −15%p(일반은 −10%p).
+export const SUPERIOR_BLUE_DESTROY_GUARD = 15;
+
+export function isSuperiorEnhanceChoice(
+  choice: EnhanceChoice,
+): choice is SuperiorEnhanceStoneId {
+  return choice === "superior_red" || choice === "superior_blue";
+}
+
+/** 그 단계의 시도에서 고를 수 있는 강화 방식인지(상급은 +13 도전부터). */
+export function enhanceChoiceUsable(level: number, choice: EnhanceChoice): boolean {
+  if (!isSuperiorEnhanceChoice(choice)) return true;
+  return Math.max(0, Math.floor(level)) >= SUPERIOR_ENHANCE_STONE_FROM;
+}
+
+/** 요청 값 파싱 — 생략·"none" 은 골드만, 모르는 값은 null. */
+export function parseEnhanceChoice(raw: unknown): EnhanceChoice | null {
+  if (raw == null || raw === "none") return "none";
+  return raw === "red" ||
+    raw === "blue" ||
+    raw === "superior_red" ||
+    raw === "superior_blue"
+    ? raw
+    : null;
+}
 
 // 골드만 한계 — 이 레벨 이상에서의 시도는 강화석 필수.
 export const ENHANCE_STONE_REQUIRED_FROM = 7;
@@ -86,6 +130,10 @@ export function enhanceOutcomeRow(
   options: EnhanceOptions = {},
 ): readonly [number, number, number, number] {
   const safeLevel = Math.max(0, Math.floor(level));
+  // 상급 강화석을 쓸 수 없는 단계에서는 같은 색 일반 강화석으로 본다.
+  if (isSuperiorEnhanceChoice(choice) && !enhanceChoiceUsable(safeLevel, choice)) {
+    return enhanceOutcomeRow(safeLevel, SUPERIOR_ENHANCE_STONES[choice].base, options);
+  }
   let [s, k, d, x] = baseEnhanceOutcomeRow(safeLevel);
   const takeRiskPool = (amount: number): number => {
     const fromKeep = Math.min(amount, k);
@@ -117,6 +165,17 @@ export function enhanceOutcomeRow(
       k += Math.floor(guarded / 2);
       d += guarded - Math.floor(guarded / 2);
     }
+  } else if (choice === "superior_red") {
+    s += takeRiskPool(SUPERIOR_RED_SUCCESS_BONUS);
+  } else if (choice === "superior_blue") {
+    // +12 → +13 은 파괴를 전부, 그 뒤로는 15%p 까지 유지/하락으로 옮긴다.
+    const guarded =
+      safeLevel === SUPERIOR_ENHANCE_STONE_FROM
+        ? x
+        : Math.min(SUPERIOR_BLUE_DESTROY_GUARD, x);
+    x -= guarded;
+    k += Math.floor(guarded / 2);
+    d += guarded - Math.floor(guarded / 2);
   }
   if (safeLevel === 10) {
     // +10 안전 체크포인트: 이 단계에서 나온 하락은 실제 단계 손실 없는 유지다.
@@ -228,6 +287,30 @@ export const ENHANCE_STONE_MATERIAL_ID: Record<EnhanceStoneId, string> = {
   red: "v2_red_enhance_stone",
   blue: "v2_blue_enhance_stone",
 };
+
+export const SUPERIOR_ENHANCE_STONE_MATERIAL_ID: Record<
+  SuperiorEnhanceStoneId,
+  string
+> = {
+  superior_red: "v2_superior_red_enhance_stone",
+  superior_blue: "v2_superior_blue_enhance_stone",
+};
+
+/** 강화 방식이 쓰는 재료 id. 골드만이면 null. */
+export function enhanceChoiceMaterialId(choice: EnhanceChoice): string | null {
+  if (choice === "none") return null;
+  return isSuperiorEnhanceChoice(choice)
+    ? SUPERIOR_ENHANCE_STONE_MATERIAL_ID[choice]
+    : ENHANCE_STONE_MATERIAL_ID[choice];
+}
+
+/** 강화 방식의 재료 이름. 골드만이면 "골드". */
+export function enhanceChoiceName(choice: EnhanceChoice): string {
+  if (choice === "none") return "골드";
+  return isSuperiorEnhanceChoice(choice)
+    ? SUPERIOR_ENHANCE_STONES[choice].name
+    : ENHANCE_STONES[choice].name;
+}
 
 // 승리당 드랍 확률(%) — 의도적으로 매우 희소(사용자 결정: "훨씬 귀하게").
 // NPC 판매 없음 — 환금/수급은 거래소 유저 거래 전용(시세는 수요가 결정).

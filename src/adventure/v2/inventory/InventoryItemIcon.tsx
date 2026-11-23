@@ -117,6 +117,8 @@ export function inventoryIconKind(itemId: string): InventoryIconKind {
   if (itemId === TORN_MAP_FRAGMENT_MATERIAL_ID) return "map";
   if (itemId === "v2_red_enhance_stone") return "enhance-red";
   if (itemId === "v2_blue_enhance_stone") return "enhance-blue";
+  if (itemId === "v2_superior_red_enhance_stone") return "enhance-red";
+  if (itemId === "v2_superior_blue_enhance_stone") return "enhance-blue";
   if (itemId.includes("reforge_stone")) return "reforge";
 
   if (itemId.startsWith("sp_fruit_")) return "fruit";

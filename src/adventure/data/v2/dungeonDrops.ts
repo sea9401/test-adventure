@@ -16,7 +16,14 @@
 //    가 min(요건, 총량) 클램프라 전직 요건 절대값(3·5개)은 불변(비파괴). docs 참고.
 
 import type { DungeonFloorId } from "./types";
-import { ENHANCE_STONE_MATERIAL_ID, ENHANCE_STONES } from "./v2Enhance";
+import {
+  ENHANCE_STONE_MATERIAL_ID,
+  ENHANCE_STONES,
+  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+  SUPERIOR_ENHANCE_STONE_FROM,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONES,
+} from "./v2Enhance";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { SP_FRUIT_MATERIALS } from "./spFruit";
 import {
@@ -101,6 +108,17 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
     name: ENHANCE_STONES.blue.name,
     description:
       "단단한 기운이 깃든 강화석. 강화 성공 시 위력을 안정적으로(+2%p) 올린다.",
+  },
+  // 상급 강화석 — 드랍 없음. 대장간 조합에서 같은 색 강화석을 합쳐 만든다. NPC 판매 비등재.
+  [SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red]: {
+    id: SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red,
+    name: SUPERIOR_ENHANCE_STONES.superior_red.name,
+    description: `붉은 강화석 ${SUPERIOR_ENHANCE_STONE_COMBINE_COST}개를 합친 강화석. +${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 쓰며 성공 확률을 크게 올리고 파괴 확률은 늘리지 않는다.`,
+  },
+  [SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue]: {
+    id: SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue,
+    name: SUPERIOR_ENHANCE_STONES.superior_blue.name,
+    description: `푸른 강화석 ${SUPERIOR_ENHANCE_STONE_COMBINE_COST}개를 합친 강화석. +${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 쓰며 +${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전의 파괴를 막고 그 뒤로도 파괴 확률을 더 많이 낮춘다.`,
   },
   // 협동 보스 소환서(coopBosses) — 강화석과 같은 독립 드랍(hunt 라우트 롤). 카탈로그
   // 등재로 인벤 재료 탭·거래소 재료 거래가 살아나고, NPC 판매는 의도적 비등재(유저 거래 전용).

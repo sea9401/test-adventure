@@ -18,13 +18,17 @@ import {
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
   demoteEnhance,
   enhanceBonusPct,
   enhanceCatalystUsable,
+  enhanceChoiceMaterialId,
+  enhanceChoiceUsable,
   enhanceOutcomeRow,
   enhanceStoneCost,
+  isSuperiorEnhanceChoice,
+  parseEnhanceChoice,
   rollEnhanceOutcome,
-  type EnhanceChoice,
 } from "@/adventure/data/v2/v2Enhance";
 import {
   enforceUserAndIpRateLimit,
@@ -32,11 +36,12 @@ import {
 
 // POST /api/v2/me/enhance — 장비 개체 강화 1회 시도. 설계: docs/v2-equipment-enhance-plan.md
 //
-// body: { iid: string, stone?: "red" | "blue" | "none", feedIid?: string }
+// body: { iid: string, stone?: "red" | "blue" | "superior_red" | "superior_blue" | "none", feedIid?: string }
 //   stone   — 골드만("none"/생략, +7까지) 또는 돌. **+8부터(레벨 ≥7 시도)는 돌 필수.**
 //             🔴 붉은 = 성공↑ 도박 / 🔵 푸른 = 파괴 위험 완화.
+//             상급 붉은·상급 푸른은 +13 도전(레벨 ≥12 시도)부터 쓴다.
 //   feedIid — 같은 id 의 다른 보유 개체(미장착·미잠금)를 먹이면 그 회차 강화석 면제.
-//             골드만 모드에선 의미가 없어 거부(개체 보호).
+//             골드만 모드에선 의미가 없어 거부(개체 보호). 상급 강화석은 면제 대상이 아니다.
 //
 // 결과(4종, enhanceOutcomeRow): 성공(+1·구간 보너스) / 유지 / 하락(−1) / 파괴(개체 소멸).
 // 강화 단계에는 하드 캡이 없고, +10 이후부터 비용·리스크가 크게 오른다.
@@ -72,18 +77,13 @@ export async function POST(req: Request) {
   }
   const iid =
     typeof body.iid === "string" && body.iid.length > 0 ? body.iid : null;
-  const stone: EnhanceChoice =
-    body.stone === "red" || body.stone === "blue"
-      ? body.stone
-      : body.stone == null || body.stone === "none"
-        ? "none"
-        : "invalid" as never;
+  const stone = parseEnhanceChoice(body.stone);
   const feedIid =
     typeof body.feedIid === "string" && body.feedIid.length > 0
       ? body.feedIid
       : null;
   const useCatalyst = body.catalyst === true;
-  if (!iid || (stone as string) === "invalid") {
+  if (!iid || stone == null) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
   if (feedIid === iid) {
@@ -91,6 +91,10 @@ export async function POST(req: Request) {
   }
   // 골드만 모드에서 먹이 — 면제할 강화석이 없어 개체만 날아감. 거부(보호).
   if (feedIid && stone === "none") {
+    return Response.json({ ok: false, error: "bad_feed" }, { status: 400 });
+  }
+  // 상급 강화석은 조합으로만 얻는 소모처라 재료 장비로 면제하지 않는다.
+  if (feedIid && isSuperiorEnhanceChoice(stone)) {
     return Response.json({ ok: false, error: "bad_feed" }, { status: 400 });
   }
 
@@ -125,6 +129,13 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "stone_required" as const },
       };
     }
+    // 상급 강화석은 +13 도전부터.
+    if (!enhanceChoiceUsable(level, stone)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "superior_stone_level" as const },
+      };
+    }
 
     // 먹이 검증 — 같은 id·다른 개체·미장착·미잠금.
     let feed = null as (typeof owned)[number] | null;
@@ -146,8 +157,7 @@ export async function POST(req: Request) {
 
     // 비용 — 강화석(골드만 모드 0·먹이면 면제)·골드. 유니크 ×2. 위력은 개체 굴림 기준.
     const uniqueMult = isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
-    const stoneId =
-      stone === "none" ? null : ENHANCE_STONE_MATERIAL_ID[stone];
+    const stoneId = enhanceChoiceMaterialId(stone);
     const stoneCost =
       stone === "none" || feed ? 0 : enhanceStoneCost(level) * uniqueMult;
     const basePower = inst.roll?.power ?? item.power;
@@ -310,6 +320,18 @@ export async function POST(req: Request) {
           blue: Math.max(
             0,
             Math.floor(Number(mats[ENHANCE_STONE_MATERIAL_ID.blue]) || 0),
+          ),
+          superior_red: Math.max(
+            0,
+            Math.floor(
+              Number(mats[SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red]) || 0,
+            ),
+          ),
+          superior_blue: Math.max(
+            0,
+            Math.floor(
+              Number(mats[SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue]) || 0,
+            ),
           ),
         },
         feedUsed: !!feed,

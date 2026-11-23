@@ -37,6 +37,8 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { POST } from "@/app/api/v2/me/enhance/route";
 import {
   ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
+  enhanceStoneCost,
 } from "@/adventure/data/v2/v2Enhance";
 import {
   enhanceGoldCostForEquipment,
@@ -46,6 +48,8 @@ import {
 const WEAPON = "v2_den_greatsword"; // 흔한(noDrop normal) — 유니크 배수 없음 가정 검증은 isUnique 따라.
 const RED = ENHANCE_STONE_MATERIAL_ID.red;
 const BLUE = ENHANCE_STONE_MATERIAL_ID.blue;
+const SUPERIOR_RED = SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red;
+const SUPERIOR_BLUE = SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue;
 
 function req(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/me/enhance", {
@@ -254,6 +258,100 @@ describe("POST /api/v2/me/enhance", () => {
     expect(json.outcome).toBe("demote");
     expect(json.destroyed).toBe(false);
     expect(json.enhance.level).toBe(10);
+  });
+
+  describe("상급 강화석", () => {
+    function seedHigh(level: number, materials: Record<string, number>) {
+      store.set("character.v2", { gold: 1_000_000_000, materials });
+      store.set("equipment.v2", {
+        owned: [
+          { iid: "w1", id: WEAPON, enhance: { level, bonusPct: 0 } },
+          { iid: "w2", id: WEAPON },
+        ],
+        equipped: {},
+      });
+    }
+
+    it("상급 푸른은 +13 도전에서 파괴 대신 하락으로 끝나고 상급 강화석만 쓴다", async () => {
+      seedHigh(12, { [BLUE]: 50, [SUPERIOR_BLUE]: 20 });
+      vi.spyOn(Math, "random").mockReturnValue(0.999); // [10,43,47,0] → demote
+      const res = await POST(req({ iid: "w1", stone: "superior_blue" }));
+      const json = (await res.json()) as {
+        ok: boolean;
+        outcome: string;
+        outcomeRow: number[];
+        stoneCost: number;
+        enhance: { level: number };
+        stones: Record<string, number>;
+      };
+      expect(res.status).toBe(200);
+      expect(json.outcomeRow).toEqual([10, 43, 47, 0]);
+      expect(json.outcome).toBe("demote");
+      expect(json.enhance.level).toBe(11);
+      expect(json.stoneCost).toBe(enhanceStoneCost(12));
+      const char = store.get("character.v2") as CharSave;
+      expect(char.materials[SUPERIOR_BLUE]).toBe(20 - enhanceStoneCost(12));
+      expect(char.materials[BLUE]).toBe(50);
+      expect(json.stones).toMatchObject({
+        blue: 50,
+        superior_blue: 20 - enhanceStoneCost(12),
+        superior_red: 0,
+      });
+    });
+
+    it("상급 붉은은 +13 도전 성공률이 30%다", async () => {
+      seedHigh(12, { [SUPERIOR_RED]: 7 });
+      vi.spyOn(Math, "random").mockReturnValue(0.29);
+      const res = await POST(req({ iid: "w1", stone: "superior_red" }));
+      const json = (await res.json()) as {
+        outcome: string;
+        outcomeRow: number[];
+        enhance: { level: number };
+      };
+      expect(json.outcomeRow).toEqual([30, 12, 36, 22]);
+      expect(json.outcome).toBe("success");
+      expect(json.enhance.level).toBe(13);
+      const char = store.get("character.v2") as CharSave;
+      expect(char.materials[SUPERIOR_RED]).toBeUndefined();
+    });
+
+    it("+12 도전까지는 상급 강화석을 받지 않고 아무것도 바꾸지 않는다", async () => {
+      seedHigh(11, { [SUPERIOR_BLUE]: 20 });
+      const before = structuredClone(store.get("character.v2"));
+      const res = await POST(req({ iid: "w1", stone: "superior_blue" }));
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe(
+        "superior_stone_level",
+      );
+      expect(store.get("character.v2")).toEqual(before);
+    });
+
+    it("상급 강화석이 모자라면 거부한다(일반 강화석으로 대신하지 않는다)", async () => {
+      seedHigh(12, { [BLUE]: 500, [SUPERIOR_BLUE]: enhanceStoneCost(12) - 1 });
+      const res = await POST(req({ iid: "w1", stone: "superior_blue" }));
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe(
+        "insufficient_stone",
+      );
+    });
+
+    it("상급 강화석은 같은 장비를 재료로 넣어 면제받을 수 없다", async () => {
+      seedHigh(12, { [SUPERIOR_BLUE]: 20 });
+      const res = await POST(
+        req({ iid: "w1", stone: "superior_blue", feedIid: "w2" }),
+      );
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("bad_feed");
+      const eq = store.get("equipment.v2") as EquipSave;
+      expect(eq.owned.map((o) => o.iid)).toEqual(["w1", "w2"]);
+    });
+
+    it("모르는 강화석 값은 거부한다", async () => {
+      seedHigh(12, {});
+      const res = await POST(req({ iid: "w1", stone: "superior_green" }));
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("bad_intent");
+    });
   });
 
   it("먹이기 — 같은 id 개체 소모·강화석 면제(골드만)", async () => {

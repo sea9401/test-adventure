@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   ENHANCE_LEVEL_BONUS_CUM,
   ENHANCE_OUTCOME_TABLE,
+  ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+  SUPERIOR_ENHANCE_STONE_FROM,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
   demoteEnhance,
+  enhanceChoiceMaterialId,
+  enhanceChoiceName,
+  enhanceChoiceUsable,
+  isSuperiorEnhanceChoice,
+  parseEnhanceChoice,
   enhanceBonusPct,
   enhanceCatalystUsable,
   enhancedPower,
@@ -95,6 +104,81 @@ describe("4결과 표 + 돌 변환", () => {
     expect(rollEnhanceOutcome(9, "none", () => 0.8)).toBe("demote");
     expect(rollEnhanceOutcome(9, "none", () => 0.99)).toBe("destroy");
     expect(rollEnhanceOutcome(9, "blue", () => 0.999)).not.toBe("destroy");
+  });
+});
+
+describe("상급 강화석 (건의 #877)", () => {
+  it("+13 도전(레벨 12)부터 쓸 수 있다", () => {
+    expect(SUPERIOR_ENHANCE_STONE_FROM).toBe(12);
+    expect(enhanceChoiceUsable(11, "superior_blue")).toBe(false);
+    expect(enhanceChoiceUsable(11, "superior_red")).toBe(false);
+    expect(enhanceChoiceUsable(12, "superior_blue")).toBe(true);
+    expect(enhanceChoiceUsable(12, "superior_red")).toBe(true);
+    expect(enhanceChoiceUsable(0, "blue")).toBe(true);
+    expect(enhanceChoiceUsable(20, "none")).toBe(true);
+  });
+
+  it("상급 푸른은 +13 도전의 파괴를 없애고 그 뒤로는 파괴를 15%p 줄인다", () => {
+    expect(enhanceOutcomeRow(12, "superior_blue")).toEqual([10, 43, 47, 0]);
+    expect(enhanceOutcomeRow(13, "superior_blue")).toEqual([9, 37, 46, 8]);
+    expect(enhanceOutcomeRow(19, "superior_blue")).toEqual([3, 27, 58, 12]);
+    // 일반 푸른보다 항상 파괴가 낮거나 같다.
+    for (let lv = 12; lv < 40; lv++) {
+      expect(enhanceOutcomeRow(lv, "superior_blue")[3]).toBeLessThanOrEqual(
+        enhanceOutcomeRow(lv, "blue")[3],
+      );
+    }
+  });
+
+  it("상급 붉은은 성공을 20%p 올리고 파괴를 늘리지 않는다", () => {
+    expect(enhanceOutcomeRow(12, "superior_red")).toEqual([30, 12, 36, 22]);
+    expect(enhanceOutcomeRow(13, "superior_red")).toEqual([29, 10, 38, 23]);
+    expect(enhanceOutcomeRow(19, "superior_red")).toEqual([23, 0, 50, 27]);
+    for (let lv = 12; lv < 40; lv++) {
+      const base = enhanceOutcomeRow(lv, "none");
+      const row = enhanceOutcomeRow(lv, "superior_red");
+      expect(row[3]).toBe(base[3]);
+      expect(row[0]).toBeGreaterThan(enhanceOutcomeRow(lv, "red")[0]);
+    }
+  });
+
+  it("각 행 합 = 100", () => {
+    for (let lv = 0; lv < 60; lv++) {
+      for (const c of ["superior_red", "superior_blue"] as const) {
+        const [s, k, d, x] = enhanceOutcomeRow(lv, c);
+        expect(s + k + d + x).toBe(100);
+        expect(Math.min(s, k, d, x)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it("쓸 수 없는 단계에서는 같은 색 일반 강화석과 같은 결과표다", () => {
+    for (let lv = 0; lv < 12; lv++) {
+      expect(enhanceOutcomeRow(lv, "superior_blue")).toEqual(enhanceOutcomeRow(lv, "blue"));
+      expect(enhanceOutcomeRow(lv, "superior_red")).toEqual(enhanceOutcomeRow(lv, "red"));
+    }
+  });
+
+  it("단련 촉매는 상급 강화석 뒤에도 하락을 유지로 옮긴다", () => {
+    expect(enhanceOutcomeRow(12, "superior_blue", { catalyst: true })).toEqual([10, 53, 37, 0]);
+    expect(enhanceCatalystUsable(12, "superior_blue")).toBe(true);
+  });
+
+  it("재료 id·이름·파싱", () => {
+    expect(SUPERIOR_ENHANCE_STONE_COMBINE_COST).toBe(5);
+    expect(enhanceChoiceMaterialId("none")).toBeNull();
+    expect(enhanceChoiceMaterialId("blue")).toBe(ENHANCE_STONE_MATERIAL_ID.blue);
+    expect(enhanceChoiceMaterialId("superior_blue")).toBe(SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue);
+    expect(enhanceChoiceMaterialId("superior_red")).toBe("v2_superior_red_enhance_stone");
+    expect(enhanceChoiceName("superior_blue")).toBe("상급 푸른 강화석");
+    expect(enhanceChoiceName("superior_red")).toBe("상급 붉은 강화석");
+    expect(enhanceChoiceName("red")).toBe("붉은 강화석");
+    expect(isSuperiorEnhanceChoice("superior_red")).toBe(true);
+    expect(isSuperiorEnhanceChoice("red")).toBe(false);
+    expect(parseEnhanceChoice(undefined)).toBe("none");
+    expect(parseEnhanceChoice("none")).toBe("none");
+    expect(parseEnhanceChoice("superior_blue")).toBe("superior_blue");
+    expect(parseEnhanceChoice("purple")).toBeNull();
   });
 });
 

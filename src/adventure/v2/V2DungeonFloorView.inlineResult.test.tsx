@@ -88,7 +88,7 @@ describe("던전 인라인 결과 연결", () => {
     );
   });
 
-  it("사냥 전에는 안내를, 사냥 뒤에는 결과 머리에 싸운 몬스터와 승패를 보여 준다", async () => {
+  it("사냥 전에는 안내를, 사냥 뒤에는 결과 머리에 승패와 싸운 상대 이름을 한 줄로 보여 준다", async () => {
     mocks.hunt.mockResolvedValueOnce(result(5));
 
     const { container } = render(
@@ -106,7 +106,7 @@ describe("던전 인라인 결과 연결", () => {
     );
 
     expect(
-      screen.getByText("사냥하면 여기에 싸운 몬스터와 결과가 나옵니다"),
+      screen.getByText("사냥하면 여기에 전투 결과가 나옵니다"),
     ).toBeTruthy();
     expect(container.querySelector("[data-hunt-encounter]")).toBeNull();
 
@@ -117,9 +117,10 @@ describe("던전 인라인 결과 연결", () => {
     expect(encounter?.textContent).toContain("방금 전투");
     expect(encounter?.textContent).toContain("승리");
     expect(encounter?.textContent).toContain("슬라임");
-    expect(encounter?.textContent).toContain("95 / 100");
+    // 몬스터 그림은 전투 기록 화면에서만 나온다.
+    expect(encounter?.querySelector("img")).toBeNull();
     expect(
-      screen.queryByText("사냥하면 여기에 싸운 몬스터와 결과가 나옵니다"),
+      screen.queryByText("사냥하면 여기에 전투 결과가 나옵니다"),
     ).toBeNull();
     // 설정을 펼치면 사냥 버튼 줄이 떠 있는 채팅 버튼보다 위로 올라온다.
     const bar = container

@@ -44,12 +44,12 @@ function summaryOf(count: number): BatchSummary {
   };
 }
 
-describe("여러 번 사냥 요약: 방금 전투 머리가 있을 때", () => {
+describe("여러 번 사냥 요약: 사냥 화면의 칩 모양", () => {
   it("보상을 한 번 사냥과 같은 칩으로, 합계와 종류별 색으로 보여 준다", () => {
     const { container } = render(
       <BatchSummaryCard
         summary={summaryOf(10)}
-        encounter={<div>마지막 전투 승리</div>}
+        gainChips
         onSelectReplay={vi.fn()}
       />,
     );
@@ -72,7 +72,7 @@ describe("여러 번 사냥 요약: 방금 전투 머리가 있을 때", () => {
     expect(container.textContent).toContain("10승");
   });
 
-  it("머리가 없으면 예전처럼 보유량 네 칸을 보여 준다", () => {
+  it("따로 켜지 않으면 예전처럼 보유량 네 칸을 보여 준다", () => {
     const { container } = render(<BatchSummaryCard summary={summaryOf(10)} />);
 
     expect(

@@ -33,7 +33,6 @@ import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
 import {
   HuntEncounter,
   HuntEncounterPlaceholder,
-  huntEncounterEnemy,
 } from "@/adventure/v2/HuntEncounter";
 import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import { nextAdvanceProficiencyTargets } from "@/adventure/data/v2/v2JobCatalog";
@@ -1288,46 +1287,14 @@ export function V2DungeonFloorView({
     );
   }
 
-  // 방금 전투 — 결과 카드 머리에 싸운 상대와 승패를 그림으로 보여 준다. 연속 사냥은 마지막 전투.
-  const lastBattle =
-    latestPresentedResult?.kind === "single"
-      ? {
-          label: "방금 전투",
-          enemyName: latestPresentedResult.result.enemyName,
-          won: latestPresentedResult.result.won,
-          replay: latestPresentedResult.result.replay,
-        }
-      : latestPresentedResult?.kind === "batch"
-        ? (() => {
-            const last = latestPresentedResult.summary.replays?.at(-1);
-            return last
-              ? {
-                  label: "마지막 전투",
-                  enemyName: last.enemyName,
-                  won: last.won,
-                  replay: last.replay,
-                }
-              : null;
-          })()
-        : null;
+  // 방금 전투 — 한 번 사냥의 결과 카드 머리에 승패와 싸운 상대 이름을 한 줄로 적는다.
+  //   몬스터 그림은 전투 기록 화면에서만 본다. 여러 번 사냥은 "N회 사냥 N승" 줄이 그 역할을 한다.
   const encounter =
-    lastBattle && hp ? (
+    latestPresentedResult?.kind === "single" ? (
       <HuntEncounter
-        label={lastBattle.label}
-        won={lastBattle.won}
-        player={{
-          name: playerName,
-          subtitle: playerSubtitle,
-          gender: playerGender,
-          hp: hp.hp,
-          maxHp: hp.maxHp,
-          ...(mp && mp.maxMp > 0 ? { mp: mp.mp, maxMp: mp.maxMp } : {}),
-        }}
-        enemy={huntEncounterEnemy(
-          lastBattle.enemyName,
-          lastBattle.won,
-          lastBattle.replay,
-        )}
+        label="방금 전투"
+        won={latestPresentedResult.result.won}
+        enemyName={latestPresentedResult.result.enemyName}
       />
     ) : undefined;
 
@@ -1807,7 +1774,7 @@ export function V2DungeonFloorView({
         <section aria-label="최근 사냥 결과" className="space-y-2">
           {latestPresentedResult.kind === "batch" ? (
             <BatchSummaryCard
-              encounter={encounter}
+              gainChips
               summary={latestPresentedResult.summary}
               remainingStamina={!coreLoopOn && !autoHunt ? staminaCurrent : undefined}
               potionThreshold={autoStopConfig.potionThreshold}

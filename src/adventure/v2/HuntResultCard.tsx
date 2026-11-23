@@ -2,8 +2,8 @@
 
 // v2 던전 사냥 결과 카드 — 간단 버전.
 // 승/패 + EXP·골드·드랍. 사이즈 축소 — padding sm + 작은 font.
-// 몬스터 그림·이름·HP는 한때 뺐으나, 2026-11-24 오너가 "방금 전투" 머리(HuntEncounter)로
-// 다시 넣기로 했다(사냥 화면에 싸운 상대가 전혀 안 보이던 문제). 턴 수는 여전히 넣지 않는다.
+// 몬스터 그림·HP·턴 수는 넣지 않는다(전투 기록 화면에서만 본다). 2026-11-24 오너 결정으로
+// 싸운 상대의 이름만 "방금 전투" 머리(HuntEncounter)에 한 줄로 적는다.
 
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/Card";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import {
   V2_MATERIALS,
@@ -92,10 +92,10 @@ export function BatchSummaryCard({
   potionThreshold = 0,
   onSelectReplay,
   onEnterRareMap,
-  encounter,
+  gainChips = false,
 }: {
-  /** 마지막 전투의 상대와 승패를 보여 주는 머리. */
-  encounter?: ReactNode;
+  /** 보상을 보유량 네 칸 대신 한 번 사냥과 같은 칩(합계)으로 보여 준다. 사냥 화면에서 쓴다. */
+  gainChips?: boolean;
   summary: BatchSummary;
   remainingStamina?: number;
   potionThreshold?: number;
@@ -184,11 +184,6 @@ export function BatchSummaryCard({
 
   return (
     <Card padding="sm">
-      {encounter ? (
-        <div className="mb-3 border-b border-zinc-200 pb-3 dark:border-zinc-700">
-          {encounter}
-        </div>
-      ) : null}
       {huntRareMapInstances.length > 0 && (() => {
         const primary = huntRareMapInstances[0];
         const primaryDef = RARE_MAP_KINDS[primary.kind];
@@ -326,7 +321,7 @@ export function BatchSummaryCard({
           goldAfter={summary.finalGoldAfter}
         />
       )}
-      {encounter ? (
+      {gainChips ? (
         <HuntGainChips
           items={rewardBalances}
           levelsGained={summary.levelsGained}
@@ -350,7 +345,7 @@ export function BatchSummaryCard({
         )}
       </div>
 
-      {!encounter && summary.levelsGained > 0 && (
+      {!gainChips && summary.levelsGained > 0 && (
         <div className="ui-reward-flash mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
             레벨 업! +{summary.levelsGained}

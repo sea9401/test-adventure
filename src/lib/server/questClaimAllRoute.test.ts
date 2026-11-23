@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({
+const { store, flags } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
+  flags: { passStep: false, newcomer: false },
 }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -29,7 +30,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 vi.mock("@/lib/server/v2QuestContext", () => ({
   GUIDE_QUESTS_KEY: "guide-quests.v2",
   assembleQuestExtras: vi.fn(async () => ({})),
-  buildQuestCtx: vi.fn(() => ({})),
+  buildQuestCtx: vi.fn(() => ({ newcomer: flags.newcomer })),
   parseClaimed: vi.fn((raw: { claimed?: unknown } | undefined) =>
     new Set(Array.isArray(raw?.claimed) ? raw.claimed : []),
   ),
@@ -45,8 +46,20 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
   ),
 }));
 
-vi.mock("@/adventure/data/v2/v2Quests", () => ({
+vi.mock("@/adventure/data/v2/v2Quests", async () => ({
+  questRewardFor: (
+    await vi.importActual<typeof import("@/adventure/data/v2/v2Quests")>(
+      "@/adventure/data/v2/v2Quests",
+    )
+  ).questRewardFor,
   V2_QUESTS: [
+    {
+      id: "pass_step",
+      line: "tutorial",
+      reward: { boundStaminaPotions: 5, masteryCertificates: 1_000 },
+      newcomerBonus: { boundStaminaPotions: 5 },
+      check: () => flags.passStep,
+    },
     {
       id: "tutorial_reward",
       line: "tutorial",
@@ -134,6 +147,8 @@ describe("POST /api/v2/me/quests/claim-all", () => {
     store.set("equipment.v2", { owned: [], equipped: {} });
     store.set("guide-quests.v2", { claimed: [] });
     store.set("stamina-potions.v1", { count: 3 });
+    flags.passStep = false;
+    flags.newcomer = false;
     vi.clearAllMocks();
     vi.mocked(grantTitleIfMissingInTx).mockResolvedValue(true);
   });
@@ -148,6 +163,8 @@ describe("POST /api/v2/me/quests/claim-all", () => {
         gold: 100,
         equipment: ["v2_chain_mail"],
         staminaPotions: 2,
+        boundStaminaPotions: 0,
+        masteryCertificates: 0,
         titleIds: ["first_blood"],
       },
     });
@@ -205,6 +222,58 @@ describe("POST /api/v2/me/quests/claim-all", () => {
     expect(store.get("guide-quests.v2")).toEqual({
       claimed: ["achievement_reward", "achievement_followup"],
     });
+  });
+
+  it("성장 패스 단계는 귀속 회복약과 숙련 증서를 지급하고 기존 증서를 보존한다", async () => {
+    flags.passStep = true;
+    store.set("guide-quests.v2", {
+      claimed: ["tutorial_reward", "tutorial_empty", "tutorial_followup"],
+    });
+    store.set("inventory.v2", { masteryCertificates: 40, v2_herb: 3 });
+
+    const res = await POST(claimAllReq("tutorial"));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      count: 1,
+      reward: {
+        staminaPotions: 0,
+        boundStaminaPotions: 5,
+        masteryCertificates: 1_000,
+      },
+    });
+    expect(store.get("stamina-potions.v1")).toEqual({ count: 8, boundCount: 5 });
+    expect(store.get("inventory.v2")).toEqual({
+      masteryCertificates: 1_040,
+      v2_herb: 3,
+    });
+    expect(recordEconomyEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "reward.quest.stamina_potion",
+        quantity: 5,
+        detail: { questId: "pass_step", claimMode: "all", bound: true },
+      }),
+    );
+    expect(recordEconomyEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "reward.quest.mastery_certificate",
+        quantity: 1_000,
+      }),
+    );
+  });
+
+  it("신규 모험가는 성장 패스 단계에서 귀속 회복약을 더 받는다", async () => {
+    flags.passStep = true;
+    flags.newcomer = true;
+    store.set("guide-quests.v2", {
+      claimed: ["tutorial_reward", "tutorial_empty", "tutorial_followup"],
+    });
+
+    const res = await POST(claimAllReq("tutorial"));
+    await expect(res.json()).resolves.toMatchObject({
+      reward: { boundStaminaPotions: 10, masteryCertificates: 1_000 },
+    });
+    expect(store.get("stamina-potions.v1")).toEqual({ count: 13, boundCount: 10 });
   });
 
   it("받을 항목이 없으면 중복 지급하지 않는다", async () => {

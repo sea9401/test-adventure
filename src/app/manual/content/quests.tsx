@@ -1,4 +1,11 @@
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  GROWTH_PASS,
+  GROWTH_PASS_NEWCOMER_DAYS,
+  GROWTH_PASS_NEWCOMER_POTIONS,
+  GROWTH_PASS_OPEN_TIER,
+} from "@/adventure/data/v2/growthPass";
+import { questRewardText } from "@/adventure/data/v2/questRewardText";
 import { H2, P, UL, Em, Note } from "./primitives";
 
 export function QuestsContent() {
@@ -30,6 +37,35 @@ export function QuestsContent() {
           낚시·요리를 각각 한 번씩 익히는 독립 목표입니다. 시간이 필요한 생활
           목표가 다른 튜토리얼 진행을 막지는 않습니다.
         </li>
+      </UL>
+
+      <H2>성장 패스</H2>
+      <P>
+        {`${GROWTH_PASS_OPEN_TIER}차 직업에 도달하면 튜토리얼 탭에 `}
+        <Em>성장 패스</Em>가 열립니다. 전직과 숙련도 단계를 순서대로 달성할
+        때마다 보상을 받으며, 이미 지난 단계의 보상도 받을 수 있습니다. 받을
+        단계가 있으면 모험 화면에 표시됩니다.
+      </P>
+      <UL>
+        {GROWTH_PASS.map((step) => (
+          <li key={step.id}>
+            <Em>{step.title}</Em>: {questRewardText(step.reward)}
+          </li>
+        ))}
+      </UL>
+      <UL>
+        <li>
+          숙련도 단계는 그 차수 직업 하나의 숙련도로 판정합니다. 다음 차수로
+          전직했다면 달성한 것으로 봅니다.
+        </li>
+        <li>
+          지금 직업이 아니라 전직해 본 직업을 기준으로 판정하므로, 낮은 차수
+          직업으로 돌아가도 달성한 단계는 유지됩니다.
+        </li>
+        <li>
+          {`가입 후 ${GROWTH_PASS_NEWCOMER_DAYS}일 안에 받는 단계에는 귀속 스태미나 회복약 ${GROWTH_PASS_NEWCOMER_POTIONS}개가 더 붙습니다.`}
+        </li>
+        <li>귀속 회복약과 숙련 증서는 거래할 수 없습니다.</li>
       </UL>
 
       <H2>일일·주간 퀘스트</H2>

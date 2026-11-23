@@ -2,8 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   CurrentGoalBanner,
+  GrowthPassRewardBanner,
   RepeatRewardBanner,
+  homeGuidePlan,
 } from "./GuideQuestBanner";
+import type { QuestView } from "@/adventure/data/v2/v2Quests";
 
 describe("메인 반복 퀘스트 보상 알림", () => {
   const bundle = (
@@ -74,5 +77,98 @@ describe("메인 추적 퀘스트 카드", () => {
     expect(html).toContain("추적 중");
     expect(html).toContain("42,000 / 100,000");
     expect(html).toContain("width:42%");
+  });
+});
+
+describe("홈의 성장 패스 안내", () => {
+  const view = (over: Partial<QuestView>): QuestView => ({
+    id: "q",
+    line: "collection",
+    title: "제목",
+    desc: "설명",
+    href: null,
+    reward: {},
+    status: "active",
+    points: 0,
+    progress: null,
+    goal: null,
+    detailKind: null,
+    ...over,
+  });
+  const passClaimable = view({
+    id: "gp_tier4",
+    line: "growth_pass",
+    title: "4차 전직",
+    status: "claimable",
+    reward: { boundStaminaPotions: 5, masteryCertificates: 1_000 },
+  });
+  const passActive = view({
+    id: "gp_t4_6000",
+    line: "growth_pass",
+    title: "4차 숙련도 6,000",
+    progress: 5_339,
+    goal: 6_000,
+  });
+  const passLocked = view({ id: "gp_t4_12000", line: "growth_pass", status: "locked" });
+  const achievement = view({ id: "gold_100k", title: "두둑한 지갑" });
+
+  it("기초 튜토리얼이 남아 있으면 체크리스트에 성장 패스 단계를 섞지 않는다", () => {
+    const basic = view({ id: "b_bank", line: "basics", title: "은행 이용" });
+    const plan = homeGuidePlan([basic, passActive, passLocked], basic, null);
+    expect(plan.tutorialTodo.map((q) => q.id)).toEqual(["b_bank"]);
+    expect(plan.goal).toBeNull();
+    expect(plan.passClaimable).toEqual([]);
+  });
+
+  it("받을 수 있는 단계가 있으면 추적 중인 업적이 있어도 알린다", () => {
+    const plan = homeGuidePlan(
+      [passClaimable, passActive, achievement],
+      achievement,
+      "gold_100k",
+    );
+    expect(plan.passClaimable.map((q) => q.id)).toEqual(["gp_tier4"]);
+    expect(plan.goal?.id).toBe("gold_100k");
+  });
+
+  it("받을 단계가 없으면 진행 중인 단계를 목표로 보여 주되 직접 추적한 업적이 먼저다", () => {
+    expect(homeGuidePlan([passActive, achievement], passActive, null).goal?.id).toBe(
+      "gp_t4_6000",
+    );
+    expect(
+      homeGuidePlan([passActive, achievement], achievement, "gold_100k").goal?.id,
+    ).toBe("gold_100k");
+  });
+
+  it("받을 단계가 있을 때는 다음 단계 카드를 겹쳐 보여 주지 않는다", () => {
+    const plan = homeGuidePlan([passClaimable, passActive], passClaimable, null);
+    expect(plan.passClaimable).toHaveLength(1);
+    expect(plan.goal).toBeNull();
+  });
+
+  it("성장 패스를 모두 받은 계정은 전과 같이 추천 업적을 본다", () => {
+    const done = view({ id: "gp_tier7", line: "growth_pass", status: "claimed" });
+    expect(homeGuidePlan([done, achievement], achievement, null).goal?.id).toBe(
+      "gold_100k",
+    );
+  });
+
+  it("받을 수 있는 단계 수와 첫 단계 이름을 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <GrowthPassRewardBanner
+        items={[passClaimable, { ...passClaimable, id: "gp_t4_6000", title: "4차 숙련도 6,000" }]}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(html).toContain("성장 패스");
+    expect(html).toContain("받을 수 있는 단계 보상 2개");
+    expect(html).toContain("4차 전직 외 1개");
+  });
+
+  it("진행 중인 단계 카드는 성장 패스라고 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <CurrentGoalBanner current={passActive} label="성장 패스" onOpen={vi.fn()} />,
+    );
+    expect(html).toContain("성장 패스");
+    expect(html).toContain("5,339 / 6,000");
   });
 });

@@ -12,6 +12,12 @@ export function questRewardText(reward: QuestReward): string {
   if (reward.staminaPotions) {
     parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
   }
+  if (reward.boundStaminaPotions) {
+    parts.push(`귀속 스태미나 회복약 ${reward.boundStaminaPotions}개`);
+  }
+  if (reward.masteryCertificates) {
+    parts.push(`숙련 증서 ${reward.masteryCertificates.toLocaleString("ko-KR")}개`);
+  }
   if (reward.titleId) {
     parts.push(`칭호: ${TITLES[reward.titleId]?.name ?? reward.titleId}`);
   }

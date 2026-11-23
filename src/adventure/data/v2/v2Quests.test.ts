@@ -10,8 +10,16 @@ import {
   isTutorialLine,
   achievementSummary,
   claimedUniqueEquipmentAcquisitionFloor,
+  questRewardFor,
   type QuestCtx,
 } from "./v2Quests";
+import {
+  GROWTH_PASS,
+  GROWTH_PASS_LINE_ID,
+  GROWTH_PASS_NEWCOMER_DAYS,
+  isGrowthPassNewcomer,
+} from "./growthPass";
+import { questRewardText } from "./questRewardText";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { TITLES } from "../titles";
@@ -1036,6 +1044,8 @@ describe("deriveQuestViews", () => {
     const visibleCount = V2_QUESTS.filter((q) => {
       if (q.contentEnabled === false && !q.check(ZERO)) return false;
       if (q.hiddenUntilComplete && !q.check(ZERO)) return false;
+      // 성장 패스는 3차 직업에 도달한 뒤에 열린다. ZERO 는 1차다.
+      if (q.line === GROWTH_PASS_LINE_ID) return false;
       if (!q.chain) return true;
       if (seenChains.has(q.chain)) return false;
       seenChains.add(q.chain);
@@ -1238,5 +1248,123 @@ describe("장인의 길 판정", () => {
         workshopQualityCrafts: 1,
       }),
     ).toBe(true);
+  });
+});
+
+// ── 성장 패스 ─────────────────────────────────────────────────────────────
+function ctx(over: Partial<QuestCtx>): QuestCtx {
+  return { ...ZERO, level: 100, tier: 3, ...over };
+}
+const DAY = 24 * 60 * 60 * 1_000;
+const NOW = Date.UTC(2026, 10, 23);
+
+function passViews(c: QuestCtx, claimed: ReadonlySet<string> = none) {
+  return deriveQuestViews(c, claimed).filter((view) => view.line === GROWTH_PASS_LINE_ID);
+}
+
+describe("성장 패스", () => {
+  it("튜토리얼 탭의 성장의 길 다음 줄이고, 단계는 4차 전직부터 7차 전직까지다", () => {
+    const tutorial = QUEST_LINES.filter((line) => line.tutorial).map((line) => line.id);
+    expect(tutorial).toEqual(["basics", "growth", GROWTH_PASS_LINE_ID]);
+    expect(isTutorialLine(GROWTH_PASS_LINE_ID)).toBe(true);
+    expect(GROWTH_PASS.map((step) => step.id)).toEqual([
+      "gp_tier4",
+      "gp_t4_6000",
+      "gp_t4_12000",
+      "gp_tier5",
+      "gp_t5_12000",
+      "gp_t5_24000",
+      "gp_tier6",
+      "gp_tier7",
+    ]);
+    for (const step of GROWTH_PASS) {
+      expect(V2_QUESTS.includes(step), step.id).toBe(true);
+      expect(step.href, step.id).toMatch(/^\//);
+    }
+  });
+
+  it("3차 직업에 도달하기 전에는 보이지 않는다", () => {
+    expect(passViews(ctx({ tier: 2, maxJobTier: 2 }))).toEqual([]);
+    expect(passViews(ctx({ tier: 3, maxJobTier: 3 })).map((view) => view.status)).toEqual([
+      "active",
+      "locked",
+      "locked",
+      "locked",
+      "locked",
+      "locked",
+      "locked",
+      "locked",
+    ]);
+  });
+
+  it("지금 직업이 아니라 도달했던 최고 차수와 그 차수 직업의 숙련도로 판정한다", () => {
+    // 5차까지 갔다가 낮은 직업으로 돌아온 계정
+    const c = ctx({ tier: 2, maxJobTier: 5, tierMastery: { 4: 18_400, 5: 13_000 } });
+    expect(passViews(c).map((view) => view.status)).toEqual([
+      "claimable",
+      "claimable",
+      "claimable",
+      "claimable",
+      "claimable",
+      "active",
+      "locked",
+      "locked",
+    ]);
+    const half = passViews(c).find((view) => view.id === "gp_t5_24000")!;
+    expect([half.progress, half.goal]).toEqual([13_000, 24_000]);
+  });
+
+  it("숙련도 단계는 다음 차수로 전직했으면 달성으로 본다", () => {
+    // 생활 직업처럼 문이 낮아 숙련도 6,000 전에 5차로 넘어간 경우에도 막히지 않는다.
+    const c = ctx({ maxJobTier: 5, tierMastery: { 4: 5_400, 5: 100 } });
+    expect(isQuestClaimable(questById("gp_t4_12000")!, c, none)).toBe(true);
+    expect(isQuestClaimable(questById("gp_tier5")!, c, none)).toBe(true);
+    expect(isQuestClaimable(questById("gp_t5_12000")!, c, none)).toBe(false);
+  });
+
+  it("이미 6차에 있는 계정은 지난 단계를 모두 소급해서 받을 수 있다", () => {
+    const c = ctx({ maxJobTier: 6, tierMastery: { 4: 19_000, 5: 36_000, 6: 40_000 } });
+    const statuses = passViews(c).map((view) => view.status);
+    expect(statuses.slice(0, 7).every((status) => status === "claimable")).toBe(true);
+    expect(statuses[7]).toBe("active");
+  });
+
+  it("단계 보상은 귀속 회복약이고 4차·5차 전직에는 숙련 증서가 붙는다", () => {
+    expect(questRewardText(questById("gp_tier4")!.reward)).toBe(
+      "귀속 스태미나 회복약 5개 · 숙련 증서 1,000개",
+    );
+    expect(questRewardText(questById("gp_t4_6000")!.reward)).toBe("귀속 스태미나 회복약 5개");
+    expect(questRewardText(questById("gp_tier5")!.reward)).toBe(
+      "귀속 스태미나 회복약 5개 · 숙련 증서 2,000개",
+    );
+    expect(questRewardText(questById("gp_tier6")!.reward)).toBe("귀속 스태미나 회복약 10개");
+  });
+
+  it("가입 30일까지는 단계마다 귀속 회복약을 더 받는다", () => {
+    expect(GROWTH_PASS_NEWCOMER_DAYS).toBe(30);
+    expect(isGrowthPassNewcomer(NOW - 29 * DAY, NOW)).toBe(true);
+    expect(isGrowthPassNewcomer(NOW - 31 * DAY, NOW)).toBe(false);
+    expect(isGrowthPassNewcomer(null, NOW)).toBe(false);
+
+    const step = questById("gp_tier4")!;
+    expect(questRewardFor(step, ctx({ newcomer: false }))).toEqual({
+      boundStaminaPotions: 5,
+      masteryCertificates: 1_000,
+    });
+    expect(questRewardFor(step, ctx({ newcomer: true }))).toEqual({
+      boundStaminaPotions: 10,
+      masteryCertificates: 1_000,
+    });
+
+    const view = passViews(ctx({ maxJobTier: 4, newcomer: true }))[0];
+    expect(view.reward).toEqual({ boundStaminaPotions: 5, masteryCertificates: 1_000 });
+    expect(view.newcomerBonus).toEqual({ boundStaminaPotions: 5 });
+    expect(passViews(ctx({ maxJobTier: 4, newcomer: false }))[0].newcomerBonus).toBeNull();
+  });
+
+  it("홈의 현재 목표는 기초 튜토리얼이 남아 있으면 그쪽을 먼저 안내한다", () => {
+    const growthDone = new Set(V2_QUESTS.filter((q) => q.line === "growth").map((q) => q.id));
+    const guide = currentGuideQuest(ctx({ maxJobTier: 3 }), growthDone);
+    expect(guide?.line).toBe("basics");
   });
 });

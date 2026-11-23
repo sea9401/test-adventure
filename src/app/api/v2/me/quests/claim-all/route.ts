@@ -18,16 +18,19 @@ import {
   claimedUniqueEquipmentAcquisitionFloor,
   isQuestClaimable,
   isTutorialLine,
+  questRewardFor,
 } from "@/adventure/data/v2/v2Quests";
+import {
+  grantQuestItemRewardsInTx,
+  questItemRewards,
+  recordQuestItemRewardEvents,
+  sumQuestItemRewards,
+} from "@/lib/server/questItemRewards";
 import {
   parseEquipmentSave,
   type EquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
-import {
-  grantStaminaPotions,
-  STAMINA_POTIONS_KEY,
-} from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
 import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
@@ -176,8 +179,13 @@ export async function POST(req: Request) {
       };
     }
 
-    const gold = claimable.reduce(
-      (sum, quest) => sum + Math.max(0, quest.reward.gold ?? 0),
+    // 계정별 실제 보상(성장 패스의 신규 모험가 추가 보상 포함).
+    const rewards = claimable.map((quest) => ({
+      quest,
+      reward: questRewardFor(quest, ctx),
+    }));
+    const gold = rewards.reduce(
+      (sum, { reward }) => sum + Math.max(0, reward.gold ?? 0),
       0,
     );
     if (gold > 0) {
@@ -187,8 +195,8 @@ export async function POST(req: Request) {
       });
     }
 
-    const equipment = claimable.flatMap((quest) =>
-      quest.reward.equip ? [quest.reward.equip] : [],
+    const equipment = rewards.flatMap(({ reward }) =>
+      reward.equip ? [reward.equip] : [],
     );
     if (equipment.length > 0) {
       const parsed = parseEquipmentSave(equipSave);
@@ -203,8 +211,8 @@ export async function POST(req: Request) {
 
     const titleIds: string[] = [];
     const obtainedAt = Date.now();
-    for (const quest of claimable) {
-      const titleId = quest.reward.titleId;
+    for (const { reward } of rewards) {
+      const titleId = reward.titleId;
       if (
         titleId &&
         (await grantTitleIfMissingInTx(tx, userId, titleId, obtainedAt))
@@ -213,25 +221,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const staminaPotions = claimable.reduce(
-      (sum, quest) =>
-        sum + Math.max(0, quest.reward.staminaPotions ?? 0),
-      0,
-    );
-    if (staminaPotions > 0) {
-      const current = await lockSaveForUpdate(
-        tx,
-        userId,
-        STAMINA_POTIONS_KEY,
-        { count: 0 },
-      );
-      await upsertSave(
-        tx,
-        userId,
-        STAMINA_POTIONS_KEY,
-        grantStaminaPotions(current, staminaPotions),
-      );
-    }
+    // 회복약·귀속 회복약·숙련 증서 — inventory.v2 다음에 stamina-potions.v1(항상 마지막 잠금).
+    const items = sumQuestItemRewards(rewards.map(({ reward }) => reward));
+    await grantQuestItemRewardsInTx(tx, userId, items);
 
     for (const quest of claimable) claimed.add(quest.id);
     await upsertSave(
@@ -251,13 +243,20 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         count: claimable.length,
-        reward: { gold, equipment, staminaPotions, titleIds },
+        reward: {
+          gold,
+          equipment,
+          staminaPotions: items.staminaPotions,
+          boundStaminaPotions: items.boundStaminaPotions,
+          masteryCertificates: items.masteryCertificates,
+          titleIds,
+        },
       },
-      details: claimable.map((quest) => ({
+      details: rewards.map(({ quest, reward }) => ({
         questId: quest.id,
-        gold: Math.max(0, quest.reward.gold ?? 0),
-        equip: quest.reward.equip ?? null,
-        staminaPotions: Math.max(0, quest.reward.staminaPotions ?? 0),
+        gold: Math.max(0, reward.gold ?? 0),
+        equip: reward.equip ?? null,
+        items: questItemRewards(reward),
       })),
     };
   });
@@ -284,15 +283,9 @@ export async function POST(req: Request) {
           detail: { questId: detail.questId, claimMode: "all" },
         });
       }
-      if (detail.staminaPotions > 0) {
-        recordEconomyEventSoon({
-          userId,
-          eventType: "reward.quest.stamina_potion",
-          itemKind: "stamina_potion",
-          quantity: detail.staminaPotions,
-          detail: { questId: detail.questId, claimMode: "all" },
-        });
-      }
+      recordQuestItemRewardEvents(userId, detail.questId, detail.items, {
+        claimMode: "all",
+      });
     }
   } else if (!result.body.ok) {
     recordRewardFailureSoon({

@@ -27,6 +27,7 @@ import { PlumpGameIcon } from "@/components/icons/PlumpGameIcon";
 import { useRefreshGameState } from "./GameStateRefreshContext";
 import { useRewardToast } from "./RewardToastProvider";
 import {
+  addQuestReward,
   type QuestLine,
   type QuestView,
   type QuestReward,
@@ -174,6 +175,8 @@ export type ClaimAllReward = {
   gold: number;
   equipment: V2EquipmentId[];
   staminaPotions: number;
+  boundStaminaPotions?: number;
+  masteryCertificates?: number;
   titleIds: string[];
 };
 
@@ -225,6 +228,14 @@ export function claimAllRewardText(reward: ClaimAllReward): string {
   }
   if (reward.staminaPotions > 0) {
     parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
+  }
+  if ((reward.boundStaminaPotions ?? 0) > 0) {
+    parts.push(`귀속 스태미나 회복약 ${reward.boundStaminaPotions}개`);
+  }
+  if ((reward.masteryCertificates ?? 0) > 0) {
+    parts.push(
+      `숙련 증서 ${(reward.masteryCertificates ?? 0).toLocaleString("ko-KR")}개`,
+    );
   }
   if (reward.titleIds.length > 0) {
     parts.push(
@@ -462,7 +473,11 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 
   // 가이드(업적) 퀘 보상 수령.
   const claim = useCallback(
-    async (q: { id: string; reward: QuestReward }) => {
+    async (q: {
+      id: string;
+      reward: QuestReward;
+      newcomerBonus?: QuestReward | null;
+    }) => {
       setBusy(q.id);
       try {
         const res = await fetch("/api/v2/me/quests/claim", {
@@ -478,7 +493,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
-        const text = questRewardText(q.reward);
+        const text = questRewardText(addQuestReward(q.reward, q.newcomerBonus));
         if (text) notifyReward("보상 수령", text);
         else notifySystem("업적 완료로 기록했어요.");
         await Promise.all([refresh(), refreshGameState()]);
@@ -981,6 +996,9 @@ export function QuestRow({
 }) {
   const { status } = quest;
   const reward = questRewardText(quest.reward);
+  const newcomerBonus = quest.newcomerBonus
+    ? questRewardText(quest.newcomerBonus)
+    : "";
 
   const icon =
     status === "claimed" ? (
@@ -1053,6 +1071,12 @@ export function QuestRow({
         {reward && (
           <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
             보상 {reward}
+          </p>
+        )}
+        {/* 잠긴 단계마다 되풀이하지 않는다. 받을 수 있거나 진행 중인 단계에만 적는다. */}
+        {newcomerBonus && (status === "claimable" || status === "active") && (
+          <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+            신규 모험가 추가 보상 {newcomerBonus}
           </p>
         )}
       </div>

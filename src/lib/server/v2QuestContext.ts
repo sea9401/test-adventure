@@ -25,6 +25,7 @@ import {
   BOSS_TITLE_TO_KIND,
 } from "@/adventure/data/v2/coopBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
+import { isGrowthPassNewcomer } from "@/adventure/data/v2/growthPass";
 import {
   parseRepeatSave,
   repeatSaveNeedsRollover,
@@ -45,6 +46,7 @@ import {
   marketplaceUserTradeTotals,
   pvpRatings,
   referralConversions,
+  users,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
@@ -114,6 +116,8 @@ type AdventureLog = {
 };
 
 export type QuestExtras = {
+  /** 가입 시각(ms). 성장 패스의 신규 모험가 추가 보상 판정에 쓴다. */
+  accountCreatedAt?: number | null;
   hasGuild: boolean;
   hasTraded: boolean;
   arenaPlayed: boolean;
@@ -153,6 +157,8 @@ export function buildQuestCtx(args: {
   lifeFieldMilestonesEnabled?: boolean;
   uniqueAcquiredFloor?: number;
   extras: QuestExtras;
+  /** 판정 기준 시각. 신규 모험가 여부에 쓴다. */
+  now?: number;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
 
@@ -178,6 +184,23 @@ export function buildQuestCtx(args: {
   const prof = parseProficiencyForChar(args.proficiencyRaw, charSave);
   const g = prof.groups[group];
   const cultivations = g?.cultivations ?? 0;
+  // 성장 패스 — 지금 직업이 아니라 전직해 본 직업 전체로 본다(낮은 직업으로 돌아와도 유지).
+  let maxJobTier: number = tier;
+  const tierMastery: Record<number, number> = {};
+  // 전직 기록이 생기기 전의 세이브는 숙련도가 쌓인 직업으로 보완한다.
+  const everJobs = new Set([
+    ...(prof.jobHistory ?? []),
+    ...Object.keys(prof.jobCumLevel ?? {}),
+  ]);
+  for (const jobId of everJobs) {
+    const jobTier = V2_JOB_CATALOG[jobId as keyof typeof V2_JOB_CATALOG]?.tier;
+    if (typeof jobTier !== "number") continue;
+    maxJobTier = Math.max(maxJobTier, jobTier);
+    tierMastery[jobTier] = Math.max(
+      tierMastery[jobTier] ?? 0,
+      Math.floor(Number(prof.jobCumLevel?.[jobId]) || 0),
+    );
+  }
 
   // 전투 수 — monster kills 합 + 패배(랭킹 battleCount 정의와 동일). 보상 게이트라 숫자 강제
   // 변환(손상 세이브의 문자열 값이 "+" 로 연결돼 string>=number 오판정 → 오지급되는 일 방지).
@@ -310,6 +333,9 @@ export function buildQuestCtx(args: {
     enhanceStones,
     bankedGold,
     skillsEquipped,
+    maxJobTier,
+    tierMastery,
+    newcomer: isGrowthPassNewcomer(args.extras.accountCreatedAt, args.now ?? Date.now()),
     skillsLearned,
     hasEditedSkillLoadout,
     hasHealed,
@@ -452,7 +478,13 @@ export async function assembleQuestExtras(
   const fishCodex = parseFishCodex(fishRaw);
   const lifetimeArenaMatches = Number(arenaAgg[0]?.matches ?? 0);
   const lifetimeArenaWins = Number(arenaAgg[0]?.wins ?? 0);
+  const userRows = await ex
+    .select({ createdAt: users.createdAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
   return {
+    accountCreatedAt: userRows[0]?.createdAt?.getTime() ?? null,
     hasGuild: guildRows.length > 0,
     hasTraded: tradeRows.length > 0 || archivedTradeRows.length > 0,
     arenaPlayed: lifetimeArenaMatches > 0 || arenaHistory.length > 0,

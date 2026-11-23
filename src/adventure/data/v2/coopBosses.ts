@@ -104,7 +104,7 @@ export function coopCriticalDamageFromLog(log: readonly BattleLogEntry[]): numbe
 // === 보상 단계 =========================================================
 // 2026-11-24(오너): 보스가 죽었을 때 최소 기여도를 채운 사람은 모두 같은 기본 보상을 받고,
 //   누적 피해 비율이 높으면 그 위에 GOLD·EPIC·LEGEND 추가 보상 단계로 올라간다.
-//   전에는 BRONZE(3%)·SILVER(10%)가 따로 있었고 사람이 늘수록 각자 몫이 줄어 보스를 공개할 이유가 없었다.
+//   기존 보스의 최소 기여도는 5%다(오너 결정). 전에는 BRONZE(3%)·SILVER(10%)가 따로 있었고 사람이 늘수록 각자 몫이 줄어 보스를 공개할 이유가 없었다.
 //   최소 기여도는 보스마다 다르게 둘 수 있다(CoopBossKind.minContributionRatio).
 
 export type CoopRewardTier = "base" | "gold" | "epic" | "legend";
@@ -117,7 +117,7 @@ export const COOP_TIER_ORDER: CoopRewardTier[] = [
 ];
 
 /** 기본 보상을 받는 최소 기여도(누적 피해 / 최대 체력). 보스에 따로 정하지 않았을 때의 값. */
-export const COOP_DEFAULT_MIN_CONTRIBUTION = 0.1;
+export const COOP_DEFAULT_MIN_CONTRIBUTION = 0.05;
 
 export const COOP_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
   base: COOP_DEFAULT_MIN_CONTRIBUTION,

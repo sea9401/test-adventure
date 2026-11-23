@@ -942,9 +942,9 @@ describe("coopBosses 카탈로그", () => {
 describe("coopTierForRatio", () => {
   it("최소 기여도를 채우면 기본, 그 위로 GOLD·EPIC·LEGEND", () => {
     expect(COOP_TIER_ORDER).toEqual(["base", "gold", "epic", "legend"]);
-    expect(COOP_DEFAULT_MIN_CONTRIBUTION).toBe(0.1);
+    expect(COOP_DEFAULT_MIN_CONTRIBUTION).toBe(0.05);
     expect(COOP_TIER_THRESHOLDS).toEqual({
-      base: 0.1,
+      base: 0.05,
       gold: 0.2,
       epic: 0.3,
       legend: 0.35,
@@ -963,7 +963,7 @@ describe("coopTierForRatio", () => {
 
   it("하드 보스는 GOLD 기준만 다르고 최소 기여도는 같다", () => {
     expect(COOP_HARD_TIER_THRESHOLDS).toEqual({
-      base: 0.1,
+      base: 0.05,
       gold: 0.18,
       epic: 0.3,
       legend: 0.35,
@@ -974,18 +974,18 @@ describe("coopTierForRatio", () => {
       "canyon_predator_hard",
       "lake_sovereign_hard",
     ] as const) {
-      expect(coopTierThresholdFor("base", boss)).toBe(0.1);
+      expect(coopTierThresholdFor("base", boss)).toBe(0.05);
       expect(coopTierThresholdFor("gold", boss)).toBe(0.18);
     }
-    expect(coopTierForRatio(0.0999, "mountain_chief_hard")).toBeNull();
-    expect(coopTierForRatio(0.1, "mountain_chief_hard")).toBe("base");
+    expect(coopTierForRatio(0.0499, "mountain_chief_hard")).toBeNull();
+    expect(coopTierForRatio(0.05, "mountain_chief_hard")).toBe("base");
     expect(coopTierForRatio(0.18, "mountain_chief_hard")).toBe("gold");
     expect(coopTierForRatio(0.35, "mountain_chief_hard")).toBe("legend");
   });
 
-  it("기존 보스는 모두 최소 기여도 10%를 쓴다", () => {
+  it("기존 보스는 모두 최소 기여도 5%를 쓴다", () => {
     for (const kind of Object.values(COOP_BOSSES)) {
-      expect(coopMinContributionFor(kind.id), kind.id).toBe(0.1);
+      expect(coopMinContributionFor(kind.id), kind.id).toBe(0.05);
     }
   });
 
@@ -1007,8 +1007,8 @@ describe("coopTierForRatio", () => {
     expect(coopTierForRatio(0.24, strict)).toBeNull();
     expect(coopTierForRatio(0.25, strict)).toBe("gold");
     // 잘못된 값은 공통 기본값으로 읽는다.
-    expect(coopMinContributionFor({ minContributionRatio: 0 })).toBe(0.1);
-    expect(coopMinContributionFor(null)).toBe(0.1);
+    expect(coopMinContributionFor({ minContributionRatio: 0 })).toBe(0.05);
+    expect(coopMinContributionFor(null)).toBe(0.05);
   });
 
   it("개편 전 기록의 단계 이름도 읽는다", () => {

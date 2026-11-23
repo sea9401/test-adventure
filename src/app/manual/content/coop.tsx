@@ -6,9 +6,11 @@ import {
 import {
   COOP_ATTACK_COOLDOWN_MS,
   COOP_ATTACK_STAMINA_COST,
+  COOP_DEFAULT_MIN_CONTRIBUTION,
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
 } from "@/adventure/data/v2/coopBosses";
+import { COOP_SUMMON_SCROLL_DAILY_LIMIT } from "@/adventure/v2/coop/coopShop";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function CoopContent() {
@@ -36,7 +38,8 @@ export function CoopContent() {
       <H2>소환서 모으기</H2>
       <P>
         사냥 승리 시 낮은 확률로 <Em>보스 소환서</Em>가 떨어집니다(모든 깊이 공통).
-        인벤토리 재료 탭에 보관되며 거래소에서 사고팔 수 있습니다.
+        인벤토리 재료 탭에 보관되며 거래소에서 사고팔 수 있습니다. 협동 교환소에서는
+        협동 주화로 하루 {COOP_SUMMON_SCROLL_DAILY_LIMIT}장까지 바꿀 수 있습니다.
       </P>
 
       <H2>소환과 토벌</H2>
@@ -72,15 +75,18 @@ export function CoopContent() {
 
       <H2>기여 보상</H2>
       <P>
-        토벌에 성공하면 <Em>누적 피해 비율</Em>에 따라 기여 티어가 정해집니다.
-        티어가 높을수록 다음 보상을 받을 확률과 수량이 좋아집니다. SP 최대치를
-        영구히 올리는{" "}
-        <Em>SP 열매</Em>, 협동 보스에서만 나오는 <Em>보스 전용 유니크 장비</Em>,
-        협동 주화·보스 재료·장비 상자입니다. 보상은 협동 보스 화면에서 직접
-        수령합니다.
+        토벌에 성공하면 <Em>누적 피해 비율</Em>이 그 보스의{" "}
+        <Em>{`최소 기여도(${Math.round(COOP_DEFAULT_MIN_CONTRIBUTION * 100)}%)`}</Em>
+        이상인 모험가가 모두 같은 <Em>기본 보상</Em>을 받습니다. 기여도가 더
+        높으면 GOLD·EPIC·LEGEND 단계의 <Em>추가 보상</Em>이 붙습니다. 보상은 SP
+        최대치를 영구히 올리는 <Em>SP 열매</Em>, 협동 보스에서만 나오는{" "}
+        <Em>보스 전용 유니크 장비</Em>, 협동 주화·보스 재료·장비 상자입니다.
+        제한 시간 안에 처치하지 못하면 보상이 없고, 보상은 협동 보스 화면에서
+        직접 수령합니다. 최소 기여도는 보스마다 다를 수 있으며 보스 상세 화면의
+        보상 표에 표시됩니다.
       </P>
       <Table
-        head={["기여 티어", "협동 주화", "보스 재료", "장비 상자 확률"]}
+        head={["보상 단계", "협동 주화", "보스 재료", "장비 상자 확률"]}
         rows={COOP_TIER_ORDER.map((tier) => {
           const rule = COOP_EXTRA_REWARD_RULES[tier];
           return [
@@ -92,7 +98,7 @@ export function CoopContent() {
               : "-",
           ];
         })}
-        caption="SP 열매와 보스 전용 유니크 보상 외에, 기여 티어별 확정 주화·재료와 확률 장비 상자가 추가로 지급됩니다."
+        caption="일반 보스 기준 합계입니다. 기본은 최소 기여도를 채운 모두가 받고, GOLD·EPIC·LEGEND는 기본 보상에 추가 보상을 더한 값입니다. SP 열매는 기본·EPIC·LEGEND 단계에서 한 번씩 굴리고, 보스 전용 유니크는 EPIC부터 나옵니다."
       />
       <Table
         head={["장비 상자", "출처"]}
@@ -105,7 +111,7 @@ export function CoopContent() {
       <Note>
         SP 열매와 상급 숙련 교본은 거래소에서 거래할 수 있습니다. 상급 숙련 교본은
         사용하면 현재 직업 숙련도가 {COOP_MASTERY_TOME_GAIN} 오릅니다. 토벌에
-        참여하면 처치 기록은 남지만 보상은 일정 기여도 이상부터 지급됩니다.
+        참여하면 처치 기록은 남지만 보상은 최소 기여도 이상부터 지급됩니다.
       </Note>
     </>
   );

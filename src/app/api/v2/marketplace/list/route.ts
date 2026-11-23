@@ -48,6 +48,11 @@ import {
   removeFishSpecimen,
 } from "@/adventure/v2/fishSpecimens";
 import { triggerMarketplacePriceAlertsForListing } from "@/lib/server/marketplaceBuyOrdersV2";
+import {
+  MARKETPLACE_AUTO_RELIST_DEFAULT_CUT_PCT,
+  MARKETPLACE_AUTO_RELIST_TIMES,
+  isMarketplaceAutoRelistCutPct,
+} from "@/adventure/v2/marketplace/autoRelist";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
 //   body(장비):   { kind:"equip", iid:string, price:int }
@@ -91,6 +96,8 @@ export async function POST(req: Request) {
     quantity?: unknown;
     price?: unknown;
     durationHours?: unknown;
+    autoRelist?: unknown;
+    autoRelistCutPct?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -104,9 +111,26 @@ export async function POST(req: Request) {
   const price = body.price;
   const durationHours = body.durationHours === undefined ? 6 : body.durationHours;
   if (!isMarketplaceAuctionDuration(durationHours)) return bad("bad_duration");
+  if (body.autoRelist !== undefined && typeof body.autoRelist !== "boolean") {
+    return bad("bad_auto_relist");
+  }
+  // 인하 폭은 판매자가 정한다. 옵션을 켰는데 값이 없으면 기본값을 쓴다.
+  if (
+    body.autoRelistCutPct !== undefined &&
+    !isMarketplaceAutoRelistCutPct(body.autoRelistCutPct)
+  ) {
+    return bad("bad_auto_relist_cut");
+  }
   const createdAt = new Date();
   const listingTimes = marketplaceAuctionTimes(createdAt, durationHours);
-  const listingWindow = { createdAt, ...listingTimes };
+  // 유찰 시 자동 인하 재등록 — 판매자가 켠 매물만. 모든 종류의 매물에 같이 적용된다.
+  const listingWindow = {
+    createdAt,
+    ...listingTimes,
+    autoRelistLeft: body.autoRelist === true ? MARKETPLACE_AUTO_RELIST_TIMES : 0,
+    autoRelistCutPct:
+      body.autoRelistCutPct ?? MARKETPLACE_AUTO_RELIST_DEFAULT_CUT_PCT,
+  };
 
   const result = await db.transaction(async (tx) => {
     await requireTradeParticipants(tx, [userId], createdAt);

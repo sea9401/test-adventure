@@ -17,16 +17,18 @@ import {
   claimedUniqueEquipmentAcquisitionFloor,
   isQuestClaimable,
   questById,
+  questRewardFor,
 } from "@/adventure/data/v2/v2Quests";
+import {
+  grantQuestItemRewardsInTx,
+  questItemRewards,
+  recordQuestItemRewardEvents,
+} from "@/lib/server/questItemRewards";
 import {
   parseEquipmentSave,
   type EquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
-import {
-  grantStaminaPotions,
-  STAMINA_POTIONS_KEY,
-} from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { backfillClaimedQuestTitleRewardsInTx } from "@/lib/server/questTitleBackfill";
 import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
@@ -156,6 +158,8 @@ export async function POST(req: Request) {
               gold: 0,
               equip: null,
               staminaPotions: 0,
+              boundStaminaPotions: 0,
+              masteryCertificates: 0,
               titleId: retroactiveTitleIds[0],
             },
             gold: Math.max(0, charSave.gold ?? 0),
@@ -176,7 +180,9 @@ export async function POST(req: Request) {
     }
 
     // 보상 지급 — 골드는 은행(character.v2.bankedGold)으로 입금, 장비는 equipment.v2 로 지급.
-    const goldGain = def.reward.gold ?? 0;
+    // 성장 패스의 신규 모험가 추가 보상은 여기서 더해진다.
+    const reward = questRewardFor(def, ctx);
+    const goldGain = reward.gold ?? 0;
     const heldGold = Math.max(0, charSave.gold ?? 0);
     let bankedGold = Math.max(0, charSave.bankedGold ?? 0);
     if (goldGain > 0) {
@@ -187,37 +193,23 @@ export async function POST(req: Request) {
       });
     }
     let grantedEquip: string | null = null;
-    if (def.reward.equip) {
+    if (reward.equip) {
       const { owned, equipped } = parseEquipmentSave(equipSave);
       // 퀘스트 보상은 굴림 없음(카탈로그값 그대로) — 기존 규약 유지.
       await upsertSave(tx, userId, "equipment.v2", {
-        owned: [...owned, mintEquipInstance(def.reward.equip)],
+        owned: [...owned, mintEquipInstance(reward.equip)],
         equipped,
       });
-      grantedEquip = def.reward.equip;
+      grantedEquip = reward.equip;
     }
     let grantedTitle: string | null = null;
-    if (def.reward.titleId) {
-      await grantTitleIfMissingInTx(tx, userId, def.reward.titleId, Date.now());
-      grantedTitle = def.reward.titleId;
+    if (reward.titleId) {
+      await grantTitleIfMissingInTx(tx, userId, reward.titleId, Date.now());
+      grantedTitle = reward.titleId;
     }
-    // 스태미나 회복약(stamina-potions.v1) — 항상 마지막 잠금(leaf). 번들 보상과 동일 소비템.
-    let grantedPotions = 0;
-    if (def.reward.staminaPotions && def.reward.staminaPotions > 0) {
-      const current = await lockSaveForUpdate(
-        tx,
-        userId,
-        STAMINA_POTIONS_KEY,
-        { count: 0 },
-      );
-      grantedPotions = def.reward.staminaPotions;
-      await upsertSave(
-        tx,
-        userId,
-        STAMINA_POTIONS_KEY,
-        grantStaminaPotions(current, grantedPotions),
-      );
-    }
+    // 회복약·귀속 회복약·숙련 증서 — inventory.v2 다음에 stamina-potions.v1(항상 마지막 잠금).
+    const items = questItemRewards(reward);
+    await grantQuestItemRewardsInTx(tx, userId, items);
 
     claimed.add(def.id);
     await upsertSave(
@@ -238,7 +230,9 @@ export async function POST(req: Request) {
         reward: {
           gold: goldGain,
           equip: grantedEquip,
-          staminaPotions: grantedPotions,
+          staminaPotions: items.staminaPotions,
+          boundStaminaPotions: items.boundStaminaPotions,
+          masteryCertificates: items.masteryCertificates,
           titleId: grantedTitle,
         },
         gold: heldGold,
@@ -269,15 +263,11 @@ export async function POST(req: Request) {
         detail: { questId: result.body.questId },
       });
     }
-    if (reward.staminaPotions > 0) {
-      recordEconomyEventSoon({
-        userId,
-        eventType: "reward.quest.stamina_potion",
-        itemKind: "stamina_potion",
-        quantity: reward.staminaPotions,
-        detail: { questId: result.body.questId },
-      });
-    }
+    recordQuestItemRewardEvents(userId, result.body.questId, {
+      staminaPotions: reward.staminaPotions,
+      boundStaminaPotions: reward.boundStaminaPotions,
+      masteryCertificates: reward.masteryCertificates,
+    });
   } else if (result.status !== 200 && !result.body.ok) {
     recordRewardFailureSoon({
       userId,

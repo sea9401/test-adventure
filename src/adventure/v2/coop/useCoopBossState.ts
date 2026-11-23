@@ -273,7 +273,7 @@ async function postClaim(sessionId: string): Promise<{
 
 function claimErrorLabel(error: string): string {
   return error === "below_bronze"
-    ? "기여도가 보상 기준(BRONZE)에 못 미쳤습니다."
+    ? "기여도가 기본 보상의 최소 기여도에 못 미쳤습니다."
     : `수령 실패 (${error})`;
 }
 

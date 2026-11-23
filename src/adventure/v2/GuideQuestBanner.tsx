@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Compass, Gift, CaretRight, Circle } from "@phosphor-icons/react";
 import {
@@ -9,6 +10,10 @@ import {
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
 import { isTutorialLine, type QuestView } from "@/adventure/data/v2/v2Quests";
+import { isGrowthPassLine } from "@/adventure/data/v2/growthPass";
+import { questRewardText } from "@/adventure/data/v2/questRewardText";
+import { firstHuntHref } from "@/adventure/v2/dungeonNavigation";
+import { buttonClassName } from "@/components/ui/Button";
 import type {
   RepeatBundleView,
   RepeatScope,
@@ -18,6 +23,85 @@ type RepeatRewardSummary = {
   dailyBundle: RepeatBundleView;
   weeklyBundle: RepeatBundleView;
 };
+
+const FIRST_BATTLE_QUEST_ID = "g_first_battle";
+
+export type HomeGuidePlan = {
+  /** 아직 첫 전투를 치르지 않은 계정의 첫 전투 목표. 있으면 이것만 안내한다. */
+  firstBattle: QuestView | null;
+  /** 남은 기초 튜토리얼(받기 먼저). 성장 패스 단계는 넣지 않는다. */
+  tutorialTodo: QuestView[];
+  /** 지금 받을 수 있는 성장 패스 단계. */
+  passClaimable: QuestView[];
+  /** 목표 카드에 올릴 항목. 튜토리얼이 남아 있으면 없다. */
+  goal: QuestView | null;
+};
+
+/** 진행 중인 목표 가운데 달성에 가장 가까운 것. 진행도가 없는 목표는 맨 뒤로 본다. */
+function closestToDone(active: readonly QuestView[]): QuestView | null {
+  let best: QuestView | null = null;
+  let bestRatio = -1;
+  for (const quest of active) {
+    const ratio =
+      quest.progress != null && quest.goal
+        ? Math.min(1, quest.progress / quest.goal)
+        : 0;
+    if (ratio > bestRatio) {
+      best = quest;
+      bestRatio = ratio;
+    }
+  }
+  return best;
+}
+
+/**
+ * 홈에 무엇을 올릴지 정한다.
+ * 성장 패스는 받을 단계가 있으면 늘 알리고, 없으면 진행 중인 단계를 목표로 보여 준다.
+ * 플레이어가 직접 추적한 업적은 진행 중인 단계보다 먼저다.
+ */
+export function homeGuidePlan(
+  quests: readonly QuestView[],
+  current: QuestView | null,
+  trackedQuestId: string | null,
+): HomeGuidePlan {
+  const isPass = (q: QuestView) => isGrowthPassLine(q.line);
+  const firstBattle =
+    quests.find(
+      (q) => q.id === FIRST_BATTLE_QUEST_ID && q.status === "active",
+    ) ?? null;
+  if (firstBattle) {
+    return { firstBattle, tutorialTodo: [], passClaimable: [], goal: null };
+  }
+  const tutorialTodo = quests
+    .filter(
+      (q) =>
+        isTutorialLine(q.line) &&
+        !isPass(q) &&
+        (q.status === "active" || q.status === "claimable"),
+    )
+    .sort(
+      (a, b) =>
+        (a.status === "claimable" ? 0 : 1) - (b.status === "claimable" ? 0 : 1),
+    );
+  const passClaimable = quests.filter(
+    (q) => isPass(q) && q.status === "claimable",
+  );
+  if (tutorialTodo.length > 0) {
+    return { firstBattle: null, tutorialTodo, passClaimable, goal: null };
+  }
+  const tracked = current && current.id === trackedQuestId ? current : null;
+  const passActive =
+    passClaimable.length === 0
+      ? closestToDone(quests.filter((q) => isPass(q) && q.status === "active"))
+      : null;
+  const recommended = current && !isPass(current) ? current : null;
+  return {
+    firstBattle: null,
+    tutorialTodo,
+    passClaimable,
+    goal: tracked ?? passActive ?? recommended,
+  };
+}
 
 // 홈 상단 배너 — 수령 가능한 일일·주간 보상을 먼저 알리고 기존 가이드 배너를 이어서 노출.
 //   미완료(진행중/받기) 튜토리얼은 체크리스트로, 튜토리얼을 다 끝내면 "현재 목표"
@@ -65,17 +149,11 @@ export function GuideQuestBanner() {
 
   if (!loaded) return null;
 
-  // 미완료(진행중/받기) 튜토리얼 — 받기(claimable) 먼저.
-  const tutorialTodo = quests
-    .filter(
-      (q) =>
-        isTutorialLine(q.line) &&
-        (q.status === "active" || q.status === "claimable"),
-    )
-    .sort(
-      (a, b) =>
-        (a.status === "claimable" ? 0 : 1) - (b.status === "claimable" ? 0 : 1),
-    );
+  const { firstBattle, tutorialTodo, passClaimable, goal } = homeGuidePlan(
+    quests,
+    current,
+    trackedQuestId,
+  );
 
   const repeatRewardReady =
     repeat?.dailyBundle.claimable === true ||
@@ -89,27 +167,41 @@ export function GuideQuestBanner() {
   ) : null;
 
   let guideBanner = null;
-  if (tutorialTodo.length > 0) {
+  if (firstBattle) {
+    guideBanner = <FirstBattleBanner quest={firstBattle} />;
+  } else if (tutorialTodo.length > 0) {
     guideBanner = (
       <TutorialChecklist
         items={tutorialTodo}
         onOpen={() => router.push("/quests?tab=tutorial")}
       />
     );
-  } else if (current) {
+  } else if (goal) {
+    const pass = isGrowthPassLine(goal.line);
     guideBanner = (
       <CurrentGoalBanner
-        current={current}
-        tracked={current.id === trackedQuestId}
-        onOpen={() => router.push("/quests?tab=achievement")}
+        current={goal}
+        tracked={goal.id === trackedQuestId}
+        label={pass ? "성장 패스" : undefined}
+        onOpen={() =>
+          router.push(pass ? "/quests?tab=tutorial" : "/quests?tab=achievement")
+        }
       />
     );
   }
+  const passBanner =
+    passClaimable.length > 0 ? (
+      <GrowthPassRewardBanner
+        items={passClaimable}
+        onOpen={() => router.push("/quests?tab=tutorial")}
+      />
+    ) : null;
 
-  if (!repeatRewardBanner && !guideBanner) return null;
+  if (!repeatRewardBanner && !passBanner && !guideBanner) return null;
   return (
     <div className="space-y-2">
       {repeatRewardBanner}
+      {passBanner}
       {guideBanner}
     </div>
   );
@@ -175,6 +267,82 @@ export function RepeatRewardBanner({
         })}
       </div>
     </section>
+  );
+}
+
+/** 첫 전투를 치르지 않은 계정에게 첫 사냥 화면으로 가는 길 하나만 보여 준다. */
+export function FirstBattleBanner({ quest }: { quest: QuestView }) {
+  const reward = questRewardText(quest.reward);
+  return (
+    <section
+      className={`${SURFACE_CARD} ui-quest-card space-y-3 border-emerald-300 px-4 py-3 dark:border-emerald-800`}
+      aria-label="첫 전투 안내"
+    >
+      <div className="flex items-start gap-3">
+        <Compass
+          size={20}
+          weight="fill"
+          className="mt-0.5 shrink-0 text-emerald-500"
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            첫 전투를 치러 보세요
+          </h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+            사냥 버튼을 누르면 전투가 자동으로 진행됩니다.
+          </p>
+          {reward && (
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+              첫 전투 보상 {reward}
+            </p>
+          )}
+        </div>
+      </div>
+      <Link
+        href={quest.href ?? firstHuntHref()}
+        className={buttonClassName({ variant: "primary", size: "md", fullWidth: true })}
+      >
+        첫 전투 하러 가기
+      </Link>
+    </section>
+  );
+}
+
+/** 받을 수 있는 성장 패스 목표. 누르면 퀘스트의 튜토리얼 탭으로 간다. */
+export function GrowthPassRewardBanner({
+  items,
+  onOpen,
+}: {
+  items: readonly QuestView[];
+  onOpen: () => void;
+}) {
+  if (items.length === 0) return null;
+  const rest = items.length - 1;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`${SURFACE_ACCENT} ui-quest-card is-claimable flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-amber-100 dark:hover:bg-amber-900`}
+    >
+      <Gift size={20} weight="fill" className="shrink-0 text-amber-500" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          성장 패스
+        </p>
+        <p className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          받을 수 있는 목표 보상 {items.length}개
+        </p>
+        <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+          {rest > 0 ? `${items[0].title} 외 ${rest}개` : items[0].title}
+        </p>
+      </div>
+      <CaretRight
+        size={16}
+        className="shrink-0 text-zinc-400 dark:text-zinc-600"
+        aria-hidden
+      />
+    </button>
   );
 }
 
@@ -259,10 +427,13 @@ function TutorialChecklist({
 export function CurrentGoalBanner({
   current,
   tracked = false,
+  label = "퀘스트",
   onOpen,
 }: {
   current: QuestView;
   tracked?: boolean;
+  /** 카드 머리의 분류 이름. */
+  label?: string;
   onOpen: () => void;
 }) {
   const claimable = current.status === "claimable";
@@ -291,7 +462,7 @@ export function CurrentGoalBanner({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            퀘스트
+            {label}
           </span>
           {tracked && (
             <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950 dark:text-sky-300">

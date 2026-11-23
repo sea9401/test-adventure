@@ -2,6 +2,9 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { guildActivityLog, guildMembers, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import { readProfileValue } from "@/adventure/profile/profileValue";
+import type { Avatar } from "@/adventure/profile/avatars";
 
 // GET /api/v2/guild/activity — viewer 길드의 최근 활동 내역(가입·임명·입금·국가선포·창단).
 //   길드 정보 탭 하단 표시. 이름은 현재 닉네임으로 batch 해석(로그엔 userId 만 저장).
@@ -52,6 +55,7 @@ export async function GET() {
     ),
   );
   const nameByUser = new Map<string, string>();
+  const avatarByUser = new Map<string, Avatar>();
   if (ids.length > 0) {
     const profileRows = await db
       .select({ userId: savesKv.userId, value: savesKv.value })
@@ -66,10 +70,26 @@ export async function GET() {
       const v = (r.value ?? null) as { name?: string } | null;
       const n = v?.name?.trim();
       if (n) nameByUser.set(r.userId, n);
+      const avatar = readProfileValue(r.value)?.gender;
+      if (avatar) avatarByUser.set(r.userId, avatar);
     }
   }
   const nameOf = (uid: string | null): string | null =>
     uid ? (nameByUser.get(uid) ?? "모험가") : null;
+  // 줄 머리 프사 — 그 줄의 주인공 한 사람. 가입 기록은 받아 준 사람이 아니라 들어온 사람이다.
+  const cosmeticByUser = await readMuseunCosmeticAppearanceMap(ids);
+  const personOf = (r: (typeof rows)[number]) => {
+    const uid =
+      r.type === "member_join"
+        ? (r.targetUserId ?? r.actorUserId)
+        : (r.actorUserId ?? r.targetUserId);
+    if (!uid) return null;
+    return {
+      name: nameByUser.get(uid) ?? "모험가",
+      avatar: avatarByUser.get(uid) ?? "male1",
+      profileBorder: cosmeticByUser.get(uid)?.profileBorder ?? null,
+    };
+  };
 
   return Response.json({
     ok: true,
@@ -78,6 +98,7 @@ export async function GET() {
       type: r.type,
       actorName: nameOf(r.actorUserId),
       targetName: nameOf(r.targetUserId),
+      person: personOf(r),
       meta: (r.meta ?? null) as {
         amount?: number;
         quantity?: number;

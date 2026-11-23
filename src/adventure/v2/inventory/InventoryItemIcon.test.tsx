@@ -38,6 +38,8 @@ describe("inventoryIconKind", () => {
   it("강화석과 재련석의 용도를 색과 모양으로 구분한다", () => {
     expect(inventoryIconKind("v2_red_enhance_stone")).toBe("enhance-red");
     expect(inventoryIconKind("v2_blue_enhance_stone")).toBe("enhance-blue");
+    expect(inventoryIconKind("v2_superior_red_enhance_stone")).toBe("enhance-red");
+    expect(inventoryIconKind("v2_superior_blue_enhance_stone")).toBe("enhance-blue");
     expect(inventoryIconKind("v2_reforge_stone_high")).toBe("reforge");
   });
 

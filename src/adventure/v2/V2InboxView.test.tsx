@@ -221,6 +221,27 @@ describe("InboxMailCard 상태 표시", () => {
     onDelete: vi.fn(),
   };
 
+  it("사람이 보낸 우편은 카드 맨 앞에 보낸 사람의 프사를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      createElement(InboxMailCard, {
+        ...handlers,
+        item: inboxItem({
+          person: { name: "모험가", avatar: "female2", profileBorder: null },
+        }),
+      }),
+    );
+
+    expect(html).toContain("ui-row-thumb");
+  });
+
+  it("보낸 사람 정보가 없는 우편에는 프사 자리를 만들지 않는다", () => {
+    const html = renderToStaticMarkup(
+      createElement(InboxMailCard, { ...handlers, item: inboxItem() }),
+    );
+
+    expect(html).not.toContain("ui-row-thumb");
+  });
+
   it("미확인 받은 우편을 중립 다크 강조 표면과 굵은 글씨로 표시한다", () => {
     const html = renderToStaticMarkup(
       createElement(InboxMailCard, {

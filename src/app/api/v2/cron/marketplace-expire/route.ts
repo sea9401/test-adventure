@@ -23,6 +23,8 @@ import {
 } from "@/lib/server/webPush";
 import { adventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import { lockTradeParticipantStatuses } from "@/lib/server/tradeSuspension";
+import { autoRelistUnsoldListing } from "@/lib/server/marketplaceAutoRelist";
+import { triggerMarketplacePriceAlertsForListing } from "@/lib/server/marketplaceBuyOrdersV2";
 import {
   cancelMarketplaceBuyOrderEscrow,
   cancelMarketplaceListingEscrow,
@@ -62,6 +64,7 @@ export async function POST(req: Request) {
 
   let auctionsSold = 0;
   let auctionsReturned = 0;
+  let auctionsRelisted = 0;
   let bidsRefunded = 0;
   let restrictedCancelled = 0;
   for (const { id } of due) {
@@ -188,6 +191,29 @@ export async function POST(req: Request) {
         };
       }
 
+      // 판매자가 켜 둔 매물은 돌려주지 않고 가격을 낮춘 새 매물로 한 번 더 올린다.
+      const relisted = await autoRelistUnsoldListing(tx, listing, now);
+      if (relisted) {
+        await triggerMarketplacePriceAlertsForListing(tx, relisted.listingId, now);
+        await insertNotificationWith(tx, listing.sellerId, "auction_unsold", {
+          listingId: id,
+          itemName: listing.itemName,
+          quantity: listing.quantity,
+          relistedPrice: relisted.price,
+        });
+        return {
+          action: "auction_relisted" as const,
+          sellerId: listing.sellerId,
+          itemKind: listing.kind,
+          itemId: listing.itemId,
+          quantity: listing.quantity,
+          previousPrice: listing.price,
+          newListingId: relisted.listingId,
+          newPrice: relisted.price,
+          cutPct: relisted.cutPct,
+        };
+      }
+
       const cancellation = await cancelMarketplaceListingEscrow(tx, listing, {
         now,
         refundHighestBid: true,
@@ -231,6 +257,23 @@ export async function POST(req: Request) {
           error,
         });
       }
+    } else if (result.action === "auction_relisted") {
+      auctionsRelisted++;
+      recordEconomyEventSoon({
+        userId: result.sellerId,
+        eventType: "marketplace.auto_relist",
+        goldDelta: 0,
+        itemKind: result.itemKind,
+        itemId: result.itemId,
+        quantity: result.quantity,
+        detail: {
+          listingId: result.newListingId,
+          previousListingId: id,
+          previousPrice: result.previousPrice,
+          price: result.newPrice,
+          cutPct: result.cutPct,
+        },
+      });
     } else if (result.action === "auction_returned") {
       auctionsReturned++;
       if (result.refundedGold > 0) bidsRefunded++;
@@ -362,6 +405,7 @@ export async function POST(req: Request) {
     scanned: due.length,
     auctionsSold,
     auctionsReturned,
+    auctionsRelisted,
     bidsRefunded,
     expired: auctionsReturned,
     restrictedCancelled,

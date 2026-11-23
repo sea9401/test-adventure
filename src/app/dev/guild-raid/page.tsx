@@ -75,20 +75,25 @@ function previewState(scenario: Scenario, board: GuildRaidBossId): GuildRaidStat
     },
     members: selected
       ? [
-          { userId: "u1", name: "강철주먹", damage: 1_234_567, attackCount: 4, eligible: true },
-          { userId: "u2", name: "그림자칼", damage: 2_222_222, attackCount: 6, eligible: true },
+          { userId: "u1", name: "강철주먹", damage: 1_234_567, attackCount: 4, eligible: true, avatar: "male2", profileBorder: null },
+          { userId: "u2", name: "그림자칼", damage: 2_222_222, attackCount: 6, eligible: true, avatar: "female1", profileBorder: null },
         ]
       : [],
     leaderboard:
       board === "canyon_predator_raid" && selected
         ? [{ guildId: 7, guildName: "검은바위", guildEmblem: null, damage: 3_456_789, rank: 1 }]
         : [
-            { guildId: 3, guildName: "새벽빛", guildEmblem: null, damage: 98_765_432, rank: 1 },
+            { guildId: 3, guildName: "새벽빛", guildEmblem: "game-avatar:monster:슬라임", damage: 98_765_432, rank: 1 },
             { guildId: 5, guildName: "몰락귀족", guildEmblem: null, damage: 12_345_678, rank: 2 },
           ],
     leaderboardPagination: { page: 1, pageSize: 8, totalPages: 1, total: 2 },
-    recentAttacks: [],
-    recentPagination: { page: 1, pageSize: 8, totalPages: 1, total: 0 },
+    recentAttacks: selected
+      ? [
+          { id: 2, name: "그림자칼", guildId: 7, damageDealt: 412_345, stagesCleared: 1, at: 2, avatar: "female1", profileBorder: null },
+          { id: 1, name: "강철주먹", guildId: 7, damageDealt: 308_112, stagesCleared: 0, at: 1, avatar: "male2", profileBorder: null },
+        ]
+      : [],
+    recentPagination: { page: 1, pageSize: 8, totalPages: 1, total: selected ? 2 : 0 },
   };
 }
 

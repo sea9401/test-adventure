@@ -157,6 +157,56 @@ describe("길드 토벌전 패널", () => {
     );
   });
 
+  it("최근 전투 기록 줄 맨 앞에 프사를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState({
+          recentAttacks: [
+            {
+              id: 31,
+              name: "최근공격자",
+              guildId: 7,
+              damageDealt: 4_321,
+              stagesCleared: 1,
+              at: 1,
+              avatar: "male2",
+              profileBorder: null,
+            },
+          ],
+        })}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+      />,
+    );
+    const section = html.slice(html.indexOf("최근 전투 기록"));
+
+    expect(section).toContain("ui-row-thumb");
+    expect(section.indexOf("ui-row-thumb")).toBeLessThan(
+      section.indexOf("최근공격자"),
+    );
+  });
+
+  it("길드 순위 줄의 길드 이름 앞에 엠블럼을 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+      />,
+    );
+    const ranking = html.slice(
+      html.indexOf("길드 순위"),
+      html.indexOf("길드원 기여도"),
+    );
+
+    expect(ranking).toContain("ui-row-thumb");
+    expect(ranking.indexOf("ui-row-thumb")).toBeLessThan(
+      ranking.lastIndexOf("모험가 길드"),
+    );
+  });
+
   it("오늘 공격을 모두 썼으면 공격 버튼을 비활성화한다", () => {
     const html = renderToStaticMarkup(
       <GuildRaidPanelContent
@@ -237,6 +287,59 @@ describe("길드 토벌전 패널", () => {
 
     fireEvent.click(practiceButton);
     expect(onPractice).toHaveBeenCalledTimes(1);
+  });
+
+  it("보스를 고른 뒤에도 고르지 않은 보스와 연습할 수 있다", () => {
+    const onPractice = vi.fn();
+    render(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        onPractice={onPractice}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "재앙의 스콜피온 킹 연습 전투" }),
+    );
+    expect(onPractice).toHaveBeenCalledWith("canyon_predator_raid");
+    expect(
+      screen.queryByRole("button", { name: "흉포한 산군 연습 전투" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "연습 전투" }));
+    expect(onPractice).toHaveBeenLastCalledWith("mountain_chief_hard");
+  });
+
+  it("연습 결과에 어느 보스와 싸웠는지 적는다", () => {
+    const html = renderToStaticMarkup(
+      <GuildRaidPanelContent
+        state={raidState()}
+        attacking={false}
+        error={null}
+        onAttack={vi.fn()}
+        lastPractice={{
+          ok: true,
+          practice: true,
+          bossKind: "canyon_predator_raid",
+          playerName: "연습가",
+          damageDealt: 10,
+          damageTaken: 5,
+          diedEarly: false,
+          turns: 3,
+          replay: {
+            enemy: { name: "스콜피온 킹", hp: 1_000 },
+            playerMaxHp: 500,
+            playerMaxMp: 80,
+            log: [{ kind: "info", text: "전투 시작" }],
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("재앙의 스콜피온 킹 연습 결과");
   });
 
   it("연습 피해와 비저장 안내 및 전체 전투 로그를 보여준다", () => {

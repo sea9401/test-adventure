@@ -359,6 +359,9 @@ export function huntStageDepthForLegacyDepth(
 
 // 일반 사냥 목록용 — 정복 단계와 다음 도전 단계까지만, 테마당 대표 깊이 3개로 묶는다.
 // themeStartDepth는 기존 표시 설정(localStorage)과 ?openDepth 링크의 1·7·13 키를 보존한다.
+/** 새 캐릭터가 처음 싸우는 사냥 화면의 깊이(들판 · 입구). */
+export const FIRST_HUNT_DEPTH = huntStageDepthForLegacyDepth(1);
+
 export function dungeonHuntStageGroups(
   maxDepth: number,
 ): { name: string; themeStartDepth: number; depths: number[] }[] {

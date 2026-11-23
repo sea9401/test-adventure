@@ -12,12 +12,14 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { firstHuntHref } from "@/adventure/v2/dungeonNavigation";
 
 // v2 캐릭터 생성:
 //  ① 이름·외형 — CreateCharacterForm (중복검사 내장) → /api/profile/setup
 //  ② 레거시 모드만 시작 직업 선택 — /api/v2/me/class-element.
 // 코어루프 운영에서는 모두 모험가(none)로 시작하므로 이름·외형을 정하면 바로 완료한다.
-// 완료 시 게임(/)으로. 이미 프로필이 있으면(중복 진입) 바로 / 로 되돌린다.
+// 완료하면 모험 홈이 아니라 첫 사냥 화면으로 보낸다(만든 직후 전투 없이 떠나는 계정이 많았다).
+// 이미 프로필이 있으면(중복 진입) 바로 / 로 되돌린다.
 export function CreateCharacterFlow() {
   const router = useRouter();
   const { needsSetup, submit } = useProfile();
@@ -77,7 +79,7 @@ export function CreateCharacterFlow() {
             <CreateCharacterForm
               onSubmit={submit}
               onSuccess={() => {
-                if (V2_CORE_LOOP_V2) router.replace("/");
+                if (V2_CORE_LOOP_V2) router.replace(firstHuntHref({ intro: true }));
                 else setPhase("class");
               }}
             />

@@ -23,7 +23,11 @@ import {
   rollCraftedRareMapKind,
   type ScavengedCraftRecipeId,
 } from "@/adventure/data/v2/scavengedCrafting";
-import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import {
+  ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
+} from "@/adventure/data/v2/v2Enhance";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
 import {
@@ -57,13 +61,36 @@ function recipeInput(recipe: ScavengedCraftRecipeId) {
       need: ENHANCE_EMBER_RED_COST,
     };
   }
+  if (recipe === "superior_blue_enhance_stone") {
+    return {
+      materialId: ENHANCE_STONE_MATERIAL_ID.blue,
+      need: SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+    };
+  }
+  if (recipe === "superior_red_enhance_stone") {
+    return {
+      materialId: ENHANCE_STONE_MATERIAL_ID.red,
+      need: SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+    };
+  }
   return {
     materialId: TORN_MAP_FRAGMENT_MATERIAL_ID,
     need: TORN_MAP_FRAGMENT_COMBINE_COST,
   };
 }
 
+function recipeOutputMaterialId(
+  recipe: Exclude<ScavengedCraftRecipeId, "rare_map">,
+): string {
+  if (recipe === "blue_enhance_stone") return ENHANCE_STONE_MATERIAL_ID.blue;
+  if (recipe === "red_enhance_stone") return ENHANCE_STONE_MATERIAL_ID.red;
+  return recipe === "superior_blue_enhance_stone"
+    ? SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue
+    : SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red;
+}
+
 // POST /api/v2/me/scavenged-crafting — 수집형 글로벌 드롭을 강화석 또는 희귀 지도로 조합한다.
+// 일반 강화석을 상급 강화석으로 합치는 조합도 여기서 처리한다.
 // 공통 조합비를 은행 우선으로 차감하며 재료 차감·산출물 지급과 함께 원자적으로 처리한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -236,10 +263,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const stoneId =
-      recipe === "blue_enhance_stone"
-        ? ENHANCE_STONE_MATERIAL_ID.blue
-        : ENHANCE_STONE_MATERIAL_ID.red;
+    const stoneId = recipeOutputMaterialId(recipe);
     materials[stoneId] =
       Math.max(0, Math.floor(Number(materials[stoneId]) || 0)) + quantity;
     await upsertSave(tx, userId, "character.v2", {

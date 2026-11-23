@@ -63,12 +63,16 @@ export type WorkshopRecipeView = {
   greatSuccessPct: number;
 };
 
+type CompostableDishView = { id: string; name: string; count: number };
+
 type WorkshopPayload = {
   ok: true;
   state: LifeWorkshopState;
   levels: Record<LifeWorkshopActivity, number>;
   materials: Record<string, number>;
   failedCookingDishes: number;
+  /** 퇴비 재료로 쓸 수 있는 일반 품질 요리(많은 순서). */
+  compostableDishes?: CompostableDishView[];
   gold: number;
   bankedGold: number;
   liberationDiscountPct?: number;
@@ -161,6 +165,8 @@ const ERROR_TEXT: Record<string, string> = {
   level_required: "생활 레벨이 부족합니다.",
   not_enough_materials: "필요한 재료가 부족합니다.",
   not_enough_failed_dishes: "실패 음식이 부족합니다.",
+  not_enough_dishes: "고른 요리가 부족합니다.",
+  bad_dish: "일반 품질 요리만 퇴비로 만들 수 있습니다.",
   not_enough_gold: "전문화 변경에 필요한 골드가 부족합니다.",
   already_selected: "이미 선택한 전문화입니다.",
   max_tool: "도구를 최고 단계까지 승급했습니다.",
@@ -250,6 +256,78 @@ function requirementText(
     );
   }
   return requirements.join(" · ");
+}
+
+/** 남은 요리 퇴비: 일반 품질 요리 한 종류를 골라 그 보유량만큼 만든다. */
+export function LeftoverDishCompostControls({
+  recipeName,
+  normalDishCost,
+  batchLimit,
+  craftable,
+  dishes,
+  busy,
+  onSubmit,
+}: {
+  recipeName: string;
+  normalDishCost: number;
+  batchLimit: number;
+  /** 도안·레벨 조건을 채웠는지. */
+  craftable: boolean;
+  dishes: CompostableDishView[];
+  busy: boolean;
+  onSubmit: (foodId: string, quantity: number) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 방금 다 쓴 요리는 목록에서 빠지므로 남은 것 중 가장 많은 요리로 넘어간다.
+  const dish = dishes.find((entry) => entry.id === selectedId) ?? dishes[0];
+  if (!dish) {
+    return (
+      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        가진 일반 품질 요리가 없습니다.
+      </p>
+    );
+  }
+  const maxQuantity = craftable
+    ? Math.min(batchLimit, Math.floor(dish.count / normalDishCost))
+    : 0;
+  return (
+    <>
+      <label className="mt-2 flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+        <span className="shrink-0">재료</span>
+        <select
+          aria-label={`${recipeName} 재료 선택`}
+          value={dish.id}
+          onChange={(event) => setSelectedId(event.currentTarget.value)}
+          className="min-h-9 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+        >
+          {dishes.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name} · {entry.count.toLocaleString()}개
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+        일반 품질 요리 {normalDishCost}개 (보유 {dish.count.toLocaleString()}개)
+      </div>
+      <div className="mt-2">
+        <LifeWorkshopQuantityControls
+          key={dish.id}
+          maxQuantity={maxQuantity}
+          unit="개"
+          actionLabel="제작"
+          inputLabel={`${recipeName} 제작 수량`}
+          busy={busy}
+          onSubmit={(quantity) => onSubmit(dish.id, quantity)}
+        />
+        {maxQuantity === 0 ? (
+          <span className="self-center text-xs text-rose-600">
+            고른 요리 또는 레벨 부족
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
 }
 
 function LifeAidArtwork({
@@ -854,7 +932,7 @@ export function LifeWorkshopView({
                       </div>
                       {!hiddenUnknown ? (
                         <>
-                          <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials, recipe.failedDishCost, data.failedCookingDishes)}</div>
+                          {recipe.normalDishCost ? null : <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{requirementText(recipe.costs, data.materials, recipe.failedDishCost, data.failedCookingDishes)}</div>}
                           <div className="mt-1 text-[10px] text-amber-700 dark:text-amber-300">
                             {personalCraftGoldCostText({
                               baseGoldCost:
@@ -869,6 +947,30 @@ export function LifeWorkshopView({
                             })}
                           </div>
                           <div className="mt-1 text-[10px] text-zinc-500">제작 기록 {recipe.craftCount}회 · 단계 {recipe.masteryStage}/5 · 일괄 한도 {recipe.batchLimit}</div>
+                          {recipe.normalDishCost ? (
+                            <LeftoverDishCompostControls
+                              recipeName={recipe.name}
+                              normalDishCost={recipe.normalDishCost}
+                              batchLimit={recipe.batchLimit}
+                              craftable={
+                                recipe.learned &&
+                                Math.max(
+                                  data.levels.woodcutting,
+                                  data.levels.mining,
+                                ) >= recipe.requiredLevel
+                              }
+                              dishes={data.compostableDishes ?? []}
+                              busy={busy !== null}
+                              onSubmit={(foodId, quantity) =>
+                                void mutate(`craft:${recipe.id}:${quantity}`, {
+                                  action: "craft",
+                                  recipeId: recipe.id,
+                                  quantity,
+                                  foodId,
+                                })
+                              }
+                            />
+                          ) : (
                           <div className="mt-2">
                             <LifeWorkshopQuantityControls
                               maxQuantity={recipe.maxCraftable}
@@ -886,6 +988,7 @@ export function LifeWorkshopView({
                             />
                             {recipe.maxCraftable === 0 ? <span className="self-center text-[11px] text-rose-600">{recipe.failedDishCost ? "실패 음식 또는 레벨 부족" : "재료 또는 레벨 부족"}</span> : null}
                           </div>
+                          )}
                         </>
                       ) : null}
                     </div>

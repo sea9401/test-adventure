@@ -8,6 +8,7 @@ import {
   WOODCUTTING_AUTO_KEY,
 } from "@/adventure/v2/autoGathering";
 import { activeAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
+import { autoGatheringReservationStatus } from "@/lib/server/autoGatheringReservation";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import {
   WOODCUTTING_LOG_KEY,
@@ -47,6 +48,16 @@ export async function GET() {
   const toolTier = workshop.tools.woodcutting;
 
   const autoState = parseAutoGatheringState(autoRaw);
+  const activeAutoActivity = activeAutoGatheringActivity({
+    woodcutting: autoState,
+    mining: parseAutoGatheringState(miningAutoRaw),
+  });
+  const reservation = await autoGatheringReservationStatus(
+    db,
+    userId,
+    charSave,
+    activeAutoActivity !== null,
+  );
   return Response.json({
     ok: true,
     serverNow: Date.now(),
@@ -59,9 +70,7 @@ export async function GET() {
     autoSession: autoState.session,
     siteUpkeep: workshop.siteUpkeep ?? {},
     lifeRenown: lifeRenownFromSave(lifeMajorRaw),
-    activeAutoActivity: activeAutoGatheringActivity({
-      woodcutting: autoState,
-      mining: parseAutoGatheringState(miningAutoRaw),
-    }),
+    activeAutoActivity,
+    ...reservation,
   });
 }

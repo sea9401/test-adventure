@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,6 +14,10 @@ import {
   type AutoGatheringPlanId,
   type AutoGatheringSessionView,
 } from "./autoGathering";
+import {
+  autoGatheringReservationLabel,
+  type AutoGatheringReservation,
+} from "./autoGatheringReservation";
 import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
@@ -30,6 +35,21 @@ export type AutoGatheringResultView = {
     amount: number;
   }>;
   masterProduct?: MasterProductGain | null;
+};
+
+/** 보상을 받은 뒤 이어서 시작된 예약 작업. */
+export type AutoGatheringChainView = {
+  activity: AutoGatheringActivity;
+  sourceName: string;
+};
+
+const ACTIVITY_LABEL: Record<AutoGatheringActivity, "벌목" | "채광"> = {
+  woodcutting: "벌목",
+  mining: "채광",
+};
+const ACTIVITY_HREF: Record<AutoGatheringActivity, string> = {
+  woodcutting: "/town/logging",
+  mining: "/town/mining",
 };
 
 function remainingLabel(readyAt: number, now: number): string {
@@ -62,6 +82,13 @@ export function AutoGatheringCard({
   onClaim,
   onCancel,
   onRestart,
+  spotName,
+  reservation = null,
+  reservationAllowed = false,
+  chain = null,
+  reservationDropped = false,
+  onReserve,
+  onUnreserve,
 }: {
   activityName: "벌목" | "채광";
   spotId: string;
@@ -77,6 +104,17 @@ export function AutoGatheringCard({
   onCancel: () => Promise<void>;
   /** 보상을 받고 같은 채집지에서 같은 작업을 다시 시작한다. 편의가 열렸을 때만 넘긴다. */
   onRestart?: () => Promise<void>;
+  /** 고른 채집지 이름. 다음 작업 예약 줄에 쓴다. */
+  spotName?: string;
+  /** 걸어 둔 다음 작업. 벌목·채광 어느 쪽이든 하나다. */
+  reservation?: AutoGatheringReservation | null;
+  /** 지원권 이용 중이라 다음 작업을 예약할 수 있는지. */
+  reservationAllowed?: boolean;
+  chain?: AutoGatheringChainView | null;
+  /** 예약한 작업을 시작하지 못하고 버렸을 때. */
+  reservationDropped?: boolean;
+  onReserve?: (spotId: string, planId: AutoGatheringPlanId) => Promise<void>;
+  onUnreserve?: () => Promise<void>;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [planId, setPlanId] = useState<AutoGatheringPlanId>("standard");
@@ -99,6 +137,16 @@ export function AutoGatheringCard({
       : blockedByActivity === "mining"
         ? "채광"
         : null;
+  // 예약은 자동 채집이 이쪽이든 다른 쪽이든 돌고 있을 때만 뜻이 있다.
+  const autoRunning = Boolean(session) || Boolean(blockedActivityName);
+  const canReserve = reservationAllowed && Boolean(onReserve);
+  const reserve = (id: AutoGatheringPlanId) => {
+    if (!onReserve) return;
+    setError(null);
+    void onReserve(spotId, id).catch((caught: unknown) => {
+      setError(sharedNetworkLimitMessage(caught) ?? "다음 작업을 예약하지 못했습니다.");
+    });
+  };
 
   useEffect(() => {
     if (!session || ready) return;
@@ -133,7 +181,7 @@ export function AutoGatheringCard({
                 key={plan.id}
                 type="button"
                 aria-pressed={selected}
-                disabled={loading || Boolean(blockedActivityName)}
+                disabled={loading || (Boolean(blockedActivityName) && !canReserve)}
                 onClick={() => setPlanId(plan.id)}
                 className={`${SURFACE_INSET} rounded-md border p-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                   selected
@@ -174,6 +222,72 @@ export function AutoGatheringCard({
         </div>
       ) : null}
 
+      {autoRunning && reservation ? (
+        <div className={`${SURFACE_INSET} flex items-center justify-between gap-3 p-3 text-xs`}>
+          <div className="min-w-0">
+            <div className="text-zinc-500 dark:text-zinc-400">다음 작업 예약</div>
+            <div className="truncate font-semibold">
+              {autoGatheringReservationLabel(
+                reservation,
+                autoGatheringDurationLabel(reservation.durationMs),
+              )}
+            </div>
+            {session && ready ? (
+              <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                보상을 받으면 앞 작업이 끝난 시각부터 이어서 계산합니다.
+              </div>
+            ) : null}
+          </div>
+          {onUnreserve ? (
+            <Button
+              disabled={loading}
+              onClick={() => {
+                setError(null);
+                void onUnreserve().catch((caught: unknown) => {
+                  setError(sharedNetworkLimitMessage(caught) ?? "예약을 취소하지 못했습니다.");
+                });
+              }}
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+            >
+              예약 취소
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {session && !reservation && canReserve ? (
+        <div className={`${SURFACE_INSET} space-y-2 p-3 text-xs`}>
+          <div>
+            <div className="text-zinc-500 dark:text-zinc-400">다음 작업 예약</div>
+            <div className="font-semibold">
+              {spotName ?? "고른 채집지"}에서 자동 {activityName}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {AUTO_GATHERING_PLAN_LIST.map((plan) => (
+              <Button
+                key={plan.id}
+                disabled={loading}
+                onClick={() => reserve(plan.id)}
+                variant="secondary"
+                size="sm"
+                fullWidth
+              >
+                {planDurationLabel(plan.id)} 예약
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {autoRunning && !reservation && !reservationAllowed ? (
+        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+          다음 작업 예약은 월간 모험 지원권 이용 중에 쓸 수 있습니다.
+        </p>
+      ) : null}
+
       {result ? (
         <div className={`${SURFACE_INSET} p-3 text-center text-xs`}>
           <div className="font-bold">자동 {activityName} 정산 완료</div>
@@ -203,6 +317,26 @@ export function AutoGatheringCard({
         </div>
       ) : null}
 
+      {chain ? (
+        <p className="text-center text-xs font-semibold">
+          예약한 {ACTIVITY_LABEL[chain.activity]}({chain.sourceName})을 이어서 시작했습니다.
+          {ACTIVITY_LABEL[chain.activity] !== activityName ? (
+            <>
+              {" "}
+              <Link href={ACTIVITY_HREF[chain.activity]} className="underline">
+                {ACTIVITY_LABEL[chain.activity]} 화면으로
+              </Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
+      {reservationDropped ? (
+        <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+          예약한 작업을 시작하지 못했습니다. 채집지를 골라 다시 시작해 주세요.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
           {error}
@@ -211,7 +345,9 @@ export function AutoGatheringCard({
 
       {!session && blockedActivityName ? (
         <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
-          자동 {blockedActivityName} 진행 중에는 다른 생활 활동을 시작할 수 없습니다.
+          {canReserve
+            ? `자동 ${blockedActivityName}이 끝나면 이어서 시작합니다.`
+            : `자동 ${blockedActivityName} 진행 중에는 다른 생활 활동을 시작할 수 없습니다.`}
         </p>
       ) : null}
 
@@ -251,7 +387,7 @@ export function AutoGatheringCard({
               size="md"
               fullWidth
             >
-              보상 받고 다시 시작
+              {reservation ? "보상 받고 다시 예약" : "보상 받고 다시 시작"}
             </Button>
           ) : null}
           {!ready ? (
@@ -280,8 +416,12 @@ export function AutoGatheringCard({
         </div>
       ) : (
         <Button
-          disabled={loading || Boolean(blockedActivityName)}
+          disabled={loading || (Boolean(blockedActivityName) && !canReserve)}
           onClick={() => {
+            if (blockedActivityName) {
+              reserve(planId);
+              return;
+            }
             setError(null);
             void onStart(spotId, planId).catch((caught: unknown) => {
               setError(sharedNetworkLimitMessage(caught) ?? `자동 ${activityName}을 시작하지 못했습니다.`);
@@ -293,7 +433,9 @@ export function AutoGatheringCard({
         >
           {loading
             ? "처리 중…"
-            : `${activeDurationLabel} 자동 ${activityName} 시작`}
+            : `${activeDurationLabel} 자동 ${activityName} ${
+                blockedActivityName && canReserve ? "예약" : "시작"
+              }`}
         </Button>
       )}
     </Card>

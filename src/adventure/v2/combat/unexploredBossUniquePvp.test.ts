@@ -126,6 +126,7 @@ describe.each(["p1", "p2"] as const)("%s boss unique PvP direct skill casts", si
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const next = cast(withBoss(castBattle(["infinite_orbit"]), side, { pursuit: 10 }));
     expect(logsOf(next, "[궤도 절단]")).toHaveLength(1);
+    expect(logsOf(next, "[궤도 절단]")[0].text).toBe("[궤도 절단] 방어·마법방어 50% 무시, 피해 +100%");
     expect(next[side].stacks.unexploredBoss?.pursuit).toBe(1);
   });
 });

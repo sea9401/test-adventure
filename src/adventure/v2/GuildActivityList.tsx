@@ -2,6 +2,9 @@
 
 import { useMemo } from "react";
 import { Pagination } from "@/components/ui/Pagination";
+import { PersonThumb } from "@/components/ui/PersonThumb";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import { usePagination } from "@/lib/usePagination";
 import {
   GUILD_FACILITY_SUPPORT_RESOURCES,
@@ -16,6 +19,12 @@ export type GuildActivity = {
   type: string;
   actorName: string | null;
   targetName: string | null;
+  /** 줄 머리 프사로 보여 줄 그 줄의 주인공. 예전 응답에는 없을 수 있다. */
+  person?: {
+    name: string;
+    avatar: Avatar;
+    profileBorder: ProfileBorderId | null;
+  } | null;
   meta: {
     amount?: number;
     quantity?: number;
@@ -213,7 +222,7 @@ function alchemyTargetLabel(target?: "hp" | "mp" | "balanced"): string {
   return "HP·MP 충전";
 }
 
-// 타입별 좌측 점 색 — 가벼운 시각 구분.
+// 타입별 좌측 점 색 — 프사 정보가 없는 줄에만 쓰는 가벼운 시각 구분.
 const DOT_CLASS: Record<string, string> = {
   guild_create: "bg-amber-500",
   alchemy_craft: "bg-violet-500",
@@ -308,9 +317,17 @@ export function GuildActivityList({
                 key={a.id}
                 className="flex items-center gap-2 px-3 py-2 text-xs"
               >
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_CLASS[a.type] ?? "bg-zinc-400"}`}
-                />
+                {a.person ? (
+                  <PersonThumb
+                    avatar={a.person.avatar}
+                    name={a.person.name}
+                    profileBorder={a.person.profileBorder}
+                  />
+                ) : (
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_CLASS[a.type] ?? "bg-zinc-400"}`}
+                  />
+                )}
                 <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
                   {description}
                   {repeatCount > 1 ? ` · ${repeatCount.toLocaleString()}회` : ""}

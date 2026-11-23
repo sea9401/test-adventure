@@ -12,6 +12,7 @@ import { appendPvPSurvivalLogs, resolvePvPHostileDamageSurvival } from "./pvpHos
 import { canApplyShock } from "./shockAction";
 import {
   beginBossUniqueAttack,
+  bossUniqueBeginLogText,
   bossUniqueDamageTaken,
   consumeBossUniqueHaste,
   finishBossUniqueAttack,
@@ -30,13 +31,6 @@ type Key = "p1" | "p2";
 const otherKey = (key: Key): Key => key === "p1" ? "p2" : "p1";
 const isDirect = (kind: UnexploredAttackContext["kind"]) =>
   kind === "manual_basic" || kind === "direct_skill" || kind === "extra_basic";
-
-const BEGIN_LOG_TEXT: Record<string, string> = {
-  "궤도 절단": "방어·마법방어 50% 무시, 피해 +80%",
-  "빙결 일격": "빙결된 상대에게 피해 +30%",
-  "보정 사격": "피해 +25%",
-  "별궤 조준": "피해 +15%",
-};
 
 export function initialBossUniquePvp(
   player: PlayerCombat, sustainMultiplier: number,
@@ -76,7 +70,7 @@ export function beginBossUniqueAttackPvp(
   });
   let log = state.log;
   for (const label of begun.logs) {
-    log = appendLog(log, { kind: "info", side: actor, text: `[${label}] ${BEGIN_LOG_TEXT[label] ?? "발동"}` });
+    log = appendLog(log, { kind: "info", side: actor, text: `[${label}] ${bossUniqueBeginLogText(label, "상대")}` });
   }
   return {
     state: setSide({ ...state, log }, actor, withRuntime(side, begun.runtime)),

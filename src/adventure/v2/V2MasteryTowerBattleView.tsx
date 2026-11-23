@@ -26,8 +26,10 @@ type TowerAttemptResult = {
   error?: string;
   tower?: {
     runFloor?: number;
+    claimed?: boolean;
     cooldownUntil?: number;
   };
+  claimPreview?: { total?: number };
   floor?: number | null;
   requiredPower?: number | null;
   power?: number;
@@ -82,6 +84,65 @@ export function canContinueMasteryTowerAttempt(
   return Boolean(
     result.success || (result.practice === true && cooldownSeconds <= 0),
   );
+}
+
+function nextMasteryTowerAttemptIsPractice(
+  result: TowerAttemptResult | null,
+): boolean {
+  return Boolean(
+    result?.practice === true ||
+      (result?.success &&
+        result.floor === MASTERY_TOWER_MAX_FLOOR &&
+        result.tower?.runFloor === MASTERY_TOWER_MAX_FLOOR),
+  );
+}
+
+export type MasteryTowerOutcomePlan = {
+  primary: "attempt" | "tower";
+  secondary: "attempt" | "tower" | null;
+  attemptLabel: string | null;
+  towerLabel: string | null;
+};
+
+/**
+ * 전투 결과 아래에 놓을 버튼. 100층을 끝낸 뒤에는 연습 재도전과 탑으로 가는 길을 함께 두고,
+ * 오늘 보상을 아직 안 받았으면 보상 쪽을 주 행동으로 올린다.
+ */
+export function masteryTowerOutcomePlan(
+  result: TowerAttemptResult,
+): MasteryTowerOutcomePlan {
+  if (nextMasteryTowerAttemptIsPractice(result)) {
+    const attemptLabel = `${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전`;
+    const rewardWaiting =
+      result.tower?.claimed === false && (result.claimPreview?.total ?? 0) > 0;
+    return rewardWaiting
+      ? {
+          primary: "tower",
+          towerLabel: "보상 받으러 가기",
+          secondary: "attempt",
+          attemptLabel,
+        }
+      : {
+          primary: "attempt",
+          attemptLabel,
+          secondary: "tower",
+          towerLabel: "탑으로 돌아가기",
+        };
+  }
+  if (result.success) {
+    return {
+      primary: "attempt",
+      attemptLabel: "다음 층 입장",
+      secondary: null,
+      towerLabel: null,
+    };
+  }
+  return {
+    primary: "tower",
+    towerLabel: "시작 위치 선택",
+    secondary: null,
+    attemptLabel: null,
+  };
 }
 
 function errorMessage(error: string | undefined): string {
@@ -169,17 +230,34 @@ export function V2MasteryTowerBattleView({
         ? 0
         : Math.max(0, Math.ceil(result?.retryAfterSeconds ?? 0));
   const isCooldown = cooldownSeconds > 0;
-  const nextAttemptIsPractice = Boolean(
-    isPractice ||
-      (result?.success &&
-        result.floor === MASTERY_TOWER_MAX_FLOOR &&
-        result.tower?.runFloor === MASTERY_TOWER_MAX_FLOOR),
-  );
+  const nextAttemptIsPractice = nextMasteryTowerAttemptIsPractice(result);
   const canContinue = canContinueMasteryTowerAttempt(
     result,
     busy,
     cooldownSeconds,
   );
+
+  const outcomeAction = useMemo(() => {
+    if (!result) return undefined;
+    const plan = masteryTowerOutcomePlan(result);
+    const actions = {
+      attempt: {
+        label: plan.attemptLabel ?? "",
+        busyLabel: "입장 중...",
+        busy,
+        disabled: !canContinue,
+        onClick: enterTower,
+      },
+      tower: {
+        label: plan.towerLabel ?? "",
+        onClick: () => router.push("/battle/mastery-tower"),
+      },
+    };
+    return {
+      ...actions[plan.primary],
+      secondary: plan.secondary ? actions[plan.secondary] : undefined,
+    };
+  }, [result, busy, canContinue, enterTower, router]);
 
   useEffect(() => {
     if (!cooldownUntil || cooldownUntil <= now) return;
@@ -267,26 +345,7 @@ export function V2MasteryTowerBattleView({
           maxExp={1}
           playerSubtitle={`숙련의 탑 ${replay.floor}층`}
           outcome={replay.outcome}
-          outcomeAction={{
-            label:
-              nextAttemptIsPractice
-                ? `${MASTERY_TOWER_MAX_FLOOR}층 연습 재도전`
-                : replay.outcome === "win"
-                ? "다음 층 입장"
-                : "시작 위치 선택",
-            busyLabel: "입장 중...",
-            busy,
-            disabled:
-              nextAttemptIsPractice || replay.outcome === "win"
-                ? !canContinue
-                : false,
-            onClick:
-              nextAttemptIsPractice
-                ? enterTower
-                : replay.outcome === "win"
-                  ? enterTower
-                  : () => router.push("/battle/mastery-tower"),
-          }}
+          outcomeAction={outcomeAction}
         />
       )}
 

@@ -13,6 +13,7 @@ import {
   buildBattleStateFromReplay,
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
@@ -100,6 +101,22 @@ function ReplayBattleLogLink({
               ? (outcomeAction.busyLabel ?? "진행 중...")
               : outcomeAction.label}
           </button>
+          {outcomeAction.secondary && (
+            <Button
+              size="md"
+              fullWidth
+              className="mt-2"
+              onClick={outcomeAction.secondary.onClick}
+              disabled={
+                outcomeAction.secondary.disabled ||
+                outcomeAction.secondary.busy
+              }
+            >
+              {outcomeAction.secondary.busy
+                ? (outcomeAction.secondary.busyLabel ?? "진행 중...")
+                : outcomeAction.secondary.label}
+            </Button>
+          )}
           {outcomeAction.hint ? (
             <div className="mt-1 text-center text-xs text-zinc-600 dark:text-zinc-300">
               {outcomeAction.hint}

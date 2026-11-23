@@ -3,6 +3,7 @@ import {
   autoGatheringStatusText,
   correctedAutoGatheringReadyAt,
   parseAutoGatheringSessionView,
+  parseAutoGatheringStatusPayload,
 } from "./autoGathering";
 
 describe("자동 생활 작업 상태와 시각 보정", () => {
@@ -88,5 +89,31 @@ describe("자동 생활 작업 상태와 시각 보정", () => {
         50_000,
       ),
     ).toBe("채광 정산 대기 · 바위산 채석장");
+  });
+
+  it("상태 응답의 자동 작업과 예약한 다음 작업을 기기 시각 기준으로 읽는다", () => {
+    expect(
+      parseAutoGatheringStatusPayload(
+        {
+          activity: "mining",
+          sourceId: "copper",
+          sourceName: "구리 광맥",
+          readyAt: 1_120_000,
+          next: { activity: "woodcutting", sourceName: "소나무", readyAt: 1_720_000 },
+          serverNow: 1_000_000,
+        },
+        9_000_000,
+      ),
+    ).toEqual({
+      activity: "mining",
+      sourceId: "copper",
+      sourceName: "구리 광맥",
+      readyAt: 9_120_000,
+      next: { activity: "woodcutting", sourceName: "소나무", readyAt: 9_720_000 },
+    });
+    expect(parseAutoGatheringStatusPayload(null)).toBeNull();
+    expect(
+      parseAutoGatheringStatusPayload({ activity: "fishing", serverNow: 1 }),
+    ).toBeNull();
   });
 });

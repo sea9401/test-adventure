@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  COOP_DEFAULT_MIN_CONTRIBUTION,
+  coopMinContributionFor,
+  coopTierLabel,
+  coopTierThresholdsFor,
+
   COOP_BOSSES,
   COOP_DURATION_MAX_MS,
   COOP_DURATION_MIN_MS,
@@ -404,46 +409,41 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
-  it("보상 = SP 열매 티어 확률 — GOLD부터·단조 증가·BRONZE/SILVER 0", () => {
-    expect(COOP_SP_FRUIT_CHANCE.bronze).toBe(0);
-    expect(COOP_SP_FRUIT_CHANCE.silver).toBe(0);
-    expect(COOP_SP_FRUIT_CHANCE.gold).toBe(0.05);
-    expect(COOP_SP_FRUIT_CHANCE.epic).toBe(0.075);
-    expect(COOP_SP_FRUIT_CHANCE.legend).toBe(0.1);
-    let prev = -1;
+  it("보상 = SP 열매 단계 확률 — 기본 보상에 첫 굴림, EPIC·LEGEND에서 추가 굴림", () => {
+    expect(COOP_SP_FRUIT_CHANCE).toEqual({
+      base: 0.05,
+      gold: 0,
+      epic: 0.075,
+      legend: 0.1,
+    });
     for (const t of COOP_TIER_ORDER) {
       const c = COOP_SP_FRUIT_CHANCE[t];
       expect(c).toBeGreaterThanOrEqual(0);
       expect(c).toBeLessThanOrEqual(1);
-      expect(c).toBeGreaterThanOrEqual(prev); // 단조 증가
-      prev = c;
     }
   });
 
-  it("rollCoopSpFruits — 도달 티어별 독립 굴림(LEGEND 최대 3·BRONZE/SILVER 0)", () => {
-    // rng=0 → 모든 굴림 통과(확률>0 티어 수 = 획득 수).
+  it("rollCoopSpFruits — 도달 단계별 독립 굴림(기본 1·EPIC 2·LEGEND 최대 3)", () => {
+    // rng=0 → 모든 굴림 통과(확률>0 단계 수 = 획득 수).
     expect(rollCoopSpFruits(null, () => 0)).toBe(0);
-    expect(rollCoopSpFruits("bronze", () => 0)).toBe(0);
-    expect(rollCoopSpFruits("silver", () => 0)).toBe(0);
+    expect(rollCoopSpFruits("base", () => 0)).toBe(1);
     expect(rollCoopSpFruits("gold", () => 0)).toBe(1);
     expect(rollCoopSpFruits("epic", () => 0)).toBe(2);
     expect(rollCoopSpFruits("legend", () => 0)).toBe(3);
     // rng=0.99 → 모두 실패.
     expect(rollCoopSpFruits("legend", () => 0.99)).toBe(0);
-    // 경계 — rng < chance 통과. gold(0.05): 0.049 통과·0.05 실패.
-    expect(rollCoopSpFruits("gold", () => 0.049)).toBe(1);
-    expect(rollCoopSpFruits("gold", () => 0.05)).toBe(0);
-    // 부분 — legend 에서 GOLD(0.05)만 통과: 0.04<0.05 통과, EPIC(0.075)·LEGEND(0.10) 실패시키려면
-    //   각 굴림이 다른 값을 봐야 함. 시퀀스 rng 로 [통과, 실패, 실패].
+    // 경계 — rng < chance 통과. 기본(0.05): 0.049 통과·0.05 실패.
+    expect(rollCoopSpFruits("base", () => 0.049)).toBe(1);
+    expect(rollCoopSpFruits("base", () => 0.05)).toBe(0);
+    // 부분 — legend 에서 기본(0.05)만 통과: 시퀀스 rng 로 [통과, 실패, 실패].
     const seq = [0.04, 0.3, 0.4];
     let i = 0;
     expect(rollCoopSpFruits("legend", () => seq[i++] ?? 1)).toBe(1);
   });
 
-  it("coopSpFruitMaxAt — 도달 티어 최대 개수(GOLD 1·EPIC 2·LEGEND 3)", () => {
+  it("coopSpFruitMaxAt — 도달 단계 최대 개수(기본·GOLD 1·EPIC 2·LEGEND 3)", () => {
     expect(coopSpFruitMaxAt(null)).toBe(0);
-    expect(coopSpFruitMaxAt("bronze")).toBe(0);
-    expect(coopSpFruitMaxAt("silver")).toBe(0);
+    expect(coopSpFruitMaxAt("base")).toBe(1);
     expect(coopSpFruitMaxAt("gold")).toBe(1);
     expect(coopSpFruitMaxAt("epic")).toBe(2);
     expect(coopSpFruitMaxAt("legend")).toBe(3);
@@ -455,7 +455,7 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_UNIQUE_CHANCE.legend).toBe(0.25);
     // GOLD 이하 — rng 무관 항상 false.
     expect(rollCoopUnique(null, () => 0)).toBe(false);
-    expect(rollCoopUnique("bronze", () => 0)).toBe(false);
+    expect(rollCoopUnique("base", () => 0)).toBe(false);
     expect(rollCoopUnique("gold", () => 0)).toBe(false);
     // EPIC/LEGEND — rng < chance 통과.
     expect(rollCoopUnique("epic", () => 0)).toBe(true);
@@ -940,61 +940,83 @@ describe("coopBosses 카탈로그", () => {
 });
 
 describe("coopTierForRatio", () => {
-  it("임계 경계 — 미달 null·각 임계 도달 시 그 티어", () => {
+  it("최소 기여도를 채우면 기본, 그 위로 GOLD·EPIC·LEGEND", () => {
+    expect(COOP_TIER_ORDER).toEqual(["base", "gold", "epic", "legend"]);
+    expect(COOP_DEFAULT_MIN_CONTRIBUTION).toBe(0.05);
     expect(COOP_TIER_THRESHOLDS).toEqual({
-      bronze: 0.03,
-      silver: 0.1,
+      base: 0.05,
       gold: 0.2,
       epic: 0.3,
       legend: 0.35,
     });
     expect(coopTierForRatio(0)).toBeNull();
-    expect(
-      coopTierForRatio(COOP_TIER_THRESHOLDS.bronze - 0.0001),
-    ).toBeNull();
-    expect(coopTierForRatio(COOP_TIER_THRESHOLDS.bronze)).toBe("bronze");
-    expect(coopTierForRatio(COOP_TIER_THRESHOLDS.silver)).toBe("silver");
+    // 개편 전 BRONZE(3%) 구간은 이제 보상이 없다.
+    expect(coopTierForRatio(0.03)).toBeNull();
+    expect(coopTierForRatio(COOP_TIER_THRESHOLDS.base - 0.0001)).toBeNull();
+    expect(coopTierForRatio(COOP_TIER_THRESHOLDS.base)).toBe("base");
+    expect(coopTierForRatio(0.19)).toBe("base");
     expect(coopTierForRatio(COOP_TIER_THRESHOLDS.gold)).toBe("gold");
     expect(coopTierForRatio(COOP_TIER_THRESHOLDS.epic)).toBe("epic");
     expect(coopTierForRatio(COOP_TIER_THRESHOLDS.legend)).toBe("legend");
     expect(coopTierForRatio(1)).toBe("legend");
   });
 
-  it("하드 보스는 별도 기여 기준을 사용", () => {
+  it("하드 보스는 GOLD 기준만 다르고 최소 기여도는 같다", () => {
     expect(COOP_HARD_TIER_THRESHOLDS).toEqual({
-      bronze: 0.05,
-      silver: 0.1,
+      base: 0.05,
       gold: 0.18,
       epic: 0.3,
       legend: 0.35,
     });
-    expect(coopTierThresholdFor("bronze", "mountain_chief_hard")).toBe(
-      COOP_HARD_TIER_THRESHOLDS.bronze,
-    );
-    expect(
-      coopTierForRatio(
-        COOP_HARD_TIER_THRESHOLDS.bronze - 0.0001,
-        "mountain_chief_hard",
-      ),
-    ).toBeNull();
-    expect(
-      coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.bronze, "mountain_chief_hard"),
-    ).toBe("bronze");
-    expect(
-      coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.gold, "mountain_chief_hard"),
-    ).toBe("gold");
-    expect(
-      coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.legend, "mountain_chief_hard"),
-    ).toBe("legend");
-    expect(coopTierThresholdFor("bronze", "abyssal_tyrant")).toBe(
-      COOP_HARD_TIER_THRESHOLDS.bronze,
-    );
-    expect(coopTierThresholdFor("bronze", "canyon_predator_hard")).toBe(
-      COOP_HARD_TIER_THRESHOLDS.bronze,
-    );
-    expect(coopTierThresholdFor("bronze", "lake_sovereign_hard")).toBe(
-      COOP_HARD_TIER_THRESHOLDS.bronze,
-    );
+    for (const boss of [
+      "mountain_chief_hard",
+      "abyssal_tyrant",
+      "canyon_predator_hard",
+      "lake_sovereign_hard",
+    ] as const) {
+      expect(coopTierThresholdFor("base", boss)).toBe(0.05);
+      expect(coopTierThresholdFor("gold", boss)).toBe(0.18);
+    }
+    expect(coopTierForRatio(0.0499, "mountain_chief_hard")).toBeNull();
+    expect(coopTierForRatio(0.05, "mountain_chief_hard")).toBe("base");
+    expect(coopTierForRatio(0.18, "mountain_chief_hard")).toBe("gold");
+    expect(coopTierForRatio(0.35, "mountain_chief_hard")).toBe("legend");
+  });
+
+  it("기존 보스는 모두 최소 기여도 5%를 쓴다", () => {
+    for (const kind of Object.values(COOP_BOSSES)) {
+      expect(coopMinContributionFor(kind.id), kind.id).toBe(0.05);
+    }
+  });
+
+  it("보스마다 최소 기여도를 따로 둘 수 있다", () => {
+    // 여럿이 잡는 큰 보스: 2%만 넘어도 기본 보상.
+    const raid = { minContributionRatio: 0.02 };
+    expect(coopMinContributionFor(raid)).toBe(0.02);
+    expect(coopTierForRatio(0.019, raid)).toBeNull();
+    expect(coopTierForRatio(0.02, raid)).toBe("base");
+    expect(coopTierForRatio(0.2, raid)).toBe("gold");
+    // 최소 기여도가 추가 보상 기준보다 높으면 그 단계 기준도 함께 올라간다.
+    const strict = { minContributionRatio: 0.25 };
+    expect(coopTierThresholdsFor(strict)).toEqual({
+      base: 0.25,
+      gold: 0.25,
+      epic: 0.3,
+      legend: 0.35,
+    });
+    expect(coopTierForRatio(0.24, strict)).toBeNull();
+    expect(coopTierForRatio(0.25, strict)).toBe("gold");
+    // 잘못된 값은 공통 기본값으로 읽는다.
+    expect(coopMinContributionFor({ minContributionRatio: 0 })).toBe(0.05);
+    expect(coopMinContributionFor(null)).toBe(0.05);
+  });
+
+  it("개편 전 기록의 단계 이름도 읽는다", () => {
+    expect(coopTierLabel("base")).toBe("기본");
+    expect(coopTierLabel("legend")).toBe("LEGEND");
+    expect(coopTierLabel("bronze")).toBe("BRONZE");
+    expect(coopTierLabel("silver")).toBe("SILVER");
+    expect(coopTierLabel(null)).toBe("");
   });
 });
 

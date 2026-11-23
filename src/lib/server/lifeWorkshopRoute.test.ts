@@ -427,6 +427,142 @@ describe("life workshop route", () => {
     });
   });
 
+  it("고른 일반 품질 요리 3개로 유기질 거름 1개를 만든다", async () => {
+    store.set("inventory.v2", {
+      failedCookingDishes: 4,
+      cookingFoods: {
+        "food2:rustic_bread:normal:o0:s0": 7,
+        "food2:rustic_bread:careful:o0:s0": 5,
+      },
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { leftover_dish_compost: 1 } },
+    });
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "leftover_dish_compost",
+      quantity: 2,
+      foodId: "food2:rustic_bread:normal:o0:s0",
+    }));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.result).toMatchObject({
+      recipeId: "leftover_dish_compost",
+      itemId: "organic_fertilizer",
+      produced: 2,
+    });
+    expect(store.get("inventory.v2")).toEqual({
+      failedCookingDishes: 4,
+      cookingFoods: {
+        "food2:rustic_bread:normal:o0:s0": 1,
+        "food2:rustic_bread:careful:o0:s0": 5,
+      },
+    });
+    expect(store.get(LIFE_WORKSHOP_SAVE_KEY)).toMatchObject({
+      crafting: {
+        balances: { organic_fertilizer: 2 },
+        craftCounts: { leftover_dish_compost: 3 },
+      },
+    });
+    expect(json.compostableDishes).toEqual([
+      {
+        id: "food2:rustic_bread:normal:o0:s0",
+        name: "투박한 밀빵 (일반)",
+        count: 1,
+      },
+    ]);
+  });
+
+  it("정성작 이상 요리는 퇴비 재료로 받지 않는다", async () => {
+    const inventory = {
+      cookingFoods: { "food2:rustic_bread:careful:o0:s0": 9 },
+    };
+    store.set("inventory.v2", inventory);
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "leftover_dish_compost",
+      quantity: 1,
+      foodId: "food2:rustic_bread:careful:o0:s0",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ ok: false, error: "bad_dish" });
+    expect(store.get("inventory.v2")).toEqual(inventory);
+    expect(store.has(LIFE_WORKSHOP_SAVE_KEY)).toBe(false);
+  });
+
+  it("요리를 고르지 않으면 퇴비를 만들지 않는다", async () => {
+    store.set("inventory.v2", {
+      cookingFoods: { "food2:rustic_bread:normal:o0:s0": 9 },
+    });
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "leftover_dish_compost",
+      quantity: 1,
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ ok: false, error: "bad_dish" });
+    expect(store.has(LIFE_WORKSHOP_SAVE_KEY)).toBe(false);
+  });
+
+  it("고른 요리가 모자라면 퇴비 제작 상태를 변경하지 않는다", async () => {
+    const inventory = {
+      cookingFoods: { "food2:rustic_bread:normal:o0:s0": 2 },
+    };
+    store.set("inventory.v2", inventory);
+
+    const response = await POST(request({
+      action: "craft",
+      recipeId: "leftover_dish_compost",
+      quantity: 1,
+      foodId: "food2:rustic_bread:normal:o0:s0",
+    }));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: "not_enough_dishes",
+    });
+    expect(store.get("inventory.v2")).toEqual(inventory);
+    expect(store.has(LIFE_WORKSHOP_SAVE_KEY)).toBe(false);
+  });
+
+  it("GET은 일반 품질 요리만 많은 순서로 퇴비 재료 목록에 싣는다", async () => {
+    store.set("inventory.v2", {
+      cookingFoods: {
+        "food2:rustic_bread:normal:o0:s0": 4,
+        "food2:rustic_bread:normal:o1:s0": 20,
+        "food2:rustic_bread:masterpiece:o0:s0": 50,
+      },
+    });
+    store.set(LIFE_WORKSHOP_SAVE_KEY, {
+      crafting: { craftCounts: { leftover_dish_compost: 5 } },
+    });
+
+    const response = await GET();
+    const json = await response.json();
+    const recipe = json.craftingRecipes.find(
+      (entry: { id: string }) => entry.id === "leftover_dish_compost",
+    );
+
+    expect(json.compostableDishes.map((dish: { id: string; count: number }) => [dish.id, dish.count])).toEqual([
+      ["food2:rustic_bread:normal:o1:s0", 20],
+      ["food2:rustic_bread:normal:o0:s0", 4],
+    ]);
+    expect(recipe).toMatchObject({
+      normalDishCost: 3,
+      outputId: "organic_fertilizer",
+      outputAmount: 1,
+      batchLimit: 15,
+      maxCraftable: 6,
+    });
+  });
+
   it("비공개 숙소 가구는 직접 제작 요청도 거절한다", async () => {
     const response = await POST(request({
       action: "craft",

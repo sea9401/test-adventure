@@ -15,7 +15,8 @@ describe("rareMaps", () => {
       const k = RARE_MAP_KINDS[id];
       expect(k.runs).toBeGreaterThan(0);
       // exp_tome 은 테스트 전용 — 사냥 드랍 안 됨(dropPct 0, 관리자 지급 전용)이라 제외.
-      if (id === "exp_tome") continue;
+      // rename_map 은 건의 #877 로 더 이상 열리지 않는다.
+      if (id === "exp_tome" || id === "rename_map") continue;
       expect(k.dropPct).toBeGreaterThan(0);
       expect(k.dropPct).toBeLessThan(5); // "매우 낮음" 방침 가드
     }
@@ -30,6 +31,13 @@ describe("rareMaps", () => {
       name: "개명 신전 지도",
       category: "location",
     });
+  });
+
+  it("개명 신전 지도는 사냥에서 더 이상 열리지 않는다", () => {
+    expect(RARE_MAP_KINDS.rename_map.dropPct).toBe(0);
+    for (let i = 0; i < 2000; i++) {
+      expect(rollRareMapDrop(() => i / 2000, 1000)).not.toBe("rename_map");
+    }
   });
 
   it("newRareMapInstance — 종류 정의대로 판수 세팅", () => {

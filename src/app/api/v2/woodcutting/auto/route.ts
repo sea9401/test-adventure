@@ -1,13 +1,7 @@
-import {
-  gatheringSiteExtendedDurationMs,
-  gatheringSiteStage,
-} from "@/adventure/v2/gatheringSiteUpkeep";
-import { randomUUID } from "node:crypto";
-import { lifeMajorBonusPct, lifeXpOverflow } from "@/adventure/v2/lifeMajor";
+import { lifeXpOverflow } from "@/adventure/v2/lifeMajor";
 import {
   applyLifeMajorProgress,
   lifeMajorResponse,
-  readLifeMajorState,
   withMasterProduct,
 } from "@/lib/server/lifeMajor";
 import { db } from "@/db";
@@ -34,14 +28,10 @@ import {
 import {
   WOODCUTTING_LOG_KEY,
   isWoodcuttingTreeId,
-  parseWoodcuttingLog,
   parseWoodcuttingLogWithLevelMigration,
-  pickWoodcuttingTreeId,
   woodcuttingMaterialBalances,
 } from "@/adventure/v2/woodcuttingSession";
 import {
-  woodcuttingDurationWithPassive,
-  woodcuttingFailureRate,
   woodcuttingProgressionView,
   woodcuttingXpForLevel,
 } from "@/adventure/v2/woodcuttingProgression";
@@ -52,7 +42,6 @@ import {
   autoGatheringCompletedAttempts,
   beginAutoGathering,
   cancelAutoGathering,
-  createAutoGatheringSession,
   isAutoGatheringPlanId,
   settleAutoGathering,
   WOODCUTTING_AUTO_KEY,
@@ -62,10 +51,6 @@ import {
   lockActiveManualLifeActivity,
   lockAutoGatheringStatesForUpdate,
 } from "@/lib/server/lifeActivityLock";
-import {
-  equippedWoodcuttingBonuses,
-  parseV2SkillsState,
-} from "@/adventure/data/v2/v2Skills";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import {
   FARM_SAVE_KEY,
@@ -88,18 +73,13 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
-import { WOODCUTTING_TREE_FALL_MS } from "@/adventure/v2/woodcuttingAnimation";
 import {
-  LIFE_TOOL_BONUS_MATERIAL_PCT,
-  LIFE_TOOL_DURATION_REDUCTION_PCT,
   LIFE_WORKSHOP_SAVE_KEY,
-  lifeGatheringBonusPct,
   parseLifeWorkshopState,
 } from "@/adventure/v2/lifeWorkshop";
-import { consumeLifeAidUses, lifeAidSpec, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
+import { consumeLifeAidUses, rollHiddenBlueprint } from "@/adventure/v2/lifeCrafting";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
-  applyLifeFieldDurationReduction,
   lifeFieldEnvironmentSnapshot,
 } from "@/adventure/data/v2/lifeFieldEnvironment";
 import {
@@ -108,6 +88,12 @@ import {
 } from "@/adventure/v2/lifeFieldRecords";
 import { recordLifeFieldSuccessInTx } from "@/lib/server/lifeFieldProgress";
 import { readLifeFieldFeatureSettings } from "@/lib/server/opsSettings";
+import { buildWoodcuttingAutoSession } from "@/lib/server/autoGatheringSessionBuilder";
+import {
+  autoGatheringReservationResponse,
+  clearAutoGatheringReservationInTx,
+  startReservedAutoGatheringInTx,
+} from "@/lib/server/autoGatheringReservation";
 
 type CharSave = {
   class?: unknown;
@@ -133,6 +119,9 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as
     | { action?: unknown; spotId?: unknown; planId?: unknown }
     | null;
+  if (body?.action === "reserve" || body?.action === "unreserve") {
+    return autoGatheringReservationResponse(userId, "woodcutting", body);
+  }
   if (body?.action === "start") {
     if (typeof body.spotId !== "string" || !isWoodcuttingSpotId(body.spotId)) {
       return Response.json({ ok: false, error: "bad_spot" }, { status: 400 });
@@ -141,87 +130,18 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, error: "bad_plan" }, { status: 400 });
     }
     const now = Date.now();
-    const [logRaw, skillsRaw, guardRaw, workshopRaw, lifeFeatures] = await Promise.all([
-      readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
-      readSave(db, userId, "skills.v2", {}),
-      readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
-      readSave(db, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
-      readLifeFieldFeatureSettings(),
-    ]);
     const verificationRequired = activityVerificationGateResponse(
-      parseActivityGuardState(guardRaw),
+      parseActivityGuardState(await readSave(db, userId, ACTIVITY_GUARD_KEY, {})),
       "woodcutting",
     );
     if (verificationRequired) return verificationRequired;
 
-    const spotId = body.spotId;
-    const treeId = pickWoodcuttingTreeId(spotId);
-    const tree = WOODCUTTING_TREES[treeId];
-    const progression = woodcuttingProgressionView(
-      parseWoodcuttingLog(logRaw).cuts,
-      parseWoodcuttingLog(logRaw).xp,
+    const { session, materialName, lifeEnvironment } = await buildWoodcuttingAutoSession(
+      db,
+      userId,
+      body.spotId,
+      { planId: body.planId, now },
     );
-    const levelBonuses = woodcuttingPost50Bonuses(progression.level);
-    const bonuses = equippedWoodcuttingBonuses(
-      parseV2SkillsState(skillsRaw).equipped,
-    );
-    const workshop = parseLifeWorkshopState(workshopRaw);
-    const toolTier = workshop.tools.woodcutting;
-    const activeAid = workshop.crafting.activeAids.woodcutting;
-    const aidSpec = activeAid?.enabled ? lifeAidSpec(activeAid.itemId) : null;
-    const aidApplies = Boolean(aidSpec && tree.grade >= aidSpec.gradeMin && tree.grade <= aidSpec.gradeMax);
-    const durationReductionPct =
-      bonuses.durationReductionPct + LIFE_TOOL_DURATION_REDUCTION_PCT[toolTier];
-    const bonusMaterialRate = Math.min(
-      1,
-      (bonuses.bonusLogChancePct +
-        LIFE_TOOL_BONUS_MATERIAL_PCT[toolTier] +
-        lifeGatheringBonusPct("woodcutting", workshop, progression.level) +
-        levelBonuses.bonusLogChancePct +
-        lifeFestivalBonus("woodcutting", new Date(now)).chancePct +
-        lifeMajorBonusPct(await readLifeMajorState(db, userId), "woodcutting")) /
-        100,
-    );
-    const baseCycleDurationMs = woodcuttingDurationWithPassive(
-      tree.durationMs,
-      progression.level,
-      durationReductionPct,
-    );
-    const lifeEnvironment = lifeFeatures.environmentEnabled
-      ? lifeFieldEnvironmentSnapshot("woodcutting", spotId, now)
-      : null;
-    const cycleDurationMs = applyLifeFieldDurationReduction(
-      tree.durationMs,
-      baseCycleDurationMs,
-      lifeEnvironment?.environment.effect.durationReductionPct ?? 0,
-    );
-    const failureRate =
-      woodcuttingFailureRate(tree.baseFailureRate, progression.level) *
-      (1 - bonuses.failureReductionPct / 100);
-    const successRate = 1 - failureRate * (1 - bonuses.failureRecoveryPct / 100);
-    const session = createAutoGatheringSession({
-      sessionId: randomUUID(),
-      sourceId: treeId,
-      sourceName: tree.name,
-      materialId: tree.materialId,
-      planId: body.planId,
-      extendedDurationMs: gatheringSiteExtendedDurationMs(
-        gatheringSiteStage(workshop.siteUpkeep ?? {}, treeId),
-      ),
-      now,
-      cycleDurationMs: cycleDurationMs + WOODCUTTING_TREE_FALL_MS,
-      successRate,
-      bonusMaterialRate,
-      baseXp: tree.xp,
-      aidItemId: aidApplies ? activeAid?.itemId : undefined,
-      aidBonusMaterialRate: aidApplies ? (aidSpec?.bonusPct ?? 0) / 100 : 0,
-      spotId,
-      lifeEnvironmentId: lifeEnvironment?.environment.id,
-      lifeEnvironmentDayKey: lifeEnvironment?.dayKey,
-      environmentPrimaryBonusChance:
-        lifeEnvironment?.environment.effect.primaryBonusChance,
-      environmentXpBonusPct: lifeEnvironment?.environment.effect.xpBonusPct,
-    });
     const startResult = await db.transaction(async (tx) => {
       const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
       const activeAutoActivity = activeAutoGatheringActivity(autoStates);
@@ -236,6 +156,7 @@ export async function POST(req: Request) {
       if (activeManualActivity) {
         return { error: "manual_active" as const, activeManualActivity };
       }
+      await clearAutoGatheringReservationInTx(tx, userId);
       await upsertSave(
         tx,
         userId,
@@ -251,7 +172,7 @@ export async function POST(req: Request) {
       ok: true,
       serverNow: Date.now(),
       autoSession: startResult.session,
-      materialName: WOODCUTTING_MATERIALS[tree.materialId].name,
+      materialName,
       lifeEnvironment,
     });
   }
@@ -479,6 +400,15 @@ export async function POST(req: Request) {
       };
     }
     await upsertSaves(tx, userId, dirtySaves);
+    // 예약해 둔 다음 작업이 있으면 이어서 시작한 것으로 올린다.
+    const reserved = await startReservedAutoGatheringInTx(tx, userId, {
+      settledActivity: "woodcutting",
+      settledSession: session,
+      settledState: settlement.state,
+      otherState: autoStates.mining,
+      canceled: canceling,
+      now,
+    });
     return {
       settlement,
       lifeMajor: lifeMajorResponse(lifeMajorProgress),
@@ -495,7 +425,11 @@ export async function POST(req: Request) {
       materials: woodcuttingMaterialBalances(materials),
       log,
       canceled: canceling,
-      activeAutoActivity: autoStates.mining.session ? "mining" as const : null,
+      activeAutoActivity:
+        reserved.chained?.activity ??
+        (autoStates.mining.session ? ("mining" as const) : null),
+      chainedAuto: reserved.chained,
+      reservationDropped: reserved.dropped,
       blueprintRecipeId: blueprint.recipe?.id ?? null,
       discoveryRewardGained,
       discoveryRewardXp,
@@ -565,6 +499,10 @@ export async function POST(req: Request) {
     log: result.log,
     autoSession: null,
     activeAutoActivity: result.activeAutoActivity,
+    serverNow: Date.now(),
+    chainedAuto: result.chainedAuto,
+    autoReservation: null,
+    ...(result.reservationDropped ? { reservationDropped: true } : {}),
     ...(result.levelCurveMigrated ? { levelCurveMigrated: true } : {}),
   });
 }

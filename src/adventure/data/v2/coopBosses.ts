@@ -101,22 +101,26 @@ export function coopCriticalDamageFromLog(log: readonly BattleLogEntry[]): numbe
   }, 0);
 }
 
-// === 보상 티어 =========================================================
-// 누적 데미지 / maxHp 비율 임계 — v1 협동 보스와 동일 5단계(검증된 값 승계).
+// === 보상 단계 =========================================================
+// 2026-11-24(오너): 보스가 죽었을 때 최소 기여도를 채운 사람은 모두 같은 기본 보상을 받고,
+//   누적 피해 비율이 높으면 그 위에 GOLD·EPIC·LEGEND 추가 보상 단계로 올라간다.
+//   기존 보스의 최소 기여도는 5%다(오너 결정). 전에는 BRONZE(3%)·SILVER(10%)가 따로 있었고 사람이 늘수록 각자 몫이 줄어 보스를 공개할 이유가 없었다.
+//   최소 기여도는 보스마다 다르게 둘 수 있다(CoopBossKind.minContributionRatio).
 
-export type CoopRewardTier = "bronze" | "silver" | "gold" | "epic" | "legend";
+export type CoopRewardTier = "base" | "gold" | "epic" | "legend";
 
 export const COOP_TIER_ORDER: CoopRewardTier[] = [
-  "bronze",
-  "silver",
+  "base",
   "gold",
   "epic",
   "legend",
 ];
 
+/** 기본 보상을 받는 최소 기여도(누적 피해 / 최대 체력). 보스에 따로 정하지 않았을 때의 값. */
+export const COOP_DEFAULT_MIN_CONTRIBUTION = 0.05;
+
 export const COOP_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
-  bronze: 0.03,
-  silver: 0.1,
+  base: COOP_DEFAULT_MIN_CONTRIBUTION,
   gold: 0.2,
   epic: 0.3,
   // 선공자가 기여도를 쌓은 뒤 공개한 보스도 다른 이용자가 마무리할 동기를 얻도록 완화한다.
@@ -124,20 +128,34 @@ export const COOP_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
 };
 
 export const COOP_HARD_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
-  bronze: 0.05,
-  silver: 0.1,
+  base: COOP_DEFAULT_MIN_CONTRIBUTION,
   gold: 0.18,
   epic: 0.3,
   legend: 0.35,
 };
 
 export const COOP_TIER_LABEL: Record<CoopRewardTier, string> = {
-  bronze: "BRONZE",
-  silver: "SILVER",
+  base: "기본",
   gold: "GOLD",
   epic: "EPIC",
   legend: "LEGEND",
 };
+
+// 개편 전에 받은 보상 기록에는 옛 단계 이름이 남아 있다.
+const COOP_LEGACY_TIER_LABEL: Record<string, string> = {
+  bronze: "BRONZE",
+  silver: "SILVER",
+};
+
+/** 화면 표시용 단계 이름. 개편 전 기록의 옛 단계도 읽는다. */
+export function coopTierLabel(tier: string | null | undefined): string {
+  if (!tier) return "";
+  return (
+    (COOP_TIER_LABEL as Record<string, string>)[tier] ??
+    COOP_LEGACY_TIER_LABEL[tier] ??
+    tier
+  );
+}
 
 export type CoopBossDifficulty = "normal" | "hard";
 
@@ -153,25 +171,51 @@ export function coopBossDifficultyOf(
     : "normal";
 }
 
+type CoopTierKindRef =
+  | CoopBossKindId
+  | { difficulty?: CoopBossDifficulty; minContributionRatio?: number }
+  | null;
+
+/** 그 보스의 기본 보상 최소 기여도. 보스에 값이 없으면 공통 기본값. */
+export function coopMinContributionFor(kind?: CoopTierKindRef): number {
+  const own =
+    typeof kind === "string"
+      ? COOP_BOSSES[kind]?.minContributionRatio
+      : kind?.minContributionRatio;
+  return typeof own === "number" && own > 0 && own <= 1
+    ? own
+    : COOP_DEFAULT_MIN_CONTRIBUTION;
+}
+
 export function coopTierThresholdsFor(
-  kind?: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null,
+  kind?: CoopTierKindRef,
 ): Record<CoopRewardTier, number> {
-  return coopBossDifficultyOf(kind) === "hard"
-    ? COOP_HARD_TIER_THRESHOLDS
-    : COOP_TIER_THRESHOLDS;
+  const thresholds =
+    coopBossDifficultyOf(kind) === "hard"
+      ? COOP_HARD_TIER_THRESHOLDS
+      : COOP_TIER_THRESHOLDS;
+  const base = coopMinContributionFor(kind);
+  if (base === thresholds.base) return thresholds;
+  // 최소 기여도가 추가 보상 기준보다 높은 보스는 그 단계 기준도 함께 끌어올린다.
+  return {
+    base,
+    gold: Math.max(base, thresholds.gold),
+    epic: Math.max(base, thresholds.epic),
+    legend: Math.max(base, thresholds.legend),
+  };
 }
 
 export function coopTierThresholdFor(
   tier: CoopRewardTier,
-  kind?: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null,
+  kind?: CoopTierKindRef,
 ): number {
   return coopTierThresholdsFor(kind)[tier];
 }
 
-/** 누적 데미지 비율(0~1) → 도달한 최고 티어. bronze 미달이면 null. */
+/** 누적 데미지 비율(0~1) → 도달한 최고 단계. 최소 기여도에 못 미치면 null. */
 export function coopTierForRatio(
   ratio: number,
-  kind?: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null,
+  kind?: CoopTierKindRef,
 ): CoopRewardTier | null {
   const thresholds = coopTierThresholdsFor(kind);
   let achieved: CoopRewardTier | null = null;
@@ -182,21 +226,20 @@ export function coopTierForRatio(
   return achieved;
 }
 
-// === 보상 = SP 열매 (단일 보상·티어별 확률 굴림) ========================
-// 협동 보스 보상 개편(2026-06-26·오너): 골드·유니크·칭호 보상 폐지. 보상은 **SP 열매**뿐.
-//   도달한 각 보상 티어를 **독립 굴림**한다 — 통과 시 그 보스 등급 열매 1개. BRONZE/SILVER 는
-//   0(GOLD 부터). LEGEND 도달 = GOLD+EPIC+LEGEND 세 번 굴림 = 최대 3개. 전 보스 공통 확률.
+// === 보상 = SP 열매 (단계별 확률 굴림) ==================================
+// 도달한 각 보상 단계를 **독립 굴림**한다 — 통과 시 그 보스 등급 열매 1개.
+//   기본 보상에 굴림 1번이 들어 있고 EPIC·LEGEND에서 한 번씩 더 굴린다(LEGEND 최대 3개).
+//   개편 전에는 첫 굴림이 GOLD(20%)에 있었다. 확률 합은 그대로다. 전 보스 공통.
 //   ⚠️ 캘리브 다이얼. 열매 등급은 보스 고유(산악→I·협곡→II·호수→III·공허→IV, spFruit.fruitTierForBoss).
 export const COOP_SP_FRUIT_CHANCE: Record<CoopRewardTier, number> = {
-  bronze: 0,
-  silver: 0,
-  gold: 0.05, // 라이브 하향(2026-07-30) — 10%→5%
+  base: 0.05, // 라이브 하향(2026-07-30) — 10%→5%. 2026-11-24 GOLD → 기본으로 이동
+  gold: 0,
   epic: 0.075, // 15%→7.5%
   legend: 0.1, // 20%→10%
 };
 
 // 도달 티어까지 SP 열매 굴림(순수). rng() ∈ [0,1). 보상 가능 티어(확률>0) 중 도달한 것을
-//   각각 독립 굴림 → 통과 수 = 획득 개수(0~3). reachedTier=null(브론즈 미달)이면 0.
+//   각각 독립 굴림 → 통과 수 = 획득 개수(0~3). reachedTier=null(최소 기여도 미달)이면 0.
 export function rollCoopSpFruits(
   reachedTier: CoopRewardTier | null,
   rng: () => number,
@@ -207,7 +250,7 @@ export function rollCoopSpFruits(
   for (const t of COOP_TIER_ORDER) {
     if (COOP_TIER_ORDER.indexOf(t) > reachedIdx) break; // 미도달 티어
     const chance = COOP_SP_FRUIT_CHANCE[t];
-    if (chance <= 0) continue; // 보상 없는 티어(bronze/silver)
+    if (chance <= 0) continue; // 굴림이 없는 단계
     if (rng() < chance) count++;
   }
   return count;
@@ -226,8 +269,7 @@ export function coopSpFruitMaxAt(tier: CoopRewardTier | null): number {
 // 보상 개편 후 유니크는 SP 열매와 별개의 희귀 트로피. 도달 티어 단일 굴림(누적 아님)으로 1개.
 //   GOLD 이하 0 — 상위 기여자만. ⚠️ 캘리브 다이얼. 어떤 유니크인지는 보스 uniqueIds.
 export const COOP_UNIQUE_CHANCE: Record<CoopRewardTier, number> = {
-  bronze: 0,
-  silver: 0,
+  base: 0,
   gold: 0,
   epic: 0.12, // 라이브 상향(2026-06-26) — 5%→12%
   legend: 0.25, // 라이브 상향 — 12%→25%
@@ -398,6 +440,11 @@ export type CoopBossKind = {
   /** 일반 소환서 대신 소비할 보스별 거래 가능 소환석. */
   summonMaterialId?: string;
   difficulty?: CoopBossDifficulty;
+  /**
+   * 기본 보상을 받는 최소 기여도(누적 피해 / 최대 체력). 없으면 COOP_DEFAULT_MIN_CONTRIBUTION.
+   * 여럿이 잡는 큰 보스는 한 사람 몫이 작아지므로 낮게 잡는다.
+   */
+  minContributionRatio?: number;
   name: string;
   /** 보스 상세 화면 플레이버 한 줄. */
   desc: string;

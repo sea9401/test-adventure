@@ -112,6 +112,33 @@ describe("6시간 전 품목 입찰 경매", () => {
     });
   });
 
+  it("자동 인하 재등록 여부는 판매자 본인에게만 알린다", () => {
+    const row = {
+      id: 1,
+      price: 80,
+      sellerId: "seller",
+      sellerName: "판매자이름",
+      highestBidderId: null,
+      highestBid: null,
+      autoRelistLeft: 1,
+      autoRelistCutPct: 45,
+    };
+    const forBuyer = marketplacePublicListing(row, "viewer");
+    expect(forBuyer).not.toHaveProperty("autoRelist");
+    expect(forBuyer).not.toHaveProperty("autoRelistLeft");
+    expect(forBuyer).not.toHaveProperty("autoRelistCutPct");
+    const forSeller = marketplacePublicListing(row, "seller");
+    expect(forSeller).toMatchObject({
+      isMine: true,
+      autoRelist: true,
+      autoRelistCutPct: 45,
+    });
+    expect(forSeller).not.toHaveProperty("autoRelistLeft");
+    const off = marketplacePublicListing({ ...row, autoRelistLeft: 0 }, "seller");
+    expect(off).not.toHaveProperty("autoRelist");
+    expect(off).not.toHaveProperty("autoRelistCutPct");
+  });
+
   it("공개 매물에서는 판매자 이름·ID와 입찰자 ID를 제거한다", () => {
     const listing = marketplacePublicListing(
       {
@@ -330,7 +357,8 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     // 2026-10-10: 생활 전공 명장 산물 4종 추가(123 → 127). 2026-10-11: 단련 촉매(→ 128).
     // 2026-11-13: 전투 준비물(숫돌·보강재) 8종 추가(→ 136). 같은 날 어유 4종 추가(→ 140).
     // 2026-11-15: 세공 보석 3종 추가(→ 143).
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(143);
+    // 2026-11-24: 상급 강화석 2종 추가(→ 145).
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(145);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(
         id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",

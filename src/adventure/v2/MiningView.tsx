@@ -21,9 +21,11 @@ import { MINING_SETTLE_MS, miningAnimationFrame } from "./miningAnimation";
 import { ActivityVerificationGate } from "./ActivityVerificationGate";
 import {
   AutoGatheringCard,
+  type AutoGatheringChainView,
   type AutoGatheringResultView,
   type AutoGatheringSessionView,
 } from "./AutoGatheringCard";
+import type { AutoGatheringReservation } from "./autoGatheringReservation";
 import type {
   AutoGatheringActivity,
   AutoGatheringPlanId,
@@ -113,6 +115,13 @@ export type MiningHandlers = {
   ) => Promise<void>;
   claimAuto: () => Promise<void>;
   cancelAuto: () => Promise<void>;
+  autoReservation?: AutoGatheringReservation | null;
+  autoReservationAllowed?: boolean;
+  autoChain?: AutoGatheringChainView | null;
+  autoReservationDropped?: boolean;
+  reserveAuto?: (spotId: MiningSpotId, planId: AutoGatheringPlanId) => Promise<void>;
+  unreserveAuto?: () => Promise<void>;
+  restartAuto?: (spotId: MiningSpotId, planId: AutoGatheringPlanId) => Promise<void>;
   verification?: ActivityVerificationChallenge | null;
   verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
@@ -494,6 +503,13 @@ export function MiningView({
   startAuto,
   claimAuto,
   cancelAuto,
+  autoReservation = null,
+  autoReservationAllowed = false,
+  autoChain = null,
+  autoReservationDropped = false,
+  reserveAuto,
+  unreserveAuto,
+  restartAuto,
   verification,
   verifyHuman,
   onBack,
@@ -693,12 +709,28 @@ export function MiningView({
               ? async () => {
                   const restartSpotId = autoSession.spotId as MiningSpotId;
                   const restartPlanId = autoSession.planId;
+                  if (restartAuto) {
+                    await restartAuto(restartSpotId, restartPlanId);
+                    return;
+                  }
                   await claimAuto();
                   await startAuto(restartSpotId, restartPlanId, true);
                 }
               : undefined
           }
           onCancel={cancelAuto}
+          spotName={selectedSpot.name}
+          reservation={autoReservation}
+          reservationAllowed={autoReservationAllowed}
+          chain={autoChain}
+          reservationDropped={autoReservationDropped}
+          onReserve={
+            reserveAuto
+              ? (selectedSpotId, planId) =>
+                  reserveAuto(selectedSpotId as MiningSpotId, planId)
+              : undefined
+          }
+          onUnreserve={unreserveAuto}
         />
       ) : null}
 

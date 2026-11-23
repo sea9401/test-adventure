@@ -1,5 +1,11 @@
 import { LIBERATION_LOCK_GOLD_PER_LINE } from "@/adventure/v2/gemCutting";
-import { ENHANCE_CATALYST_DEMOTE_SHIFT } from "@/adventure/data/v2/v2Enhance";
+import {
+  ENHANCE_CATALYST_DEMOTE_SHIFT,
+  SUPERIOR_BLUE_DESTROY_GUARD,
+  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+  SUPERIOR_ENHANCE_STONE_FROM,
+  SUPERIOR_RED_SUCCESS_BONUS,
+} from "@/adventure/data/v2/v2Enhance";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
 export function EnhanceContent() {
@@ -43,9 +49,23 @@ export function EnhanceContent() {
             <Em key="b">푸른 강화석</Em>,
             "지킴형. +12 도전까지 파괴를 완전히 막고, +13 도전부터 파괴 위험을 크게 낮춥니다.",
           ],
+          [
+            <Em key="sr">상급 붉은 강화석</Em>,
+            `+${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 씁니다. 성공 확률을 ${SUPERIOR_RED_SUCCESS_BONUS}%p 올리고 파괴 확률은 늘리지 않습니다.`,
+          ],
+          [
+            <Em key="sb">상급 푸른 강화석</Em>,
+            `+${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 씁니다. +${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전은 파괴되지 않고, 그 뒤로는 파괴 확률을 ${SUPERIOR_BLUE_DESTROY_GUARD}%p 낮춥니다.`,
+          ],
         ]}
       />
       <UL>
+        <li>
+          <Em>상급 강화석</Em>은 대장간의 조합 탭에서 같은 색 강화석{" "}
+          {SUPERIOR_ENHANCE_STONE_COMBINE_COST}개를 합쳐 만듭니다. 한 번에 드는
+          개수는 일반 강화석과 같고, 같은 장비를 재료로 넣어 대신할 수는 없습니다.
+          거래소에서 사고팔 수 있습니다.
+        </li>
         <li>
           <Em>+10은 안전 체크포인트</Em>라서, +10→+11 시도에서 하락이
           나와도 +9로 내려가지 않습니다.

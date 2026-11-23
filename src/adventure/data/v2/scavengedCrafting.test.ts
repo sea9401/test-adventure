@@ -44,7 +44,10 @@ describe("scavenged crafting materials", () => {
 
   it("crafts only naturally droppable maps while preserving rarity order", () => {
     expect(rollCraftedRareMapKind(() => 0)).toBe("worn_map");
-    expect(rollCraftedRareMapKind(() => 0.999999)).toBe("rename_map");
+    expect(rollCraftedRareMapKind(() => 0.999999)).toBe("secret_shop_map");
+    for (let i = 0; i < 1000; i++) {
+      expect(rollCraftedRareMapKind(() => i / 1000)).not.toBe("rename_map");
+    }
     expect(rollCraftedRareMapKind(() => 1)).not.toBe("exp_tome");
   });
 

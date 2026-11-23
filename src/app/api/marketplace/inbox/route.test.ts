@@ -7,6 +7,18 @@ const mocks = vi.hoisted(() => ({
   conditions: [] as unknown[],
 }));
 
+const cosmeticMocks = vi.hoisted(() => ({
+  avatarIds: [] as string[][],
+}));
+
+vi.mock("@/lib/server/museunCosmetics", () => ({
+  readProfileAvatarMap: vi.fn(async (ids: string[]) => {
+    cosmeticMocks.avatarIds.push([...ids]);
+    return new Map(ids.map((id) => [id, `avatar-of-${id}`]));
+  }),
+  readMuseunCosmeticAppearanceMap: vi.fn(async () => new Map()),
+}));
+
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u1"),
 }));
@@ -80,6 +92,7 @@ const completedMessage = {
 beforeEach(() => {
   mocks.results.length = 0;
   mocks.conditions.length = 0;
+  cosmeticMocks.avatarIds.length = 0;
 });
 
 function compiledConditions(): string[] {
@@ -127,6 +140,59 @@ describe("GET /api/marketplace/inbox", () => {
         '"marketplace_inbox"."recipient_deleted_at" is null',
       ),
     );
+  });
+
+  it("사람이 보낸 우편에만 보낸 사람의 프사를 붙인다", async () => {
+    const anonymousSale = {
+      ...pendingReward,
+      id: 9,
+      kind: "sale_proceeds",
+      fromName: "구매자",
+      fromUserId: "u-buyer",
+    };
+    mocks.results.push([pendingMessage, pendingReward, anonymousSale], []);
+
+    const response = await GET(new Request("http://t/api/marketplace/inbox"));
+    const json = await response.json();
+    const byId = new Map(
+      json.items.map((item: { id: number; person: unknown }) => [
+        item.id,
+        item.person,
+      ]),
+    );
+
+    expect(byId.get(1)).toEqual({
+      name: "모험가",
+      avatar: "avatar-of-u2",
+      profileBorder: null,
+    });
+    expect(byId.get(2)).toBeNull();
+    // 거래소 체결 상대는 익명이라 프사도 붙이지 않는다.
+    expect(byId.get(9)).toBeNull();
+    expect(cosmeticMocks.avatarIds).toEqual([["u2"]]);
+  });
+
+  it("보낸 우편에는 받는 사람의 프사를 붙인다", async () => {
+    mocks.results.push([
+      {
+        ...pendingMessage,
+        id: 4,
+        fromUserId: "u1",
+        recipientUserId: "u-friend",
+        recipientName: "받는이",
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://t/api/marketplace/inbox?sent=1"),
+    );
+    const json = await response.json();
+
+    expect(json.items[0].person).toEqual({
+      name: "받는이",
+      avatar: "avatar-of-u-friend",
+      profileBorder: null,
+    });
   });
 
   it("수신자의 삭제 여부와 무관하게 발신자의 보낸 우편 기록을 유지한다", async () => {

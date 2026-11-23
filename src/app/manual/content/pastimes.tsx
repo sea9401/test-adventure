@@ -107,6 +107,10 @@ import {
 import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
+import { LIFE_CRAFTING_RECIPE_BY_ID } from "@/adventure/v2/lifeCrafting";
+
+const LEFTOVER_DISH_COMPOST_COST =
+  LIFE_CRAFTING_RECIPE_BY_ID.get("leftover_dish_compost")?.normalDishCost ?? 3;
 
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
 const BATTLE_PREP_MASTER_HOURS =
@@ -465,6 +469,11 @@ export function PastimesContent() {
           밀가루·버터·치즈·육수·소스·크림은 농장·목장 재료로 직접 가공합니다. 요리 직업과
           장착 생활 스킬의 경험치·품질·재료 절약 보너스도 계속 적용됩니다.
         </li>
+        <li>
+          남는 <Em>일반 품질 요리</Em>는 생활 조합 작업장의 생활 제작 탭에서 한 종류{" "}
+          {LEFTOVER_DISH_COMPOST_COST}개를 유기질 거름 1개로 바꿀 수 있습니다. 정성작 이상은
+          재료로 쓰지 않습니다.
+        </li>
       </UL>
       <CookingBranchManualSection />
 
@@ -538,6 +547,19 @@ export function PastimesContent() {
         <li>
           자동 벌목과 자동 채광은 동시에 실행할 수 없습니다. 둘 중 하나가 진행
           중이면 낚시와 수동 벌목·채광도 잠깁니다.
+        </li>
+        <li>
+          월간 모험 지원권 이용 중에는 자동 작업이 도는 동안 <Em>다음 작업 1건</Em>을
+          예약할 수 있습니다. 벌목·채광 어느 쪽이든, 어느 채집지든 고를 수 있습니다.
+          예약한 작업은 앞 작업이 끝난 시각에 시작한 것으로 계산하므로, 나중에
+          들어와 앞 작업의 보상을 받으면 예약한 작업이 그만큼 진행되어 있습니다.
+          앞 작업을 중간에 중단하면 예약한 작업이 그때 바로 시작됩니다. 작업
+          시간은 예약할 때의 정비 단계로 정해지고, 예약은 언제든 취소할 수
+          있습니다.
+        </li>
+        <li>
+          예약이 있으면 앞 작업이 끝나도 완료 알림을 보내지 않고, 예약한 작업까지
+          끝난 뒤에 한 번 알립니다.
         </li>
         <li>
           완료 전에 중단하면 <Em>진행분 정산</Em>을 통해 중단 시점까지

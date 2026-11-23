@@ -39,7 +39,8 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     class: "none",
     level: 1,
     tier: 1,
-    battleCount: 0,
+    // 기초 튜토리얼은 첫 전투를 치른 뒤에 열린다.
+    battleCount: 1,
     frontierDepth: 2,
     equippedCount: 0,
     uniqueAcquired: 0,
@@ -103,6 +104,7 @@ vi.mock("@/lib/server/grantTitle", () => ({
 
 import { POST } from "@/app/api/v2/me/quests/claim/route";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import { buildQuestCtx } from "@/lib/server/v2QuestContext";
 
 function claimReq(questId: string): Request {
   return new Request("http://t/api/v2/me/quests/claim", {
@@ -145,6 +147,50 @@ describe("POST /api/v2/me/quests/claim", () => {
     };
     expect(char.gold).toBe(10_000);
     expect(char.bankedGold).toBe(250);
+  });
+
+  it("성장 패스 단계를 받으면 귀속 회복약과 숙련 증서가 들어오고 신규 모험가는 회복약을 더 받는다", async () => {
+    const base = vi.mocked(buildQuestCtx).getMockImplementation()!;
+    vi.mocked(buildQuestCtx).mockImplementation((args) => ({
+      ...base(args),
+      maxJobTier: 4,
+      newcomer: true,
+    }));
+    store.set("inventory.v2", { masteryCertificates: 40, v2_herb: 3 });
+    store.set("stamina-potions.v1", { count: 2, boundCount: 1 });
+
+    try {
+      const res = await POST(claimReq("gp_tier4"));
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toMatchObject({
+        ok: true,
+        questId: "gp_tier4",
+        reward: {
+          staminaPotions: 0,
+          boundStaminaPotions: 10,
+          masteryCertificates: 1_000,
+        },
+      });
+      expect(store.get("stamina-potions.v1")).toEqual({ count: 12, boundCount: 11 });
+      expect(store.get("inventory.v2")).toEqual({
+        masteryCertificates: 1_040,
+        v2_herb: 3,
+      });
+      expect(store.get("guide-quests.v2")).toEqual({ claimed: ["gp_tier4"] });
+
+      // 같은 단계를 다시 받을 수 없다.
+      const again = await POST(claimReq("gp_tier4"));
+      expect(again.status).not.toBe(200);
+      expect(store.get("stamina-potions.v1")).toEqual({ count: 12, boundCount: 11 });
+    } finally {
+      vi.mocked(buildQuestCtx).mockImplementation(base);
+    }
+  });
+
+  it("3차 직업에 도달하지 않은 계정은 성장 패스 단계를 받을 수 없다", async () => {
+    const res = await POST(claimReq("gp_tier4"));
+    expect(res.status).not.toBe(200);
+    expect(store.has("stamina-potions.v1")).toBe(false);
   });
 
   it("이미 수령한 퀘스트에 나중에 붙은 칭호는 칭호만 소급 지급한다", async () => {

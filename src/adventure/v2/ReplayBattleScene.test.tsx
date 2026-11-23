@@ -49,6 +49,45 @@ describe("전투 로그 표시 방식", () => {
     expect(html).not.toContain("전투가 시작됐다.");
   });
 
+  it("결과 화면에 주 행동과 보조 행동 버튼을 함께 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <ReplayBattleScene
+        {...commonProps}
+        outcome="win"
+        outcomeAction={{
+          label: "보상 받으러 가기",
+          onClick: vi.fn(),
+          secondary: {
+            label: "100층 연습 재도전",
+            onClick: vi.fn(),
+            disabled: true,
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("보상 받으러 가기");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>.*100층 연습 재도전/);
+  });
+
+  it("전용 페이지에서도 보조 행동 버튼을 표시한다", () => {
+    const html = renderToStaticMarkup(
+      <ReplayBattleScene
+        {...commonProps}
+        presentation="page"
+        outcome="win"
+        outcomeAction={{
+          label: "100층 연습 재도전",
+          onClick: vi.fn(),
+          secondary: { label: "탑으로 돌아가기", onClick: vi.fn() },
+        }}
+      />,
+    );
+
+    expect(html).toContain("100층 연습 재도전");
+    expect(html).toContain("탑으로 돌아가기");
+  });
+
   it("전용 페이지에서는 전체 로그를 자연 흐름으로 표시한다", () => {
     const html = renderToStaticMarkup(
       <ReplayBattleScene {...commonProps} presentation="page" />,

@@ -36,6 +36,9 @@ import {
 } from "@/adventure/v2/V2ItemCard";
 import { InventoryItemIcon } from "@/adventure/v2/inventory/InventoryItemIcon";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { PersonThumb } from "@/components/ui/PersonThumb";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
   isTradeSuspensionMessagePayload,
   tradeSuspensionMessage,
@@ -50,6 +53,9 @@ type WarehouseActivity = {
   id: number;
   action: WarehouseAction;
   actorName: string;
+  /** 줄 머리 프사. 예전 응답에는 없을 수 있다. */
+  actorAvatar?: Avatar | null;
+  actorProfileBorder?: ProfileBorderId | null;
   meta: {
     itemName?: string;
     itemKind?: WarehouseKind;
@@ -622,9 +628,17 @@ export function GuildWarehousePanel() {
                 key={entry.id}
                 className="flex items-center gap-2 px-3 py-2 text-xs"
               >
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.action === "deposit" ? "bg-blue-500" : "bg-indigo-500"}`}
-                />
+                {entry.actorAvatar ? (
+                  <PersonThumb
+                    avatar={entry.actorAvatar}
+                    name={entry.actorName}
+                    profileBorder={entry.actorProfileBorder}
+                  />
+                ) : (
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.action === "deposit" ? "bg-blue-500" : "bg-indigo-500"}`}
+                  />
+                )}
                 <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
                   {entry.actorName} · {entry.meta?.itemName ?? "아이템"}{" "}
                   {entry.meta?.itemKind === "material"

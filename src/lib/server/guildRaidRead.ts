@@ -150,6 +150,7 @@ export async function readGuildRaidState(
     db
       .select({
         id: guildRaidAttackLogs.id,
+        userId: guildRaidAttackLogs.userId,
         name: guildRaidAttackLogs.name,
         guildId: guildRaidAttackLogs.guildId,
         damageDealt: guildRaidAttackLogs.damageDealt,
@@ -168,8 +169,11 @@ export async function readGuildRaidState(
       .offset(recentPage.offset)
       .limit(recentPage.limit),
   ]);
-  // 길드원 기여도 줄 머리 프사 — 참여 길드원 묶음으로 한 번씩 읽는다.
-  const memberUserIds = memberRows.map((member) => member.userId);
+  // 길드원 기여도·최근 전투 기록 줄 머리 프사 — 나오는 사람 묶음으로 한 번씩 읽는다.
+  const memberUserIds = [
+    ...memberRows.map((member) => member.userId),
+    ...recentRows.map((attack) => attack.userId),
+  ];
   const [memberAvatarByUser, memberCosmeticByUser] = await Promise.all([
     readProfileAvatarMap(memberUserIds),
     readMuseunCosmeticAppearanceMap(memberUserIds),
@@ -278,6 +282,9 @@ export async function readGuildRaidState(
       id: attack.id,
       name: attack.name,
       guildId: attack.guildId,
+      avatar: memberAvatarByUser.get(attack.userId) ?? "male1",
+      profileBorder:
+        memberCosmeticByUser.get(attack.userId)?.profileBorder ?? null,
       damageDealt: attack.damageDealt,
       stagesCleared: Math.max(0, attack.stageAfter - attack.stageBefore),
       at: attack.createdAt.getTime(),

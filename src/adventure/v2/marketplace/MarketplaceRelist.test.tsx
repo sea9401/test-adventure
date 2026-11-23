@@ -94,7 +94,7 @@ describe("유찰 내역의 다시 올리기", () => {
 });
 
 describe("경매 설정의 유찰 시 자동 인하 재등록", () => {
-  it("바꿀 수 있는 화면에서만 체크박스를 보여 준다", async () => {
+  it("바꿀 수 있는 화면에서만 설정을 보여 주고 켜면 인하 폭을 적게 한다", async () => {
     const { MarketplaceAuctionSettings, AutoRelistNote } = await import(
       "./MarketplaceAuctionSettings"
     );
@@ -109,11 +109,34 @@ describe("경매 설정의 유찰 시 자동 인하 재등록", () => {
     expect(renderToStaticMarkup(<MarketplaceAuctionSettings {...base} />)).not.toContain(
       "한 번 더 올리기",
     );
-    const html = renderToStaticMarkup(
-      <MarketplaceAuctionSettings {...base} autoRelist onAutoRelistChange={vi.fn()} />,
+
+    const off = renderToStaticMarkup(
+      <MarketplaceAuctionSettings
+        {...base}
+        onAutoRelistChange={vi.fn()}
+        onAutoRelistCutPctChange={vi.fn()}
+      />,
     );
-    expect(html).toContain("유찰되면 30% 낮춰 한 번 더 올리기");
-    expect(html).toContain("checked");
-    expect(renderToStaticMarkup(<AutoRelistNote />)).toContain("유찰 시 30% 인하 재등록");
+    expect(off).toContain("유찰되면 가격을 낮춰 한 번 더 올리기");
+    expect(off).not.toContain("인하 폭");
+
+    const on = renderToStaticMarkup(
+      <MarketplaceAuctionSettings
+        {...base}
+        autoRelist
+        autoRelistCutPct={20}
+        onAutoRelistChange={vi.fn()}
+        onAutoRelistCutPctChange={vi.fn()}
+      />,
+    );
+    expect(on).toContain("인하 폭");
+    expect(on).toContain('value="20"');
+    expect(on).toContain("(1~90)");
+    expect(on).toContain("10,000골드에 올린 매물은");
+    expect(on).toContain("8,000골드로 다시 올라갑니다");
+
+    expect(renderToStaticMarkup(<AutoRelistNote cutPct={20} />)).toContain(
+      "유찰 시 20% 인하 재등록",
+    );
   });
 });

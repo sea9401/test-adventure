@@ -1,1 +1,2 @@
-ALTER TABLE "marketplace_listings_v2" ADD COLUMN "auto_relist_left" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "marketplace_listings_v2" ADD COLUMN "auto_relist_left" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "marketplace_listings_v2" ADD COLUMN "auto_relist_cut_pct" integer DEFAULT 30 NOT NULL;

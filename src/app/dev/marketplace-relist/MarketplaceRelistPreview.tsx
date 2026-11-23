@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { PageShell } from "@/components/ui/PageShell";
+import { MarketplaceAuctionSettings } from "@/adventure/v2/marketplace/MarketplaceAuctionSettings";
 import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { RelistDialog } from "@/adventure/v2/marketplace/MarketplaceRelist";
 import type { Listing } from "@/adventure/v2/marketplace/marketplaceShared";
@@ -27,11 +30,36 @@ const LISTING: Listing = {
 };
 const PIECE = mintListedEquipInstance("v2_chain_mail", PAYLOAD);
 
-// ?missing=1 이면 가방에 없는 경우를 보여 준다.
+function SettingsPreview() {
+  const [hours, setHours] = useState(6);
+  const [autoRelist, setAutoRelist] = useState(true);
+  const [cutPct, setCutPct] = useState(20);
+  return (
+    <PageShell>
+      <MarketplaceAuctionSettings
+        durationHours={hours}
+        busy={false}
+        onDurationChange={setHours}
+        defaultHours={6}
+        extensionWindowMinutes={10}
+        extensionMinutes={10}
+        autoRelist={autoRelist}
+        onAutoRelistChange={setAutoRelist}
+        autoRelistCutPct={cutPct}
+        onAutoRelistCutPctChange={setCutPct}
+      />
+    </PageShell>
+  );
+}
+
+// ?missing=1 이면 가방에 없는 경우, ?settings=1 이면 팔기 탭의 경매 설정(유찰 시 자동 인하 재등록)을 보여 준다.
 export function MarketplaceRelistPreview() {
-  const missing =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("missing") === "1";
+  const params =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const missing = params?.get("missing") === "1";
+  if (params?.get("settings") === "1") return <SettingsPreview />;
   return (
     <RelistDialog
       listing={LISTING}

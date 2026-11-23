@@ -121,16 +121,22 @@ describe("6시간 전 품목 입찰 경매", () => {
       highestBidderId: null,
       highestBid: null,
       autoRelistLeft: 1,
+      autoRelistCutPct: 45,
     };
     const forBuyer = marketplacePublicListing(row, "viewer");
     expect(forBuyer).not.toHaveProperty("autoRelist");
     expect(forBuyer).not.toHaveProperty("autoRelistLeft");
+    expect(forBuyer).not.toHaveProperty("autoRelistCutPct");
     const forSeller = marketplacePublicListing(row, "seller");
-    expect(forSeller).toMatchObject({ isMine: true, autoRelist: true });
+    expect(forSeller).toMatchObject({
+      isMine: true,
+      autoRelist: true,
+      autoRelistCutPct: 45,
+    });
     expect(forSeller).not.toHaveProperty("autoRelistLeft");
-    expect(
-      marketplacePublicListing({ ...row, autoRelistLeft: 0 }, "seller"),
-    ).not.toHaveProperty("autoRelist");
+    const off = marketplacePublicListing({ ...row, autoRelistLeft: 0 }, "seller");
+    expect(off).not.toHaveProperty("autoRelist");
+    expect(off).not.toHaveProperty("autoRelistCutPct");
   });
 
   it("공개 매물에서는 판매자 이름·ID와 입찰자 ID를 제거한다", () => {

@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
     refundHighestBid: boolean;
   }>,
   orderCancellations: [] as Array<{ orderId: number; reason: string }>,
-  autoRelist: null as { listingId: number; price: number; bidEndsAt: Date } | null,
+  autoRelist: null as { listingId: number; price: number; cutPct: number; bidEndsAt: Date } | null,
   autoRelistCalls: [] as number[],
   priceAlertListingIds: [] as number[],
 }));
@@ -399,6 +399,7 @@ describe("유찰 판매자 알림", () => {
     mocks.autoRelist = {
       listingId: 77,
       price: 350,
+      cutPct: 30,
       bidEndsAt: new Date("2026-08-31T12:00:00.000Z"),
     };
     const response = await POST(cronRequest());
@@ -413,7 +414,7 @@ describe("유찰 판매자 알림", () => {
     expect(recordEconomyEventSoon).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: "marketplace.auto_relist",
-        detail: { listingId: 77, previousListingId: 1, previousPrice: 500, price: 350 },
+        detail: { listingId: 77, previousListingId: 1, previousPrice: 500, price: 350, cutPct: 30 },
       }),
     );
     await expect(response.json()).resolves.toMatchObject({ auctionsRelisted: 1 });
@@ -425,6 +426,7 @@ describe("유찰 판매자 알림", () => {
     mocks.autoRelist = {
       listingId: 77,
       price: 350,
+      cutPct: 30,
       bidEndsAt: new Date("2026-08-31T12:00:00.000Z"),
     };
     await POST(cronRequest());

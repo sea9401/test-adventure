@@ -210,6 +210,7 @@ export async function POST(req: Request) {
           previousPrice: listing.price,
           newListingId: relisted.listingId,
           newPrice: relisted.price,
+          cutPct: relisted.cutPct,
         };
       }
 
@@ -270,6 +271,7 @@ export async function POST(req: Request) {
           previousListingId: id,
           previousPrice: result.previousPrice,
           price: result.newPrice,
+          cutPct: result.cutPct,
         },
       });
     } else if (result.action === "auction_returned") {

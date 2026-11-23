@@ -1157,6 +1157,8 @@ export const marketplaceListingsV2 = pgTable(
     }),
     // 입찰 없이 끝났을 때 가격을 낮춰 자동으로 다시 올릴 남은 횟수. 판매자가 등록할 때 켠다.
     autoRelistLeft: integer("auto_relist_left").notNull().default(0),
+    // 자동으로 다시 올릴 때의 인하 폭(%). 판매자가 정한다. auto_relist_left 가 0이면 쓰이지 않는다.
+    autoRelistCutPct: integer("auto_relist_cut_pct").notNull().default(30),
   },
   (t) => [
     // 활성 매물 둘러보기(종류·최신순).

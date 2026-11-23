@@ -3,13 +3,17 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { marketplaceListingsV2 } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
-import { marketplaceAutoRelistPrice } from "@/adventure/v2/marketplace/autoRelist";
+import {
+  marketplaceAutoRelistCutPct,
+  marketplaceAutoRelistPrice,
+} from "@/adventure/v2/marketplace/autoRelist";
 import { MARKETPLACE_V2_AUCTION_MODE_VERSION } from "@/lib/server/marketplaceV2";
 import type { MarketplaceListingRow } from "@/lib/server/marketplaceEscrow";
 
 export type MarketplaceAutoRelistResult = {
   listingId: number;
   price: number;
+  cutPct: number;
   bidEndsAt: Date;
 };
 
@@ -32,7 +36,9 @@ export async function autoRelistUnsoldListing(
   if (listing.highestBidderId || (listing.highestBid ?? 0) > 0 || listing.bidCount > 0) {
     return null;
   }
-  const price = marketplaceAutoRelistPrice(listing.price);
+  // 인하 폭은 판매자가 등록할 때 정한 값이다.
+  const cutPct = marketplaceAutoRelistCutPct(listing.autoRelistCutPct);
+  const price = marketplaceAutoRelistPrice(listing.price, cutPct);
   if (price === null) return null;
 
   // 입찰이 없었으니 마감 연장도 없었다. 처음 고른 등록 시간을 그대로 쓴다.
@@ -71,7 +77,8 @@ export async function autoRelistUnsoldListing(
       bidEndsAt,
       expiresAt: new Date(bidEndsAt.getTime() + 1),
       autoRelistLeft: listing.autoRelistLeft - 1,
+      autoRelistCutPct: cutPct,
     })
     .returning({ id: marketplaceListingsV2.id });
-  return { listingId: row.id, price, bidEndsAt };
+  return { listingId: row.id, price, cutPct, bidEndsAt };
 }

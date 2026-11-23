@@ -123,6 +123,7 @@ function listing(overrides: Partial<Listing>): Listing {
     closedAt: null,
     buyerId: null,
     autoRelistLeft: 0,
+    autoRelistCutPct: 30,
     ...overrides,
   };
 }

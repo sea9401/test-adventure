@@ -1,5 +1,5 @@
 {
-  "id": "7920bcdd-188f-4f0d-81c4-57e8ebaa9ed0",
+  "id": "f0402601-044a-4e1d-bf1f-1bb65d92964d",
   "prevId": "89594c6e-4258-4003-8086-24cf51986512",
   "version": "7",
   "dialect": "postgresql",
@@ -7937,6 +7937,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "auto_relist_cut_pct": {
+          "name": "auto_relist_cut_pct",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
         }
       },
       "indexes": {

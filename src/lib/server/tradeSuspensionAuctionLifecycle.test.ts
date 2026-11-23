@@ -133,6 +133,7 @@ function listing(): Listing {
     closedAt: null,
     buyerId: null,
     autoRelistLeft: 0,
+    autoRelistCutPct: 30,
   };
 }
 

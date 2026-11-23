@@ -241,6 +241,7 @@ export function V2MarketplaceView({
   const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
   const [durationHours, setDurationHours] = useState(6);
   const [autoRelist, setAutoRelist] = useState(false);
+  const [autoRelistCutPct, setAutoRelistCutPct] = useState(30);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -714,7 +715,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours, autoRelist,
+        durationHours, autoRelist, autoRelistCutPct,
         kind: "equip",
         iid: inst.iid,
         price,
@@ -741,7 +742,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours, autoRelist,
+        durationHours, autoRelist, autoRelistCutPct,
         kind: "material",
         itemId: matId,
         quantity: qty,
@@ -762,7 +763,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours, autoRelist,
+        durationHours, autoRelist, autoRelistCutPct,
         kind: "consumable",
         iid,
         price,
@@ -790,7 +791,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours, autoRelist,
+        durationHours, autoRelist, autoRelistCutPct,
         kind: "consumable",
         itemId,
         quantity,
@@ -820,7 +821,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours, autoRelist,
+        durationHours, autoRelist, autoRelistCutPct,
         kind: "consumable",
         itemId,
         quantity,
@@ -850,7 +851,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours, autoRelist,
+        durationHours, autoRelist, autoRelistCutPct,
         kind: "consumable",
         itemId,
         quantity,
@@ -1684,7 +1685,7 @@ export function V2MarketplaceView({
                   );
                   return bidding ? (
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      {l.autoRelist && <AutoRelistNote />}
+                      {l.autoRelist && <AutoRelistNote cutPct={l.autoRelistCutPct} />}
                       <button
                         type="button"
                         onClick={() => cancel(l)}
@@ -1759,7 +1760,7 @@ export function V2MarketplaceView({
       {tab === "sell" && (
         <div className="space-y-3">
           <MarketplaceAuctionSettings
-            durationHours={durationHours} autoRelist={autoRelist} onAutoRelistChange={setAutoRelist}
+            durationHours={durationHours} autoRelist={autoRelist} onAutoRelistChange={setAutoRelist} autoRelistCutPct={autoRelistCutPct} onAutoRelistCutPctChange={setAutoRelistCutPct}
             busy={busy}
             onDurationChange={setDurationHours}
             defaultHours={auctionHours}

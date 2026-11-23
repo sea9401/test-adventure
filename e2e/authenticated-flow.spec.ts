@@ -686,7 +686,12 @@ async function createCharacter(page: Page, name: string) {
   await page.getByRole("button", { name: "모험 시작" }).click();
   expect((await setupResponse).status()).toBe(200);
 
-  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/`);
+  // 캐릭터를 만들면 첫 사냥 화면으로 이동한다. 이어지는 검증은 이전처럼 모험 홈에서 시작한다.
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2?first=1`);
+  await expect(
+    page.getByText("첫 전투입니다.", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/");
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
 }
 

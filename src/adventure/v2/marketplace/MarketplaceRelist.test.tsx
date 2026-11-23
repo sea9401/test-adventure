@@ -92,3 +92,28 @@ describe("유찰 내역의 다시 올리기", () => {
     expect(relistUnavailableText({ ok: true, body: {} })).toBeNull();
   });
 });
+
+describe("경매 설정의 유찰 시 자동 인하 재등록", () => {
+  it("바꿀 수 있는 화면에서만 체크박스를 보여 준다", async () => {
+    const { MarketplaceAuctionSettings, AutoRelistNote } = await import(
+      "./MarketplaceAuctionSettings"
+    );
+    const base = {
+      durationHours: 6,
+      busy: false,
+      onDurationChange: vi.fn(),
+      defaultHours: 6,
+      extensionWindowMinutes: 10,
+      extensionMinutes: 10,
+    };
+    expect(renderToStaticMarkup(<MarketplaceAuctionSettings {...base} />)).not.toContain(
+      "한 번 더 올리기",
+    );
+    const html = renderToStaticMarkup(
+      <MarketplaceAuctionSettings {...base} autoRelist onAutoRelistChange={vi.fn()} />,
+    );
+    expect(html).toContain("유찰되면 30% 낮춰 한 번 더 올리기");
+    expect(html).toContain("checked");
+    expect(renderToStaticMarkup(<AutoRelistNote />)).toContain("유찰 시 30% 인하 재등록");
+  });
+});

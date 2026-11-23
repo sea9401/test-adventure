@@ -112,6 +112,27 @@ describe("6시간 전 품목 입찰 경매", () => {
     });
   });
 
+  it("자동 인하 재등록 여부는 판매자 본인에게만 알린다", () => {
+    const row = {
+      id: 1,
+      price: 80,
+      sellerId: "seller",
+      sellerName: "판매자이름",
+      highestBidderId: null,
+      highestBid: null,
+      autoRelistLeft: 1,
+    };
+    const forBuyer = marketplacePublicListing(row, "viewer");
+    expect(forBuyer).not.toHaveProperty("autoRelist");
+    expect(forBuyer).not.toHaveProperty("autoRelistLeft");
+    const forSeller = marketplacePublicListing(row, "seller");
+    expect(forSeller).toMatchObject({ isMine: true, autoRelist: true });
+    expect(forSeller).not.toHaveProperty("autoRelistLeft");
+    expect(
+      marketplacePublicListing({ ...row, autoRelistLeft: 0 }, "seller"),
+    ).not.toHaveProperty("autoRelist");
+  });
+
   it("공개 매물에서는 판매자 이름·ID와 입찰자 ID를 제거한다", () => {
     const listing = marketplacePublicListing(
       {

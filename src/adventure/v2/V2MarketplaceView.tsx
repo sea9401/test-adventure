@@ -4,7 +4,7 @@ import { invalidateMarketplacePrices, readMarketplacePrices } from "./marketplac
 import { startAdaptiveVisiblePolling } from "@/lib/adaptiveVisiblePolling";
 import { marketplaceBrowseSnapshotKey, marketplacePollDelayMs } from "./marketplace/marketplacePolling";
 import { SelectControl } from "./marketplace/SelectControl";
-import { MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
+import { AutoRelistNote, MarketplaceAuctionSettings } from "./marketplace/MarketplaceAuctionSettings";
 import { MarketplaceWatchFilter, useMarketplaceWatchlist } from "./marketplace/useMarketplaceWatchlist";
 import {
   MARKETPLACE_FAVORITES_KEY,
@@ -240,6 +240,7 @@ export function V2MarketplaceView({
   const [cookingFoodDefinitions, setCookingFoodDefinitions] = useState<CookingFoodDefinitionMap>({});
   const [fishSpecimens, setFishSpecimens] = useState<FishSpecimenInventory["items"]>({});
   const [durationHours, setDurationHours] = useState(6);
+  const [autoRelist, setAutoRelist] = useState(false);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -713,7 +714,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours,
+        durationHours, autoRelist,
         kind: "equip",
         iid: inst.iid,
         price,
@@ -740,7 +741,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours,
+        durationHours, autoRelist,
         kind: "material",
         itemId: matId,
         quantity: qty,
@@ -761,7 +762,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours,
+        durationHours, autoRelist,
         kind: "consumable",
         iid,
         price,
@@ -789,7 +790,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours,
+        durationHours, autoRelist,
         kind: "consumable",
         itemId,
         quantity,
@@ -819,7 +820,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours,
+        durationHours, autoRelist,
         kind: "consumable",
         itemId,
         quantity,
@@ -849,7 +850,7 @@ export function V2MarketplaceView({
     return act(
       "/api/v2/marketplace/list",
       {
-        durationHours,
+        durationHours, autoRelist,
         kind: "consumable",
         itemId,
         quantity,
@@ -1682,6 +1683,8 @@ export function V2MarketplaceView({
                     </button>
                   );
                   return bidding ? (
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {l.autoRelist && <AutoRelistNote />}
                       <button
                         type="button"
                         onClick={() => cancel(l)}
@@ -1690,6 +1693,7 @@ export function V2MarketplaceView({
                       >
                         취소
                       </button>
+                    </div>
                   ) : (
                     <span className="shrink-0 text-[11px] text-zinc-400">정산 중</span>
                   );
@@ -1755,7 +1759,7 @@ export function V2MarketplaceView({
       {tab === "sell" && (
         <div className="space-y-3">
           <MarketplaceAuctionSettings
-            durationHours={durationHours}
+            durationHours={durationHours} autoRelist={autoRelist} onAutoRelistChange={setAutoRelist}
             busy={busy}
             onDurationChange={setDurationHours}
             defaultHours={auctionHours}

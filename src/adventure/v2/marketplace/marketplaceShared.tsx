@@ -83,6 +83,8 @@ export type Listing = {
   bidCount: number;
   bidResolvedAt: string | null;
   nextBid: number;
+  /** 내 매물에만 온다: 유찰되면 가격을 낮춰 자동으로 다시 올라간다. */
+  autoRelist?: boolean;
 };
 
 export type MarketplaceBrowseSort =

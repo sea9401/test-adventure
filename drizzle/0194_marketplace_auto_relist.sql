@@ -1,0 +1,1 @@
+ALTER TABLE "marketplace_listings_v2" ADD COLUMN "auto_relist_left" integer DEFAULT 0 NOT NULL;

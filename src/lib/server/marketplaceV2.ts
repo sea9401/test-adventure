@@ -197,15 +197,24 @@ export function marketplacePublicListing<
     itemId?: string;
     highestBidderId: string | null;
     highestBid: number | null;
+    autoRelistLeft?: number;
   },
 >(row: T, viewerId: string, hasMyBid = false) {
-  const { sellerId, sellerName: _sellerName, highestBidderId, ...publicRow } =
-    row;
+  const {
+    sellerId,
+    sellerName: _sellerName,
+    highestBidderId,
+    autoRelistLeft,
+    ...publicRow
+  } = row;
   const foodPreview = marketplaceFoodPreview(row.itemId);
+  const isMine = sellerId === viewerId;
   return {
     ...publicRow,
     ...(foodPreview ? { foodPreview } : {}),
-    isMine: sellerId === viewerId,
+    // 유찰되면 가격이 내려간다는 사실은 판매자 본인에게만 알린다. 구매자가 알면 입찰을 미룬다.
+    ...(isMine && (autoRelistLeft ?? 0) > 0 ? { autoRelist: true as const } : {}),
+    isMine,
     isHighestBidder: highestBidderId === viewerId,
     hasMyBid,
     nextBid: marketplaceNextBidMinimum(row.price, row.highestBid),

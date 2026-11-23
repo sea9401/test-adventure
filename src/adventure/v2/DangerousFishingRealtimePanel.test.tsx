@@ -222,7 +222,7 @@ describe("위험 해역 실시간 조우 HUD", () => {
     const control = button.parentElement;
     expect(control?.className.split(" ")).toContain("sticky");
     expect(control?.className.split(" ")).toContain(
-      "bottom-[calc(env(safe-area-inset-bottom)+0.5rem)]",
+      "bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))]",
     );
     expect(control?.className.split(" ")).toContain("z-20");
     expect(control?.className.split(" ")).not.toContain("sm:sticky");

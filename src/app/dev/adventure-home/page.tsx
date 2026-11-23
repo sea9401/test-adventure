@@ -4,7 +4,9 @@ import { useState } from "react";
 import { AdventureActivityChecklist } from "@/adventure/v2/AdventureActivityChecklist";
 import type { AdventureActivityView } from "@/adventure/v2/adventureDashboard";
 import { CompactCharacterSummary } from "@/adventure/v2/CompactCharacterSummary";
-import { HuntEntryCard } from "@/adventure/v2/HuntEntryCard";
+import { AdventureDashboardProvider } from "@/adventure/v2/AdventureDashboardProvider";
+import { HuntEntryButton } from "@/adventure/v2/HuntEntryButton";
+import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { PageShell } from "@/components/ui/PageShell";
 
 // 모험 탭 홈 미리보기 — 로그인 없이 그릴 수 있는 위젯(캐릭터 요약·사냥터·오늘의 모험)만 예시 데이터로 렌더.
@@ -30,14 +32,17 @@ export default function AdventureHomePreviewPage() {
       >
         <div className="p-4 text-sm text-zinc-500">펼친 캐릭터 카드는 로그인 화면에서 확인합니다.</div>
       </CompactCharacterSummary>
-      {/* 기본 배치에서는 스태미나 막대가 숨겨져 있고 사냥터 카드가 스태미너를 함께 보여 준다. */}
-      <HuntEntryCard stamina={{ current: 1840, lastUpdatedAt: now }} staminaMax={3000} regenBonusPct={20} now={now} />
+      <HuntEntryButton />
       <AdventureActivityChecklist
         activities={ACTIVITIES}
         summary={{ completed: 1, total: 3, actionableCount: 1 }}
         serverNow={now}
         onRetry={() => undefined}
       />
+      {/* 휴대폰 폭의 하단 메뉴 바. 로그인 없이는 알림 점 없이 탭과 하위 메뉴만 확인한다. */}
+      <AdventureDashboardProvider>
+        <MainTabNav placement="bottom" activeKey="adventure" gameStateLoaded viewerGuildId={null} onNavigate={() => undefined} />
+      </AdventureDashboardProvider>
     </PageShell>
   );
 }

@@ -1390,7 +1390,7 @@ export function V2DungeonFloorView({
         </StatusBanner>
       )}
 
-      <Card padding="md" className="sticky bottom-3 z-20 shadow-lg sm:static sm:shadow-sm">
+      <Card padding="md" className="sticky bottom-[calc(env(safe-area-inset-bottom)+0.75rem+var(--game-bottom-nav,0px))] z-20 shadow-lg sm:static sm:shadow-sm">
         <div
           data-hunt-primary-actions
           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"

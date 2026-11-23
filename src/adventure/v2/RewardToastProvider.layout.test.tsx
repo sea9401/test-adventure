@@ -12,8 +12,8 @@ describe("RewardToastProvider layout", () => {
 
     expect(html).not.toContain("safe-area-inset-top");
     expect(html).toContain(
-      "bottom-[calc(env(safe-area-inset-bottom)+8.25rem)]",
+      "bottom-[calc(env(safe-area-inset-bottom)+8.25rem+var(--game-bottom-nav,0px))]",
     );
-    expect(html).toContain("sm:bottom-5");
+    expect(html).toContain("sm:bottom-[calc(1.25rem+var(--game-bottom-nav,0px))]");
   });
 });

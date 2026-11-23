@@ -3172,10 +3172,16 @@ html.ui-terminal-mode .ui-row-thumb {
   display: none;
 }
 
-/* 장면 그림 띠(HuntEntryCard 등) — 카드 머리의 가로로 긴 그림. 글 위주 모드에서는 숨긴다. */
-html.ui-discreet-mode .ui-scene-strip,
-html.ui-terminal-mode .ui-scene-strip {
-  display: none;
+/* 휴대폰 폭의 하단 메뉴 바 높이(기기 하단 안전 영역 제외). 화면 아래에 고정되는 요소는
+   이 값을 더해 바 위에 놓는다. 바가 없는 화면과 PC 폭에서는 0이다. */
+:root:has([data-game-bottom-nav]) {
+  --game-bottom-nav: 3.75rem;
+}
+
+@media (min-width: 768px) {
+  :root:has([data-game-bottom-nav]) {
+    --game-bottom-nav: 0px;
+  }
 }
 
 .ui-chat-badge {

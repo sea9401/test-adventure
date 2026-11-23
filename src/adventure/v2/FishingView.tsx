@@ -641,7 +641,7 @@ export function FishingView({
   const idleActionClass =
     "w-full rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99] sm:py-3";
   const resultActionClass =
-    "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[720px] -translate-x-1/2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99]";
+    "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem+var(--game-bottom-nav,0px))] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[720px] -translate-x-1/2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99]";
 
   return (
     <>

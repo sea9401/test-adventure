@@ -467,7 +467,7 @@ export function EquipmentTab({
       />
       {selection.active ? (
         <div
-          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
           aria-live="polite"
         >
           <div className="text-sm text-zinc-700 dark:text-zinc-200">
@@ -497,7 +497,7 @@ export function EquipmentTab({
       ) : null}
       {comparing ? (
         <div
-          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
           aria-live="polite"
         >
           <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
@@ -520,7 +520,7 @@ export function EquipmentTab({
       ) : null}
       {locking ? (
         <div
-          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
           aria-live="polite"
         >
           <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">

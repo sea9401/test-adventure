@@ -13,7 +13,15 @@ import {
   autoGatheringActivityHref,
   parseAutoGatheringState,
   type AutoGatheringActivity,
+  type AutoGatheringSession,
 } from "@/adventure/v2/autoGathering";
+import {
+  AUTO_GATHERING_RESERVATION_KEY,
+  autoGatheringNextStatus,
+  autoGatheringPromptReadyAt,
+  parseAutoGatheringReservationState,
+  type AutoGatheringReservation,
+} from "@/adventure/v2/autoGatheringReservation";
 import {
   FARM_READY_NOTIFICATION_SAVE_KEY,
   unacknowledgedReadyPlots,
@@ -39,6 +47,7 @@ import { sendWebPushToUser } from "@/lib/server/webPush";
 const TIMER_SAVE_KEYS = [
   WOODCUTTING_AUTO_KEY,
   MINING_AUTO_KEY,
+  AUTO_GATHERING_RESERVATION_KEY,
   FARM_SAVE_KEY,
   FARM_READY_NOTIFICATION_SAVE_KEY,
   PEDDLER_SAVE_KEY,
@@ -47,6 +56,32 @@ const TIMER_SAVE_KEYS = [
 const DELIVERY_RETENTION_MS = RETENTION_POLICY.pushDeliveryDays * DAY_MS;
 
 type SaveMap = Map<string, unknown>;
+
+// 예약한 다음 작업이 있으면 그 작업까지 끝난 뒤에 한 번만 알린다. 앞 작업만 끝났을 때는 보내지 않는다.
+function autoGatheringPush(
+  userId: string,
+  activity: AutoGatheringActivity,
+  session: AutoGatheringSession,
+  reservation: AutoGatheringReservation | null,
+  now: number,
+): { eventKey: string; title: string; body: string } | null {
+  const next = autoGatheringNextStatus(session.readyAt, reservation);
+  if (autoGatheringPromptReadyAt({ readyAt: session.readyAt, next }) > now) {
+    return null;
+  }
+  const activityName = activity === "woodcutting" ? "벌목" : "채광";
+  return next
+    ? {
+        eventKey: `auto:${userId}:${activity}:${session.sessionId}:next`,
+        title: "자동 채집 완료",
+        body: `${session.sourceName} 작업과 예약한 ${next.sourceName} 작업이 끝났습니다. 보상을 정산하세요.`,
+      }
+    : {
+        eventKey: `auto:${userId}:${activity}:${session.sessionId}`,
+        title: `자동 ${activityName} 완료`,
+        body: `${session.sourceName} 작업이 끝났습니다. 보상을 정산하세요.`,
+      };
+}
 
 function activityForKey(key: string): AutoGatheringActivity | null {
   if (key === WOODCUTTING_AUTO_KEY) return "woodcutting";
@@ -85,12 +120,17 @@ export async function sendDueTimedPushNotifications(now = Date.now()) {
 
   const candidateKeys: string[] = [];
   for (const [userId, saves] of savesByUser) {
+    const reservation = parseAutoGatheringReservationState(
+      saves.get(AUTO_GATHERING_RESERVATION_KEY),
+    ).next;
     for (const key of [WOODCUTTING_AUTO_KEY, MINING_AUTO_KEY]) {
       const activity = activityForKey(key);
       const session = parseAutoGatheringState(saves.get(key)).session;
-      if (activity && session && session.readyAt <= now) {
-        candidateKeys.push(`auto:${userId}:${activity}:${session.sessionId}`);
-      }
+      const push =
+        activity && session
+          ? autoGatheringPush(userId, activity, session, reservation, now)
+          : null;
+      if (push) candidateKeys.push(push.eventKey);
     }
     for (const plot of unacknowledgedReadyPlots(
       saves.get(FARM_SAVE_KEY),
@@ -129,16 +169,20 @@ export async function sendDueTimedPushNotifications(now = Date.now()) {
   let failed = 0;
   for (const [userId, saves] of savesByUser) {
     users += 1;
+    const reservation = parseAutoGatheringReservationState(
+      saves.get(AUTO_GATHERING_RESERVATION_KEY),
+    ).next;
     for (const key of [WOODCUTTING_AUTO_KEY, MINING_AUTO_KEY]) {
       const activity = activityForKey(key);
       const session = parseAutoGatheringState(saves.get(key)).session;
-      if (!activity || !session || session.readyAt > now) continue;
-      const eventKey = `auto:${userId}:${activity}:${session.sessionId}`;
+      if (!activity || !session) continue;
+      const push = autoGatheringPush(userId, activity, session, reservation, now);
+      if (!push) continue;
+      const { eventKey } = push;
       if (deliveredKeys.has(eventKey)) continue;
-      const activityName = activity === "woodcutting" ? "벌목" : "채광";
       const result = await sendWebPushToUser(userId, {
-        title: `자동 ${activityName} 완료`,
-        body: `${session.sourceName} 작업이 끝났습니다. 보상을 정산하세요.`,
+        title: push.title,
+        body: push.body,
         url:
           autoGatheringActivityHref({
             activity,

@@ -48,6 +48,11 @@ import {
 } from "@/adventure/v2/autoGathering";
 import { activeAutoGatheringActivity } from "@/lib/server/lifeActivityLock";
 import {
+  AUTO_GATHERING_RESERVATION_KEY,
+  autoGatheringNextStatus,
+  parseAutoGatheringReservationState,
+} from "@/adventure/v2/autoGatheringReservation";
+import {
   COOKING_SAVE_KEY,
   cookingLevelForXp,
   parseCookingState,
@@ -318,6 +323,23 @@ export async function GET(req: Request) {
   const activeAutoSession = activeAutoActivity
     ? autoGatheringStates[activeAutoActivity].session
     : null;
+  // 예약한 다음 작업이 있으면 그 끝 시각을 함께 실어, 상단바가 정산을 미리 재촉하지 않게 한다.
+  const autoGathering =
+    activeAutoActivity && activeAutoSession
+      ? {
+          activity: activeAutoActivity,
+          sourceId: activeAutoSession.sourceId,
+          sourceName: activeAutoSession.sourceName,
+          readyAt: activeAutoSession.readyAt,
+          next: autoGatheringNextStatus(
+            activeAutoSession.readyAt,
+            parseAutoGatheringReservationState(
+              stateSaves.get(AUTO_GATHERING_RESERVATION_KEY),
+            ).next,
+          ),
+          serverNow: now,
+        }
+      : null;
   // 기본 + 한계의 비약 + 월간 모험 지원권(일반 +1000·회복 +20%, 프리미엄 +4000·회복 +30%)을 한 번에 산출.
   const staminaConfig = staminaConfigForCharacter(charSave, now);
   const staminaMax = staminaConfig.max;
@@ -466,16 +488,7 @@ export async function GET(req: Request) {
       accountName: userRow?.gameName?.trim() || null,
       jobsV2,
       coreLoopOn: V2_CORE_LOOP_V2,
-      autoGathering:
-        activeAutoActivity && activeAutoSession
-          ? {
-              activity: activeAutoActivity,
-              sourceId: activeAutoSession.sourceId,
-              sourceName: activeAutoSession.sourceName,
-              readyAt: activeAutoSession.readyAt,
-              serverNow: now,
-            }
-          : null,
+      autoGathering,
       adventureSupport: {
         active: staminaConfig.adventureSupportActive,
         tier: staminaConfig.adventureSupportTier,
@@ -553,16 +566,7 @@ export async function GET(req: Request) {
     // 코어루프 활성(은행/골드 모델·직업 시스템 등) — 사냥 throttle 과 독립. 클라는 이 값으로
     //   coreLoopOn 을 판정(combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운이 null 이라).
     coreLoopOn: V2_CORE_LOOP_V2,
-    autoGathering:
-      activeAutoActivity && activeAutoSession
-        ? {
-            activity: activeAutoActivity,
-            sourceId: activeAutoSession.sourceId,
-            sourceName: activeAutoSession.sourceName,
-            readyAt: activeAutoSession.readyAt,
-            serverNow: now,
-          }
-        : null,
+    autoGathering,
     adventureSupport: {
       active: staminaConfig.adventureSupportActive,
       tier: staminaConfig.adventureSupportTier,

@@ -17,6 +17,8 @@ export const ADVENTURE_SUPPORT_PASS = {
   marketplaceTaxRate: 0.05,
   freeMaxHuntBatch: 10,
   activeMaxHuntBatch: 50,
+  // 2026-11-23 오너 결정: 자동 채집 다음 작업 예약을 지원권 혜택으로 둔다.
+  autoGatheringReservations: 1,
 } as const;
 
 export const PREMIUM_ADVENTURE_SUPPORT_PASS = {
@@ -32,6 +34,7 @@ export const PREMIUM_ADVENTURE_SUPPORT_PASS = {
   marketplaceSlotBonus: 20,
   marketplaceTaxRate: 0.05,
   activeMaxHuntBatch: 100,
+  autoGatheringReservations: 1,
   cosmeticExtensionGrant: 2,
   masteryTowerEntryFree: true,
 } as const;
@@ -58,6 +61,8 @@ export type AdventureSupportBenefits = {
   maxHuntBatch: number;
   /** 숙련의 탑 하루 첫 입장 스태미나를 받지 않는다. */
   masteryTowerEntryFree: boolean;
+  /** 자동 채집이 끝난 뒤 이어서 시작하도록 걸어 둘 수 있는 다음 작업 수. */
+  autoGatheringReservations: number;
 };
 
 export type AdventureSupportGrant = {
@@ -126,6 +131,8 @@ export function adventureSupportBenefits(
       maxHuntBatch: PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
       masteryTowerEntryFree:
         PREMIUM_ADVENTURE_SUPPORT_PASS.masteryTowerEntryFree,
+      autoGatheringReservations:
+        PREMIUM_ADVENTURE_SUPPORT_PASS.autoGatheringReservations,
     };
   }
   if (tier === "standard") {
@@ -137,6 +144,8 @@ export function adventureSupportBenefits(
       marketplaceTaxRate: ADVENTURE_SUPPORT_PASS.marketplaceTaxRate,
       maxHuntBatch: ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
       masteryTowerEntryFree: false,
+      autoGatheringReservations:
+        ADVENTURE_SUPPORT_PASS.autoGatheringReservations,
     };
   }
   return {
@@ -147,6 +156,7 @@ export function adventureSupportBenefits(
     marketplaceTaxRate: 0,
     maxHuntBatch: ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch,
     masteryTowerEntryFree: false,
+    autoGatheringReservations: 0,
   };
 }
 

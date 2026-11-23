@@ -64,11 +64,19 @@ export const MINING_AUTO_KEY = "mining-auto.v1";
 
 export type AutoGatheringActivity = "woodcutting" | "mining";
 
+/** 예약해 둔 다음 작업. 지금 작업이 끝난 시각부터 이어서 돈 것으로 계산한 끝 시각을 담는다. */
+export type AutoGatheringNextStatus = {
+  activity: AutoGatheringActivity;
+  sourceName: string;
+  readyAt: number;
+};
+
 export type AutoGatheringStatus = {
   activity: AutoGatheringActivity;
   sourceId: string;
   sourceName: string;
   readyAt: number;
+  next?: AutoGatheringNextStatus;
 };
 
 export type AutoGatheringSessionView = {
@@ -184,7 +192,12 @@ export function autoGatheringStatusDisplay(
     };
   }
   const activityName = status.activity === "woodcutting" ? "벌목" : "채광";
-  if (now >= status.readyAt) {
+  // 지금 작업이 끝났어도 예약한 작업이 도는 동안은 정산을 재촉하지 않는다.
+  const runningNext =
+    status.next && now >= status.readyAt && now < status.next.readyAt
+      ? status.next
+      : null;
+  if (now >= status.readyAt && !runningNext) {
     return {
       text: `${activityName} 정산 대기 · ${status.sourceName}`,
       contextLabel: `${activityName} · ${status.sourceName}`,
@@ -193,7 +206,7 @@ export function autoGatheringStatusDisplay(
   }
   const remainingSeconds = Math.max(
     0,
-    Math.ceil((status.readyAt - now) / 1_000),
+    Math.ceil(((runningNext?.readyAt ?? status.readyAt) - now) / 1_000),
   );
   const hours = Math.floor(remainingSeconds / 3_600);
   const minutes = Math.floor(remainingSeconds / 60);
@@ -202,6 +215,14 @@ export function autoGatheringStatusDisplay(
     hours > 0
       ? `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
       : `${minutes}:${String(seconds).padStart(2, "0")}`;
+  if (runningNext) {
+    const nextName = runningNext.activity === "woodcutting" ? "벌목" : "채광";
+    return {
+      text: `예약한 ${nextName} 진행 중 · ${runningNext.sourceName} · ${remainingLabel}`,
+      contextLabel: `예약한 ${nextName} 진행 중 · ${runningNext.sourceName}`,
+      stateLabel: `남은 ${remainingLabel}`,
+    };
+  }
   return {
     text: `${activityName} 자동 중 · ${status.sourceName} · ${remainingLabel}`,
     contextLabel: `${activityName} 자동 중 · ${status.sourceName}`,
@@ -294,7 +315,7 @@ export function autoGatheringPlan(value: unknown): AutoGatheringPlan {
 }
 
 /** 저장된 작업 시간. 이 필드가 없던 세이브는 계획의 기본 시간으로 읽는다. */
-function sessionDurationMs(raw: unknown, planId: unknown): number {
+export function sessionDurationMs(raw: unknown, planId: unknown): number {
   const plan = autoGatheringPlan(planId);
   const value = Number(raw);
   return Number.isFinite(value) &&

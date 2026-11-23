@@ -161,6 +161,12 @@ describe("월간 모험 지원권", () => {
     expect(adventureSupportBenefits("none").staminaRegenBonusPct).toBe(0);
   });
 
+  it("자동 채집 다음 작업 예약은 지원권 이용 중에만 1건이다", () => {
+    expect(adventureSupportBenefits("premium").autoGatheringReservations).toBe(1);
+    expect(adventureSupportBenefits("standard").autoGatheringReservations).toBe(1);
+    expect(adventureSupportBenefits("none").autoGatheringReservations).toBe(0);
+  });
+
   it("숙련의 탑 입장 비용 면제는 프리미엄에만 있다", () => {
     expect(adventureSupportBenefits("premium").masteryTowerEntryFree).toBe(true);
     expect(adventureSupportBenefits("standard").masteryTowerEntryFree).toBe(false);

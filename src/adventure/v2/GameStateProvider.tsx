@@ -190,6 +190,11 @@ type GameStateSnapshot = {
     sourceId?: string;
     sourceName?: string;
     readyAt?: number;
+    next?: {
+      activity?: AutoGatheringActivity;
+      sourceName?: string;
+      readyAt?: number;
+    };
     serverNow?: number;
   } | null;
   equipmentCodex?: {
@@ -774,6 +779,22 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             auto.serverNow,
             Date.now(),
           ),
+          ...(auto.next &&
+          (auto.next.activity === "woodcutting" || auto.next.activity === "mining") &&
+          typeof auto.next.sourceName === "string" &&
+          typeof auto.next.readyAt === "number"
+            ? {
+                next: {
+                  activity: auto.next.activity,
+                  sourceName: auto.next.sourceName,
+                  readyAt: correctedAutoGatheringReadyAt(
+                    auto.next.readyAt,
+                    auto.serverNow,
+                    Date.now(),
+                  ),
+                },
+              }
+            : {}),
         });
       } else {
         setAutoGathering(null);

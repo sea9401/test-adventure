@@ -151,6 +151,56 @@ describe("모험 대시보드 서버 활동 변환", () => {
     );
   });
 
+  it("예약한 다음 작업이 도는 동안은 끝난 채집을 할 일로 올리지 않는다", () => {
+    const now = Date.UTC(2026, 10, 23, 4);
+    const hour = 60 * 60 * 1000;
+    const saves = {
+      ...ADVENTURE_DASHBOARD_SAVE_FALLBACKS,
+      [MINING_AUTO_KEY]: {
+        session: {
+          sessionId: "mine-1",
+          planId: "extended",
+          sourceId: "copper",
+          sourceName: "구리 광맥",
+          materialId: "v2_copper_ore",
+          startedAt: now - 3 * hour,
+          readyAt: now - hour,
+          cycleDurationMs: 6_000,
+          attempts: 1_200,
+          successRate: 0.8,
+          materialEfficiency: 0.6,
+          xpEfficiency: 0.7,
+          bonusMaterialRate: 0,
+          baseXp: 6,
+        },
+      },
+      "auto-gathering-reservation.v1": {
+        next: {
+          activity: "woodcutting",
+          spotId: "pine_grove",
+          planId: "extended",
+          sourceId: "pine",
+          sourceName: "소나무",
+          durationMs: 2 * hour,
+          reservedAt: now - 2 * hour,
+        },
+      },
+    };
+
+    expect(
+      resolveAdventureActivities(saves, now).find(({ id }) => id === "mining_ready"),
+    ).toMatchObject({
+      state: "in_progress",
+      detail: "예약한 벌목 진행 중 · 1시간 남음",
+      readyAt: now + hour,
+    });
+    expect(
+      resolveAdventureActivities(saves, now + hour).find(
+        ({ id }) => id === "mining_ready",
+      ),
+    ).toMatchObject({ state: "actionable", detail: "구리 광맥 작업 완료" });
+  });
+
   it("진행 작업이 없는 채집은 알림을 만들지 않는 완료 상태다", () => {
     const activities = resolveAdventureActivities(
       {

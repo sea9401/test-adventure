@@ -11,6 +11,7 @@ import {
   autoGatheringStatusDisplay,
   type AutoGatheringStatus,
 } from "./autoGathering";
+import { autoGatheringPromptReadyAt } from "./autoGatheringReservation";
 import { NotificationBell } from "./NotificationBell";
 import { V2NoticeLink } from "./V2NoticeLink";
 import { V2SettingsMenu } from "./V2SettingsMenu";
@@ -32,7 +33,8 @@ function LifeActivityStatus({
   }, [status]);
 
   const display = autoGatheringStatusDisplay(status, now);
-  const ready = status != null && now >= status.readyAt;
+  // 예약한 작업이 도는 동안은 정산 대기 색으로 바꾸지 않는다.
+  const ready = status != null && now >= autoGatheringPromptReadyAt(status);
   return (
     <span
       title={display.text}

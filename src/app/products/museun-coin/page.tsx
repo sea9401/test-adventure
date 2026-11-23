@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
+import {
+  MUSEUN_COIN_CUSTOM_CHARGE,
+  MUSEUN_COIN_PACKAGES,
+} from "@/adventure/data/v2/adventureSupport";
 import { MerchantDisclosure } from "@/components/MerchantDisclosure";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
@@ -71,6 +74,20 @@ export function MuseunCoinProductContent({
                 </article>
               );
             })}
+          </div>
+          <div className={`${SURFACE_CARD} mt-5 p-4 sm:p-6`}>
+            <h3 className="font-semibold">금액 직접 입력</h3>
+            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+              위 상품 외에 원하는 금액을{" "}
+              {MUSEUN_COIN_CUSTOM_CHARGE.unitKrw.toLocaleString("ko-KR")}원 단위로
+              정해 충전할 수 있습니다.{" "}
+              {MUSEUN_COIN_CUSTOM_CHARGE.unitKrw.toLocaleString("ko-KR")}원에{" "}
+              {MUSEUN_COIN_CUSTOM_CHARGE.coinsPerUnit.toLocaleString("ko-KR")}코인이며,
+              한 번에{" "}
+              {MUSEUN_COIN_CUSTOM_CHARGE.minKrw.toLocaleString("ko-KR")}원부터{" "}
+              {MUSEUN_COIN_CUSTOM_CHARGE.maxKrw.toLocaleString("ko-KR")}원까지
+              결제할 수 있습니다. 지급과 환불 기준은 위 상품과 같습니다.
+            </p>
           </div>
         </section>
 

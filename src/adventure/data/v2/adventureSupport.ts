@@ -5,6 +5,41 @@ export const MUSEUN_COIN_PACKAGES = [
   { id: "coin_5000", coins: 5_000, priceKrw: 50_000 },
 ] as const;
 
+// 금액 직접 입력 충전(건의 #876). 상점 물건이 100코인 단위라 정액 상품만으로는
+//   잔액이 남는다. 비율은 정액 상품과 같고(1,000원 = 100코인), 상한은 정액 최고가와 같다.
+export const MUSEUN_COIN_CUSTOM_CHARGE = {
+  id: "coin_custom",
+  unitKrw: 1_000,
+  coinsPerUnit: 100,
+  minKrw: 1_000,
+  maxKrw: 50_000,
+} as const;
+
+export type MuseunCoinCharge = {
+  id: string;
+  coins: number;
+  priceKrw: number;
+};
+
+/** 직접 입력한 원화 금액의 충전 내용. 단위·범위를 벗어나면 null. */
+export function museunCoinCustomCharge(
+  amountKrw: unknown,
+): MuseunCoinCharge | null {
+  const { id, unitKrw, coinsPerUnit, minKrw, maxKrw } =
+    MUSEUN_COIN_CUSTOM_CHARGE;
+  if (typeof amountKrw !== "number" || !Number.isInteger(amountKrw)) {
+    return null;
+  }
+  if (amountKrw < minKrw || amountKrw > maxKrw || amountKrw % unitKrw !== 0) {
+    return null;
+  }
+  return {
+    id,
+    coins: (amountKrw / unitKrw) * coinsPerUnit,
+    priceKrw: amountKrw,
+  };
+}
+
 export const ADVENTURE_SUPPORT_PASS = {
   id: "monthly_adventure_support",
   name: "월간 모험 지원권",

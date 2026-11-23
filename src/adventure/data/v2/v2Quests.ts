@@ -21,7 +21,11 @@
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
-import { HUNT_MONSTER_SPECIES_COUNT, huntStageName } from "./dungeon";
+import {
+  FIRST_HUNT_DEPTH,
+  HUNT_MONSTER_SPECIES_COUNT,
+  huntStageName,
+} from "./dungeon";
 import type { TitleId } from "../titles";
 import {
   EARTH_WITNESS_TITLE_ID,
@@ -250,7 +254,8 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "첫 발걸음",
     desc: "전투 > 사냥터에서 첫 전투를 치르세요.",
-    href: "/battle/dungeon",
+    // 사냥터 목록이 아니라 사냥 버튼이 있는 첫 사냥 화면으로 보낸다.
+    href: `/battle/dungeon/${FIRST_HUNT_DEPTH}`,
     reward: {
       staminaPotions: 1,
       equip: "v2_chain_mail",
@@ -1164,6 +1169,9 @@ export const QUEST_LINES: readonly QuestLine[] = [
     subtitle: "치료소·은행·스킬과 생활 콘텐츠의 기본 조작을 하나씩 익혀보세요.",
     sequential: false,
     tutorial: true,
+    // 첫 전투 전에는 성장의 길(첫 전투)만 보여 준다. 2026-11 기록에서 전투 없이 떠난 신규 계정의
+    // 30%가 이 줄의 첫 목표(치료소)를 따라갔다.
+    visibleWhen: (c) => c.battleCount >= 1,
   },
   {
     id: "growth",

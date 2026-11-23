@@ -316,6 +316,7 @@ export function V2DungeonFloorView({
   onSeekHealing,
   onBack,
   playerSubtitle,
+  firstBattleIntro = false,
   playerProficiency = null,
   playerJobId = null,
   frontierDepth = 2,
@@ -373,6 +374,8 @@ export function V2DungeonFloorView({
   onBack: () => void;
   // 전투 장면 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성").
   playerSubtitle?: string;
+  /** 캐릭터를 만든 직후의 첫 사냥 화면. 첫 전투를 치르기 전까지 안내 한 줄을 보여 준다. */
+  firstBattleIntro?: boolean;
   // 현재 전직 중인 구체 직업의 숙련도("직업 숙련도") — 캐릭터 카드 상시 readout 의 시작값(화면 진입 시점).
   //   사냥 응답(masteryAfter/일괄 proficiencyAfter)이 들어오면 그 최신값이 우선. null=모험가(무직업).
   playerProficiency?: number | null;
@@ -1378,6 +1381,13 @@ export function V2DungeonFloorView({
             다시 시도할 수 있지만, 같은 사냥터에서 패배가 반복될 수 있습니다.
           </p>
         </div>
+      )}
+
+      {firstBattleIntro && !lastResult && !batchStatus && !busy && (
+        <StatusBanner tone="info" role="status" className="py-2.5">
+          <span className="font-semibold">첫 전투입니다.</span> 아래 사냥 버튼을
+          누르면 전투가 자동으로 진행되고, 끝나면 결과와 다음 할 일이 나옵니다.
+        </StatusBanner>
       )}
 
       <Card padding="md" className="sticky bottom-3 z-20 shadow-lg sm:static sm:shadow-sm">

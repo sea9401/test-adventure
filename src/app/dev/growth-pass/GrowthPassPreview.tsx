@@ -7,11 +7,13 @@ import { isGrowthPassLine } from "@/adventure/data/v2/growthPass";
 import {
   QUEST_LINES,
   deriveQuestViews,
+  questById,
   type QuestCtx,
   type QuestView,
 } from "@/adventure/data/v2/v2Quests";
 import {
   CurrentGoalBanner,
+  FirstBattleBanner,
   GrowthPassRewardBanner,
   homeGuidePlan,
 } from "@/adventure/v2/GuideQuestBanner";
@@ -100,9 +102,28 @@ function passViews(scenario: Scenario): QuestView[] {
 
 const PASS_LINES = QUEST_LINES.filter((line) => isGrowthPassLine(line.id));
 
+const FIRST_BATTLE = questById("g_first_battle")!;
+const FIRST_BATTLE_VIEW: QuestView = {
+  id: FIRST_BATTLE.id,
+  line: FIRST_BATTLE.line,
+  title: FIRST_BATTLE.title,
+  desc: FIRST_BATTLE.desc,
+  href: FIRST_BATTLE.href ?? null,
+  reward: FIRST_BATTLE.reward,
+  status: "active",
+  points: 0,
+  progress: 0,
+  goal: 1,
+  detailKind: null,
+};
+
 export function GrowthPassPreview() {
   return (
     <PageShell>
+      <section className="space-y-2">
+        <SectionHeading title="캐릭터를 만든 직후(첫 전투 전)의 모험 화면" />
+        <FirstBattleBanner quest={FIRST_BATTLE_VIEW} />
+      </section>
       {SCENARIOS.map((scenario) => {
         const views = passViews(scenario);
         const plan = homeGuidePlan(views, null, null);

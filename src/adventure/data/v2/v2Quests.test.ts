@@ -23,6 +23,7 @@ import {
   isGrowthPassNewcomer,
 } from "./growthPass";
 import { COOP_BOSSES } from "./coopBosses";
+import { FIRST_HUNT_DEPTH } from "./dungeon";
 import { questRewardText } from "./questRewardText";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
@@ -509,40 +510,43 @@ describe("성장의 길 (순차 라인)", () => {
     );
   });
 
+  // 기초 튜토리얼은 첫 전투를 치른 뒤에 열린다.
+  const FOUGHT: QuestCtx = { ...ZERO, battleCount: 1 };
+
   it("기초 튜토리얼 — 은행/현재 스킬 장착/옛 저장 신호로 충족", () => {
-    // 신규(ZERO) = 전부 미충족.
-    expect(questStatus(questById("b_bank")!, ZERO, none)).toBe("active");
-    expect(questStatus(questById("b_skill")!, ZERO, none)).toBe("active");
+    // 신규(FOUGHT) = 전부 미충족.
+    expect(questStatus(questById("b_bank")!, FOUGHT, none)).toBe("active");
+    expect(questStatus(questById("b_skill")!, FOUGHT, none)).toBe("active");
     // 각 신호 충족 시 수령 가능.
     expect(
-      isQuestClaimable(questById("b_bank")!, { ...ZERO, bankedGold: 50 }, none),
+      isQuestClaimable(questById("b_bank")!, { ...FOUGHT, bankedGold: 50 }, none),
     ).toBe(true);
     expect(
       isQuestClaimable(
         questById("b_skill")!,
-        { ...ZERO, hasEditedSkillLoadout: true },
+        { ...FOUGHT, hasEditedSkillLoadout: true },
         none,
       ),
     ).toBe(true);
     expect(
       isQuestClaimable(
         questById("b_skill")!,
-        { ...ZERO, skillsEquipped: 1 },
+        { ...FOUGHT, skillsEquipped: 1 },
         none,
       ),
     ).toBe(true);
   });
 
   it("기초 튜토리얼 — 치료/학습 신호로 충족", () => {
-    expect(questStatus(questById("b_heal")!, ZERO, none)).toBe("active");
-    expect(questStatus(questById("b_learn")!, ZERO, none)).toBe("active");
+    expect(questStatus(questById("b_heal")!, FOUGHT, none)).toBe("active");
+    expect(questStatus(questById("b_learn")!, FOUGHT, none)).toBe("active");
     expect(
-      isQuestClaimable(questById("b_heal")!, { ...ZERO, hasHealed: true }, none),
+      isQuestClaimable(questById("b_heal")!, { ...FOUGHT, hasHealed: true }, none),
     ).toBe(true);
     expect(
       isQuestClaimable(
         questById("b_learn")!,
-        { ...ZERO, skillsLearned: 1 },
+        { ...FOUGHT, skillsLearned: 1 },
         none,
       ),
     ).toBe(true);
@@ -553,27 +557,27 @@ describe("성장의 길 (순차 라인)", () => {
       {
         id: "b_farm",
         href: "/town/farm",
-        ctx: { ...ZERO, farmHarvests: 1 },
+        ctx: { ...FOUGHT, farmHarvests: 1 },
       },
       {
         id: "b_logging",
         href: "/town/logging?spot=pine_grove",
-        ctx: { ...ZERO, woodcuttingCuts: 1 },
+        ctx: { ...FOUGHT, woodcuttingCuts: 1 },
       },
       {
         id: "b_mining",
         href: "/town/mining?spot=iron_quarry",
-        ctx: { ...ZERO, miningSuccesses: 1 },
+        ctx: { ...FOUGHT, miningSuccesses: 1 },
       },
       {
         id: "b_fishing",
         href: "/town/fishing",
-        ctx: { ...ZERO, fishCaught: 1 },
+        ctx: { ...FOUGHT, fishCaught: 1 },
       },
       {
         id: "b_cooking",
         href: "/town/kitchen",
-        ctx: { ...ZERO, cookingDishesCooked: 1 },
+        ctx: { ...FOUGHT, cookingDishesCooked: 1 },
       },
     ] as const;
 
@@ -581,7 +585,7 @@ describe("성장의 길 (순차 라인)", () => {
       const quest = questById(id)!;
       expect(quest.line, id).toBe("basics");
       expect(quest.href, id).toBe(href);
-      expect(questStatus(quest, ZERO, none), id).toBe("active");
+      expect(questStatus(quest, FOUGHT, none), id).toBe("active");
       expect(isQuestClaimable(quest, ctx, none), id).toBe(true);
     }
   });
@@ -1050,6 +1054,8 @@ describe("deriveQuestViews", () => {
       if (q.hiddenUntilComplete && !q.check(ZERO)) return false;
       // 성장 패스는 3차 직업에 도달한 뒤에 열린다. ZERO 는 1차다.
       if (isGrowthPassLine(q.line)) return false;
+      // 기초 튜토리얼은 첫 전투를 치른 뒤에 열린다. ZERO 는 전투 0회다.
+      if (q.line === "basics") return false;
       if (!q.chain) return true;
       if (seenChains.has(q.chain)) return false;
       seenChains.add(q.chain);
@@ -1452,7 +1458,37 @@ describe("성장 패스", () => {
 
   it("홈의 현재 목표는 기초 튜토리얼이 남아 있으면 그쪽을 먼저 안내한다", () => {
     const growthDone = new Set(V2_QUESTS.filter((q) => q.line === "growth").map((q) => q.id));
-    const guide = currentGuideQuest(ctx({ maxJobTier: 3 }), growthDone);
+    const guide = currentGuideQuest(ctx({ maxJobTier: 3, battleCount: 1 }), growthDone);
     expect(guide?.line).toBe("basics");
+  });
+});
+
+// ── 첫 전투 안내 ───────────────────────────────────────────────────────────
+describe("첫 전투 전의 튜토리얼", () => {
+  const tutorialLines = (c: QuestCtx) => [
+    ...new Set(
+      deriveQuestViews(c, none)
+        .filter((view) => isTutorialLine(view.line))
+        .map((view) => view.line),
+    ),
+  ];
+
+  it("첫 전투 전에는 성장의 길만 보이고 첫 목표가 첫 전투다", () => {
+    expect(tutorialLines(ZERO)).toEqual(["growth"]);
+    const first = deriveQuestViews(ZERO, none).filter((view) => isTutorialLine(view.line))[0];
+    expect([first.id, first.status]).toEqual(["g_first_battle", "active"]);
+  });
+
+  it("첫 전투를 치르면 기초 튜토리얼이 열린다", () => {
+    expect(tutorialLines({ ...ZERO, battleCount: 1 })).toEqual(["growth", "basics"]);
+    // 전투 없이 기초 목표를 먼저 달성했어도 첫 전투 전에는 받을 수 없다.
+    const healed = { ...ZERO, hasHealed: true };
+    expect(isQuestClaimable(questById("b_heal")!, healed, none)).toBe(false);
+    expect(isQuestClaimable(questById("b_heal")!, { ...healed, battleCount: 1 }, none)).toBe(true);
+  });
+
+  it("첫 전투 목표의 이동은 사냥터 목록이 아니라 첫 사냥 화면으로 간다", () => {
+    expect(FIRST_HUNT_DEPTH).toBe(2);
+    expect(questById("g_first_battle")!.href).toBe("/battle/dungeon/2");
   });
 });

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  isFirstBattlePending,
   claimAllRewardText,
   GrowthLeapMissionPanel,
   GuideEmptyState,
@@ -344,5 +345,28 @@ describe("몬스터 처치 현황 카드", () => {
     expect(html).toContain("미처치 1종");
     expect(html).toContain("모래도마뱀");
     expect(html).not.toContain(">들개<");
+  });
+});
+
+describe("첫 전투 전 판정", () => {
+  const quest = (status: "active" | "claimable" | "claimed") => ({
+    id: "g_first_battle",
+    line: "growth",
+    title: "첫 발걸음",
+    desc: "",
+    href: "/battle/dungeon/2",
+    reward: {},
+    status,
+    points: 0,
+    progress: null,
+    goal: null,
+    detailKind: null,
+  });
+
+  it("첫 전투 목표가 진행 중일 때만 첫 전투 전으로 본다", () => {
+    expect(isFirstBattlePending([quest("active")])).toBe(true);
+    expect(isFirstBattlePending([quest("claimable")])).toBe(false);
+    expect(isFirstBattlePending([quest("claimed")])).toBe(false);
+    expect(isFirstBattlePending([])).toBe(false);
   });
 });

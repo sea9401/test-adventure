@@ -39,7 +39,8 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     class: "none",
     level: 1,
     tier: 1,
-    battleCount: 0,
+    // 기초 튜토리얼은 첫 전투를 치른 뒤에 열린다.
+    battleCount: 1,
     frontierDepth: 2,
     equippedCount: 0,
     uniqueAcquired: 0,

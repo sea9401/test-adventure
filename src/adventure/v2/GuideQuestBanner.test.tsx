@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   CurrentGoalBanner,
+  FirstBattleBanner,
   GrowthPassRewardBanner,
   RepeatRewardBanner,
   homeGuidePlan,
@@ -183,5 +184,52 @@ describe("홈의 성장 패스 안내", () => {
     );
     expect(html).toContain("성장 패스");
     expect(html).toContain("5,339 / 6,000");
+  });
+});
+
+describe("홈의 첫 전투 안내", () => {
+  const view = (over: Partial<QuestView>): QuestView => ({
+    id: "q",
+    line: "growth",
+    title: "제목",
+    desc: "설명",
+    href: null,
+    reward: {},
+    status: "active",
+    points: 0,
+    progress: null,
+    goal: null,
+    detailKind: null,
+    ...over,
+  });
+  const firstBattle = view({
+    id: "g_first_battle",
+    title: "첫 발걸음",
+    href: "/battle/dungeon/2",
+    reward: { staminaPotions: 1, equip: "v2_chain_mail" },
+    progress: 0,
+    goal: 1,
+  });
+  const next = view({ id: "g_equip", title: "무장하기", status: "locked" });
+
+  it("첫 전투를 치르기 전에는 체크리스트 대신 첫 전투만 안내한다", () => {
+    const plan = homeGuidePlan([firstBattle, next], firstBattle, null);
+    expect(plan.firstBattle?.id).toBe("g_first_battle");
+    expect(plan.tutorialTodo).toEqual([]);
+    expect(plan.goal).toBeNull();
+  });
+
+  it("첫 전투를 치른 뒤에는 전과 같이 체크리스트를 보여 준다", () => {
+    const done = { ...firstBattle, status: "claimable" as const };
+    const plan = homeGuidePlan([done, { ...next, status: "active" }], done, null);
+    expect(plan.firstBattle).toBeNull();
+    expect(plan.tutorialTodo.map((q) => q.id)).toEqual(["g_first_battle", "g_equip"]);
+  });
+
+  it("첫 사냥 화면으로 바로 가는 버튼과 보상을 보여 준다", () => {
+    const html = renderToStaticMarkup(<FirstBattleBanner quest={firstBattle} />);
+    expect(html).toContain('href="/battle/dungeon/2"');
+    expect(html).toContain("첫 전투 하러 가기");
+    expect(html).toContain("쇠사슬 갑옷");
   });
 });

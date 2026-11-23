@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Compass, Gift, CaretRight, Circle } from "@phosphor-icons/react";
 import {
@@ -10,6 +11,9 @@ import {
 } from "@/components/ui/surfaces";
 import { isTutorialLine, type QuestView } from "@/adventure/data/v2/v2Quests";
 import { isGrowthPassLine } from "@/adventure/data/v2/growthPass";
+import { questRewardText } from "@/adventure/data/v2/questRewardText";
+import { firstHuntHref } from "@/adventure/v2/dungeonNavigation";
+import { buttonClassName } from "@/components/ui/Button";
 import type {
   RepeatBundleView,
   RepeatScope,
@@ -20,7 +24,11 @@ type RepeatRewardSummary = {
   weeklyBundle: RepeatBundleView;
 };
 
+const FIRST_BATTLE_QUEST_ID = "g_first_battle";
+
 export type HomeGuidePlan = {
+  /** 아직 첫 전투를 치르지 않은 계정의 첫 전투 목표. 있으면 이것만 안내한다. */
+  firstBattle: QuestView | null;
   /** 남은 기초 튜토리얼(받기 먼저). 성장 패스 단계는 넣지 않는다. */
   tutorialTodo: QuestView[];
   /** 지금 받을 수 있는 성장 패스 단계. */
@@ -57,6 +65,13 @@ export function homeGuidePlan(
   trackedQuestId: string | null,
 ): HomeGuidePlan {
   const isPass = (q: QuestView) => isGrowthPassLine(q.line);
+  const firstBattle =
+    quests.find(
+      (q) => q.id === FIRST_BATTLE_QUEST_ID && q.status === "active",
+    ) ?? null;
+  if (firstBattle) {
+    return { firstBattle, tutorialTodo: [], passClaimable: [], goal: null };
+  }
   const tutorialTodo = quests
     .filter(
       (q) =>
@@ -72,7 +87,7 @@ export function homeGuidePlan(
     (q) => isPass(q) && q.status === "claimable",
   );
   if (tutorialTodo.length > 0) {
-    return { tutorialTodo, passClaimable, goal: null };
+    return { firstBattle: null, tutorialTodo, passClaimable, goal: null };
   }
   const tracked = current && current.id === trackedQuestId ? current : null;
   const passActive =
@@ -81,6 +96,7 @@ export function homeGuidePlan(
       : null;
   const recommended = current && !isPass(current) ? current : null;
   return {
+    firstBattle: null,
     tutorialTodo,
     passClaimable,
     goal: tracked ?? passActive ?? recommended,
@@ -133,7 +149,7 @@ export function GuideQuestBanner() {
 
   if (!loaded) return null;
 
-  const { tutorialTodo, passClaimable, goal } = homeGuidePlan(
+  const { firstBattle, tutorialTodo, passClaimable, goal } = homeGuidePlan(
     quests,
     current,
     trackedQuestId,
@@ -151,7 +167,9 @@ export function GuideQuestBanner() {
   ) : null;
 
   let guideBanner = null;
-  if (tutorialTodo.length > 0) {
+  if (firstBattle) {
+    guideBanner = <FirstBattleBanner quest={firstBattle} />;
+  } else if (tutorialTodo.length > 0) {
     guideBanner = (
       <TutorialChecklist
         items={tutorialTodo}
@@ -248,6 +266,45 @@ export function RepeatRewardBanner({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+/** 첫 전투를 치르지 않은 계정에게 첫 사냥 화면으로 가는 길 하나만 보여 준다. */
+export function FirstBattleBanner({ quest }: { quest: QuestView }) {
+  const reward = questRewardText(quest.reward);
+  return (
+    <section
+      className={`${SURFACE_CARD} ui-quest-card space-y-3 border-emerald-300 px-4 py-3 dark:border-emerald-800`}
+      aria-label="첫 전투 안내"
+    >
+      <div className="flex items-start gap-3">
+        <Compass
+          size={20}
+          weight="fill"
+          className="mt-0.5 shrink-0 text-emerald-500"
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            첫 전투를 치러 보세요
+          </h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+            사냥 버튼을 누르면 전투가 자동으로 진행됩니다.
+          </p>
+          {reward && (
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+              첫 전투 보상 {reward}
+            </p>
+          )}
+        </div>
+      </div>
+      <Link
+        href={quest.href ?? firstHuntHref()}
+        className={buttonClassName({ variant: "primary", size: "md", fullWidth: true })}
+      >
+        첫 전투 하러 가기
+      </Link>
     </section>
   );
 }

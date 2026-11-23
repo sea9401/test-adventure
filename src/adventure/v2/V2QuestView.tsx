@@ -95,6 +95,15 @@ type GrowthLeapMilestoneView = Exclude<
   { status: "not_purchased" }
 >["milestones"][number];
 
+/** 아직 첫 전투를 치르지 않은 계정인가. 첫 전투 목표가 진행 중일 때만 그렇게 본다. */
+export function isFirstBattlePending(
+  quests: readonly Pick<QuestView, "id" | "status">[],
+): boolean {
+  return quests.some(
+    (quest) => quest.id === "g_first_battle" && quest.status === "active",
+  );
+}
+
 export function QuestTabContent({
   tab,
   children,
@@ -752,7 +761,12 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         sticky={!forTutorial}
         aside={
           <>
-            {forTutorial && (
+            {/* 첫 전투 전에는 구매 안내를 띄우지 않는다. 이미 구매한 의뢰는 그대로 보여 준다. */}
+            {forTutorial &&
+              !(
+                growthLeap.status === "not_purchased" &&
+                isFirstBattlePending(quests)
+              ) && (
               <GrowthLeapMissionPanel
                 mission={growthLeap}
                 now={growthLeapNow}

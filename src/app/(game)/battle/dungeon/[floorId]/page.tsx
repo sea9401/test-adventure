@@ -16,6 +16,7 @@ import {
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
 import {
+  FIRST_BATTLE_INTRO_PARAM,
   dungeonFloorBackHref,
   normalHuntFloorHref,
   rareMapEntryHref,
@@ -30,6 +31,8 @@ export default function DungeonFloorPage() {
   // ?rareMap=<iid> = 레어맵 입장 모드 — 보유 지도로 농축 사냥(서버가 소유/깊이/판수 검증).
   const searchParams = useSearchParams();
   const rareMapIid = searchParams.get("rareMap");
+  // 캐릭터를 만든 직후 들어온 첫 사냥 화면이면 첫 전투 안내를 띄운다.
+  const firstBattleIntro = searchParams.get(FIRST_BATTLE_INTRO_PARAM) === "1";
   const {
     currentOutpost,
     viewerName,
@@ -118,6 +121,7 @@ export default function DungeonFloorPage() {
       initialHpCharges={hpCharges}
       initialMpCharges={mpCharges}
       playerSubtitle={playerSubtitle}
+      firstBattleIntro={firstBattleIntro && !rareMapIid}
       playerProficiency={viewerProficiency}
       playerJobId={viewerJobId}
       stamina={stamina}

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
+import {
+  MUSEUN_COIN_CUSTOM_CHARGE,
+  MUSEUN_COIN_PACKAGES,
+  museunCoinCustomCharge,
+} from "@/adventure/data/v2/adventureSupport";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 type OrderStatus =
@@ -42,6 +46,14 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   review_required: "확인 필요",
 };
 
+const PAY_BUTTON_CLASS =
+  "ui-game-button rounded-md border border-amber-500 bg-amber-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-400 disabled:opacity-100 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500";
+
+const CUSTOM_AMOUNT_RANGE = `${MUSEUN_COIN_CUSTOM_CHARGE.unitKrw.toLocaleString()}원 단위로 ${MUSEUN_COIN_CUSTOM_CHARGE.minKrw.toLocaleString()}원부터 ${MUSEUN_COIN_CUSTOM_CHARGE.maxKrw.toLocaleString()}원까지`;
+const CUSTOM_AMOUNT_DIGITS = String(MUSEUN_COIN_CUSTOM_CHARGE.maxKrw).length;
+
+type ChargeRequest = { packageId: string } | { customAmountKrw: number };
+
 export function MuseunCoinCheckout() {
   const [availability, setAvailability] = useState<"loading" | "disabled" | "enabled">("loading");
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
@@ -49,7 +61,10 @@ export function MuseunCoinCheckout() {
   const [error, setError] = useState<string | null>(null);
   const [refundOrderId, setRefundOrderId] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
+  const [customAmount, setCustomAmount] = useState("");
   const inFlight = useRef(false);
+  const customCharge =
+    customAmount === "" ? null : museunCoinCustomCharge(Number(customAmount));
 
   useEffect(() => {
     let alive = true;
@@ -73,16 +88,18 @@ export function MuseunCoinCheckout() {
     };
   }, []);
 
-  async function startPayment(packageId: string) {
+  async function startPayment(request: ChargeRequest) {
     if (inFlight.current || availability !== "enabled") return;
     inFlight.current = true;
-    setBusyPackage(packageId);
+    setBusyPackage(
+      "packageId" in request ? request.packageId : MUSEUN_COIN_CUSTOM_CHARGE.id,
+    );
     setError(null);
     try {
       const response = await fetch("/api/v2/museun-coin-payments/orders", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ packageId }),
+        body: JSON.stringify(request),
       });
       const body = (await response.json().catch(() => null)) as
         | ({ ok?: boolean } & Partial<CreatedOrder>)
@@ -172,8 +189,8 @@ export function MuseunCoinCheckout() {
               <button
                 type="button"
                 disabled={availability !== "enabled" || busyPackage !== null}
-                onClick={() => void startPayment(item.id)}
-                className="ui-game-button mt-3 w-full rounded-md border border-amber-500 bg-amber-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-400 disabled:opacity-100 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                onClick={() => void startPayment({ packageId: item.id })}
+                className={`${PAY_BUTTON_CLASS} mt-3 w-full`}
               >
                 {availability === "loading"
                   ? "확인 중…"
@@ -186,6 +203,71 @@ export function MuseunCoinCheckout() {
             </div>
           );
         })}
+      </div>
+
+      <div className={`${SURFACE_INSET} p-3`}>
+        <label htmlFor="museun-coin-custom-amount" className="text-sm font-bold">
+          금액 직접 입력
+        </label>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {CUSTOM_AMOUNT_RANGE} 충전할 수 있습니다.{" "}
+          {MUSEUN_COIN_CUSTOM_CHARGE.unitKrw.toLocaleString()}원에{" "}
+          {MUSEUN_COIN_CUSTOM_CHARGE.coinsPerUnit.toLocaleString()}코인입니다.
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            id="museun-coin-custom-amount"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="7000"
+            value={customAmount}
+            onChange={(event) =>
+              setCustomAmount(
+                event.target.value
+                  .replace(/\D/g, "")
+                  .replace(/^0+/, "")
+                  .slice(0, CUSTOM_AMOUNT_DIGITS),
+              )
+            }
+            aria-describedby="museun-coin-custom-amount-status"
+            className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-right text-sm tabular-nums dark:border-zinc-600 dark:bg-zinc-900"
+          />
+          <span className="shrink-0 text-sm">원</span>
+          <button
+            type="button"
+            disabled={
+              availability !== "enabled" || busyPackage !== null || !customCharge
+            }
+            onClick={() => {
+              if (customCharge) {
+                void startPayment({ customAmountKrw: customCharge.priceKrw });
+              }
+            }}
+            className={`${PAY_BUTTON_CLASS} shrink-0`}
+          >
+            {availability === "loading"
+              ? "확인 중…"
+              : availability === "disabled"
+                ? "결제 준비 중"
+                : busyPackage === MUSEUN_COIN_CUSTOM_CHARGE.id
+                  ? "결제창 여는 중…"
+                  : customCharge
+                    ? `${customCharge.priceKrw.toLocaleString()}원 결제`
+                    : "금액 입력"}
+          </button>
+        </div>
+        <p
+          id="museun-coin-custom-amount-status"
+          aria-live="polite"
+          className="mt-2 min-h-4 text-xs tabular-nums text-zinc-600 dark:text-zinc-300"
+        >
+          {customCharge
+            ? `${customCharge.coins.toLocaleString()}코인을 받습니다.`
+            : customAmount !== ""
+              ? `${CUSTOM_AMOUNT_RANGE} 입력해 주세요.`
+              : null}
+        </p>
       </div>
 
       {error ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}

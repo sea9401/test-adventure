@@ -2,7 +2,12 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, ne } from "drizzle-orm";
-import { MUSEUN_COIN_PACKAGES } from "@/adventure/data/v2/adventureSupport";
+import {
+  MUSEUN_COIN_CUSTOM_CHARGE,
+  MUSEUN_COIN_PACKAGES,
+  museunCoinCustomCharge,
+  type MuseunCoinCharge,
+} from "@/adventure/data/v2/adventureSupport";
 import { db } from "@/db";
 import {
   museunCoinPaidLots,
@@ -21,7 +26,12 @@ import {
 } from "./tossPayments";
 import type { MuseunCoinPaymentConfig } from "./museunCoinPaymentConfig";
 
-type PackageId = (typeof MUSEUN_COIN_PACKAGES)[number]["id"];
+type PackageId =
+  | (typeof MUSEUN_COIN_PACKAGES)[number]["id"]
+  | typeof MUSEUN_COIN_CUSTOM_CHARGE.id;
+
+/** 정액 상품 id 또는 직접 입력한 원화 금액. 코인 수와 가격은 서버가 정한다. */
+export type MuseunCoinChargeSelection = string | { customAmountKrw: number };
 
 export type MuseunCoinPaymentOrderRecord = {
   orderId: string;
@@ -97,8 +107,17 @@ export class MuseunCoinPaymentError extends Error {
   }
 }
 
-function packageById(packageId: string) {
-  return MUSEUN_COIN_PACKAGES.find((item) => item.id === packageId) ?? null;
+function selectCharge(
+  selection: MuseunCoinChargeSelection,
+): MuseunCoinCharge & { id: PackageId } {
+  if (typeof selection === "string") {
+    const selected = MUSEUN_COIN_PACKAGES.find((item) => item.id === selection);
+    if (!selected) throw new MuseunCoinPaymentError("invalid_package");
+    return selected;
+  }
+  const custom = museunCoinCustomCharge(selection.customAmountKrw);
+  if (!custom) throw new MuseunCoinPaymentError("invalid_amount");
+  return { ...custom, id: MUSEUN_COIN_CUSTOM_CHARGE.id };
 }
 
 function orderName(coinAmount: number) {
@@ -197,12 +216,11 @@ export function createMuseunCoinPaymentOperations(input: {
   return {
     async createOrder(
       userId: string,
-      packageId: string,
+      selection: MuseunCoinChargeSelection,
       customerKey: string,
       clientKey?: string,
     ) {
-      const selected = packageById(packageId);
-      if (!selected) throw new MuseunCoinPaymentError("invalid_package");
+      const selected = selectCharge(selection);
       const row = await input.repo.createOrder({
         orderId: createOrderId(),
         userId,
@@ -488,11 +506,11 @@ export async function getPaymentCustomerKey(userId: string) {
 
 export async function createPaymentOrder(
   userId: string,
-  packageId: string,
+  selection: MuseunCoinChargeSelection,
   customerKey: string,
   config: MuseunCoinPaymentConfig,
 ) {
-  return operations(config).createOrder(userId, packageId, customerKey, config.clientKey);
+  return operations(config).createOrder(userId, selection, customerKey, config.clientKey);
 }
 
 export async function confirmPaymentOrder(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADVENTURE_SUPPORT_PASS,
+  MUSEUN_COIN_CUSTOM_CHARGE,
   MUSEUN_COIN_PACKAGES,
   PREMIUM_ADVENTURE_SUPPORT_PASS,
   adventureSupportActive,
@@ -10,6 +11,7 @@ import {
   grantPremiumAdventureSupport,
   huntCountsForAdventureSupport,
   maxHuntBatchForAdventureSupport,
+  museunCoinCustomCharge,
   normalizeHuntCount,
   parseAdventureSupportState,
 } from "./adventureSupport";
@@ -24,6 +26,25 @@ describe("월간 모험 지원권", () => {
       { id: "coin_3000", coins: 3_000, priceKrw: 30_000 },
       { id: "coin_5000", coins: 5_000, priceKrw: 50_000 },
     ]);
+  });
+
+  it("직접 입력 충전은 1,000원 단위로 받고 정액 상품과 같은 비율로 코인을 준다", () => {
+    expect(museunCoinCustomCharge(7_000)).toEqual({
+      id: "coin_custom",
+      coins: 700,
+      priceKrw: 7_000,
+    });
+    expect(museunCoinCustomCharge(MUSEUN_COIN_CUSTOM_CHARGE.minKrw)?.coins).toBe(100);
+    expect(museunCoinCustomCharge(MUSEUN_COIN_CUSTOM_CHARGE.maxKrw)?.coins).toBe(5_000);
+    for (const item of MUSEUN_COIN_PACKAGES) {
+      expect(museunCoinCustomCharge(item.priceKrw)?.coins).toBe(item.coins);
+    }
+  });
+
+  it("직접 입력 충전은 단위·범위를 벗어난 금액과 숫자가 아닌 값을 거절한다", () => {
+    for (const value of [0, 500, 1_500, 999, -1_000, 51_000, 1_000.5, NaN, Infinity, "7000", null, undefined]) {
+      expect(museunCoinCustomCharge(value)).toBeNull();
+    }
   });
 
   it("미가입자는 10회까지만 선택할 수 있다", () => {

@@ -11,6 +11,7 @@ import {
   marketplaceFavoriteKey,
 } from "./marketplace/marketplaceFavorites";
 import { useMarketplaceUnsold } from "./marketplace/useMarketplaceUnsold";
+import { MarketplaceRelistButton } from "./marketplace/MarketplaceRelist";
 import { ItemSearchInput } from "./ItemSearchInput";
 import { filterItemCounts, matchesItemSearch } from "./itemSearch";
 
@@ -1719,7 +1720,7 @@ export function V2MarketplaceView({
             />
           ) : (
             <>
-              {mineTab === "unsold" && <Card padding="sm" className="text-xs text-zinc-600 dark:text-zinc-300">판매되지 않고 만료되거나 취소된 최근 100건이에요.</Card>}
+              {mineTab === "unsold" && <Card padding="sm" className="text-xs text-zinc-600 dark:text-zinc-300">판매되지 않고 만료되거나 취소된 최근 100건이에요. 유찰된 장비와 재료는 가격을 낮춰 바로 다시 올릴 수 있어요.</Card>}
               {mineTab === "unsold" && unsold.error ? <Card padding="sm"><p role="alert">{unsold.error}</p><button type="button" onClick={unsold.retry} className="mt-2 rounded-md border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700">다시 시도</button></Card> : <ListingList
                 rows={historyRows === null ? null : myHistoryPager.pageItems}
                 emptyText={mineTab === "unsold" ? "미판매 종료 내역이 없어요." : "아직 체결된 거래가 없어요."}
@@ -1729,13 +1730,14 @@ export function V2MarketplaceView({
                 clockMs={clockMs}
                 onOpenCard={openCardFor}
                 action={(l) => (
-                  <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+                  <div className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
                     <span className={l.isMine ? "text-emerald-600 dark:text-emerald-400" : "text-sky-600 dark:text-sky-400"}>
                       {l.closedStatus === "expired" ? "기간 만료" : l.closedStatus === "cancelled" ? "등록 취소" : l.isMine ? "판매" : "구매"}
                     </span>
                     <br />
                     {timeAgo(l.createdAt)}
-                  </span>
+                    {mineTab === "unsold" && <MarketplaceRelistButton listing={l} busy={busy} submit={(body, ok) => act("/api/v2/marketplace/list", body, ok, async () => undefined)} />}
+                  </div>
                 )}
               />}
               {historyRows !== null && historyRows.length > 0 && (

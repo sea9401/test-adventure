@@ -7,13 +7,14 @@ export type LiberationOptionUnit =
   | "chance_multiplier_pct"
   | "growth_range";
 
+// 기초 능력치 이름은 내 정보의 능력치 표기(V2_STAT_LABELS)와 같게 둔다(건의 #879).
 export const LIBERATION_OPTION_DEFINITIONS = {
-  base_str_pct: { label: "기초 STR", maxValue: 9, unit: "pct" },
-  base_dex_pct: { label: "기초 DEX", maxValue: 9, unit: "pct" },
-  base_vit_pct: { label: "기초 VIT", maxValue: 9, unit: "pct" },
-  base_int_pct: { label: "기초 INT", maxValue: 9, unit: "pct" },
-  base_spi_pct: { label: "기초 SPI", maxValue: 9, unit: "pct" },
-  base_luk_pct: { label: "기초 LUK", maxValue: 9, unit: "pct" },
+  base_str_pct: { label: "기초 힘", maxValue: 9, unit: "pct" },
+  base_dex_pct: { label: "기초 민첩", maxValue: 9, unit: "pct" },
+  base_vit_pct: { label: "기초 활력", maxValue: 9, unit: "pct" },
+  base_int_pct: { label: "기초 지능", maxValue: 9, unit: "pct" },
+  base_spi_pct: { label: "기초 정신", maxValue: 9, unit: "pct" },
+  base_luk_pct: { label: "기초 행운", maxValue: 9, unit: "pct" },
   physical_attack_flat: { label: "물리 공격력", maxValue: 100, unit: "integer" },
   magic_attack_flat: { label: "마법 공격력", maxValue: 100, unit: "integer" },
   physical_attack_pct: { label: "물리 공격력", maxValue: 9, unit: "pct" },

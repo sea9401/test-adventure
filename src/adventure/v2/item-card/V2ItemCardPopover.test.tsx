@@ -51,7 +51,7 @@ describe("V2ItemCard set information", () => {
     expect(html).toContain("마법부여 옵션");
     expect(html).not.toContain("해방");
     expect(html).toContain("2줄");
-    expect(html).toContain("기초 STR +4.5%");
+    expect(html).toContain("기초 힘 +4.5%");
     expect(html).toContain("스킬 치명타 피해 +16%p");
     expect(html).toContain("Lv.10");
     expect(html).toContain("Lv.8");

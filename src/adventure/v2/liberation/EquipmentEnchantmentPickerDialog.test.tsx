@@ -114,7 +114,7 @@ describe("마법부여 장비 선택 창", () => {
 
     const listbox = screen.getByRole("listbox", { name: "마법부여 대상 장비" });
     expect(within(listbox).getAllByText("재앙독 완갑")).toHaveLength(2);
-    expect(within(listbox).getByText("기초 STR +1.8%")).toBeTruthy();
+    expect(within(listbox).getByText("기초 힘 +1.8%")).toBeTruthy();
     expect(within(listbox).getByText("스킬 치명타 피해 +40%p")).toBeTruthy();
     expect(within(listbox).getByText("잠금됨")).toBeTruthy();
     expect(within(listbox).getByText("장착 중")).toBeTruthy();

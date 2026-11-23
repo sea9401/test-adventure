@@ -50,7 +50,7 @@ describe("마법부여 이전 확인 흐름", () => {
     selectTarget();
     const dialog = confirm();
     expect(within(dialog).getByText("마법부여 3단계 · 2줄")).toBeTruthy();
-    expect(within(dialog).getByText(/기초 STR \+5.4%/)).toBeTruthy();
+    expect(within(dialog).getByText(/기초 힘 \+5.4%/)).toBeTruthy();
     expect(within(dialog).getByText(/스킬 치명타 피해 \+30%p/)).toBeTruthy();
     expect(within(dialog).getByText("Lv.12")).toBeTruthy();
     expect(within(dialog).getByText("Lv.15")).toBeTruthy();
@@ -116,7 +116,7 @@ describe("마법부여 이전 확인 흐름", () => {
     fireEvent.click(screen.getByRole("button", { name: "75,000,000 G 지불하고 이전" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "마법부여 이전 확인" })).toBeNull());
     expect(await screen.findByText(/장비 상태가 바뀌었습니다/)).toBeTruthy();
-    expect(screen.getByText(/기초 STR \+2.25%/)).toBeTruthy();
+    expect(screen.getByText(/기초 힘 \+2.25%/)).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

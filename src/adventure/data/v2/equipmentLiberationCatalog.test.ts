@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { V2EquipSlot } from "./v2Equipment";
+import { V2_STAT_KEYS, V2_STAT_LABELS } from "./v2StatKeys";
 import {
   EQUIPMENT_LIBERATION_POOLS,
   firstLineProbability,
@@ -173,6 +174,14 @@ describe("equipment liberation option catalog", () => {
         0,
       );
       expect(total, slot).toBeCloseTo(1, 12);
+    }
+  });
+
+  it("기초 능력치 옵션은 내 정보와 같은 한글 능력치 이름으로 표시한다 (#879)", () => {
+    for (const stat of V2_STAT_KEYS) {
+      expect(liberationOptionDefinition(`base_${stat}_pct`).label, stat).toBe(
+        `기초 ${V2_STAT_LABELS[stat]}`,
+      );
     }
   });
 });

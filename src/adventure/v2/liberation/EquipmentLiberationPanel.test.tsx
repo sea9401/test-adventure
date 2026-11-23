@@ -85,6 +85,7 @@ describe("장비 마법부여 작업대", () => {
     expect(screen.getByText("3줄 15%")).toBeTruthy();
     expect(screen.getByText(/마법부여 1단계 · Lv.1~5/)).toBeTruthy();
     expect(screen.getByText(/2·3번째 줄은 이미 선택된 옵션을 제외/)).toBeTruthy();
+    expect(screen.getByText(/내 정보 능력치의 기본·성장 수치/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "도움말 닫기" }));
     fireEvent.click(screen.getByRole("button", { name: "마법부여" }));

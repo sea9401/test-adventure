@@ -23,6 +23,9 @@ import {
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
 
 export const COOP_SHOP_STATE_KEY = "coop-shop.v1";
+// 2026-11-24 건의 #877: 하루 2장 → 5장. 미개척지 개인 보스 한 번에 30장이 들어
+// 2장으로는 15일이 걸렸다. 주화 값(60)은 그대로 둔다.
+export const COOP_SUMMON_SCROLL_DAILY_LIMIT = 5;
 const COOP_STAMINA_POTION_ITEM_ID = "stamina_potion";
 
 export type CoopShopLimitScope = "daily" | "weekly";
@@ -144,10 +147,10 @@ export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
     itemId: "summon_scroll",
     category: "consumable",
     name: V2_MATERIALS[SUMMON_SCROLL_MATERIAL_ID]?.name ?? "보스 소환서",
-    description: "협동 보스를 소환하는 재료. 하루 2장까지 교환한다.",
+    description: `협동 보스를 소환하는 재료. 하루 ${COOP_SUMMON_SCROLL_DAILY_LIMIT}장까지 교환한다.`,
     cost: coinCost(60),
     output: { kind: "material", materialId: SUMMON_SCROLL_MATERIAL_ID, count: 1 },
-    limit: { scope: "daily", count: 2 },
+    limit: { scope: "daily", count: COOP_SUMMON_SCROLL_DAILY_LIMIT },
   },
   ...(V2_REFORGE_ENABLED
     ? [

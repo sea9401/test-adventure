@@ -98,6 +98,15 @@ describe("coopShop", () => {
     expect(isCoopShopLimitReached(reset, weekly)).toBe(true);
   });
 
+  it("보스 소환서는 하루 5장까지 교환한다", () => {
+    const scroll = COOP_SHOP_ENTRIES.find(
+      (entry) => entry.itemId === "summon_scroll",
+    )!;
+    expect(scroll.limit).toEqual({ scope: "daily", count: 5 });
+    expect(scroll.description).toContain("하루 5장");
+    expect(scroll.cost.materials[COOP_COIN_MATERIAL_ID]).toBe(60);
+  });
+
   it("스태미나 회복약은 주간 30개까지 교환한다", () => {
     const stamina = COOP_SHOP_ENTRIES.find(
       (entry) => entry.itemId === "stamina_potion",

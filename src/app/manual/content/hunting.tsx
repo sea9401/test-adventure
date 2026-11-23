@@ -90,10 +90,7 @@ const HUNT_RARE_MAP_IDS = [
   "relic_map",
 ] satisfies RareMapKindId[];
 
-const LOCATION_RARE_MAP_IDS = [
-  "secret_shop_map",
-  "rename_map",
-] satisfies RareMapKindId[];
+const LOCATION_RARE_MAP_IDS = ["secret_shop_map"] satisfies RareMapKindId[];
 const RARE_MAP_TTL_MINUTES = Math.floor(RARE_MAP_TTL_MS / 60_000);
 const HP_RESTORE_MINUTES = HP_RESTORE_MS / 60_000;
 const MIN_HUNT_HP_PERCENT = MIN_HUNT_HP_FRACTION * 100;
@@ -203,8 +200,8 @@ export function HuntingContent() {
       </P>
       <UL>
         <li><Em>충전약 기준</Em>: HP/MP 충전약 중 하나라도 정한 값 이하가 되면 멈춥니다.</li>
-        <li><Em>희귀 탐사맵 발견 시</Em>: 희귀 탐사 지도가 열리면 멈춥니다. 개명 신전과 비밀 상점 지도는 이 조건에 포함되지 않습니다.</li>
-        <li><Em>레어맵 {RARE_MAP_CAP}장 보유 시</Em>: 개명 신전·비밀 상점을 포함한 보유 레어맵이 한도에 닿으면 멈춥니다. 한도가 차면 새 레어맵이 열리지 않습니다.</li>
+        <li><Em>희귀 탐사맵 발견 시</Em>: 희귀 탐사 지도가 열리면 멈춥니다. 비밀 상점 지도는 이 조건에 포함되지 않습니다.</li>
+        <li><Em>레어맵 {RARE_MAP_CAP}장 보유 시</Em>: 비밀 상점을 포함한 보유 레어맵이 한도에 닿으면 멈춥니다. 한도가 차면 새 레어맵이 열리지 않습니다.</li>
         <li><Em>레벨 {AUTO_HUNT_LEVEL_TARGET} 도달 시</Em>: 레벨 {AUTO_HUNT_LEVEL_TARGET}이 되면 멈춥니다.</li>
         <li><Em>전투 패배 시</Em>: 전투에서 지면 충전약으로 체력이 회복되어도 멈춥니다. 멈춘 뒤 전투 기록에서 패배한 전투를 확인할 수 있습니다.</li>
       </UL>
@@ -344,8 +341,9 @@ export function HuntingContent() {
         </li>
         <li>
           <Em>희귀 탐사</Em>: 아주 낮은 확률로 열리는 특별 사냥. 발견된
-          깊이에서 보상이 크게 불어난 농축 사냥을 진행합니다. 비밀 상점·개명
-          신전도 별도의 희귀 장소 레어맵으로 열리며, 모두 거래소에서 거래됩니다.
+          깊이에서 보상이 크게 불어난 농축 사냥을 진행합니다. 비밀 상점도
+          별도의 희귀 장소 레어맵으로 열립니다. 희귀 탐사 지도는 거래소에서
+          거래할 수 있고, 비밀 상점 지도는 거래할 수 없습니다.
         </li>
       </UL>
 
@@ -353,8 +351,8 @@ export function HuntingContent() {
       <P>
         모든 레어맵은 <Em>일반 사냥 승리</Em> 때 낮은 확률로 열립니다. 발견 후{" "}
         {RARE_MAP_TTL_MINUTES}분 동안 전투 탭 → 사냥터의 <Em>열린 레어맵</Em>에서
-        입장합니다. 비밀 상점과 개명 신전도 소모품이 아니라 이 목록에 열린
-        희귀 장소로 표시됩니다.
+        입장합니다. 비밀 상점도 소모품이 아니라 이 목록에 열린 희귀 장소로
+        표시됩니다.
       </P>
       <Table
         head={["희귀 탐사", "열리는 곳", "횟수", "보너스", "승리당 개방률"]}
@@ -376,8 +374,8 @@ export function HuntingContent() {
           const def = RARE_MAP_KINDS[id];
           return [
             <Em key={id}>{def.name}</Em>,
-            id === "secret_shop_map" ? "비밀 상점" : "개명의 신전",
-            id === "secret_shop_map" ? "모든 품목 구매" : "개명 1회",
+            "비밀 상점",
+            "모든 품목 구매",
             def.desc,
             percentText(def.dropPct),
           ];

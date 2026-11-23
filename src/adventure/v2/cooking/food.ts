@@ -109,3 +109,16 @@ export function activeCookingBuff(raw: unknown, now = Date.now()): ActiveCooking
     expiresAt: Number(value.expiresAt),
   };
 }
+
+export type CompostableCookingDish = { id: CookingFoodId; name: string; count: number };
+
+/** 퇴비 재료로 쓸 수 있는 일반 품질 요리. 많이 가진 순서, 같으면 이름 순서. */
+export function compostableCookingDishes(raw: unknown): CompostableCookingDish[] {
+  const inventory = parseCookingFoodInventory(raw);
+  return (Object.entries(inventory) as [CookingFoodId, number][])
+    .flatMap(([id, count]) => {
+      const definition = cookingFoodDefinition(id);
+      return definition && definition.quality === "normal" ? [{ id, name: definition.name, count }] : [];
+    })
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ko"));
+}

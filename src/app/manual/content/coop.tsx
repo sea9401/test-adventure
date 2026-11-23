@@ -9,6 +9,7 @@ import {
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
 } from "@/adventure/data/v2/coopBosses";
+import { COOP_SUMMON_SCROLL_DAILY_LIMIT } from "@/adventure/v2/coop/coopShop";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function CoopContent() {
@@ -36,7 +37,8 @@ export function CoopContent() {
       <H2>소환서 모으기</H2>
       <P>
         사냥 승리 시 낮은 확률로 <Em>보스 소환서</Em>가 떨어집니다(모든 깊이 공통).
-        인벤토리 재료 탭에 보관되며 거래소에서 사고팔 수 있습니다.
+        인벤토리 재료 탭에 보관되며 거래소에서 사고팔 수 있습니다. 협동 교환소에서는
+        협동 주화로 하루 {COOP_SUMMON_SCROLL_DAILY_LIMIT}장까지 바꿀 수 있습니다.
       </P>
 
       <H2>소환과 토벌</H2>

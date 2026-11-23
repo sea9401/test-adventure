@@ -8,6 +8,11 @@ import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import {
+  compostableCookingDishes,
+  parseCookingFoodId,
+  removeCookingFood,
+} from "@/adventure/v2/cooking/food";
+import {
   LIFE_PROCESSING_RECIPE_BY_ID,
   LIFE_PROCESSING_TITLE_MILESTONES,
   LIFE_SPECIALIZATION_BY_ID,
@@ -77,6 +82,7 @@ type CharacterSave = {
 
 type InventorySave = Record<string, unknown> & {
   failedCookingDishes?: unknown;
+  cookingFoods?: unknown;
 };
 
 function materialBalances(raw: unknown): Record<string, number> {
@@ -136,6 +142,10 @@ function workshopPayload(args: {
   const failedCookingDishes = failedDishCount(
     (args.inventoryRaw as InventorySave | null | undefined)?.failedCookingDishes,
   );
+  const compostableDishes = compostableCookingDishes(
+    (args.inventoryRaw as InventorySave | null | undefined)?.cookingFoods,
+  );
+  const largestCompostableDishCount = compostableDishes[0]?.count ?? 0;
   const ranchCraftCount =
     args.state.crafting.craftCounts[RANCH_FEED_RECIPE.id] ?? 0;
   const ranchMasteryStage = recipeMasteryStage(ranchCraftCount);
@@ -160,6 +170,7 @@ function workshopPayload(args: {
     materials,
     processBatchLimit,
     failedCookingDishes,
+    compostableDishes,
     gold: Math.max(0, Math.floor(Number(args.charSave.gold) || 0)),
     bankedGold: Math.max(0, Math.floor(Number(args.charSave.bankedGold) || 0)),
     liberationDiscountPct,
@@ -202,7 +213,11 @@ function workshopPayload(args: {
       const maxByFailedDishes = recipe.failedDishCost
         ? Math.floor(failedCookingDishes / recipe.failedDishCost)
         : Number.MAX_SAFE_INTEGER;
-      return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials, maxByFailedDishes)) : 0 };
+      // 요리는 한 종류씩 골라 쓰므로 가장 많이 가진 종류 기준이다.
+      const maxByNormalDishes = recipe.normalDishCost
+        ? Math.floor(largestCompostableDishCount / recipe.normalDishCost)
+        : Number.MAX_SAFE_INTEGER;
+      return { ...recipe, learned, craftCount, masteryStage: stage, batchLimit, maxCraftable: learned && level >= recipe.requiredLevel ? Math.max(0, Math.min(batchLimit, maxByMaterials, maxByFailedDishes, maxByNormalDishes)) : 0 };
     }),
     ranchCraftingRecipe: {
       ...RANCH_FEED_RECIPE,
@@ -379,6 +394,27 @@ export async function POST(req: Request) {
           ...inventory,
           failedCookingDishes: held - required,
         };
+      }
+      if (recipe.normalDishCost) {
+        const food = parseCookingFoodId(requestBody.foodId);
+        if (!food || food.quality !== "normal") {
+          return { error: "bad_dish" as const };
+        }
+        const inventory =
+          nextInventory ??
+          (await lockSaveForUpdate<InventorySave>(
+            tx,
+            userId,
+            "inventory.v2",
+            {},
+          ));
+        const remaining = removeCookingFood(
+          inventory.cookingFoods,
+          food.id,
+          recipe.normalDishCost * quantity,
+        );
+        if (!remaining) return { error: "not_enough_dishes" as const };
+        nextInventory = { ...inventory, cookingFoods: remaining };
       }
       const produced = recipe.outputAmount * quantity;
       const discovered = new Set(state.crafting.discoveredRecipeIds);
@@ -560,7 +596,7 @@ export async function POST(req: Request) {
   });
 
   if (!("ok" in result) || !result.ok) {
-    const status = result.error === "not_enough_gold" || result.error === "not_enough_materials" || result.error === "not_enough_failed_dishes"
+    const status = result.error === "not_enough_gold" || result.error === "not_enough_materials" || result.error === "not_enough_failed_dishes" || result.error === "not_enough_dishes"
       ? 409
       : 400;
     return Response.json({ ok: false, ...result }, { status });

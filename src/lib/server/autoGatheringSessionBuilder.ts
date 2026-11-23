@@ -133,13 +133,12 @@ export async function buildMiningAutoSession(
   args: AutoGatheringBuildArgs,
 ): Promise<BuiltAutoGatheringSession> {
   const { now } = args;
-  const [logRaw, skillsRaw, workshopRaw, lifeFeatures, lifeMajor] = await Promise.all([
-    readSave(executor, userId, MINING_LOG_KEY, {}),
-    readSave(executor, userId, "skills.v2", {}),
-    readSave(executor, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
-    readLifeFieldFeatureSettings(executor),
-    readLifeMajorState(executor, userId),
-  ]);
+  // 정산 트랜잭션 안에서도 불리므로 한 연결에 질의를 겹쳐 보내지 않게 차례로 읽는다.
+  const logRaw = await readSave(executor, userId, MINING_LOG_KEY, {});
+  const skillsRaw = await readSave(executor, userId, "skills.v2", {});
+  const workshopRaw = await readSave(executor, userId, LIFE_WORKSHOP_SAVE_KEY, {});
+  const lifeFeatures = await readLifeFieldFeatureSettings(executor);
+  const lifeMajor = await readLifeMajorState(executor, userId);
   const nodeId = pickMiningNodeId(spotId);
   const node = MINING_NODES[nodeId];
   const parsedLog = parseMiningLog(logRaw);
@@ -224,13 +223,12 @@ export async function buildWoodcuttingAutoSession(
   args: AutoGatheringBuildArgs,
 ): Promise<BuiltAutoGatheringSession> {
   const { now } = args;
-  const [logRaw, skillsRaw, workshopRaw, lifeFeatures, lifeMajor] = await Promise.all([
-    readSave(executor, userId, WOODCUTTING_LOG_KEY, {}),
-    readSave(executor, userId, "skills.v2", {}),
-    readSave(executor, userId, LIFE_WORKSHOP_SAVE_KEY, {}),
-    readLifeFieldFeatureSettings(executor),
-    readLifeMajorState(executor, userId),
-  ]);
+  // 정산 트랜잭션 안에서도 불리므로 한 연결에 질의를 겹쳐 보내지 않게 차례로 읽는다.
+  const logRaw = await readSave(executor, userId, WOODCUTTING_LOG_KEY, {});
+  const skillsRaw = await readSave(executor, userId, "skills.v2", {});
+  const workshopRaw = await readSave(executor, userId, LIFE_WORKSHOP_SAVE_KEY, {});
+  const lifeFeatures = await readLifeFieldFeatureSettings(executor);
+  const lifeMajor = await readLifeMajorState(executor, userId);
   const treeId = pickWoodcuttingTreeId(spotId);
   const tree = WOODCUTTING_TREES[treeId];
   const parsedLog = parseWoodcuttingLog(logRaw);

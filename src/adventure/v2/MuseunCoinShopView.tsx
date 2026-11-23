@@ -15,6 +15,7 @@ import {
   Lightning,
   Percent,
   Palette,
+  Queue,
   Sparkle,
   Storefront,
   Sword,
@@ -65,7 +66,10 @@ import {
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
-import { MASTERY_TOWER_ENTRY_FREE_LABEL } from "./adventureSupportDisplay";
+import {
+  MASTERY_TOWER_ENTRY_FREE_LABEL,
+  autoGatheringReservationBenefitLabel,
+} from "./adventureSupportDisplay";
 import { useSystemToast } from "./RewardToastProvider";
 import { PROFILE_BADGE_STAND_ITEM_ID } from "@/adventure/profile/profileShowcase";
 import {
@@ -282,6 +286,10 @@ export function supportBenefitsForItem(
     {
       Icon: Sword,
       label: `일괄 전투 최대 ${pass.activeMaxHuntBatch}회`,
+    },
+    {
+      Icon: Queue,
+      label: autoGatheringReservationBenefitLabel(pass.autoGatheringReservations),
     },
     ...(premium
       ? [

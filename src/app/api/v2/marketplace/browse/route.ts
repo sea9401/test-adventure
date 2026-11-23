@@ -82,6 +82,8 @@ export async function GET(req: Request) {
       highestBidderId: marketplaceListingsV2.highestBidderId,
       bidCount: marketplaceListingsV2.bidCount,
       bidResolvedAt: marketplaceListingsV2.bidResolvedAt,
+      autoRelistLeft: marketplaceListingsV2.autoRelistLeft,
+      autoRelistCutPct: marketplaceListingsV2.autoRelistCutPct,
     })
     .from(marketplaceListingsV2)
     .where(and(...conds))

@@ -38,6 +38,75 @@ const EXTRAS: QuestExtras = {
   referralCount: 57,
 };
 
+describe("buildQuestCtx 성장 패스 신호", () => {
+  const DAY = 24 * 60 * 60 * 1_000;
+  const NOW = Date.UTC(2026, 10, 23);
+  const build = (proficiencyRaw: unknown, accountCreatedAt: number | null = null) =>
+    buildQuestCtx({
+      charRaw: { class: "warrior" },
+      proficiencyRaw,
+      advLogRaw: {},
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      extras: { ...EXTRAS, accountCreatedAt },
+      now: NOW,
+    });
+
+  it("지금 직업이 낮아도 전직해 본 최고 차수와 차수별 최고 숙련도를 전달한다", () => {
+    const ctx = build({
+      masteryScaleVersion: 2,
+      jobHistory: ["warrior", "confessor", "atonementbishop"],
+      jobCumLevel: { warrior: 1_200, confessor: 18_400, atonementbishop: 6_729 },
+    });
+    expect(ctx.tier).toBe(1);
+    expect(ctx.maxJobTier).toBe(5);
+    expect(ctx.tierMastery).toMatchObject({ 4: 18_400, 5: 6_729 });
+  });
+
+  it("전직 기록이 없는 옛 세이브는 숙련도가 쌓인 직업으로 판정한다", () => {
+    const ctx = build({
+      masteryScaleVersion: 2,
+      jobCumLevel: { confessor: 7_000 },
+    });
+    expect(ctx.maxJobTier).toBe(4);
+    expect(ctx.tierMastery?.[4]).toBe(7_000);
+  });
+
+  it("수행 횟수는 모든 직업군을 합치고 토벌한 협동 보스 종류를 전달한다", () => {
+    const ctx = buildQuestCtx({
+      charRaw: { class: "warrior" },
+      proficiencyRaw: {
+        masteryScaleVersion: 2,
+        groups: {
+          warrior: { cultivations: 12, tier: 1, cumLevel: 10 },
+          mage: { cultivations: 20, tier: 1, cumLevel: 10 },
+        },
+      },
+      advLogRaw: { coopBossKinds: ["canyon_predator", 7] },
+      equipmentRaw: {},
+      skillsRaw: {},
+      craftingRaw: {},
+      extras: EXTRAS,
+      now: NOW,
+    });
+    expect(ctx.cultivations).toBe(12);
+    expect(ctx.cultivationsTotal).toBe(32);
+    expect(ctx.coopBossKindIds).toEqual(["canyon_predator"]);
+  });
+
+  it("기록이 전혀 없으면 지금 직업의 차수를 쓴다", () => {
+    const ctx = build({});
+    expect(ctx.maxJobTier).toBe(ctx.tier);
+  });
+
+  it("가입 30일 안쪽이면 신규 모험가로 본다", () => {
+    expect(build({}, NOW - 10 * DAY).newcomer).toBe(true);
+    expect(build({}, NOW - 45 * DAY).newcomer).toBe(false);
+    expect(build({}, null).newcomer).toBe(false);
+  });
+});
+
 describe("buildQuestCtx 신규 콘텐츠 누적 신호", () => {
   it("홍보 링크로 합류한 누적 인원을 업적 컨텍스트로 전달한다", () => {
     const ctx = buildQuestCtx({

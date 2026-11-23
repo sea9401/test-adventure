@@ -162,6 +162,11 @@ test("데이터가 채워진 성장·생활·거래 화면에 자동 탐지 접�
   await expect(
     page.getByRole("spinbutton", { name: "소나무 원목 판매 수량" }),
   ).toBeVisible();
+  // 방금 누른 판매 탭의 색 전환이 끝나기 전에 측정하면 중간 색의 명암비로 오탐한다.
+  await waitForCssTransitions(page);
+  // 휴대폰에서는 재료 탭을 누르려고 화면이 내려가 위쪽 탭이 고정 머리 밑에 반쯤 가려진다.
+  // 가려진 채로 재면 터치 영역이 모자란 것으로 나오므로 맨 위로 돌아가 잰다.
+  await page.evaluate(() => window.scrollTo(0, 0));
   violations = await a11yViolationSummary(page);
   if (violations.length > 0) {
     stateViolations.push({ state: "marketplace-selling", violations });
@@ -406,8 +411,24 @@ async function createAuthenticatedCharacter(
   );
   await page.getByRole("button", { name: "모험 시작" }).click();
   expect((await setupResponse).status()).toBe(200);
-  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/`);
+  // 캐릭터를 만들면 첫 사냥 화면으로 이동한다. 이어지는 검증은 이전처럼 모험 홈에서 시작한다.
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/battle/dungeon/2?first=1`);
+  await expect(
+    page.getByText("첫 전투입니다.", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/");
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+}
+
+async function waitForCssTransitions(page: Page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation instanceof CSSTransition)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
 }
 
 async function openMaterialSelling(page: Page) {

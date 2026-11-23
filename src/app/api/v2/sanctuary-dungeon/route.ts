@@ -149,6 +149,9 @@ export async function POST(req: Request) {
     }
     if (input.action === "auto") {
       // 진행 중인 탐험을 먼저 끝내고, 남은 입장을 모두 선호 순서대로 끝까지 진행한다. 중간 귀환은 하지 않는다.
+      // maxRuns를 보내면 그 횟수만 진행하고 남은 입장은 그대로 둔다(탐험마다 난이도·심층 단계를 바꾸려는 경우).
+      const maxRuns = input.maxRuns === undefined ? SANCTUARY_DAILY_ATTEMPTS + 1 : input.maxRuns;
+      if (typeof maxRuns !== "number" || !Number.isInteger(maxRuns) || maxRuns < 1) return fail("invalid_input", 400);
       if (!state.active && state.attemptsUsed >= SANCTUARY_DAILY_ATTEMPTS) return fail("no_attempts");
       const prepared = await prepare();
       if (!prepared) return fail("no_character", 404);
@@ -156,7 +159,7 @@ export async function POST(req: Request) {
       const preferences = parseSanctuaryAutoPreferences(input.preferences ?? state.autoPreferences);
       state = { ...state, autoPreferences: preferences };
       const runs: SanctuaryAutoRun[] = [];
-      while (state.active || state.attemptsUsed < SANCTUARY_DAILY_ATTEMPTS) {
+      while (runs.length < maxRuns && (state.active || state.attemptsUsed < SANCTUARY_DAILY_ATTEMPTS)) {
         if (!state.active) startRun(prepared, requestedDifficulty!, requestedDeepStage ?? 0);
         let run: SanctuaryAutoRun | null = null;
         while (!run) {

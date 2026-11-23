@@ -69,10 +69,17 @@ import {
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
+  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+  SUPERIOR_ENHANCE_STONE_FROM,
+  SUPERIOR_ENHANCE_STONE_MATERIAL_ID,
+  SUPERIOR_ENHANCE_STONES,
   enhanceBonusPct,
   enhanceCatalystUsable,
+  enhanceChoiceName,
+  enhanceChoiceUsable,
   enhanceOutcomeRow,
   enhanceStoneCost,
+  isSuperiorEnhanceChoice,
   type EnhanceChoice,
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
@@ -125,12 +132,34 @@ function statusToneOf(
   return kind === "success" ? "success" : kind === "fail" ? "error" : "warning";
 }
 
+type EnhanceStoneCounts = Record<Exclude<EnhanceChoice, "none">, number>;
+
+/** 강화 단계에 따라 고를 수 있는 강화 방식. 상급 강화석이 열리면 골드만은 이미 쓸 수 없어 뺀다. */
+export function enhanceChoiceOptions(level: number): EnhanceChoice[] {
+  return level >= SUPERIOR_ENHANCE_STONE_FROM
+    ? ["blue", "red", "superior_blue", "superior_red"]
+    : ["none", "blue", "red"];
+}
+
+/**
+ * 고른 강화 방식을 지금 단계에서 쓸 수 있는 것으로 맞춘다. 상급 강화석을 고른 채
+ * +12 아래로 내려가면 같은 색 일반 강화석으로 돌아간다.
+ */
+export function effectiveEnhanceChoice(
+  level: number,
+  choice: EnhanceChoice,
+): EnhanceChoice {
+  return isSuperiorEnhanceChoice(choice) && !enhanceChoiceUsable(level, choice)
+    ? SUPERIOR_ENHANCE_STONES[choice].base
+    : choice;
+}
+
 type EnhanceResponse = {
   ok?: boolean;
   error?: string;
   outcome?: "success" | "keep" | "demote" | "destroy";
   enhance?: V2EnhanceState | null;
-  stones?: { red: number; blue: number };
+  stones?: EnhanceStoneCounts;
   catalysts?: number;
   gold?: number;
   stoneCost?: number;
@@ -322,6 +351,8 @@ type CombineRecipeKey =
   | "stamina-potion"
   | "blue-enhance-stone"
   | "red-enhance-stone"
+  | "superior-blue-enhance-stone"
+  | "superior-red-enhance-stone"
   | "rare-map";
 
 export function V2EnhanceView({
@@ -349,7 +380,12 @@ export function V2EnhanceView({
   const [gold, setGold] = useState<number | null>(null);
   const [bankedGold, setBankedGold] = useState(0);
   const [enchantScrolls, setEnchantScrolls] = useState(0);
-  const [stones, setStones] = useState({ red: 0, blue: 0 });
+  const [stones, setStones] = useState<EnhanceStoneCounts>({
+    red: 0,
+    blue: 0,
+    superior_red: 0,
+    superior_blue: 0,
+  });
   const [catalysts, setCatalysts] = useState(0);
   // 세공 보석(재료 id → 개수) — 마법부여 작업대의 줄 고정에 쓴다.
   const [cutGems, setCutGems] = useState<Record<string, number>>({});
@@ -368,6 +404,8 @@ export function V2EnhanceView({
     "stamina-potion": 1,
     "blue-enhance-stone": 1,
     "red-enhance-stone": 1,
+    "superior-blue-enhance-stone": 1,
+    "superior-red-enhance-stone": 1,
     "rare-map": 1,
   });
   const [combineMessageKey, setCombineMessageKey] = useState<CombineRecipeKey | null>(null);
@@ -387,7 +425,7 @@ export function V2EnhanceView({
     tier: "all",
   });
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
-  const [stone, setStone] = useState<EnhanceChoice>("none");
+  const [stoneChoice, setStone] = useState<EnhanceChoice>("none");
   const [reforgeStone, setReforgeStone] = useState<ReforgeStoneId>("basic");
   const [feedIid, setFeedIid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -454,6 +492,10 @@ export function V2EnhanceView({
         setStones({
           red: j.materials?.[ENHANCE_STONE_MATERIAL_ID.red] ?? 0,
           blue: j.materials?.[ENHANCE_STONE_MATERIAL_ID.blue] ?? 0,
+          superior_red:
+            j.materials?.[SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_red] ?? 0,
+          superior_blue:
+            j.materials?.[SUPERIOR_ENHANCE_STONE_MATERIAL_ID.superior_blue] ?? 0,
         });
         setCatalysts(j.materials?.[TEMPERING_CATALYST.id] ?? 0);
         setCutGems(
@@ -542,6 +584,9 @@ export function V2EnhanceView({
   const selected = owned.find((o) => o.iid === selectedIid) ?? null;
   const item = selected ? V2_EQUIPMENT[selected.id] : null;
   const level = selected?.enhance?.level ?? 0;
+  const stone = effectiveEnhanceChoice(level, stoneChoice);
+  // 상급 강화석은 같은 장비를 재료로 넣어 면제받을 수 없다.
+  const feedAllowed = stone !== "none" && !isSuperiorEnhanceChoice(stone);
   const uniqueMult = item && isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
   const basePower =
     selected && item ? effectiveStats(item, selected.roll).power : 0;
@@ -579,9 +624,9 @@ export function V2EnhanceView({
         !equippedIids.has(o.iid),
     );
   }, [owned, equipped, selected]);
-  const haveStones =
-    stone === "red" ? stones.red : stone === "blue" ? stones.blue : 0;
-  const stoneShort = stone !== "none" && !feedIid && haveStones < stoneCost;
+  const haveStones = stone === "none" ? 0 : stones[stone];
+  const feedActive = feedAllowed && !!feedIid;
+  const stoneShort = stone !== "none" && !feedActive && haveStones < stoneCost;
   const goldOnlyBlocked = stoneRequired && stone === "none";
   // 결제 가능 골드 — 코어루프면 지갑+은행(서버 spendGold 와 동일 기준), 아니면 지갑만.
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : (gold ?? 0);
@@ -617,7 +662,7 @@ export function V2EnhanceView({
         body: JSON.stringify({
           iid: selected.iid,
           stone,
-          ...(feedIid && stone !== "none" ? { feedIid } : {}),
+          ...(feedActive && feedIid ? { feedIid } : {}),
           ...(catalystActive ? { catalyst: true } : {}),
         }),
       });
@@ -632,6 +677,8 @@ export function V2EnhanceView({
                 ? "골드가 부족합니다"
                 : json.error === "stone_required"
                   ? "+8부터는 강화석이 필요합니다"
+                  : json.error === "superior_stone_level"
+                    ? `상급 강화석은 +${SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 쓸 수 있습니다`
                   : json.error === "insufficient_catalyst"
                     ? "단련 촉매가 부족합니다"
                     : json.error === "catalyst_not_needed"
@@ -669,7 +716,7 @@ export function V2EnhanceView({
     } finally {
       setBusy(false);
     }
-  }, [selected, item, level, stone, feedIid, catalystActive, busy, refresh, refreshGameState]);
+  }, [selected, item, level, stone, feedIid, feedActive, catalystActive, busy, refresh, refreshGameState]);
 
   // ── 폭풍 개량 — 특화 유니크의 옵션·강화는 유지하고 위력만 6T 밴드로 확정 이전 ──
   const refineable = !!(
@@ -946,7 +993,7 @@ export function V2EnhanceView({
   const enhanceCostLabel =
     stone === "none"
       ? `${goldCost.toLocaleString()} G`
-      : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "붉은" : "푸른"} 강화석 ×${stoneCost}`} + ${goldCost.toLocaleString()} G`;
+      : `${feedActive ? "강화석 면제(먹이)" : `${enhanceChoiceName(stone)} ×${stoneCost}`} + ${goldCost.toLocaleString()} G`;
   const enhanceActionDisabled = busy || stoneShort || goldOnlyBlocked;
   const enhanceActionLabel = busy
     ? "강화 중…"
@@ -1179,22 +1226,27 @@ export function V2EnhanceView({
                   currentLevel={level}
                 />
                 {/* 강화 방식 — 골드(+7까지) / 강화석. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 완화 */}
-                <div className="flex gap-2">
-                  {(["none", "blue", "red"] as const).map((s) => {
+                <div
+                  className={
+                    level >= SUPERIOR_ENHANCE_STONE_FROM
+                      ? "grid grid-cols-2 gap-2"
+                      : "flex gap-2"
+                  }
+                >
+                  {enhanceChoiceOptions(level).map((s) => {
                     const disabled = s === "none" && stoneRequired;
                     const row = enhanceOutcomeRow(level, s);
+                    const redTone = s === "red" || s === "superior_red";
                     return (
                       <ChoiceButton
                         key={s}
                         disabled={disabled}
                         onClick={() => {
                           setStone(s);
-                          if (s === "none") setFeedIid(null);
+                          if (s === "none" || isSuperiorEnhanceChoice(s)) setFeedIid(null);
                         }}
                         selected={stone === s}
-                        tone={
-                          s === "red" ? "danger" : s === "blue" ? "info" : "warning"
-                        }
+                        tone={s === "none" ? "warning" : redTone ? "danger" : "info"}
                         className="ui-forge-choice flex-1"
                       >
                         <div className="inline-flex items-center gap-1 font-medium">
@@ -1205,21 +1257,24 @@ export function V2EnhanceView({
                               name="Circle"
                               size={12}
                               weight="fill"
-                              className={s === "red" ? "text-rose-500" : "text-sky-500"}
+                              className={redTone ? "text-rose-500" : "text-sky-500"}
                             />
                           )}
                           {s === "none"
                             ? disabled
                               ? "골드 (+7까지)"
                               : "골드"
-                            : s === "red"
-                              ? "붉은 강화석"
-                              : "푸른 강화석"}
+                            : enhanceChoiceName(s)}
                         </div>
                         <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
                           성공 {row[0]}%
                           {row[3] > 0 ? ` · 파괴 ${row[3]}%` : ""}
                         </div>
+                        {isSuperiorEnhanceChoice(s) ? (
+                          <div className="mt-0.5 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                            보유 {stones[s].toLocaleString()}
+                          </div>
+                        ) : null}
                       </ChoiceButton>
                     );
                   })}
@@ -1261,7 +1316,7 @@ export function V2EnhanceView({
                   )}
                 </div>
                 {/* 먹이 — 동일 장비 소모로 강화석 면제 */}
-                {stone !== "none" && feedCandidates.length > 0 && (
+                {feedAllowed && feedCandidates.length > 0 && (
                   <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                     <input
                       type="checkbox"
@@ -1281,13 +1336,13 @@ export function V2EnhanceView({
                     비용: {enhanceCostLabel}
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
-                  {outcomeRow[3] > 0 && stone !== "blue" && (
+                  {outcomeRow[3] > 0 && stone !== "blue" && stone !== "superior_blue" && (
                     <span className="ui-quest-card is-claimable inline-flex items-center gap-1 font-semibold text-rose-500">
                       <GameIcon name="Warning" size={14} weight="fill" />
                       파괴 위험
                     </span>
                   )}
-                  {outcomeRow[3] > 0 && stone === "blue" && (
+                  {outcomeRow[3] > 0 && (stone === "blue" || stone === "superior_blue") && (
                     <span className="ui-quest-card is-claimable inline-flex items-center gap-1 font-semibold text-rose-500">
                       <GameIcon name="Warning" size={14} weight="fill" />
                       푸른 돌: 파괴 완화
@@ -1650,6 +1705,60 @@ export function V2EnhanceView({
                   "붉은 강화석 1개",
                   quantity,
                 ),
+            },
+            {
+              key: "superior-blue-enhance-stone" as CombineRecipeKey,
+              icon: <GameIcon name="Diamond" size={24} className="text-blue-500" />,
+              output: SUPERIOR_ENHANCE_STONES.superior_blue.name,
+              cost: COMBINE_GOLD_COST,
+              mats: [
+                {
+                  label: "푸른 강화석",
+                  iconName: "Diamond" as const,
+                  have: stones.blue,
+                  need: SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+                },
+              ],
+              onCombine: (quantity: number) =>
+                doCombineScavenged(
+                  "superior_blue_enhance_stone",
+                  "푸른 강화석",
+                  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+                  `${SUPERIOR_ENHANCE_STONES.superior_blue.name} 1개`,
+                  quantity,
+                ),
+              extra: (
+                <p className="mt-2 border-t border-zinc-200 pt-2 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                  +{SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 씁니다. +{SUPERIOR_ENHANCE_STONE_FROM + 1} 도전은 파괴되지 않고, 그 뒤로는 푸른 강화석보다 파괴 확률을 더 낮춥니다.
+                </p>
+              ),
+            },
+            {
+              key: "superior-red-enhance-stone" as CombineRecipeKey,
+              icon: <GameIcon name="Diamond" size={24} className="text-red-500" />,
+              output: SUPERIOR_ENHANCE_STONES.superior_red.name,
+              cost: COMBINE_GOLD_COST,
+              mats: [
+                {
+                  label: "붉은 강화석",
+                  iconName: "Diamond" as const,
+                  have: stones.red,
+                  need: SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+                },
+              ],
+              onCombine: (quantity: number) =>
+                doCombineScavenged(
+                  "superior_red_enhance_stone",
+                  "붉은 강화석",
+                  SUPERIOR_ENHANCE_STONE_COMBINE_COST,
+                  `${SUPERIOR_ENHANCE_STONES.superior_red.name} 1개`,
+                  quantity,
+                ),
+              extra: (
+                <p className="mt-2 border-t border-zinc-200 pt-2 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                  +{SUPERIOR_ENHANCE_STONE_FROM + 1} 도전부터 씁니다. 성공 확률을 붉은 강화석보다 크게 올리고 파괴 확률은 늘리지 않습니다.
+                </p>
+              ),
             },
             {
               key: "rare-map" as CombineRecipeKey,

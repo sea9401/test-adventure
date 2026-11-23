@@ -134,6 +134,14 @@ export function EquipmentEnchantmentGuideDialog({
         </section>
 
         <section className="mt-4">
+          <h3 className="font-bold">기초 능력치 옵션</h3>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+            기초 힘·민첩·활력·지능·정신·행운 옵션은 내 정보 능력치의 기본·성장 수치에 표시된 비율을 곱해
+            그만큼 더합니다. 직업과 패시브로 늘어난 몫에는 곱하지 않고, 소수점 아래는 버립니다.
+          </p>
+        </section>
+
+        <section className="mt-4">
           <h3 className="font-bold">옵션 출현 확률</h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             2·3번째 줄은 이미 선택된 옵션을 제외하고 남은 가중치로 다시 계산됩니다.

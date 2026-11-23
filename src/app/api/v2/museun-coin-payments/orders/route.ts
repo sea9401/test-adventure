@@ -6,6 +6,7 @@ import {
   getPaymentCustomerKey,
   listPaymentOrdersForUser,
   MuseunCoinPaymentError,
+  type MuseunCoinChargeSelection,
 } from "@/lib/server/museunCoinPayments";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 
@@ -60,13 +61,22 @@ export async function POST(req: Request): Promise<Response> {
   });
   if (limited) return limited;
 
-  let body: { packageId?: unknown };
+  let body: { packageId?: unknown; customAmountKrw?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (typeof body.packageId !== "string") {
+  // 정액 상품과 직접 입력 금액 중 하나만 받는다. 코인 수와 가격은 서버가 정한다.
+  let selection: MuseunCoinChargeSelection;
+  if (body.customAmountKrw !== undefined) {
+    if (body.packageId !== undefined || typeof body.customAmountKrw !== "number") {
+      return Response.json({ ok: false, error: "invalid_amount" }, { status: 400 });
+    }
+    selection = { customAmountKrw: body.customAmountKrw };
+  } else if (typeof body.packageId === "string") {
+    selection = body.packageId;
+  } else {
     return Response.json({ ok: false, error: "invalid_package" }, { status: 400 });
   }
 
@@ -74,7 +84,7 @@ export async function POST(req: Request): Promise<Response> {
     const customerKey = await getPaymentCustomerKey(gate.userId);
     const order = await createPaymentOrder(
       gate.userId,
-      body.packageId,
+      selection,
       customerKey,
       gate.config,
     );

@@ -7,6 +7,7 @@ import { applyStatusDotDamageBonus, makePlayerPoisonDot } from "./playerDotDamag
 import { canApplyShock } from "./shockAction";
 import {
   beginBossUniqueAttack,
+  bossUniqueBeginLogText,
   bossUniqueDamageTaken,
   bossUniqueLethalSave,
   consumeBossUniqueHaste,
@@ -23,13 +24,6 @@ import {
 import type { EnemyHitResolution, UnexploredAttackContext } from "./unexploredSetEffects";
 
 type Turn = "player" | "enemy";
-
-const BEGIN_LOG_TEXT: Record<string, string> = {
-  "궤도 절단": "방어·마법방어 50% 무시, 피해 +80%",
-  "빙결 일격": "빙결된 적에게 피해 +30%",
-  "보정 사격": "피해 +25%",
-  "별궤 조준": "피해 +15%",
-};
 
 const isDirect = (kind: UnexploredAttackContext["kind"]) =>
   kind === "manual_basic" || kind === "direct_skill" || kind === "extra_basic";
@@ -64,7 +58,7 @@ export function beginBossUniqueAttackPve(
   });
   let log = state.log;
   for (const label of begun.logs) {
-    log = appendLog(log, { kind: "info", turn: "player", text: `[${label}] ${BEGIN_LOG_TEXT[label] ?? "발동"}` });
+    log = appendLog(log, { kind: "info", turn: "player", text: `[${label}] ${bossUniqueBeginLogText(label, "적")}` });
   }
   return {
     state: { ...state, unexploredBossRuntime: begun.runtime, log },

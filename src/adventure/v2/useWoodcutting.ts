@@ -16,6 +16,7 @@ import {
   type AutoGatheringActivity,
   type AutoGatheringPlanId,
 } from "./autoGathering";
+import { useAutoGatheringReservation } from "./useAutoGatheringReservation";
 import {
   parseAutoActivity,
   parseMaterials,
@@ -76,6 +77,17 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const { setAutoGathering } = useGameActivityState();
   const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("woodcutting");
+  const {
+    reservation: autoReservation,
+    allowed: autoReservationAllowed,
+    chain: autoChain,
+    dropped: autoReservationDropped,
+    loadStatus: loadReservationStatus,
+    reserve: reserveNext,
+    unreserve: unreserveNext,
+    applySettled,
+    clearNotice: clearReservationNotice,
+  } = useAutoGatheringReservation("woodcutting", readJson);
   const [failureReductionPct, setFailureReductionPct] = useState(0);
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, xp: 0, timberEarned: 0 });
@@ -111,6 +123,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
           }),
         );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
+        loadReservationStatus(json);
         setSiteUpkeep(parseGatheringSiteUpkeep(json.siteUpkeep));
         setLifeRenown(Math.max(0, Math.floor(Number(json.lifeRenown) || 0)));
       } catch {
@@ -120,7 +133,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadReservationStatus]);
 
   const start = useCallback(async (spotId: WoodcuttingSpotId): Promise<WoodcuttingStart> => {
     const response = await fetch("/api/v2/woodcutting/start", {
@@ -249,7 +262,10 @@ export function useWoodcutting(): WoodcuttingHandlers {
       });
       setAutoSession(session);
       setActiveAutoActivity("woodcutting");
-      if (!keepResult) setAutoResult(null);
+      if (!keepResult) {
+        setAutoResult(null);
+        clearReservationNotice();
+      }
       setAutoGathering(
         session
           ? {
@@ -263,42 +279,72 @@ export function useWoodcutting(): WoodcuttingHandlers {
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [clearReservationNotice, readJson, setAutoGathering]);
+
+  // 정산(claim)과 중간 정산(cancel). 예약해 둔 다음 작업이 이어서 시작됐으면 그 작업을 돌려준다.
+  const settleAuto = useCallback(
+    async (action: "claim" | "cancel") => {
+      setAutoLoading(true);
+      try {
+        const { response, json } = await requestAutoGathering("woodcutting", { action }, readJson);
+        if (!response.ok || !json?.ok) throw lifeRequestError(json, `woodcutting_auto_${action}_failed`);
+        if (json.levelCurveMigrated) {
+          notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+        }
+        setMaterials(parseMaterials(json.materials));
+        setLog(parseLog(json.log));
+        const chained = applySettled(json);
+        setAutoSession(chained?.activity === "woodcutting" ? chained.session : null);
+        setActiveAutoActivity(
+          chained?.activity ?? parseAutoActivity(json.activeAutoActivity),
+        );
+        setAutoResult(parseAutoResult(json));
+        return chained;
+      } finally {
+        setAutoLoading(false);
+      }
+    },
+    [applySettled, notifySystem, readJson],
+  );
 
   const claimAuto = useCallback(async (): Promise<void> => {
-    setAutoLoading(true);
-    try {
-      const { response, json } = await requestAutoGathering("woodcutting", { action: "claim" }, readJson);
-      if (!response.ok || !json?.ok) throw lifeRequestError(json, "woodcutting_auto_claim_failed");
-      if (json.levelCurveMigrated) {
-        notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
-      }
-      setMaterials(parseMaterials(json.materials));
-      setLog(parseLog(json.log));
-      setAutoSession(null);
-      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
-      setAutoResult(parseAutoResult(json));
-      setAutoGathering(null);
-    } finally {
-      setAutoLoading(false);
-    }
-  }, [notifySystem, readJson, setAutoGathering]);
+    await settleAuto("claim");
+  }, [settleAuto]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
+    await settleAuto("cancel");
+  }, [settleAuto]);
+
+  const reserveAuto = useCallback(
+    async (spotId: WoodcuttingSpotId, planId: AutoGatheringPlanId): Promise<void> => {
+      setAutoLoading(true);
+      try {
+        await reserveNext(spotId, planId);
+      } finally {
+        setAutoLoading(false);
+      }
+    },
+    [reserveNext],
+  );
+
+  const unreserveAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
     try {
-      const { response, json } = await requestAutoGathering("woodcutting", { action: "cancel" }, readJson);
-      if (!response.ok || !json?.ok) throw lifeRequestError(json, "woodcutting_auto_cancel_failed");
-      setMaterials(parseMaterials(json.materials));
-      setLog(parseLog(json.log));
-      setAutoSession(null);
-      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
-      setAutoResult(parseAutoResult(json));
-      setAutoGathering(null);
+      await unreserveNext();
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [unreserveNext]);
+
+  // 보상을 받고 같은 작업을 다시 건다. 예약 작업이 이어졌으면 다음 작업으로 다시 예약한다.
+  const restartAuto = useCallback(
+    async (spotId: WoodcuttingSpotId, planId: AutoGatheringPlanId): Promise<void> => {
+      const chained = await settleAuto("claim");
+      if (chained) await reserveAuto(spotId, planId);
+      else await startAuto(spotId, planId, true);
+    },
+    [reserveAuto, settleAuto, startAuto],
+  );
 
   return {
     start,
@@ -316,6 +362,13 @@ export function useWoodcutting(): WoodcuttingHandlers {
     startAuto,
     claimAuto,
     cancelAuto,
+    autoReservation,
+    autoReservationAllowed,
+    autoChain,
+    autoReservationDropped,
+    reserveAuto,
+    unreserveAuto,
+    restartAuto,
     verification,
     verifyHuman,
   };

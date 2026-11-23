@@ -238,4 +238,155 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain("자동 채광 정산 완료");
     expect(html).toContain("철광석 +430");
   });
+
+  const HOUR = 60 * 60 * 1_000;
+  const runningSession = {
+    sessionId: "auto-1",
+    planId: "extended" as const,
+    sourceId: "copper",
+    sourceName: "구리 광맥",
+    materialId: "v2_copper_ore",
+    startedAt: Date.now() - HOUR,
+    readyAt: Date.now() + HOUR,
+    durationMs: 2 * HOUR,
+    spotId: "copper_gallery",
+    attempts: 1_200,
+  };
+  const pineReservation = {
+    activity: "woodcutting" as const,
+    spotId: "pine_grove",
+    planId: "extended" as const,
+    sourceId: "pine",
+    sourceName: "소나무",
+    durationMs: 2 * HOUR,
+    reservedAt: Date.now(),
+  };
+  const baseProps = {
+    result: null,
+    loading: false,
+    onStart: vi.fn(async () => {}),
+    onClaim: vi.fn(async () => {}),
+    onCancel: vi.fn(async () => {}),
+    onReserve: vi.fn(async () => {}),
+    onUnreserve: vi.fn(async () => {}),
+  };
+
+  it("작업이 도는 동안 지원권이 있으면 고른 채집지를 다음 작업으로 예약할 수 있다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        {...baseProps}
+        activityName="채광"
+        spotId="iron_quarry"
+        spotName="철 채석장"
+        session={runningSession}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        reservation={null}
+        reservationAllowed
+      />,
+    );
+
+    expect(html).toContain("다음 작업 예약");
+    expect(html).toContain("철 채석장");
+    expect(html).toContain("30분 예약");
+    expect(html).toContain("2시간 예약");
+    expect(html).not.toContain("예약 취소");
+  });
+
+  it("예약이 있으면 무엇을 얼마 동안 하는지와 취소를 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        {...baseProps}
+        activityName="채광"
+        spotId="iron_quarry"
+        spotName="철 채석장"
+        session={runningSession}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        reservation={pineReservation}
+        reservationAllowed
+      />,
+    );
+
+    expect(html).toContain("벌목 · 소나무 · 2시간");
+    expect(html).toContain("예약 취소");
+    expect(html).not.toContain("30분 예약");
+  });
+
+  it("다른 쪽 자동 채집이 도는 중이면 시작 대신 예약 버튼을 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        {...baseProps}
+        activityName="채광"
+        spotId="iron_quarry"
+        spotName="철 채석장"
+        session={null}
+        blockedByActivity="woodcutting"
+        buttonVariant="warning"
+        reservation={null}
+        reservationAllowed
+      />,
+    );
+
+    expect(html).toContain("30분 자동 채광 예약");
+    expect(html).toContain("자동 벌목이 끝나면 이어서 시작합니다.");
+    expect(html).not.toContain("시작할 수 없습니다");
+  });
+
+  it("지원권이 없으면 예약 조건 한 줄만 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        {...baseProps}
+        activityName="채광"
+        spotId="iron_quarry"
+        spotName="철 채석장"
+        session={runningSession}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        reservation={null}
+        reservationAllowed={false}
+      />,
+    );
+
+    expect(html).toContain(
+      "다음 작업 예약은 월간 모험 지원권 이용 중에 쓸 수 있습니다.",
+    );
+    expect(html).not.toContain("30분 예약");
+  });
+
+  it("진행 중인 자동 채집이 없으면 예약 안내를 보이지 않는다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        {...baseProps}
+        activityName="채광"
+        spotId="iron_quarry"
+        session={null}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        reservation={null}
+        reservationAllowed={false}
+      />,
+    );
+
+    expect(html).not.toContain("다음 작업 예약");
+  });
+
+  it("보상을 받은 뒤 이어진 예약 작업을 알려 준다", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        {...baseProps}
+        activityName="채광"
+        spotId="iron_quarry"
+        session={null}
+        blockedByActivity="woodcutting"
+        buttonVariant="warning"
+        reservation={null}
+        reservationAllowed
+        chain={{ activity: "woodcutting", sourceName: "소나무" }}
+      />,
+    );
+
+    expect(html).toContain("예약한 벌목(소나무)을 이어서 시작했습니다.");
+    expect(html).toContain('href="/town/logging"');
+  });
 });

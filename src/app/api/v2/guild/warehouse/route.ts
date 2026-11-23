@@ -11,6 +11,8 @@ import {
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import { readProfileValue } from "@/adventure/profile/profileValue";
 import { isGuildAdmin } from "@/lib/server/guildAdmin";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { readGuildFacilityLevel } from "@/lib/server/guildFacilities";
@@ -186,6 +188,17 @@ export async function GET() {
       return [row.userId, name] as const;
     }),
   );
+  // 최근 입출고 줄 머리 프사 — 기록에 나오는 사람만 읽는다.
+  const activityActorIds = activityRows
+    .map((row) => row.actorUserId)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  const actorAvatars = new Map(
+    profileRows.map(
+      (row) =>
+        [row.userId, readProfileValue(row.value)?.gender ?? "male1"] as const,
+    ),
+  );
+  const actorCosmetics = await readMuseunCosmeticAppearanceMap(activityActorIds);
   const personalEquipment = parseEquipmentSave(equipmentSave);
   const equippedIids = new Set(Object.values(personalEquipment.equipped));
   const permissionSet = new Set(permissionUserIds);
@@ -221,6 +234,12 @@ export async function GET() {
       actorName: row.actorUserId
         ? (names.get(row.actorUserId) ?? "모험가")
         : "모험가",
+      actorAvatar: row.actorUserId
+        ? (actorAvatars.get(row.actorUserId) ?? "male1")
+        : null,
+      actorProfileBorder: row.actorUserId
+        ? (actorCosmetics.get(row.actorUserId)?.profileBorder ?? null)
+        : null,
       meta: row.meta,
       createdAt: row.createdAt,
     })),

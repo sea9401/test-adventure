@@ -23,6 +23,24 @@ const mocks = vi.hoisted(() => ({
     refundHighestBid: boolean;
   }>,
   orderCancellations: [] as Array<{ orderId: number; reason: string }>,
+  autoRelist: null as { listingId: number; price: number; cutPct: number; bidEndsAt: Date } | null,
+  autoRelistCalls: [] as number[],
+  priceAlertListingIds: [] as number[],
+}));
+
+// 자동 재등록의 실제 처리(행 닫기·새 매물 만들기)는 DB 통합 확인에서 본다. 여기서는 정산 흐름만 본다.
+vi.mock("@/lib/server/marketplaceAutoRelist", () => ({
+  autoRelistUnsoldListing: vi.fn(async (_tx, listing: { id: number }) => {
+    mocks.autoRelistCalls.push(listing.id);
+    return mocks.autoRelist;
+  }),
+}));
+
+vi.mock("@/lib/server/marketplaceBuyOrdersV2", () => ({
+  triggerMarketplacePriceAlertsForListing: vi.fn(async (_tx, listingId: number) => {
+    mocks.priceAlertListingIds.push(listingId);
+    return 0;
+  }),
 }));
 
 vi.mock("@/lib/server/webPush", async (importOriginal) => ({
@@ -211,6 +229,9 @@ beforeEach(() => {
   mocks.delivered.length = 0;
   mocks.listingCancellations.length = 0;
   mocks.orderCancellations.length = 0;
+  mocks.autoRelist = null;
+  mocks.autoRelistCalls.length = 0;
+  mocks.priceAlertListingIds.length = 0;
 });
 
 describe("입찰 전용 경매 정산", () => {
@@ -370,6 +391,47 @@ describe("유찰 판매자 알림", () => {
       type: "auction_unsold",
       payload: { listingId: 1, itemName: "철광석", quantity: 4 },
     }]);
+  });
+
+  it("자동 재등록을 켠 매물은 돌려주지 않고 낮춘 가격으로 다시 올렸다고 알린다", async () => {
+    mocks.currentIds.push(1);
+    mocks.transactionRows.push(currentListing(null));
+    mocks.autoRelist = {
+      listingId: 77,
+      price: 350,
+      cutPct: 30,
+      bidEndsAt: new Date("2026-08-31T12:00:00.000Z"),
+    };
+    const response = await POST(cronRequest());
+    expect(mocks.listingCancellations).toEqual([]);
+    expect(mocks.priceAlertListingIds).toEqual([77]);
+    expect(mocks.notifications).toEqual([{
+      userId: "seller-a",
+      type: "auction_unsold",
+      payload: { listingId: 1, itemName: "철광석", quantity: 4, relistedPrice: 350 },
+    }]);
+    const { recordEconomyEventSoon } = await import("@/lib/server/economyLog");
+    expect(recordEconomyEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "marketplace.auto_relist",
+        detail: { listingId: 77, previousListingId: 1, previousPrice: 500, price: 350, cutPct: 30 },
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({ auctionsRelisted: 1 });
+  });
+
+  it("입찰이 있어 낙찰되는 매물에는 자동 재등록을 시도하지 않는다", async () => {
+    mocks.currentIds.push(1);
+    mocks.transactionRows.push(currentListing(700));
+    mocks.autoRelist = {
+      listingId: 77,
+      price: 350,
+      cutPct: 30,
+      bidEndsAt: new Date("2026-08-31T12:00:00.000Z"),
+    };
+    await POST(cronRequest());
+    expect(mocks.autoRelistCalls).toEqual([]);
+    expect(mocks.delivered).toEqual([{ userId: "bidder-a", listingId: 1 }]);
   });
 
   it("이미 종료된 매물을 다시 처리해도 알림이 늘지 않는다", async () => {

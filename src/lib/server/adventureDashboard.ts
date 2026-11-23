@@ -16,6 +16,13 @@ import {
   parseAutoGatheringState,
 } from "@/adventure/v2/autoGathering";
 import {
+  AUTO_GATHERING_RESERVATION_KEY,
+  autoGatheringNextStatus,
+  autoGatheringPromptReadyAt,
+  parseAutoGatheringReservationState,
+  type AutoGatheringReservation,
+} from "@/adventure/v2/autoGatheringReservation";
+import {
   FISHING_DAILY_KEY,
   deriveFishingContractViews,
   deriveFishingDailyViews,
@@ -91,6 +98,7 @@ export const ADVENTURE_DASHBOARD_SAVE_FALLBACKS = {
   [FISHING_DAILY_KEY]: {},
   [WOODCUTTING_AUTO_KEY]: {},
   [MINING_AUTO_KEY]: {},
+  [AUTO_GATHERING_RESERVATION_KEY]: {},
   [MASTERY_TOWER_SAVE_KEY]: {},
   [STORM_EXPEDITION_SAVE_KEY]: {},
   [SANCTUARY_SAVE_KEY]: {},
@@ -162,6 +170,7 @@ function gatheringActivity(
   href: string,
   raw: unknown,
   now: number,
+  reservation: AutoGatheringReservation | null,
 ): RawActivity {
   const session = parseAutoGatheringState(raw).session;
   if (session == null) {
@@ -176,16 +185,24 @@ function gatheringActivity(
       defaultEnabled: true,
     };
   }
-  const ready = session.readyAt <= now;
+  // 예약한 다음 작업이 있으면 그 작업까지 끝난 뒤에야 할 일로 올린다.
+  const next = autoGatheringNextStatus(session.readyAt, reservation);
+  const promptReadyAt = autoGatheringPromptReadyAt({ readyAt: session.readyAt, next });
+  const ready = promptReadyAt <= now;
+  const runningNext = next && session.readyAt <= now && !ready;
   return {
     id,
     group: "ready",
     tab: "life",
     title,
-    detail: ready ? `${session.sourceName} 작업 완료` : minutesRemaining(session.readyAt, now),
+    detail: ready
+      ? `${session.sourceName} 작업 완료`
+      : runningNext
+        ? `예약한 ${next.activity === "woodcutting" ? "벌목" : "채광"} 진행 중 · ${minutesRemaining(promptReadyAt, now)}`
+        : minutesRemaining(session.readyAt, now),
     href,
     state: ready ? "actionable" : "in_progress",
-    readyAt: session.readyAt,
+    readyAt: promptReadyAt,
     defaultEnabled: true,
   };
 }
@@ -430,6 +447,9 @@ export function resolveAdventureActivities(
 
   const tower = parseMasteryTowerState(saves[MASTERY_TOWER_SAVE_KEY], kstDateKey(now));
   const towerClaimable = masteryTowerClaimPreview(tower).total > 0;
+  const autoReservation = parseAutoGatheringReservationState(
+    saves[AUTO_GATHERING_RESERVATION_KEY],
+  ).next;
   const expedition = parseStormExpeditionState(
     saves[STORM_EXPEDITION_SAVE_KEY],
     stormExpeditionDateKey(now),
@@ -567,6 +587,7 @@ export function resolveAdventureActivities(
       "/town/logging",
       saves[WOODCUTTING_AUTO_KEY],
       now,
+      autoReservation,
     ),
     gatheringActivity(
       "mining_ready",
@@ -574,6 +595,7 @@ export function resolveAdventureActivities(
       "/town/mining",
       saves[MINING_AUTO_KEY],
       now,
+      autoReservation,
     ),
     peddlerActivity(saves, now),
     {

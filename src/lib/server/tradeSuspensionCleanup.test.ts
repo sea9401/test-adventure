@@ -122,6 +122,8 @@ function listing(overrides: Partial<Listing>): Listing {
     bidResolvedAt: null,
     closedAt: null,
     buyerId: null,
+    autoRelistLeft: 0,
+    autoRelistCutPct: 30,
     ...overrides,
   };
 }

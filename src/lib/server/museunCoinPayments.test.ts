@@ -114,6 +114,39 @@ describe("Museun Coin payment operations", () => {
     });
   });
 
+  it("creates a custom-amount order priced by the server rule", async () => {
+    const { operations } = setup();
+    const created = await operations.createOrder(
+      "user-1",
+      { customAmountKrw: 7_000 },
+      "mc_customer",
+    );
+    expect(created).toMatchObject({
+      orderId: "mc_order1",
+      packageId: "coin_custom",
+      amountKrw: 7_000,
+      coinAmount: 700,
+      orderName: "무슨 코인 700개",
+    });
+    await expect(
+      operations.confirmOrder("user-1", {
+        orderId: "mc_order1",
+        paymentKey: "pay_demo",
+        amount: 10_000,
+      }),
+    ).rejects.toMatchObject({ code: "amount_mismatch" });
+  });
+
+  it("rejects a custom amount outside the unit or range", async () => {
+    const { operations, orders } = setup();
+    for (const customAmountKrw of [500, 1_500, 51_000, 0]) {
+      await expect(
+        operations.createOrder("user-1", { customAmountKrw }, "mc_customer"),
+      ).rejects.toMatchObject({ code: "invalid_amount" });
+    }
+    expect(orders.size).toBe(0);
+  });
+
   it("rejects an amount mismatch before calling Toss", async () => {
     const { operations, toss } = setup();
     await operations.createOrder("user-1", "coin_1000", "mc_customer");

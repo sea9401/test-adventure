@@ -15,6 +15,6 @@ it("캐릭터 상세 장착 슬롯을 누르면 실제 해방 옵션을 보여�
     owned={[{iid: "glove", id: "v2_boss_catastrophe_gloves", liberation: {rank: 2, lineCount: 2, revision: 7, options: [{id: "base_str_pct", level: 10}, {id: "skill_crit_damage_pp", level: 8}]}}]}
   />);
   fireEvent.click(screen.getByRole("button", {name: /^장갑:/}));
-  expect(screen.getByText("기초 STR +4.5%")).toBeTruthy();
+  expect(screen.getByText("기초 힘 +4.5%")).toBeTruthy();
   expect(screen.getByText("스킬 치명타 피해 +16%p")).toBeTruthy();
 });

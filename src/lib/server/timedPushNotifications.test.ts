@@ -205,3 +205,89 @@ describe("timed peddler push notifications", () => {
     expect(sendWebPushToUser).not.toHaveBeenCalled();
   });
 });
+
+describe("timed auto gathering push notifications", () => {
+  const session = {
+    sessionId: "mine-1",
+    planId: "extended",
+    sourceId: "copper",
+    sourceName: "구리 광맥",
+    materialId: "v2_copper_ore",
+    startedAt: START,
+    readyAt: START + 2 * HOUR,
+    durationMs: 2 * HOUR,
+    cycleDurationMs: 6_000,
+    attempts: 1_200,
+    successRate: 0.8,
+    materialEfficiency: 0.6,
+    xpEfficiency: 0.7,
+    bonusMaterialRate: 0,
+    baseXp: 6,
+  };
+  const reservation = {
+    next: {
+      activity: "woodcutting",
+      spotId: "pine_grove",
+      planId: "extended",
+      sourceId: "pine",
+      sourceName: "소나무",
+      durationMs: 2 * HOUR,
+      reservedAt: START + 60_000,
+    },
+  };
+
+  beforeEach(() => {
+    testState.rows = [{ userId: "user-1", key: "mining-auto.v1", value: { session } }];
+    testState.deliveredRows = [];
+    testState.recordedValues = [];
+    testState.sendResult = { delivered: 1, failed: 0 };
+    sendWebPushToUser.mockReset();
+    sendWebPushToUser.mockImplementation(async () => testState.sendResult);
+  });
+
+  it("예약이 없으면 작업이 끝났을 때 알린다", async () => {
+    await sendDueTimedPushNotifications(START + 2 * HOUR);
+
+    expect(sendWebPushToUser).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ title: "자동 채광 완료" }),
+    );
+    expect(testState.recordedValues).toEqual([
+      { userId: "user-1", eventKey: "auto:user-1:mining:mine-1" },
+    ]);
+  });
+
+  it("예약한 작업이 도는 동안은 앞 작업이 끝났어도 알리지 않는다", async () => {
+    testState.rows.push({
+      userId: "user-1",
+      key: "auto-gathering-reservation.v1",
+      value: reservation,
+    });
+
+    await sendDueTimedPushNotifications(START + 3 * HOUR);
+
+    expect(sendWebPushToUser).not.toHaveBeenCalled();
+  });
+
+  it("예약한 작업까지 끝나면 한 번 알린다", async () => {
+    testState.rows.push({
+      userId: "user-1",
+      key: "auto-gathering-reservation.v1",
+      value: reservation,
+    });
+
+    await sendDueTimedPushNotifications(START + 4 * HOUR);
+
+    expect(sendWebPushToUser).toHaveBeenCalledTimes(1);
+    expect(sendWebPushToUser).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({
+        title: "자동 채집 완료",
+        body: "구리 광맥 작업과 예약한 소나무 작업이 끝났습니다. 보상을 정산하세요.",
+      }),
+    );
+    expect(testState.recordedValues).toEqual([
+      { userId: "user-1", eventKey: "auto:user-1:mining:mine-1:next" },
+    ]);
+  });
+});

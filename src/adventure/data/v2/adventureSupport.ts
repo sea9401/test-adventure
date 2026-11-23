@@ -5,6 +5,41 @@ export const MUSEUN_COIN_PACKAGES = [
   { id: "coin_5000", coins: 5_000, priceKrw: 50_000 },
 ] as const;
 
+// 금액 직접 입력 충전(건의 #876). 상점 물건이 100코인 단위라 정액 상품만으로는
+//   잔액이 남는다. 비율은 정액 상품과 같고(1,000원 = 100코인), 상한은 정액 최고가와 같다.
+export const MUSEUN_COIN_CUSTOM_CHARGE = {
+  id: "coin_custom",
+  unitKrw: 1_000,
+  coinsPerUnit: 100,
+  minKrw: 1_000,
+  maxKrw: 50_000,
+} as const;
+
+export type MuseunCoinCharge = {
+  id: string;
+  coins: number;
+  priceKrw: number;
+};
+
+/** 직접 입력한 원화 금액의 충전 내용. 단위·범위를 벗어나면 null. */
+export function museunCoinCustomCharge(
+  amountKrw: unknown,
+): MuseunCoinCharge | null {
+  const { id, unitKrw, coinsPerUnit, minKrw, maxKrw } =
+    MUSEUN_COIN_CUSTOM_CHARGE;
+  if (typeof amountKrw !== "number" || !Number.isInteger(amountKrw)) {
+    return null;
+  }
+  if (amountKrw < minKrw || amountKrw > maxKrw || amountKrw % unitKrw !== 0) {
+    return null;
+  }
+  return {
+    id,
+    coins: (amountKrw / unitKrw) * coinsPerUnit,
+    priceKrw: amountKrw,
+  };
+}
+
 export const ADVENTURE_SUPPORT_PASS = {
   id: "monthly_adventure_support",
   name: "월간 모험 지원권",
@@ -17,6 +52,8 @@ export const ADVENTURE_SUPPORT_PASS = {
   marketplaceTaxRate: 0.05,
   freeMaxHuntBatch: 10,
   activeMaxHuntBatch: 50,
+  // 2026-11-23 오너 결정: 자동 채집 다음 작업 예약을 지원권 혜택으로 둔다.
+  autoGatheringReservations: 1,
 } as const;
 
 export const PREMIUM_ADVENTURE_SUPPORT_PASS = {
@@ -32,6 +69,7 @@ export const PREMIUM_ADVENTURE_SUPPORT_PASS = {
   marketplaceSlotBonus: 20,
   marketplaceTaxRate: 0.05,
   activeMaxHuntBatch: 100,
+  autoGatheringReservations: 1,
   cosmeticExtensionGrant: 2,
   masteryTowerEntryFree: true,
 } as const;
@@ -58,6 +96,8 @@ export type AdventureSupportBenefits = {
   maxHuntBatch: number;
   /** 숙련의 탑 하루 첫 입장 스태미나를 받지 않는다. */
   masteryTowerEntryFree: boolean;
+  /** 자동 채집이 끝난 뒤 이어서 시작하도록 걸어 둘 수 있는 다음 작업 수. */
+  autoGatheringReservations: number;
 };
 
 export type AdventureSupportGrant = {
@@ -126,6 +166,8 @@ export function adventureSupportBenefits(
       maxHuntBatch: PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
       masteryTowerEntryFree:
         PREMIUM_ADVENTURE_SUPPORT_PASS.masteryTowerEntryFree,
+      autoGatheringReservations:
+        PREMIUM_ADVENTURE_SUPPORT_PASS.autoGatheringReservations,
     };
   }
   if (tier === "standard") {
@@ -137,6 +179,8 @@ export function adventureSupportBenefits(
       marketplaceTaxRate: ADVENTURE_SUPPORT_PASS.marketplaceTaxRate,
       maxHuntBatch: ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch,
       masteryTowerEntryFree: false,
+      autoGatheringReservations:
+        ADVENTURE_SUPPORT_PASS.autoGatheringReservations,
     };
   }
   return {
@@ -147,6 +191,7 @@ export function adventureSupportBenefits(
     marketplaceTaxRate: 0,
     maxHuntBatch: ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch,
     masteryTowerEntryFree: false,
+    autoGatheringReservations: 0,
   };
 }
 

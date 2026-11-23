@@ -48,6 +48,36 @@ describe("payment orders route", () => {
     expect(mocks.create).toHaveBeenCalledWith("u1", "coin_1000", "mc_customer", expect.objectContaining({ clientKey: "test_ck" }));
   });
 
+  it("creates a custom-amount order from the amount only", async () => {
+    const response = await POST(new Request("http://x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customAmountKrw: 7_000, coinAmount: 99_999 }),
+    }));
+    expect(response!.status).toBe(201);
+    expect(mocks.create).toHaveBeenCalledWith("u1", { customAmountKrw: 7_000 }, "mc_customer", expect.objectContaining({ clientKey: "test_ck" }));
+  });
+
+  it("rejects a request that names both a package and a custom amount", async () => {
+    const response = await POST(new Request("http://x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ packageId: "coin_1000", customAmountKrw: 7_000 }),
+    }));
+    expect(response!.status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a custom amount that is not a number", async () => {
+    const response = await POST(new Request("http://x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ customAmountKrw: "7000" }),
+    }));
+    expect(response!.status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
   it("lists only through the authenticated user scope", async () => {
     expect((await GET(new Request("http://x")))!.status).toBe(200);
     expect(mocks.list).toHaveBeenCalledWith("u1");

@@ -1,5 +1,13 @@
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
-import { H2, P, UL, Em, Note } from "./primitives";
+import {
+  GROWTH_PASS_CHAPTERS,
+  GROWTH_PASS_CHAPTER_TIERS,
+  GROWTH_PASS_NEWCOMER_DAYS,
+  GROWTH_PASS_NEWCOMER_JOB_POTIONS,
+  GROWTH_PASS_NEWCOMER_POTIONS,
+} from "@/adventure/data/v2/growthPass";
+import { questRewardText } from "@/adventure/data/v2/questRewardText";
+import { H2, H3, P, UL, Em, Note } from "./primitives";
 
 export function QuestsContent() {
   return (
@@ -13,8 +21,10 @@ export function QuestsContent() {
 
       <H2>튜토리얼</H2>
       <P>
-        처음 시작할 때 필요한 기능을 차례로 안내합니다. 모험 화면의 안내 배너를
-        누르면 아직 끝내지 않은 튜토리얼로 바로 이동합니다. 조건을 달성한 뒤에는
+        처음 시작할 때 필요한 기능을 차례로 안내합니다. 캐릭터를 만들면 첫 사냥
+        화면으로 이동하고, 첫 전투를 치르기 전에는 모험 화면에서도 첫 전투로 가는
+        버튼을 보여 줍니다. 그 뒤에는 모험 화면의 안내 배너를 누르면 아직 끝내지
+        않은 튜토리얼로 바로 이동합니다. 조건을 달성한 뒤에는
         퀘스트 화면에서 보상을 직접 받거나, 받을 항목이 여러 개라면 목록 위의
         <Em>모두 받기</Em>를 사용할 수 있습니다.
       </P>
@@ -26,10 +36,49 @@ export function QuestsContent() {
           표시되고, 조건을 채운 단계의 보상을 그 자리에서 받을 수 있습니다.
         </li>
         <li>
-          <Em>기초 튜토리얼</Em>은 치료소·은행·스킬과 농장·벌목·채광·
-          낚시·요리를 각각 한 번씩 익히는 독립 목표입니다. 시간이 필요한 생활
+          <Em>기초 튜토리얼</Em>은 첫 전투를 치른 뒤에 열립니다. 치료소·은행·스킬과
+          농장·벌목·채광·낚시·요리를 각각 한 번씩 익히는 독립 목표입니다. 시간이 필요한 생활
           목표가 다른 튜토리얼 진행을 막지는 않습니다.
         </li>
+      </UL>
+
+      <H2>성장 패스</H2>
+      <P>
+        {`${GROWTH_PASS_CHAPTER_TIERS[0]}차 직업에 도달하면 튜토리얼 탭에 `}
+        <Em>성장 패스</Em>가 열립니다. 차수마다 한 구간이고, 그 차수에 도달하면
+        구간이 열립니다. 구간 안의 목표는 순서 없이 달성한 것부터 보상을 받으며,
+        이미 달성한 목표의 보상도 받을 수 있습니다. 받을 보상이 있으면 모험
+        화면에 표시됩니다.
+      </P>
+      {GROWTH_PASS_CHAPTERS.map((chapter) => (
+        <div key={chapter.tier}>
+          <H3>{`${chapter.tier}차 구간`}</H3>
+          <UL>
+            {chapter.steps.map((step) => (
+              <li key={step.id}>
+                <Em>{step.title}</Em>: {questRewardText(step.reward)}
+              </li>
+            ))}
+          </UL>
+        </div>
+      ))}
+      <UL>
+        <li>
+          숙련도 목표는 그 차수 직업 하나의 숙련도로 판정하고, 앞 단계를 받은
+          뒤에 다음 단계가 보입니다. 다음 차수로 전직했다면 달성한 것으로 봅니다.
+        </li>
+        <li>
+          전직과 숙련도는 지금 직업이 아니라 전직해 본 직업을 기준으로
+          판정하므로, 낮은 차수 직업으로 돌아가도 유지됩니다.
+        </li>
+        <li>
+          협동 보스 토벌은 토벌 보상을 받은 기록으로 판정합니다. 다른 모험가가
+          부른 보스에 참여해도 됩니다.
+        </li>
+        <li>
+          {`가입 후 ${GROWTH_PASS_NEWCOMER_DAYS}일 안에 받으면 귀속 스태미나 회복약이 더 붙습니다(일반 목표 ${GROWTH_PASS_NEWCOMER_POTIONS}개, 전직 목표 ${GROWTH_PASS_NEWCOMER_JOB_POTIONS}개).`}
+        </li>
+        <li>귀속 회복약과 숙련 증서는 거래할 수 없습니다.</li>
       </UL>
 
       <H2>일일·주간 퀘스트</H2>

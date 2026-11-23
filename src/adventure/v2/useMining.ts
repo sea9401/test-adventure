@@ -26,6 +26,7 @@ import {
   type GatheringSiteUpkeepState,
 } from "./gatheringSiteUpkeep";
 
+import { useAutoGatheringReservation } from "./useAutoGatheringReservation";
 import {
   parseAutoActivity,
   parseMaterials,
@@ -91,6 +92,17 @@ export function useMining(): MiningHandlers {
   const { setAutoGathering } = useGameActivityState();
   const { notifySystem } = useSystemToast();
   const { verification, verifyHuman, readJson } = useActivityVerification("mining");
+  const {
+    reservation: autoReservation,
+    allowed: autoReservationAllowed,
+    chain: autoChain,
+    dropped: autoReservationDropped,
+    loadStatus: loadReservationStatus,
+    reserve: reserveNext,
+    unreserve: unreserveNext,
+    applySettled,
+    clearNotice: clearReservationNotice,
+  } = useAutoGatheringReservation("mining", readJson);
   const [failureReductionPct, setFailureReductionPct] = useState(0);
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<MiningLogView>({
@@ -127,6 +139,7 @@ export function useMining(): MiningHandlers {
           }),
         );
         setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
+        loadReservationStatus(json);
         setSiteUpkeep(parseGatheringSiteUpkeep(json.siteUpkeep));
         setLifeRenown(Math.max(0, Math.floor(Number(json.lifeRenown) || 0)));
       } catch {
@@ -136,7 +149,7 @@ export function useMining(): MiningHandlers {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadReservationStatus]);
 
   const start = useCallback(
     async (spotId: MiningSpotId): Promise<MiningStart> => {
@@ -251,7 +264,10 @@ export function useMining(): MiningHandlers {
       });
       setAutoSession(session);
       setActiveAutoActivity("mining");
-      if (!keepResult) setAutoResult(null);
+      if (!keepResult) {
+        setAutoResult(null);
+        clearReservationNotice();
+      }
       setAutoGathering(
         session
           ? {
@@ -265,42 +281,72 @@ export function useMining(): MiningHandlers {
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [clearReservationNotice, readJson, setAutoGathering]);
+
+  // 정산(claim)과 중간 정산(cancel). 예약해 둔 다음 작업이 이어서 시작됐으면 그 작업을 돌려준다.
+  const settleAuto = useCallback(
+    async (action: "claim" | "cancel") => {
+      setAutoLoading(true);
+      try {
+        const { response, json } = await requestAutoGathering("mining", { action }, readJson);
+        if (!response.ok || !json?.ok) throw lifeRequestError(json, `mining_auto_${action}_failed`);
+        if (json.levelCurveMigrated) {
+          notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
+        }
+        setMaterials(parseMaterials(json.materials));
+        setLog(parseLog(json.log));
+        const chained = applySettled(json);
+        setAutoSession(chained?.activity === "mining" ? chained.session : null);
+        setActiveAutoActivity(
+          chained?.activity ?? parseAutoActivity(json.activeAutoActivity),
+        );
+        setAutoResult(parseAutoResult(json));
+        return chained;
+      } finally {
+        setAutoLoading(false);
+      }
+    },
+    [applySettled, notifySystem, readJson],
+  );
 
   const claimAuto = useCallback(async (): Promise<void> => {
-    setAutoLoading(true);
-    try {
-      const { response, json } = await requestAutoGathering("mining", { action: "claim" }, readJson);
-      if (!response.ok || !json?.ok) throw lifeRequestError(json, "mining_auto_claim_failed");
-      if (json.levelCurveMigrated) {
-        notifySystem(LIFE_LEVEL_MIGRATION_NOTICE, "info");
-      }
-      setMaterials(parseMaterials(json.materials));
-      setLog(parseLog(json.log));
-      setAutoSession(null);
-      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
-      setAutoResult(parseAutoResult(json));
-      setAutoGathering(null);
-    } finally {
-      setAutoLoading(false);
-    }
-  }, [notifySystem, readJson, setAutoGathering]);
+    await settleAuto("claim");
+  }, [settleAuto]);
 
   const cancelAuto = useCallback(async (): Promise<void> => {
+    await settleAuto("cancel");
+  }, [settleAuto]);
+
+  const reserveAuto = useCallback(
+    async (spotId: MiningSpotId, planId: AutoGatheringPlanId): Promise<void> => {
+      setAutoLoading(true);
+      try {
+        await reserveNext(spotId, planId);
+      } finally {
+        setAutoLoading(false);
+      }
+    },
+    [reserveNext],
+  );
+
+  const unreserveAuto = useCallback(async (): Promise<void> => {
     setAutoLoading(true);
     try {
-      const { response, json } = await requestAutoGathering("mining", { action: "cancel" }, readJson);
-      if (!response.ok || !json?.ok) throw lifeRequestError(json, "mining_auto_cancel_failed");
-      setMaterials(parseMaterials(json.materials));
-      setLog(parseLog(json.log));
-      setAutoSession(null);
-      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
-      setAutoResult(parseAutoResult(json));
-      setAutoGathering(null);
+      await unreserveNext();
     } finally {
       setAutoLoading(false);
     }
-  }, [readJson, setAutoGathering]);
+  }, [unreserveNext]);
+
+  // 보상을 받고 같은 작업을 다시 건다. 예약 작업이 이어졌으면 다음 작업으로 다시 예약한다.
+  const restartAuto = useCallback(
+    async (spotId: MiningSpotId, planId: AutoGatheringPlanId): Promise<void> => {
+      const chained = await settleAuto("claim");
+      if (chained) await reserveAuto(spotId, planId);
+      else await startAuto(spotId, planId, true);
+    },
+    [reserveAuto, settleAuto, startAuto],
+  );
 
   return {
     start,
@@ -317,6 +363,13 @@ export function useMining(): MiningHandlers {
     startAuto,
     claimAuto,
     cancelAuto,
+    autoReservation,
+    autoReservationAllowed,
+    autoChain,
+    autoReservationDropped,
+    reserveAuto,
+    unreserveAuto,
+    restartAuto,
     verification,
     verifyHuman,
   };

@@ -130,15 +130,15 @@ export function ControlsContent() {
         </li>
         <li>
           <Em>은신 모드</Em>: 장면 배경과 화려한 프로필·닉네임 연출을 모두
-          숨기고, 화면을 중립적인 스프레드시트 형태로 바꿉니다. 채팅과 길드
-          기여도·순위 목록의 작은 프사도 숨깁니다. 기능을 구분하는 장비·음식 같은
+          숨기고, 화면을 중립적인 스프레드시트 형태로 바꿉니다. 채팅·우편과 길드
+          목록·기록의 이름 앞 작은 프사도 숨깁니다. 기능을 구분하는 장비·음식 같은
           아이콘은 그대로 유지됩니다.
         </li>
         <li>
           <Em>터미널 모드</Em>: 검은 배경과 모노스페이스 글꼴을 사용하고 이미지,
           그림자, 둥근 모서리와 애니메이션을 최소화해 업무용 콘솔처럼 표시합니다.
-          기능에 필요한 아이콘과 이미지는 어둡고 단색에 가깝게 남겨 두고, 채팅과
-          길드 기여도·순위 목록의 작은 프사는 숨깁니다.
+          기능에 필요한 아이콘과 이미지는 어둡고 단색에 가깝게 남겨 두고,
+          채팅·우편과 길드 목록·기록의 이름 앞 작은 프사는 숨깁니다.
         </li>
         <li>
           <Em>사냥터 그림</Em>: 화면 모드와 따로 사냥터 목록의 지역 그림만
@@ -191,6 +191,16 @@ export function ControlsContent() {
           {ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을 받습니다.
         </li>
         <li>
+          지원권(일반·프리미엄) 적용 중에는 자동 벌목·채광이 끝난 뒤 이어서 시작할{" "}
+          <Em>다음 작업 {ADVENTURE_SUPPORT_PASS.autoGatheringReservations}건</Em>을
+          예약할 수 있습니다. 예약한 뒤에 이용 기간이 끝나도 이미 건 예약은 그대로
+          이어집니다.
+        </li>
+        <li>
+          이용 기간이 끝나기 3일 전과 끝난 뒤에 알림 목록으로 한 번씩 알려 드립니다.
+          끝난 뒤 7일 넘게 접속하지 않았다면 끝났다는 알림은 보내지 않습니다.
+        </li>
+        <li>
           <Em>월간 모험 지원권 프리미엄</Em>은 최대 스태미나 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString(
             "ko-KR",
@@ -200,8 +210,10 @@ export function ControlsContent() {
           {PREMIUM_ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회, 거래소 등록 +
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개와 판매세{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}% 혜택을
-          제공하고, 숙련의 탑 하루 첫 입장 스태미나{" "}
-          {MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}을 받지 않습니다. 사용할 때마다 꾸미기 30일 연장권{" "}
+          제공하고, 숙련의 탑 입장 스태미나{" "}
+          {MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST}을 받지 않습니다. 탑의 입장
+          스태미나는 하루 첫 입장 때 한 번만 내므로, 프리미엄 이용 중에는 탑에서
+          스태미나를 쓰지 않습니다. 사용할 때마다 꾸미기 30일 연장권{" "}
           {PREMIUM_ADVENTURE_SUPPORT_PASS.cosmeticExtensionGrant}개를 받으며,
           연장권은 설정 메뉴의 꾸미기에서 사용합니다. 일반 지원권과 혜택이 합쳐지지
           않고, 일반 지원권의 남은 기간은 프리미엄 이용 중 소모되지 않고 종료 뒤

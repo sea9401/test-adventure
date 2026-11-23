@@ -29,7 +29,7 @@ const TRANSFERABLE_EQUIPMENT: V2EquipInstance = {
   },
 };
 
-function mockWarehouseLoad() {
+function mockWarehouseLoad(activity: unknown[] = []) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>
@@ -45,7 +45,7 @@ function mockWarehouseLoad() {
         warehouse: { [ENHANCE_STONE_MATERIAL_ID.red]: 2 },
         equipment: [],
         members: [],
-        activity: [],
+        activity,
       }),
     ),
   );
@@ -95,6 +95,28 @@ describe("장비 전용 길드 창고", () => {
     fireEvent.click(screen.getByRole("tab", { name: "출고" }));
 
     expect(screen.getByRole("tab", { name: "기존 재료 회수" })).toBeTruthy();
+  });
+});
+
+describe("최근 입출고 기록", () => {
+  it("넣고 뺀 사람의 프사를 줄 맨 앞에 보여 준다", async () => {
+    mockWarehouseLoad([
+      {
+        id: 1,
+        action: "deposit",
+        actorName: "창고지기",
+        actorAvatar: "female2",
+        actorProfileBorder: null,
+        meta: { itemName: "철검", itemKind: "equipment" },
+        createdAt: "2026-11-23T00:00:00.000Z",
+      },
+    ]);
+    const { container } = render(createElement(GuildWarehousePanel));
+
+    const row = (await screen.findByText(/창고지기 · 철검/)).closest("li");
+
+    expect(row?.firstElementChild?.className).toContain("ui-row-thumb");
+    expect(container.querySelectorAll(".ui-row-thumb")).toHaveLength(1);
   });
 });
 

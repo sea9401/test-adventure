@@ -6,6 +6,7 @@ import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { PersonThumb } from "@/components/ui/PersonThumb";
 import {
   SURFACE_ACCENT,
   SURFACE_CARD,
@@ -864,37 +865,46 @@ export function InboxMailCard({
         <button
           type="button"
           onClick={() => onOpen(item)}
-          className="min-w-0 flex-1 text-left"
+          className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
         >
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-              {inboxKindLabel(item)}
-            </span>
-            {item.direction === "sent" ? (
-              <>
-                <span>· 받는이 {item.recipientName ?? "알 수 없음"}</span>
-                <span>· {item.readAt ? "읽음" : "미확인"}</span>
-              </>
-            ) : (
-              item.fromName && <span>· {item.fromName}</span>
-            )}
-            {claimable && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-100">
-                미수령
-              </span>
-            )}
-            <span>· {timeAgo(item.createdAt)}</span>
-          </div>
-          <div
-            className={`mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100 ${unread ? "font-semibold" : ""}`}
-          >
-            {bodyOf(item)}
-          </div>
-          {rewards.length > 0 && (
-            <div className="mt-2 line-clamp-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-              {rewards.join(" · ")}
-            </div>
+          {item.person && (
+            <PersonThumb
+              avatar={item.person.avatar}
+              name={item.person.name}
+              profileBorder={item.person.profileBorder}
+            />
           )}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {inboxKindLabel(item)}
+              </span>
+              {item.direction === "sent" ? (
+                <>
+                  <span>· 받는이 {item.recipientName ?? "알 수 없음"}</span>
+                  <span>· {item.readAt ? "읽음" : "미확인"}</span>
+                </>
+              ) : (
+                item.fromName && <span>· {item.fromName}</span>
+              )}
+              {claimable && (
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                  미수령
+                </span>
+              )}
+              <span>· {timeAgo(item.createdAt)}</span>
+            </div>
+            <div
+              className={`mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100 ${unread ? "font-semibold" : ""}`}
+            >
+              {bodyOf(item)}
+            </div>
+            {rewards.length > 0 && (
+              <div className="mt-2 line-clamp-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                {rewards.join(" · ")}
+              </div>
+            )}
+          </div>
         </button>
         {actionable ? (
           <div className="flex shrink-0 flex-col gap-1">

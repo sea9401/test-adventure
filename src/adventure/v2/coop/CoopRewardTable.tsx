@@ -146,7 +146,7 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
           <thead className="bg-zinc-100 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
             <tr>
               <th className="border-b border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
-                티어
+                보상 단계
               </th>
               <th className="border-b border-zinc-200 px-2 py-1.5 text-right dark:border-zinc-700">
                 비율
@@ -335,7 +335,10 @@ export function CoopRewardTable({
       </div>
       {myDamage != null && nextTier && (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          다음 티어({COOP_TIER_LABEL[nextTier]})까지{" "}
+          {nextTier === COOP_TIER_ORDER[0]
+            ? "기본 보상"
+            : `추가 보상(${COOP_TIER_LABEL[nextTier]})`}
+          까지{" "}
           <span className="font-mono font-medium text-zinc-700 dark:text-zinc-200">
             {Math.max(
               0,
@@ -350,19 +353,20 @@ export function CoopRewardTable({
       )}
       {fruit && myTier && coopSpFruitMaxAt(myTier) > 0 && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          현재 티어 보상 (토벌 성공 시 {fruit.name} 최대{" "}
+          현재 단계 보상 (토벌 성공 시 {fruit.name} 최대{" "}
           {coopSpFruitMaxAt(myTier)}개 (각 단계 확률 독립 굴림)
         </p>
       )}
       {fruit ? (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. GOLD 이상 도달 티어마다 따로 굴리며,
-          통과 시 {fruit.name} 1개. LEGEND 달성 시 최대 3개.
+          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. 최소 기여도를 채우면 모두 같은 기본
+          보상을 받고, 기본·EPIC·LEGEND 단계마다 따로 굴려 통과 시 {fruit.name} 1개. LEGEND
+          달성 시 최대 3개.
         </p>
       ) : (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. 보스별 재료와 장비 상자는
-          도달 티어 기준으로 지급됩니다.
+          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. 최소 기여도를 채우면 모두 같은 기본
+          보상을 받고, 보스별 재료와 장비 상자는 도달 단계 기준으로 더 받습니다.
         </p>
       )}
     </div>

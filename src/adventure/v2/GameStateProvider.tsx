@@ -66,8 +66,7 @@ import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { AdventureSupportTier } from "@/adventure/data/v2/adventureSupport";
 import {
-  correctedAutoGatheringReadyAt,
-  type AutoGatheringActivity,
+  parseAutoGatheringStatusPayload,
   type AutoGatheringStatus,
 } from "@/adventure/v2/autoGathering";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
@@ -185,13 +184,7 @@ type GameStateSnapshot = {
     serverNow?: number;
     depth?: number;
   } | null;
-  autoGathering?: {
-    activity?: AutoGatheringActivity;
-    sourceId?: string;
-    sourceName?: string;
-    readyAt?: number;
-    serverNow?: number;
-  } | null;
+  autoGathering?: unknown;
   equipmentCodex?: {
     registeredIds?: string[];
   };
@@ -756,28 +749,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         typeof j.offlinePending === "number" ? j.offlinePending : null,
       );
 
-      const auto = j.autoGathering;
-      if (
-        auto &&
-        (auto.activity === "woodcutting" || auto.activity === "mining") &&
-        typeof auto.sourceId === "string" &&
-        typeof auto.sourceName === "string" &&
-        typeof auto.readyAt === "number" &&
-        typeof auto.serverNow === "number"
-      ) {
-        setAutoGathering({
-          activity: auto.activity,
-          sourceId: auto.sourceId,
-          sourceName: auto.sourceName,
-          readyAt: correctedAutoGatheringReadyAt(
-            auto.readyAt,
-            auto.serverNow,
-            Date.now(),
-          ),
-        });
-      } else {
-        setAutoGathering(null);
-      }
+      setAutoGathering(parseAutoGatheringStatusPayload(j.autoGathering));
 
       const oh = j.offlineHunt;
       if (oh == null) {

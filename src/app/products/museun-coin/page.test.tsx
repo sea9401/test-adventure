@@ -36,6 +36,17 @@ describe("public Museun Coin product page", () => {
     }
   });
 
+  it("explains custom-amount charging with its unit, rate, and range", () => {
+    const html = renderToStaticMarkup(
+      <MuseunCoinProductContent merchantInfo={merchantInfo} />,
+    );
+
+    expect(html).toContain("금액 직접 입력");
+    expect(html).toContain("1,000원 단위");
+    expect(html).toContain("1,000원에 100코인");
+    expect(html).toContain("1,000원부터 50,000원까지");
+  });
+
   it("explains delivery, account restrictions, refunds, and seller identity", () => {
     const html = renderToStaticMarkup(
       <MuseunCoinProductContent merchantInfo={merchantInfo} />,

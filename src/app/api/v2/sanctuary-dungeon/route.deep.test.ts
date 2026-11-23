@@ -120,6 +120,19 @@ describe("태초의 성소 심층 단계", () => {
     expect(f.grantTitle).not.toHaveBeenCalled();
   });
 
+  it("한 번씩 자동 진행하면 같은 날 탐험마다 다음 심층 단계로 오른다", async () => {
+    seed({ clears: 1 });
+
+    for (const deepStage of [1, 2, 3]) {
+      const json = await (await action("auto", { difficulty: "hard", deepStage, maxRuns: 1 })).json();
+      expect(json.auto.runs).toHaveLength(1);
+      expect(json.auto.runs[0]).toMatchObject({ cleared: true, deepStage });
+      expect(json.deep).toEqual({ best: deepStage, maxSelectable: deepStage + 1 });
+    }
+
+    expect(current()).toMatchObject({ attemptsUsed: 3, deepBest: 3 });
+  });
+
   it("한 번씩 싸워 완주해도 증표를 받고, 응답에 받은 수를 싣는다", async () => {
     seed({ clears: 1, deepBest: 2 });
     await action("start", { difficulty: "hard", deepStage: 3 });

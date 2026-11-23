@@ -38,6 +38,8 @@ export const V2_NOTIFICATION_TYPES = [
   "master_product",
   "grand_grade",
   "exploration_grade",
+  "support_pass_expiring",
+  "support_pass_expired",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -59,12 +61,18 @@ export type AuctionUnsoldNotificationPayload = {
   listingId: number;
   itemName: string;
   quantity: number;
+  /** 유찰 시 자동 인하 재등록이 켜져 있어 이 가격으로 다시 올라간 경우. */
+  relistedPrice?: number;
 };
 
 export function auctionUnsoldNotificationText(
   payload: AuctionUnsoldNotificationPayload,
 ): string {
-  return `거래소에 올린 ${payload.itemName} ×${payload.quantity.toLocaleString("ko-KR")}이(가) 유찰되어 돌아왔습니다.`;
+  const item = `${payload.itemName} ×${payload.quantity.toLocaleString("ko-KR")}`;
+  if (typeof payload.relistedPrice === "number" && payload.relistedPrice > 0) {
+    return `거래소에 올린 ${item}이(가) 유찰되어 ${payload.relistedPrice.toLocaleString("ko-KR")}골드로 다시 올렸습니다.`;
+  }
+  return `거래소에 올린 ${item}이(가) 유찰되어 돌아왔습니다.`;
 }
 
 // guild_kicked — 길드에서 추방됨. cooldownUntil = 다른 길드 가입 제한 해제 시각(epoch ms).
@@ -146,6 +154,8 @@ export function peddlerArrivedNotificationText(
 }
 
 export type V2NotificationPayload =
+  // support_pass_expiring · support_pass_expired — 월간 모험 지원권이 곧 끝나거나 끝났음.
+  | import("@/adventure/v2/supportPassNotice").SupportPassNotificationPayload
   | AuctionWonNotificationPayload
   | AuctionUnsoldNotificationPayload
   | MasterProductNotificationPayload

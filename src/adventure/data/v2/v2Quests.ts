@@ -21,7 +21,11 @@
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
-import { HUNT_MONSTER_SPECIES_COUNT, huntStageName } from "./dungeon";
+import {
+  FIRST_HUNT_DEPTH,
+  HUNT_MONSTER_SPECIES_COUNT,
+  huntStageName,
+} from "./dungeon";
 import type { TitleId } from "../titles";
 import {
   EARTH_WITNESS_TITLE_ID,
@@ -30,6 +34,7 @@ import {
 } from "../titles";
 import { COOKING_CODEX_MILESTONES } from "../../v2/cooking/catalogMeta";
 import { LIFE_HOUSING_ENABLED } from "../../v2/lifeCrafting";
+import { GROWTH_PASS, GROWTH_PASS_LINES } from "./growthPass";
 
 export type QuestLineId = string;
 export type AchievementBadgeTier =
@@ -50,6 +55,10 @@ export type QuestReward = {
   staminaPotions?: number;
   /** 칭호 1개 지급(adventure-log.v2.titles — 이미 보유 중이면 no-op). */
   titleId?: TitleId;
+  /** 거래할 수 없는 귀속 스태미나 회복약 N개(stamina-potions.v1 의 boundCount 에 함께 쌓인다). */
+  boundStaminaPotions?: number;
+  /** 숙련 증서 N개(inventory.v2). 해금한 직업의 숙련도로 바꿔 쓴다. */
+  masteryCertificates?: number;
 };
 
 // 퀘스트 완료 판정에 쓰는 플레이어 진행 상태. 전부 세이브/DB 에서 파생(서버 집계).
@@ -108,6 +117,17 @@ export type QuestCtx = {
   bankedGold: number;
   /** 로드아웃에 장착한 스킬 수. skills.v2.equipped. */
   skillsEquipped: number;
+  // ── 성장 패스(2026-11-23) — 없는 값은 지금 직업 기준으로 읽는다 ──────────────
+  /** 한 번이라도 전직해 본 직업 중 최고 차수. proficiency.v2 jobHistory. */
+  maxJobTier?: number;
+  /** 차수별로, 그 차수 직업 가운데 가장 높은 숙련도. proficiency.v2 jobCumLevel. */
+  tierMastery?: Partial<Record<number, number>>;
+  /** 가입한 지 얼마 안 된 계정인가(성장 패스 추가 보상). users.created_at. */
+  newcomer?: boolean;
+  /** 모든 직업군의 수행 횟수 합. proficiency.v2 groups. */
+  cultivationsTotal?: number;
+  /** 토벌 보상을 받은 협동 보스 종류. adventure-log.v2.coopBossKinds + 레거시 칭호 보유분. */
+  coopBossKindIds?: readonly string[];
   /** 학습한 스킬 수. skills.v2.learned. */
   skillsLearned: number;
   /** 스킬 화면에서 로드아웃을 직접 저장한 적 있는가. 옛 튜토리얼 완료 호환용. */
@@ -187,6 +207,8 @@ export type QuestDef = {
   /** 진행 중일 때 해당 기능 화면으로 보내는 내부 경로. */
   href?: string;
   reward: QuestReward;
+  /** 신규 모험가(ctx.newcomer)가 받을 때 위 보상에 더해 주는 보상. */
+  newcomerBonus?: QuestReward;
   /** 완료 판정 — 세이브 파생 ctx 로. */
   check: (c: QuestCtx) => boolean;
   /** 영구 업적 점수. 튜토리얼에는 지정하지 않는다. */
@@ -219,6 +241,8 @@ export type QuestLine = {
   classOnly?: V2Class;
   /** true = 퀘스트 화면 "튜토리얼" 탭에 노출(기본 조작 안내). false/미지정 = "업적" 탭. */
   tutorial?: boolean;
+  /** 지정 시 이 조건을 채운 뒤에만 보이는 라인. */
+  visibleWhen?: (c: QuestCtx) => boolean;
 };
 
 // ── 성장의 길(튜토리얼 리드, 순차) ──────────────────────────────────────────
@@ -230,7 +254,8 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "첫 발걸음",
     desc: "전투 > 사냥터에서 첫 전투를 치르세요.",
-    href: "/battle/dungeon",
+    // 사냥터 목록이 아니라 사냥 버튼이 있는 첫 사냥 화면으로 보낸다.
+    href: `/battle/dungeon/${FIRST_HUNT_DEPTH}`,
     reward: {
       staminaPotions: 1,
       equip: "v2_chain_mail",
@@ -1144,6 +1169,9 @@ export const QUEST_LINES: readonly QuestLine[] = [
     subtitle: "치료소·은행·스킬과 생활 콘텐츠의 기본 조작을 하나씩 익혀보세요.",
     sequential: false,
     tutorial: true,
+    // 첫 전투 전에는 성장의 길(첫 전투)만 보여 준다. 2026-11 기록에서 전투 없이 떠난 신규 계정의
+    // 30%가 이 줄의 첫 목표(치료소)를 따라갔다.
+    visibleWhen: (c) => c.battleCount >= 1,
   },
   {
     id: "growth",
@@ -1152,6 +1180,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
     sequential: true,
     tutorial: true,
   },
+  ...GROWTH_PASS_LINES,
   { id: "combat", name: "전투와 토벌", subtitle: "전투 횟수·몬스터 도감·협동 보스 기록.", sequential: false },
   { id: "frontier", name: "사냥터 개척", subtitle: "현재 사냥터의 끝까지 이어지는 개척 기록.", sequential: false },
   { id: "growth_achievement", name: "직업과 숙련", subtitle: "직업 숙련도·고차 직업·전투직 재전직 기록.", sequential: false },
@@ -1174,6 +1203,8 @@ export const QUEST_LINES: readonly QuestLine[] = [
 export const V2_QUESTS: readonly QuestDef[] = [
   ...GROWTH,
   ...BASICS,
+  // 홈의 현재 목표가 기초 튜토리얼을 먼저 안내하도록 그 뒤에 둔다.
+  ...GROWTH_PASS,
   ...COMBAT,
   ...FRONTIER,
   ...GROWTH_ACHIEVEMENTS,
@@ -1231,6 +1262,8 @@ export type QuestView = {
   desc: string;
   href: string | null;
   reward: QuestReward;
+  /** 이 계정이 받을 수 있는 신규 모험가 추가 보상. 해당 없으면 null. */
+  newcomerBonus?: QuestReward | null;
   status: QuestStatus;
   points: number;
   progress: number | null;
@@ -1241,6 +1274,7 @@ export type QuestView = {
 // 직업 전용 라인은 현 직군에게만 보임(classOnly 없으면 전원).
 function lineVisible(line: QuestLine | undefined, ctx: QuestCtx): boolean {
   if (!line) return false;
+  if (line.visibleWhen && !line.visibleWhen(ctx)) return false;
   if (!line.classOnly) return true;
   return line.classOnly === ctx.class;
 }
@@ -1320,6 +1354,32 @@ export function isQuestClaimable(
   return questStatus(def, ctx, claimed) === "claimable";
 }
 
+const SUMMED_REWARD_KEYS = [
+  "gold",
+  "staminaPotions",
+  "boundStaminaPotions",
+  "masteryCertificates",
+] as const;
+
+/** 보상에 추가 보상을 더한다. 수량형 보상만 합산한다. */
+export function addQuestReward(
+  base: QuestReward,
+  bonus: QuestReward | null | undefined,
+): QuestReward {
+  if (!bonus) return base;
+  const reward: QuestReward = { ...base };
+  for (const key of SUMMED_REWARD_KEYS) {
+    const extra = bonus[key] ?? 0;
+    if (extra > 0) reward[key] = (reward[key] ?? 0) + extra;
+  }
+  return reward;
+}
+
+/** 이 계정이 실제로 받는 보상. 신규 모험가 추가 보상이 있으면 더한다. */
+export function questRewardFor(def: QuestDef, ctx: QuestCtx): QuestReward {
+  return addQuestReward(def.reward, ctx.newcomer ? def.newcomerBonus : null);
+}
+
 // 현 직군에게 보이는 라인만.
 export function questLinesFor(ctx: QuestCtx): QuestLine[] {
   return QUEST_LINES.filter((l) => lineVisible(l, ctx));
@@ -1342,6 +1402,7 @@ export function deriveQuestViews(
     desc: q.desc,
     href: q.href ?? null,
     reward: q.reward,
+    newcomerBonus: ctx.newcomer && q.newcomerBonus ? q.newcomerBonus : null,
     status: questStatus(q, ctx, claimed),
     points: q.points ?? 0,
     progress: q.progress ? Math.max(0, Math.floor(q.progress(ctx))) : null,

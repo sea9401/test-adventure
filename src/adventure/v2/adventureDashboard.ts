@@ -1,8 +1,6 @@
 export const DEFAULT_ADVENTURE_HOME_WIDGET_ORDER = [
   "character_summary",
   "stamina",
-  // 사냥터로 가는 주 행동. 그림이 있는 카드라 첫 화면 위쪽에 둔다.
-  "hunt_entry",
   // 튜토리얼 카드가 첫 화면 안에 보이도록 오늘의 모험 체크보다 앞에 둔다.
   "quest_rewards",
   "activity_checklist",
@@ -99,29 +97,6 @@ function uniqueKnownStrings(
   ))];
 }
 
-/**
- * 저장된 배치에 없는 위젯(새로 생긴 위젯)을 끼워 넣는다. 기본 배치에서 바로 앞에 있던 위젯
- * 뒤에 두고, 앞 위젯이 하나도 없으면 맨 뒤에 붙인다. 배치를 저장해 둔 계정에서 새 위젯이
- * 항상 맨 아래로 밀리지 않게 하기 위한 규칙이다.
- */
-function withMissingWidgets(
-  savedOrder: readonly AdventureHomeWidgetId[],
-): AdventureHomeWidgetId[] {
-  const order = [...savedOrder];
-  DEFAULT_ADVENTURE_HOME_WIDGET_ORDER.forEach((id, defaultIndex) => {
-    if (order.includes(id)) return;
-    for (let i = defaultIndex - 1; i >= 0; i -= 1) {
-      const at = order.indexOf(DEFAULT_ADVENTURE_HOME_WIDGET_ORDER[i]);
-      if (at >= 0) {
-        order.splice(at + 1, 0, id);
-        return;
-      }
-    }
-    order.push(id);
-  });
-  return order;
-}
-
 export function normalizeAdventureHomePreferences(
   value: unknown,
   knownActivityIds: readonly string[],
@@ -140,7 +115,10 @@ export function normalizeAdventureHomePreferences(
   const raw = value as Record<string, unknown>;
   const savedOrder = uniqueKnownStrings(raw.widgetOrder, WIDGET_IDS) as AdventureHomeWidgetId[];
   const savedSet = new Set(savedOrder);
-  const widgetOrder = withMissingWidgets(savedOrder);
+  const widgetOrder = [
+    ...savedOrder,
+    ...DEFAULT_ADVENTURE_HOME_WIDGET_ORDER.filter((id) => !savedSet.has(id)),
+  ];
   const hiddenWidgetIds = uniqueKnownStrings(
     raw.hiddenWidgetIds,
     WIDGET_IDS,

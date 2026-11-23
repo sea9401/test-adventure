@@ -6,7 +6,6 @@ import type { AdventureHomeWidgetId } from "./adventureDashboard";
 const FULL_WIDTH = new Set<AdventureHomeWidgetId>([
   "character_summary",
   "stamina",
-  "hunt_entry",
   "activity_checklist",
   "quest_rewards",
   "hot_time",

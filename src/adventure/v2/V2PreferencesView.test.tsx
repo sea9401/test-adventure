@@ -133,7 +133,6 @@ describe("환경 설정 화면", () => {
       widgetOrder: [
         "character_summary",
         "stamina",
-        "hunt_entry",
         "quest_rewards",
         "activity_checklist",
         // 기본 배치에는 생활 한 번에 정산 위젯의 자리도 들어 있다(편의가 열린 계정에만 보인다).

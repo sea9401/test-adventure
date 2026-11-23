@@ -90,7 +90,7 @@ describe("sanctuary play screen", () => {
     expect((screen.getByLabelText("태초의 제단 1순위") as HTMLSelectElement).value).toBe("storm_guard");
     fireEvent.click(screen.getByRole("button", { name: "노말" }));
     fireEvent.click(screen.getByRole("button", { name: "남은 입장 2회 일괄 진행" }));
-    await screen.findByText("일괄 진행 결과");
+    await screen.findByText("자동 진행 결과");
     expect(confirmGameAction).toHaveBeenCalled();
     const body = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(body).toMatchObject({ action: "auto", difficulty: "normal", expectedRevision: 4 });
@@ -100,6 +100,42 @@ describe("sanctuary play screen", () => {
     expect(screen.getByText("1회차 노말 · 클리어 · 문장 1개")).toBeTruthy();
     expect(screen.getByText("2회차 하드 · 문장의 파수꾼에서 패배 · 임시 문장 4개 잃음")).toBeTruthy();
     expect((screen.getByRole("button", { name: /일괄 진행/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("runs a single attempt automatically and leaves the remaining attempts", async () => {
+    const after = { ...parseSanctuaryState({}), revision: 5, attemptsUsed: 2 };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ ...parseSanctuaryState({}), revision: 4 }))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ok: true, unlocked: true, attemptsLeft: 1, state: after, auto: { runs: [
+        { difficulty: "hard", cleared: true, endedAt: "태초의 문지기", gainedEmblems: [{ iid: "a", kind: "hp", grade: 1 }], lostEmblems: 0 },
+      ] } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    confirmGameAction.mockClear();
+    render(<V2SanctuaryDungeonView />);
+    const single = (await screen.findByRole("button", { name: "1회만 자동 진행" })) as HTMLButtonElement;
+    expect(single.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "하드" }));
+    expect(single.disabled).toBe(false);
+    fireEvent.click(single);
+    await screen.findByText("자동 진행 결과");
+    expect(confirmGameAction).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("탐험 1회를") }));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ action: "auto", difficulty: "hard", maxRuns: 1, expectedRevision: 4 });
+    expect(screen.getByText("1회차 하드 · 클리어 · 문장 1개")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "남은 입장 1회 일괄 진행" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+  it("finishes only the in-progress run automatically without choosing a difficulty", async () => {
+    const active = createSanctuaryActive(1000, 300);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ ...parseSanctuaryState({}), active }))
+      .mockResolvedValueOnce(response({ ...parseSanctuaryState({}), revision: 1 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<V2SanctuaryDungeonView />);
+    const single = (await screen.findByRole("button", { name: "진행 중인 탐험만 자동 진행" })) as HTMLButtonElement;
+    expect(single.disabled).toBe(false);
+    fireEvent.click(single);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body).toMatchObject({ action: "auto", maxRuns: 1 });
+    expect(body.difficulty).toBeUndefined();
   });
   it("blocks entry and auto-run until a difficulty is chosen", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response(parseSanctuaryState({})));

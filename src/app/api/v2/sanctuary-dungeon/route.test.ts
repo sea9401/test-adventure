@@ -145,6 +145,28 @@ describe("sanctuary dungeon authority", () => {
     expect(refused.status).toBe(409);
     expect((await refused.json()).error).toBe("no_attempts");
   });
+  it("auto-run with maxRuns 1 uses a single attempt and leaves the rest", async () => {
+    const json = await (await action("auto", { maxRuns: 1 })).json();
+    expect(json.auto.runs).toHaveLength(1);
+    expect(json.attemptsLeft).toBe(2);
+    expect(current()).toMatchObject({ attemptsUsed: 1, clears: 1, active: null });
+    expect(f.battle).toHaveBeenCalledTimes(7);
+    expect(parseEmblemState((f.store.get("character.v2") as Record<string, unknown>).emblems).owned).toHaveLength(7);
+  });
+  it("auto-run with maxRuns 1 only finishes the in-progress run", async () => {
+    await action("start"); await action("fight");
+    const json = await (await action("auto", { maxRuns: 1 })).json();
+    expect(json.auto.runs).toHaveLength(1);
+    expect(json.auto.runs[0].cleared).toBe(true);
+    expect(current()).toMatchObject({ attemptsUsed: 1, clears: 1, active: null });
+  });
+  it.each([0, -1, 1.5, "1", null])("rejects auto-run maxRuns %s without spending an attempt", async (maxRuns) => {
+    const response = await action("auto", { maxRuns });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("invalid_input");
+    expect(current().attemptsUsed).toBe(0);
+    expect(f.battle).not.toHaveBeenCalled();
+  });
   it("does not replenish limited recovery skills between encounters", async () => {
     await action("start");
     const state: SanctuaryState = current();

@@ -25,7 +25,7 @@ describe("하단 메뉴 바와 겹치지 않기", () => {
     const css = readFileSync("src/app/globals.css", "utf8");
 
     expect(css).toMatch(
-      /:root:has\(\[data-game-bottom-nav\]\)\s*\{\s*--game-bottom-nav: 3\.75rem;/,
+      /:root:has\(\[data-game-bottom-nav\]\)\s*\{\s*--game-bottom-nav: 3\.5rem;/,
     );
     expect(css).toMatch(
       /@media \(min-width: 768px\)\s*\{\s*:root:has\(\[data-game-bottom-nav\]\)\s*\{\s*--game-bottom-nav: 0px;/,

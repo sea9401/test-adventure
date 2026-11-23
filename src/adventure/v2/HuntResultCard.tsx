@@ -6,6 +6,7 @@
 // 다시 넣기로 했다(사냥 화면에 싸운 상대가 전혀 안 보이던 문제). 턴 수는 여전히 넣지 않는다.
 
 import type { ReactNode } from "react";
+import { CaretRight } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -238,9 +239,15 @@ export function HuntResultCard({
   hasMp,
   onEnterRareMap,
   encounter,
+  onShowReplay,
 }: {
-  /** 싸운 상대와 승패를 보여 주는 머리. 주면 "전투 결과" 한 줄을 대신한다. */
+  /**
+   * 싸운 상대와 승패를 보여 주는 머리. 주면 "전투 결과" 한 줄을 대신하고, 보상은 보유량 칸
+   * 대신 이번에 얻은 양만 적은 칩으로 줄인다(보유량은 상단바와 캐릭터 화면에 있다).
+   */
   encounter?: ReactNode;
+  /** encounter와 함께 주면 카드 안에 "전투 기록 보기"를 둔다. */
+  onShowReplay?: () => void;
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
   hpCharges?: number;
@@ -431,7 +438,50 @@ export function HuntResultCard({
         />
       )}
 
-      <RewardBalanceGrid items={rewardBalances} />
+      {encounter ? (
+        <div className="mt-3 space-y-1.5 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+          <div
+            className="flex flex-wrap gap-1.5"
+            aria-label="이번 전투에서 얻은 것"
+          >
+            {rewardBalances
+              .filter((item) => item.gained > 0)
+              .map((item) => (
+                <span
+                  key={item.label}
+                  className="rounded-md bg-zinc-100 px-2.5 py-1 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                >
+                  {item.label}{" "}
+                  <b className="font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
+                    +{item.gained.toLocaleString()}
+                  </b>
+                </span>
+              ))}
+            {result.levelsGained > 0 && (
+              <span className="ui-reward-flash rounded-md bg-amber-100 px-2.5 py-1 text-sm font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                레벨 업 +{result.levelsGained}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              {[statGainsText, hpMpGainsText].filter(Boolean).join(" · ")}
+            </span>
+            {onShowReplay && (
+              <button
+                type="button"
+                onClick={onShowReplay}
+                className="flex min-h-9 shrink-0 items-center gap-0.5 text-sm font-medium text-selected hover:text-selected-hover"
+              >
+                전투 기록 보기
+                <CaretRight size={14} weight="bold" aria-hidden className="shrink-0" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <RewardBalanceGrid items={rewardBalances} />
+      )}
 
       <div className="mt-2 space-y-1 text-center text-sm">
         {result.hotTime && (result.hotTime.expBonus > 0 || result.hotTime.goldBonus > 0) && (
@@ -453,7 +503,7 @@ export function HuntResultCard({
         )}
       </div>
 
-      {result.levelsGained > 0 && (
+      {!encounter && result.levelsGained > 0 && (
         <div className="ui-reward-flash mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
             레벨 업! +{result.levelsGained}
@@ -480,7 +530,7 @@ export function HuntResultCard({
       )}
 
       {/* HP/MP 충전약 잔량 — 전투 화면에서 이리로 이관. */}
-      {hpCharges != null && (
+      {!encounter && hpCharges != null && (
         <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <ChargeReadout
             iconName="Flask"

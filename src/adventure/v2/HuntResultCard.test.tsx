@@ -277,3 +277,65 @@ describe("사냥 장비 획득 분류", () => {
     expect(html).toContain("잊힌 사제의 성갑");
   });
 });
+
+describe("HuntResultCard 방금 전투 머리가 있을 때", () => {
+  const won: HuntResult = {
+    ...BASE_RESULT,
+    won: true,
+    expGained: 30,
+    expAfter: 0,
+    goldGained: 15,
+    goldAfter: 80,
+    proficiencyGained: 2,
+    proficiencyPointsAfter: 4,
+    masteryGained: 0,
+    levelsGained: 1,
+    statGains: { spi: 1 },
+    hpGain: 10,
+    mpGain: 3,
+  };
+
+  function render(onShowReplay?: () => void) {
+    return renderToStaticMarkup(
+      <HuntResultCard
+        result={won}
+        hpCharges={99_857}
+        mpCharges={100_000}
+        hasMp
+        encounter={<div data-testid="encounter">방금 전투 승리</div>}
+        onShowReplay={onShowReplay}
+      />,
+    );
+  }
+
+  it("보상은 보유량 칸 대신 이번에 얻은 양만 칩으로 보여 준다", () => {
+    const html = render();
+
+    expect(html).toContain("방금 전투 승리");
+    expect(html).toContain('aria-label="이번 전투에서 얻은 것"');
+    expect(html).toMatch(/골드\s*<b[^>]*>\+15<\/b>/);
+    expect(html).toMatch(/경험치\s*<b[^>]*>\+30<\/b>/);
+    expect(html).toMatch(/숙달 포인트\s*<b[^>]*>\+2<\/b>/);
+    // 얻은 것이 없는 항목과 보유량 칸은 그리지 않는다.
+    expect(html).not.toContain("직업 숙련도");
+    expect(html).not.toContain("전투 후 보유량과 이번 변동");
+    expect(html).not.toContain("전투 결과");
+  });
+
+  it("레벨 업은 칩과 오른 능력치 한 줄로 줄인다", () => {
+    const html = render();
+
+    expect(html).toContain("레벨 업 +1");
+    expect(html).toContain("HP +10");
+    expect(html).toContain("MP +3");
+    expect(html).not.toContain("레벨 업!");
+  });
+
+  it("전투 기록 보기를 카드 안에 두고 충전약 줄은 능력치 줄에 맡긴다", () => {
+    const html = render(vi.fn());
+
+    expect(html).toContain("전투 기록 보기");
+    expect(html).not.toContain("HP 충전약");
+    expect(render()).not.toContain("전투 기록 보기");
+  });
+});

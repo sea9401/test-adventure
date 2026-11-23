@@ -70,6 +70,8 @@ describe("방금 전투 카드", () => {
           gender: "male1",
           hp: 237,
           maxHp: 245,
+          mp: 95,
+          maxMp: 98,
         }}
         enemy={huntEncounterEnemy("풀뱀", won, replay)}
       />,
@@ -85,6 +87,7 @@ describe("방금 전투 카드", () => {
     expect(html).toContain("field-grass-snake.webp");
     expect(html).toContain("바람 속성");
     expect(html).toContain("237 / 245");
+    expect(html).toContain("95 / 98");
     expect(html).toContain("0 / 60");
   });
 

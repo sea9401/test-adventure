@@ -75,6 +75,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const showStamina = shouldShowStaminaBar(pathname);
   const pinStamina =
     pathname === "/battle/dungeon" || pathname.startsWith("/battle/dungeon/");
+  const isHuntFloor = pathname.startsWith("/battle/dungeon/");
 
   useEffect(() => {
     const chrome = chromeRef.current;
@@ -217,7 +218,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       <div id="game-main-content" tabIndex={-1}>
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
-          <div className={`mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6 ${pinStamina ? "sticky top-[var(--game-header-height,4rem)] z-30" : ""}`}>
+          // 사냥 층 화면은 휴대폰에서 상단바의 스태미나 수치로 충분해, 화면을 차지하는 막대는 숨긴다.
+          <div className={`mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6 ${pinStamina ? "sticky top-[var(--game-header-height,4rem)] z-30" : ""} ${isHuntFloor ? "max-sm:hidden" : ""}`}>
             <StaminaBar
               compact={pinStamina}
               state={stamina}

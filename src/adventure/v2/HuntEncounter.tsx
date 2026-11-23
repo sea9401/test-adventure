@@ -52,17 +52,28 @@ export function huntEncounterEnemy(
   };
 }
 
-function HpLine({ hp, maxHp }: { hp: number | null; maxHp: number | null }) {
-  if (hp == null || maxHp == null || maxHp <= 0) return null;
-  const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+function GaugeLine({
+  label,
+  value,
+  max,
+  barClassName,
+}: {
+  label: string;
+  value: number | null;
+  max: number | null;
+  barClassName: string;
+}) {
+  if (value == null || max == null || max <= 0) return null;
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
-    <div className="w-full">
-      <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-        <div className="h-full bg-rose-600" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="mt-0.5 text-center text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
-        {hp.toLocaleString()} / {maxHp.toLocaleString()}
-      </div>
+    <div className="grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-x-1.5 text-xs tabular-nums">
+      <span className="font-bold text-zinc-500 dark:text-zinc-400">{label}</span>
+      <span className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <span className={`block h-full ${barClassName}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="col-start-2 text-right text-zinc-600 dark:text-zinc-300">
+        {value.toLocaleString()} / {max.toLocaleString()}
+      </span>
     </div>
   );
 }
@@ -84,6 +95,9 @@ export function HuntEncounter({
     gender: Avatar;
     hp: number;
     maxHp: number;
+    /** MP를 쓰지 않는 캐릭터는 생략한다. */
+    mp?: number;
+    maxMp?: number;
   };
   enemy: HuntEncounterEnemy;
 }) {
@@ -126,7 +140,18 @@ export function HuntEncounter({
               </div>
             ) : null}
           </div>
-          <HpLine hp={player.hp} maxHp={player.maxHp} />
+          <GaugeLine
+            label="HP"
+            value={player.hp}
+            max={player.maxHp}
+            barClassName="bg-rose-600"
+          />
+          <GaugeLine
+            label="MP"
+            value={player.mp ?? null}
+            max={player.maxMp ?? null}
+            barClassName="bg-sky-600"
+          />
         </div>
         <span
           aria-hidden
@@ -165,7 +190,12 @@ export function HuntEncounter({
               </div>
             ) : null}
           </div>
-          <HpLine hp={enemy.hp} maxHp={enemy.maxHp} />
+          <GaugeLine
+            label="HP"
+            value={enemy.hp}
+            max={enemy.maxHp}
+            barClassName="bg-rose-600"
+          />
         </div>
       </div>
     </div>

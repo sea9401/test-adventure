@@ -126,6 +126,8 @@ describe("던전 인라인 결과 연결", () => {
       .querySelector("[data-hunt-primary-actions]")!
       .closest(".ui-game-card")!;
     expect(bar.className).toContain("max-sm:fixed");
+    // 하단 메뉴 바에 틈 없이 붙도록 부모의 세로 간격 여백을 지운다.
+    expect(bar.className).toContain("max-sm:m-0");
     expect(bar.className).toContain("max-sm:z-20");
     fireEvent.click(screen.getByRole("button", { name: "전투 설정" }));
     expect(bar.className).toContain("max-sm:z-[45]");

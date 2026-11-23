@@ -74,3 +74,93 @@ describe("숙련의 탑 전투 결과 문구", () => {
     expect(canContinueAttempt?.(result, false, 0)).toBe(true);
   });
 });
+
+describe("숙련의 탑 전투 결과 버튼", () => {
+  const plan = battleView.masteryTowerOutcomePlan;
+  const clearedTower = { runFloor: 100, claimed: false };
+
+  it("100층을 처음 깼고 오늘 보상을 안 받았으면 보상 받으러 가기가 먼저 나온다", () => {
+    expect(
+      plan({
+        ok: true,
+        success: true,
+        practice: false,
+        floor: 100,
+        tower: clearedTower,
+        claimPreview: { total: 120 },
+      }),
+    ).toEqual({
+      primary: "tower",
+      towerLabel: "보상 받으러 가기",
+      secondary: "attempt",
+      attemptLabel: "100층 연습 재도전",
+    });
+  });
+
+  it("100층 연습에서 졌어도 보상을 안 받았으면 보상 받으러 가기가 먼저 나온다", () => {
+    expect(
+      plan({
+        ok: true,
+        success: false,
+        practice: true,
+        floor: 100,
+        tower: { ...clearedTower, cooldownUntil: 1 },
+        claimPreview: { total: 120 },
+      }),
+    ).toMatchObject({ primary: "tower", towerLabel: "보상 받으러 가기" });
+  });
+
+  it("오늘 보상을 이미 받았으면 연습 재도전이 먼저고 탑으로 돌아가는 버튼이 따로 있다", () => {
+    expect(
+      plan({
+        ok: true,
+        success: true,
+        practice: true,
+        floor: 100,
+        tower: { runFloor: 100, claimed: true },
+        claimPreview: { total: 0 },
+      }),
+    ).toEqual({
+      primary: "attempt",
+      attemptLabel: "100층 연습 재도전",
+      secondary: "tower",
+      towerLabel: "탑으로 돌아가기",
+    });
+  });
+
+  it("100층 전 승리는 다음 층 입장 하나만 보여 준다", () => {
+    expect(
+      plan({
+        ok: true,
+        success: true,
+        practice: false,
+        floor: 42,
+        tower: { runFloor: 42, claimed: false },
+        claimPreview: { total: 80 },
+      }),
+    ).toEqual({
+      primary: "attempt",
+      attemptLabel: "다음 층 입장",
+      secondary: null,
+      towerLabel: null,
+    });
+  });
+
+  it("100층 전 패배는 시작 위치 선택 하나만 보여 준다", () => {
+    expect(
+      plan({
+        ok: true,
+        success: false,
+        practice: false,
+        floor: 42,
+        tower: { runFloor: 0, claimed: false, cooldownUntil: 1 },
+        claimPreview: { total: 80 },
+      }),
+    ).toEqual({
+      primary: "tower",
+      towerLabel: "시작 위치 선택",
+      secondary: null,
+      attemptLabel: null,
+    });
+  });
+});

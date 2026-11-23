@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import {
   V2_MATERIALS,
@@ -88,7 +89,10 @@ export function BatchSummaryCard({
   potionThreshold = 0,
   onSelectReplay,
   onEnterRareMap,
+  encounter,
 }: {
+  /** 마지막 전투의 상대와 승패를 보여 주는 머리. */
+  encounter?: ReactNode;
   summary: BatchSummary;
   remainingStamina?: number;
   potionThreshold?: number;
@@ -175,6 +179,11 @@ export function BatchSummaryCard({
 
   return (
     <Card padding="sm">
+      {encounter ? (
+        <div className="mb-3 border-b border-zinc-200 pb-3 dark:border-zinc-700">
+          {encounter}
+        </div>
+      ) : null}
       {huntRareMapInstances.length > 0 && (() => {
         const primary = huntRareMapInstances[0];
         const primaryDef = RARE_MAP_KINDS[primary.kind];

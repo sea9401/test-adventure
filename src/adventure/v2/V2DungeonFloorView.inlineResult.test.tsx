@@ -88,6 +88,56 @@ describe("던전 인라인 결과 연결", () => {
     );
   });
 
+  it("사냥 전에는 안내를, 사냥 뒤에는 결과 머리에 싸운 몬스터와 승패를 보여 준다", async () => {
+    mocks.hunt.mockResolvedValueOnce(result(5));
+
+    const { container } = render(
+      <V2DungeonFloorView
+        floorId={1}
+        outpostId="start"
+        playerName="모험가"
+        playerGender="male"
+        stamina={{ current: 100, lastUpdatedAt: Date.now() }}
+        setStamina={vi.fn()}
+        hp={{ hp: 95, maxHp: 100, anchorMs: Date.now() }}
+        setHp={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("사냥하면 여기에 싸운 몬스터와 결과가 나옵니다"),
+    ).toBeTruthy();
+    expect(container.querySelector("[data-hunt-encounter]")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^사냥 \(/ }));
+
+    const region = await screen.findByRole("region", { name: "최근 사냥 결과" });
+    const encounter = region.querySelector("[data-hunt-encounter]");
+    expect(encounter?.textContent).toContain("방금 전투");
+    expect(encounter?.textContent).toContain("승리");
+    expect(encounter?.textContent).toContain("슬라임");
+    expect(encounter?.textContent).toContain("95 / 100");
+    expect(
+      screen.queryByText("사냥하면 여기에 싸운 몬스터와 결과가 나옵니다"),
+    ).toBeNull();
+    // 설정을 펼치면 사냥 버튼 줄이 떠 있는 채팅 버튼보다 위로 올라온다.
+    const bar = container
+      .querySelector("[data-hunt-primary-actions]")!
+      .closest(".ui-game-card")!;
+    expect(bar.className).toContain("max-sm:fixed");
+    expect(bar.className).toContain("max-sm:z-20");
+    fireEvent.click(screen.getByRole("button", { name: "전투 설정" }));
+    expect(bar.className).toContain("max-sm:z-[45]");
+    fireEvent.click(screen.getByRole("button", { name: "전투 설정" }));
+    // 사냥 버튼은 결과 카드보다 앞에 있어, 결과 높이가 바뀌어도 자리가 움직이지 않는다.
+    const actions = container.querySelector("[data-hunt-primary-actions]");
+    expect(
+      actions!.compareDocumentPosition(region) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("새로 발견한 레어맵 입장 동작을 인라인 결과 아래에 유지한다", async () => {
     const onEnterRareMap = vi.fn();
     const rareMap = {

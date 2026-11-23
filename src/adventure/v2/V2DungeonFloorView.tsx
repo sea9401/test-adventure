@@ -30,6 +30,11 @@ import {
   type UnexploredHuntSummary,
 } from "@/adventure/v2/useDungeonHunt";
 import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
+import {
+  HuntEncounter,
+  HuntEncounterPlaceholder,
+  huntEncounterEnemy,
+} from "@/adventure/v2/HuntEncounter";
 import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import { nextAdvanceProficiencyTargets } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -1269,6 +1274,48 @@ export function V2DungeonFloorView({
     );
   }
 
+  // 방금 전투 — 결과 카드 머리에 싸운 상대와 승패를 그림으로 보여 준다. 연속 사냥은 마지막 전투.
+  const lastBattle =
+    latestPresentedResult?.kind === "single"
+      ? {
+          label: "방금 전투",
+          enemyName: latestPresentedResult.result.enemyName,
+          won: latestPresentedResult.result.won,
+          replay: latestPresentedResult.result.replay,
+        }
+      : latestPresentedResult?.kind === "batch"
+        ? (() => {
+            const last = latestPresentedResult.summary.replays?.at(-1);
+            return last
+              ? {
+                  label: "마지막 전투",
+                  enemyName: last.enemyName,
+                  won: last.won,
+                  replay: last.replay,
+                }
+              : null;
+          })()
+        : null;
+  const encounter =
+    lastBattle && hp ? (
+      <HuntEncounter
+        label={lastBattle.label}
+        won={lastBattle.won}
+        player={{
+          name: playerName,
+          subtitle: playerSubtitle,
+          gender: playerGender,
+          hp: hp.hp,
+          maxHp: hp.maxHp,
+        }}
+        enemy={huntEncounterEnemy(
+          lastBattle.enemyName,
+          lastBattle.won,
+          lastBattle.replay,
+        )}
+      />
+    ) : undefined;
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <DungeonContextSummary
@@ -1336,40 +1383,6 @@ export function V2DungeonFloorView({
         </StatusBanner>
       )}
 
-      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
-          클릭 때 카드 높이가 바뀌지 않게 한다. */}
-      {hp && (
-        <CompactBattlePlayerStatus
-          name={playerName}
-          subtitle={playerSubtitle}
-          hp={hp}
-          mp={mp}
-          exp={statusExp}
-          maxExp={statusMaxExp}
-          hpCharges={statusHpCharges}
-          mpCharges={statusMpCharges}
-          proficiency={statusProficiency}
-          advanceTargets={advanceTargets}
-        >
-          <PlayerStatusCard
-            gender={playerGender}
-            name={playerName}
-            subtitle={playerSubtitle}
-            hp={hp}
-            mp={mp}
-            exp={statusExp}
-            maxExp={statusMaxExp}
-            hpCharges={statusHpCharges}
-            mpCharges={statusMpCharges}
-            hasMp={(mp?.maxMp ?? 0) > 0}
-            combat={playerCombat}
-            primaryAttack={playerPrimaryAttack}
-            proficiency={statusProficiency}
-            advanceTargets={advanceTargets}
-          />
-        </CompactBattlePlayerStatus>
-      )}
-
       {showDefeatNudge && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-zinc-950">
           <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
@@ -1390,7 +1403,15 @@ export function V2DungeonFloorView({
         </StatusBanner>
       )}
 
-      <Card padding="md" className="sticky bottom-[calc(env(safe-area-inset-bottom)+0.75rem+var(--game-bottom-nav,0px))] z-20 shadow-lg sm:static sm:shadow-sm">
+      {/* 사냥 버튼 — 휴대폰에서는 하단 메뉴 바 바로 위에 고정해, 결과 카드 높이가 바뀌어도 버튼이
+          같은 자리에 있게 한다. 설정을 펼쳐 길어지면 카드 안에서 스크롤한다. */}
+      <Card
+        padding="md"
+        // 설정을 펼친 동안에는 떠 있는 채팅 버튼(z-44)이 설정 칸을 가리지 않게 그 위로 올린다.
+        className={`max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(env(safe-area-inset-bottom)+var(--game-bottom-nav,0px))] max-sm:max-h-[70dvh] max-sm:overflow-y-auto max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${
+          settingsOpen ? "max-sm:z-[45]" : "max-sm:z-20"
+        }`}
+      >
         <div
           data-hunt-primary-actions
           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"
@@ -1706,6 +1727,7 @@ export function V2DungeonFloorView({
         <section aria-label="최근 사냥 결과" className="space-y-2">
           {latestPresentedResult.kind === "batch" ? (
             <BatchSummaryCard
+              encounter={encounter}
               summary={latestPresentedResult.summary}
               remainingStamina={!coreLoopOn && !autoHunt ? staminaCurrent : undefined}
               potionThreshold={autoStopConfig.potionThreshold}
@@ -1717,6 +1739,7 @@ export function V2DungeonFloorView({
             />
           ) : (
             <HuntResultCard
+              encounter={encounter}
               result={latestPresentedResult.result}
               hpCharges={latestPresentedResult.result.hpCharges}
               mpCharges={latestPresentedResult.result.mpCharges}
@@ -1760,6 +1783,41 @@ export function V2DungeonFloorView({
               </Button>
             )}
         </section>
+      )}
+
+      {!latestPresentedResult && <HuntEncounterPlaceholder />}
+
+      {/* 캐릭터 정보 — 전투 결과 아래에 둔다. 능력치는 결과보다 덜 자주 보므로 뒤로 보냈다. */}
+      {hp && (
+        <CompactBattlePlayerStatus
+          name={playerName}
+          subtitle={playerSubtitle}
+          hp={hp}
+          mp={mp}
+          exp={statusExp}
+          maxExp={statusMaxExp}
+          hpCharges={statusHpCharges}
+          mpCharges={statusMpCharges}
+          proficiency={statusProficiency}
+          advanceTargets={advanceTargets}
+        >
+          <PlayerStatusCard
+            gender={playerGender}
+            name={playerName}
+            subtitle={playerSubtitle}
+            hp={hp}
+            mp={mp}
+            exp={statusExp}
+            maxExp={statusMaxExp}
+            hpCharges={statusHpCharges}
+            mpCharges={statusMpCharges}
+            hasMp={(mp?.maxMp ?? 0) > 0}
+            combat={playerCombat}
+            primaryAttack={playerPrimaryAttack}
+            proficiency={statusProficiency}
+            advanceTargets={advanceTargets}
+          />
+        </CompactBattlePlayerStatus>
       )}
 
       {showReplay && selectedBatchReplay?.replay && (

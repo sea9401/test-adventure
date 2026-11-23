@@ -1,9 +1,11 @@
 "use client";
 
 // v2 던전 사냥 결과 카드 — 간단 버전.
-// 사용자 의도: 승/패 + EXP·골드·드랍만. 몬스터 img/이름·HP·턴 제거.
-// 사이즈 축소 — padding sm + 작은 font.
+// 승/패 + EXP·골드·드랍. 사이즈 축소 — padding sm + 작은 font.
+// 몬스터 그림·이름·HP는 한때 뺐으나, 2026-11-24 오너가 "방금 전투" 머리(HuntEncounter)로
+// 다시 넣기로 했다(사냥 화면에 싸운 상대가 전혀 안 보이던 문제). 턴 수는 여전히 넣지 않는다.
 
+import type { ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -235,7 +237,10 @@ export function HuntResultCard({
   mpCharges,
   hasMp,
   onEnterRareMap,
+  encounter,
 }: {
+  /** 싸운 상대와 승패를 보여 주는 머리. 주면 "전투 결과" 한 줄을 대신한다. */
+  encounter?: ReactNode;
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
   hpCharges?: number;
@@ -401,7 +406,9 @@ export function HuntResultCard({
           {dropBannerText}
         </RewardNotice>
       )}
-      {won ? (
+      {encounter ? (
+        encounter
+      ) : won ? (
         <div className="flex items-baseline justify-center gap-2">
           <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             전투 결과

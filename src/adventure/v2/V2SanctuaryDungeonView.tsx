@@ -78,16 +78,18 @@ function placeAtRank(order: readonly string[], rank: number, id: string): string
   [next[rank], next[from]] = [next[from], next[rank]];
   return next;
 }
-function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy: boolean; difficulty: SanctuaryDifficulty | null; onRun: (preferences: SanctuaryAutoPreferences) => void }) {
+function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy: boolean; difficulty: SanctuaryDifficulty | null; onRun: (preferences: SanctuaryAutoPreferences, single: boolean) => void }) {
   const [preferences, setPreferences] = useState<SanctuaryAutoPreferences>(status.state.autoPreferences);
   const active = status.state.active;
   const runnable = status.unlocked && (active !== null || status.attemptsLeft > 0);
   // 새로 시작하는 탐험이 있으면 난이도를 골라야 한다. 진행 중인 탐험만 남았으면 그 탐험의 난이도를 따른다.
   const needsDifficulty = status.attemptsLeft > 0 && difficulty === null;
+  // 1회만 진행할 때는 진행 중인 탐험이 있으면 그 탐험만 끝내므로 난이도를 고르지 않아도 된다.
+  const singleNeedsDifficulty = !active && difficulty === null;
   const label = !runnable ? "일괄 진행" : active ? `진행 중인 탐험과 남은 입장 ${status.attemptsLeft}회 일괄 진행` : `남은 입장 ${status.attemptsLeft}회 일괄 진행`;
   return <Card padding="md" className="space-y-3">
-    <h2 className="font-bold">일괄 진행</h2>
-    <p className="text-sm">{active ? "진행 중인 탐험부터 이어서, " : ""}남은 입장을 {difficulty ? `${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도로` : "선택한 난이도로"} 끝까지 자동으로 진행합니다. 선택 지점에서는 아래 효과를 고르고, 중간에 귀환하지 않습니다.</p>
+    <h2 className="font-bold">자동 진행</h2>
+    <p className="text-sm">{active ? "진행 중인 탐험부터 이어서, " : ""}남은 입장을 {difficulty ? `${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도로` : "선택한 난이도로"} 끝까지 자동으로 진행합니다. 선택 지점에서는 아래 효과를 고르고, 중간에 귀환하지 않습니다. 1회만 진행하면 탐험마다 난이도와 심층 단계를 바꿀 수 있습니다.</p>
     <div className="grid gap-2 sm:grid-cols-2">
       {AUTO_PREFERENCE_ROWS.map((row) => {
         const choices = sanctuaryChoiceCatalog(row.kind);
@@ -105,13 +107,16 @@ function AutoRunCard({ status, busy, difficulty, onRun }: { status: Status; busy
       })}
     </div>
     {runnable && needsDifficulty && <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{DIFFICULTY_REQUIRED}</p>}
-    <Button variant="primary" disabled={!runnable || needsDifficulty || busy} onClick={() => onRun(preferences)}>{label}</Button>
+    <div className="flex flex-wrap gap-2">
+      <Button variant="primary" disabled={!runnable || needsDifficulty || busy} onClick={() => onRun(preferences, false)}>{label}</Button>
+      <Button disabled={!runnable || singleNeedsDifficulty || busy} onClick={() => onRun(preferences, true)}>{active ? "진행 중인 탐험만 자동 진행" : "1회만 자동 진행"}</Button>
+    </div>
   </Card>;
 }
 function AutoRunResult({ runs, onOpenEmblems }: { runs: SanctuaryAutoRun[]; onOpenEmblems: () => void }) {
   const gained = runs.flatMap((run) => run.gainedEmblems);
   return <Card role="status" className="space-y-2">
-    <h2 className="font-bold">일괄 진행 결과</h2>
+    <h2 className="font-bold">자동 진행 결과</h2>
     <ul className="space-y-1 text-sm">
       {runs.map((run, index) => <li key={index}>
         {run.cleared ? `${index + 1}회차 ${runLabel(run)} · 클리어 · 문장 ${run.gainedEmblems.length}개${run.deepTokens ? ` · 심층 증표 ${run.deepTokens}개` : ""}`
@@ -170,15 +175,19 @@ export function V2SanctuaryDungeonView() {
   const deep = status?.deep ?? { best: 0, maxSelectable: 0 };
   const deepStage = difficulty === "hard" ? Math.min(pickedDeepStage, deep.maxSelectable) : 0;
   const deepRequest = deepStage > 0 ? { deepStage } : {};
-  async function runAuto(preferences: SanctuaryAutoPreferences) {
-    if (!status || (status.attemptsLeft > 0 && !difficulty)) return;
-    const runs = (status.state.active ? 1 : 0) + status.attemptsLeft;
+  async function runAuto(preferences: SanctuaryAutoPreferences, single: boolean) {
+    if (!status) return;
+    const hasActive = status.state.active !== null;
+    // 1회만 진행하면서 진행 중인 탐험이 있으면 새 탐험을 시작하지 않으므로 난이도·심층 단계를 보내지 않는다.
+    const startsNewRun = single ? !hasActive : status.attemptsLeft > 0;
+    if (startsNewRun && !difficulty) return;
+    const runs = single ? 1 : (hasActive ? 1 : 0) + status.attemptsLeft;
     const confirmed = await confirmGameAction({
-      title: "일괄 진행",
-      message: `탐험 ${runs}회를 끝까지 자동으로 진행합니다. ${difficulty && status.attemptsLeft > 0 ? `새로 시작하는 탐험은 ${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도입니다. ` : ""}패배한 탐험은 그 탐험의 임시 문장을 잃습니다.`,
+      title: single ? "자동 진행" : "일괄 진행",
+      message: `탐험 ${runs}회를 끝까지 자동으로 진행합니다. ${difficulty && startsNewRun ? `새로 시작하는 탐험은 ${SANCTUARY_DIFFICULTY_LABELS[difficulty]} 난이도입니다. ` : ""}패배한 탐험은 그 탐험의 임시 문장을 잃습니다.`,
       confirmLabel: "진행",
     });
-    if (confirmed) await act("auto", { ...(difficulty ? { difficulty } : {}), ...deepRequest, preferences });
+    if (confirmed) await act("auto", { ...(startsNewRun && difficulty ? { difficulty, ...deepRequest } : {}), ...(single ? { maxRuns: 1 } : {}), preferences });
   }
   const active = status?.state.active;
   const selectedNode = SANCTUARY_NODES.find((entry) => entry.id === openNodeId);
@@ -214,7 +223,7 @@ export function V2SanctuaryDungeonView() {
     {status && <>
       <p className="text-sm font-semibold">남은 입장 {status.attemptsLeft} / {SANCTUARY_DAILY_ATTEMPTS}회 · 누적 클리어 {status.state.clears}회</p>
       {!status.unlocked && <Card>미개척지를 해금하면 태초의 성소에 입장할 수 있습니다.</Card>}
-      {status.unlocked && <AutoRunCard status={status} busy={busy} difficulty={difficulty} onRun={(preferences) => void runAuto(preferences)} />}
+      {status.unlocked && <AutoRunCard status={status} busy={busy} difficulty={difficulty} onRun={(preferences, single) => void runAuto(preferences, single)} />}
       {result?.auto && <AutoRunResult runs={result.auto.runs} onOpenEmblems={() => router.push("/character/emblems")} />}
       <Card padding="md" className="min-w-0 space-y-3">
         <h2 className="font-bold">성소 지도</h2>

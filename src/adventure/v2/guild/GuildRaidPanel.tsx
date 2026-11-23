@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -177,6 +178,20 @@ export function GuildRaidPanelContent({
   const boss = selectedBossId
     ? state.bosses.find((entry) => entry.id === selectedBossId) ?? null
     : null;
+  // 길드가 고르지 않은 보스. 실전은 고른 보스만 치지만 연습은 이쪽도 할 수 있다.
+  const otherBosses = boss
+    ? state.bosses.filter((entry) => entry.id !== boss.id)
+    : [];
+  // 어느 보스의 연습 버튼을 눌렀는지. 진행 표시를 누른 버튼에만 띄운다.
+  const [practiceBossId, setPracticeBossId] = useState<GuildRaidBossId | null>(
+    null,
+  );
+  const practicingOther =
+    practicing && otherBosses.some((entry) => entry.id === practiceBossId);
+  const startPractice = (bossId: GuildRaidBossId) => {
+    setPracticeBossId(bossId);
+    onPractice(bossId);
+  };
   const stage = state.event.stage ?? 1;
   const hp = state.event.hp ?? 0;
   const maxHp = state.event.maxHp ?? 0;
@@ -290,13 +305,27 @@ export function GuildRaidPanelContent({
                 variant="secondary"
                 size="md"
                 fullWidth
-                loading={practicing}
+                loading={practicing && !practicingOther}
                 loadingLabel="연습 전투 진행 중"
-                disabled={attacking}
-                onClick={() => onPractice(boss.id)}
+                disabled={attacking || practicing}
+                onClick={() => startPractice(boss.id)}
               >
                 <Sword size={18} /> 연습 전투
               </Button>
+              {otherBosses.map((other) => (
+                <Button
+                  key={other.id}
+                  variant="secondary"
+                  size="md"
+                  fullWidth
+                  loading={practicing && practiceBossId === other.id}
+                  loadingLabel="연습 전투 진행 중"
+                  disabled={attacking || practicing}
+                  onClick={() => startPractice(other.id)}
+                >
+                  <Sword size={18} /> {other.name} 연습 전투
+                </Button>
+              ))}
               <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
                 토벌전이 끝난 뒤에도 연습할 수 있으며, 공격 횟수와 피해·보상에
                 반영되지 않습니다.
@@ -325,7 +354,7 @@ export function GuildRaidPanelContent({
         <>
           <Card padding="sm" className="space-y-2 border-sky-300 dark:border-sky-800">
             <h3 className="text-sm font-bold text-sky-700 dark:text-sky-300">
-              연습 결과
+              {GUILD_RAID_BOSSES[lastPractice.bossKind].definition.name} 연습 결과
             </h3>
             <p className="text-sm text-zinc-700 dark:text-zinc-200">
               <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">

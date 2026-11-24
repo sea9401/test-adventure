@@ -71,7 +71,7 @@ export async function POST(req: Request) {
 
   try {
     const now = Date.now();
-    const { lifeMajor, farm, result, farmJobId, masteryGained, masteryAfter, blueprintRecipeId, fertilizerBalance, levelCurveMigrated } =
+    const { lifeMajor, farm, result, diningXpBonus, farmJobId, masteryGained, masteryAfter, blueprintRecipeId, fertilizerBalance, levelCurveMigrated } =
       await db.transaction(async (tx) => {
         // 자정/주간 경계 뒤 첫 수확도 반복 퀘스트에 포함되도록, 농장 누적치를
         // 변경하기 전에 새 주기의 baseline 을 확정한다.
@@ -219,6 +219,7 @@ export async function POST(req: Request) {
           lifeMajor: lifeMajorResponse(lifeMajorProgress),
           farm: harvestedState,
           result: harvestResult,
+          diningXpBonus: diningXp.note,
           farmJobId,
           masteryGained,
           masteryAfter,
@@ -270,6 +271,7 @@ export async function POST(req: Request) {
       weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
       shopItems: getFarmShopItems(),
       result,
+      diningXpBonus,
       lifeMajor,
       fertilizerBalance,
       ...(levelCurveMigrated ? { levelCurveMigrated: true } : {}),

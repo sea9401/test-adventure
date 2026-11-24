@@ -239,6 +239,31 @@ describe("AutoGatheringCard", () => {
     expect(html).toContain("철광석 +430");
   });
 
+  it("정산 결과의 경험치 뒤에 식당 효과로 붙은 값을 적는다(건의 #882)", () => {
+    const html = renderToStaticMarkup(
+      <AutoGatheringCard
+        activityName="채광"
+        spotId="iron_quarry"
+        session={null}
+        result={{
+          attempts: 800,
+          successes: 600,
+          materialName: "철광석",
+          materialsGained: 430,
+          xpGained: 2_310,
+          diningXpBonus: { menuName: "일꾼 도시락", xp: 210 },
+        }}
+        loading={false}
+        blockedByActivity={null}
+        buttonVariant="warning"
+        onStart={vi.fn(async () => {})}
+        onClaim={vi.fn(async () => {})}
+        onCancel={vi.fn(async () => {})}
+      />,
+    );
+    expect(html.replaceAll("<!-- -->", "")).toContain("XP +2,310 (일꾼 도시락 +210)");
+  });
+
   const HOUR = 60 * 60 * 1_000;
   const runningSession = {
     sessionId: "auto-1",

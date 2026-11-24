@@ -54,6 +54,7 @@ import {
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { diningXpBonusSuffix, type DiningXpBonus } from "./diningXpBonus";
 import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
@@ -98,6 +99,8 @@ export type WoodcuttingOutcome =
         quantity: number;
       } | null;
       masterProduct?: MasterProductGain | null;
+      /** 식당 효과로 이번에 붙은 경험치. 효과가 없으면 null. */
+      diningXpBonus?: DiningXpBonus | null;
       log: WoodcuttingLogView;
     }
   | {
@@ -1429,6 +1432,7 @@ export function WoodcuttingView({
                   ) : null}
                   <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     벌목 XP +{result.xpGained}
+                    {diningXpBonusSuffix(result.diningXpBonus)}
                   </div>
                   {result.masteryGained > 0 && (
                     <div className="text-xs font-semibold text-sky-700 dark:text-sky-300">

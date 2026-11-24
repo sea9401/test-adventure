@@ -424,3 +424,25 @@ describe("Lv.6~10 메뉴 그림", () => {
     }
   });
 });
+
+describe("식당 효과로 붙은 경험치 요약(건의 #882)", () => {
+  it("효과가 적용됐으면 메뉴 이름과 붙은 경험치를 돌려준다", async () => {
+    const { guildDiningXpBonusNote } = await import("./guildDining");
+    expect(
+      guildDiningXpBonusNote({ applied: true, bonus: 12, menuId: "worker_lunch" }),
+    ).toEqual({ menuName: "일꾼 도시락", xp: 12 });
+  });
+
+  it("1 미만이라 이번에 붙은 값이 없어도 적용 중이면 0으로 돌려준다", async () => {
+    const { guildDiningXpBonusNote } = await import("./guildDining");
+    expect(
+      guildDiningXpBonusNote({ applied: true, bonus: 0, menuId: "worker_lunch" }),
+    ).toEqual({ menuName: "일꾼 도시락", xp: 0 });
+  });
+
+  it("효과가 적용되지 않았으면 null", async () => {
+    const { guildDiningXpBonusNote } = await import("./guildDining");
+    expect(guildDiningXpBonusNote({ applied: false, bonus: 0, menuId: "worker_lunch" })).toBeNull();
+    expect(guildDiningXpBonusNote({ applied: true, bonus: 3, menuId: null })).toBeNull();
+  });
+});

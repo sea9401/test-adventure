@@ -48,6 +48,7 @@ import {
 import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
+import { diningXpBonusSuffix, type DiningXpBonus } from "./diningXpBonus";
 import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
@@ -90,6 +91,8 @@ export type MiningOutcome =
       byproducts: MiningByproductView[];
       masterProduct?: MasterProductGain | null;
       xpGained: number;
+      /** 식당 효과로 이번에 붙은 경험치. 효과가 없으면 null. */
+      diningXpBonus?: DiningXpBonus | null;
       log: MiningLogView;
     }
   | { success: false; reason: string; nextActionAt?: number | null };
@@ -855,6 +858,7 @@ export function MiningView({
                   ) : null}
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                     채광 XP +{result.xpGained}
+                    {diningXpBonusSuffix(result.diningXpBonus)}
                   </div>
                 </div>
               ) : null}

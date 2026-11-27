@@ -958,7 +958,7 @@ export function CosmeticCard({
   return (
     <div
       className={`${SURFACE_INSET} ${className} flex min-h-16 items-center justify-between gap-3 px-3 py-2 ${
-        active ? "ring-2 ring-violet-500 ring-offset-1 dark:ring-offset-zinc-900" : ""
+        active ? "ring-2 ring-selected-line ring-offset-1 dark:ring-offset-zinc-900" : ""
       }`}
     >
       <div

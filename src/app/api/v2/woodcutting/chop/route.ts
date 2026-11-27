@@ -406,6 +406,7 @@ export async function POST(req: Request) {
       recovered,
       failureRate,
       xpGained,
+      diningXpBonus: diningXp.note,
       environmentXpGained,
       jobId: isWoodcuttingJobId(jobId) ? jobId : null,
       jobName: isWoodcuttingJobId(jobId)

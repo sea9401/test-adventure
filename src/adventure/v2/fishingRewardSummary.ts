@@ -1,3 +1,4 @@
+import { diningXpBonusSuffix, type DiningXpBonus } from "./diningXpBonus";
 import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 
 export type FishingRewardSummaryInput = {
@@ -27,6 +28,7 @@ export type FishingRewardSummaryInput = {
   fishingLevelUp?: boolean;
   masteryGained?: number;
   masterProduct?: MasterProductGain | null;
+  diningXpBonus?: DiningXpBonus | null;
 };
 
 /** 낚시 완료 카드의 보상 칩 문구 — 낚시 진행 경험치와 직업 숙련도를 구분한다. */
@@ -78,7 +80,7 @@ export function fishingRewardSummaryLabels(
   }
   if (result.fishingXpGained != null && result.fishingXpGained > 0) {
     labels.push(
-      `낚시 경험치 +${result.fishingXpGained}${
+      `낚시 경험치 +${result.fishingXpGained}${diningXpBonusSuffix(result.diningXpBonus)}${
         result.fishingLevel ? ` · 낚시 Lv ${result.fishingLevel}` : ""
       }${result.fishingLevelUp ? " 상승" : ""}`,
     );

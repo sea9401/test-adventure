@@ -25,6 +25,7 @@ import {
   requestAutoGathering,
 } from "./gatheringClient";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import { parseDiningXpBonus } from "./diningXpBonus";
 import { parseMasterProductGain } from "./masterProductGain";
 import {
   parseGatheringSiteUpkeep,
@@ -69,6 +70,7 @@ function parseAutoResult(value: unknown): AutoGatheringResultView {
     materialsGained: Math.max(0, Math.floor(Number(item.materialsGained) || 0)),
     xpGained: Math.max(0, Math.floor(Number(item.xpGained) || 0)),
     masterProduct: parseMasterProductGain(item),
+    diningXpBonus: parseDiningXpBonus(item),
   };
 }
 
@@ -236,6 +238,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
             : Math.max(0, Math.floor(Number(json.masteryAfter) || 0)),
         seedDrop,
         masterProduct: parseMasterProductGain(json),
+        diningXpBonus: parseDiningXpBonus(json),
         log: nextLog,
       };
     }

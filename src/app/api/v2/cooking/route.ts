@@ -696,6 +696,7 @@ export async function POST(req: Request) {
           };
           result = { ...result, earnedXp: baseXp + diningXp.bonus };
         }
+        if (diningXp.note) result = { ...result, diningXpBonus: diningXp.note };
       }
 
       await upsertSave(tx, userId, COOKING_SAVE_KEY, cooking);

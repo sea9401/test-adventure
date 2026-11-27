@@ -7,7 +7,7 @@ const TONE: Record<ChoiceTone, string> = {
   warning: "data-[selected=true]:border-amber-400 data-[selected=true]:bg-amber-50 dark:data-[selected=true]:border-amber-600 dark:data-[selected=true]:bg-amber-950",
   info: "data-[selected=true]:border-sky-400 data-[selected=true]:bg-sky-50 dark:data-[selected=true]:border-sky-600 dark:data-[selected=true]:bg-sky-950",
   danger: "data-[selected=true]:border-rose-400 data-[selected=true]:bg-rose-50 dark:data-[selected=true]:border-rose-600 dark:data-[selected=true]:bg-rose-950",
-  primary: "data-[selected=true]:border-indigo-400 data-[selected=true]:bg-indigo-50 dark:data-[selected=true]:border-indigo-600 dark:data-[selected=true]:bg-indigo-950",
+  primary: "data-[selected=true]:border-selected-line data-[selected=true]:bg-primary/10",
 };
 
 export type ChoiceButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

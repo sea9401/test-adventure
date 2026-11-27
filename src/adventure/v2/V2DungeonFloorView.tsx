@@ -30,6 +30,10 @@ import {
   type UnexploredHuntSummary,
 } from "@/adventure/v2/useDungeonHunt";
 import { DungeonContextSummary } from "@/adventure/v2/DungeonContextSummary";
+import {
+  HuntEncounter,
+  HuntEncounterPlaceholder,
+} from "@/adventure/v2/HuntEncounter";
 import { CompactBattlePlayerStatus } from "@/adventure/v2/CompactBattlePlayerStatus";
 import { nextAdvanceProficiencyTargets } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -94,6 +98,20 @@ import { UNEXPLORED_POOL_BY_ID } from "@/adventure/data/v2/unexploredMonsterPool
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
+
+/** 사냥 버튼 글자 — "사냥 (길게 눌러 자동 · 스태미너 1)"을 큰 글자와 작은 설명 두 줄로 나눈다. */
+function HuntButtonLabel({ text }: { text: string }) {
+  const match = /^(.+?) \((.+)\)$/.exec(text);
+  if (!match) {
+    return <span className="text-base font-bold leading-tight">{text}</span>;
+  }
+  return (
+    <>
+      <span className="text-base font-bold leading-tight">{match[1]}</span>
+      <span className="text-xs leading-tight">{match[2]}</span>
+    </>
+  );
+}
 
 export function LevelUpTutorialTitle() {
   return (
@@ -1269,6 +1287,103 @@ export function V2DungeonFloorView({
     );
   }
 
+  // 방금 전투 — 한 번 사냥의 결과 카드 머리에 승패와 싸운 상대 이름을 한 줄로 적는다.
+  //   몬스터 그림은 전투 기록 화면에서만 본다. 여러 번 사냥은 "N회 사냥 N승" 줄이 그 역할을 한다.
+  const encounter =
+    latestPresentedResult?.kind === "single" ? (
+      <HuntEncounter
+        label="방금 전투"
+        won={latestPresentedResult.result.won}
+        enemyName={latestPresentedResult.result.enemyName}
+      />
+    ) : undefined;
+
+  const huntButtonText =
+    coreLoopOn && offlineLocked
+              ? "오프라인 사냥 중 (정지하면 직접 사냥)"
+              : autoHunt
+                ? busy
+                  ? "사냥 중… (누르면 멈춤)"
+                  : onCooldown
+                    ? `사냥 중… (${cooldownLeftSec}초 · 누르면 멈춤)`
+                    : "사냥 중지"
+                : batchRunning || busy
+                  ? "사냥 중…"
+                  : needsRecovery
+                    ? "회복 필요"
+                    : onCooldown
+                      ? `다음 사냥까지 ${cooldownLeftSec}초`
+                      : !isUnexplored && rareMapIid
+                        ? "희귀 탐사 시작"
+                        : coreLoopOn
+                        ? "사냥 (길게 눌러 자동)"
+                        : huntCount === 1
+                          ? "사냥 (길게 눌러 자동 · 스태미너 1)"
+                          : `${huntCount}회 사냥 (스태미너 ${huntCount})`;
+
+  // 접힌 능력치 줄 — 이름과 HP·MP는 방금 전투 카드가 보여 주므로 전투 능력치만 적는다.
+  const statsLine = playerCombat
+    ? [
+        `${playerPrimaryAttack === "magic" ? "마법 공격력" : "물리 공격력"} ${Math.round(
+          playerPrimaryAttack === "magic"
+            ? (playerCombat.magicAtk ?? playerCombat.atk)
+            : playerCombat.atk,
+        ).toLocaleString()}`,
+        `방어력 ${Math.round(playerCombat.def).toLocaleString()}`,
+        `속도 ${Math.round(playerCombat.spd).toLocaleString()}`,
+      ].join(" · ")
+    : undefined;
+  const showReplaySection = () => {
+    setShowReplay(true);
+    window.setTimeout(
+      () =>
+        replaySectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      0,
+    );
+  };
+
+  // 캐릭터 정보 — 방금 전투 카드 바로 아래에 둔다. 능력치는 결과보다 덜 자주 보므로 접어 둔다.
+  const playerStatus = hp ? (
+        <CompactBattlePlayerStatus
+          name={playerName}
+          subtitle={playerSubtitle}
+          hp={hp}
+          mp={mp}
+          exp={statusExp}
+          maxExp={statusMaxExp}
+          hpCharges={statusHpCharges}
+          mpCharges={statusMpCharges}
+          proficiency={statusProficiency}
+          advanceTargets={advanceTargets}
+          statsLine={statsLine}
+          defaultExpanded={false}
+        >
+          <PlayerStatusCard
+            gender={playerGender}
+            name={playerName}
+            subtitle={playerSubtitle}
+            hp={hp}
+            mp={mp}
+            exp={statusExp}
+            maxExp={statusMaxExp}
+            hpCharges={statusHpCharges}
+            mpCharges={statusMpCharges}
+            hasMp={(mp?.maxMp ?? 0) > 0}
+            combat={playerCombat}
+            primaryAttack={playerPrimaryAttack}
+            proficiency={statusProficiency}
+            advanceTargets={advanceTargets}
+          />
+        </CompactBattlePlayerStatus>
+      
+  ) : null;
+
+  const showFirstBattleIntro =
+    firstBattleIntro && !lastResult && !batchStatus && !busy;
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <DungeonContextSummary
@@ -1336,40 +1451,6 @@ export function V2DungeonFloorView({
         </StatusBanner>
       )}
 
-      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
-          클릭 때 카드 높이가 바뀌지 않게 한다. */}
-      {hp && (
-        <CompactBattlePlayerStatus
-          name={playerName}
-          subtitle={playerSubtitle}
-          hp={hp}
-          mp={mp}
-          exp={statusExp}
-          maxExp={statusMaxExp}
-          hpCharges={statusHpCharges}
-          mpCharges={statusMpCharges}
-          proficiency={statusProficiency}
-          advanceTargets={advanceTargets}
-        >
-          <PlayerStatusCard
-            gender={playerGender}
-            name={playerName}
-            subtitle={playerSubtitle}
-            hp={hp}
-            mp={mp}
-            exp={statusExp}
-            maxExp={statusMaxExp}
-            hpCharges={statusHpCharges}
-            mpCharges={statusMpCharges}
-            hasMp={(mp?.maxMp ?? 0) > 0}
-            combat={playerCombat}
-            primaryAttack={playerPrimaryAttack}
-            proficiency={statusProficiency}
-            advanceTargets={advanceTargets}
-          />
-        </CompactBattlePlayerStatus>
-      )}
-
       {showDefeatNudge && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-zinc-950">
           <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
@@ -1383,14 +1464,23 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      {firstBattleIntro && !lastResult && !batchStatus && !busy && (
+      {showFirstBattleIntro && (
         <StatusBanner tone="info" role="status" className="py-2.5">
           <span className="font-semibold">첫 전투입니다.</span> 아래 사냥 버튼을
           누르면 전투가 자동으로 진행되고, 끝나면 결과와 다음 할 일이 나옵니다.
         </StatusBanner>
       )}
 
-      <Card padding="md" className="sticky bottom-3 z-20 shadow-lg sm:static sm:shadow-sm">
+      {/* 사냥 버튼 — 휴대폰에서는 하단 메뉴 바 바로 위에 고정해, 결과 카드 높이가 바뀌어도 버튼이
+          같은 자리에 있게 한다. 설정을 펼쳐 길어지면 카드 안에서 스크롤한다. */}
+      <Card
+        padding="sm"
+        // 설정을 펼친 동안에는 떠 있는 채팅 버튼(z-44)이 설정 칸을 가리지 않게 그 위로 올린다.
+        // max-sm:m-0 — 부모의 space-y 여백이 남으면 고정된 줄이 그만큼 떠서 하단 바와의 사이로 뒤 내용이 비친다.
+        className={`max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(env(safe-area-inset-bottom)+var(--game-bottom-nav,0px))] max-sm:m-0 max-sm:max-h-[70dvh] max-sm:overflow-y-auto max-sm:rounded-none max-sm:border-x-0 max-sm:border-b-0 max-sm:shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${
+          settingsOpen ? "max-sm:z-[45]" : "max-sm:z-20"
+        }`}
+      >
         <div
           data-hunt-primary-actions
           className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"
@@ -1417,37 +1507,18 @@ export function V2DungeonFloorView({
                     onCooldown
             }
             aria-pressed={autoHunt}
-            className={`ui-game-button flex-1 select-none touch-manipulation rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
+            aria-label={huntButtonText}
+            className={`ui-game-button flex min-h-[3.25rem] flex-1 select-none touch-manipulation flex-col items-center justify-center rounded-lg border px-3 py-1.5 text-white ${
               autoHunt && !offlineLocked
                 ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
-                : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
+                : "border-emerald-700 bg-emerald-700 hover:bg-emerald-800 dark:border-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
             } ${
               coreLoopOn
                 ? "disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
                 : "disabled:opacity-50"
             }`}
           >
-            {coreLoopOn && offlineLocked
-              ? "오프라인 사냥 중 (정지하면 직접 사냥)"
-              : autoHunt
-                ? busy
-                  ? "사냥 중… (누르면 멈춤)"
-                  : onCooldown
-                    ? `사냥 중… (${cooldownLeftSec}초 · 누르면 멈춤)`
-                    : "사냥 중지"
-                : batchRunning || busy
-                  ? "사냥 중…"
-                  : needsRecovery
-                    ? "회복 필요"
-                    : onCooldown
-                      ? `다음 사냥까지 ${cooldownLeftSec}초`
-                      : !isUnexplored && rareMapIid
-                        ? "희귀 탐사 시작"
-                        : coreLoopOn
-                        ? "사냥 (길게 눌러 자동)"
-                        : huntCount === 1
-                          ? "사냥 (길게 눌러 자동 · 스태미너 1)"
-                          : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
+            <HuntButtonLabel text={huntButtonText} />
           </button>
           <button
             type="button"
@@ -1455,9 +1526,9 @@ export function V2DungeonFloorView({
             disabled={batchRunning}
             aria-label="전투 설정"
             aria-expanded={settingsOpen}
-            className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 p-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="ui-game-button flex size-[3.25rem] shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
-            <Gear size={16} weight="duotone" />
+            <Gear size={20} weight="duotone" />
           </button>
           {!isUnexplored && !rareMapIid && onEnterRareMap && (
             <RareMapQuickEntry
@@ -1661,7 +1732,7 @@ export function V2DungeonFloorView({
                 type="button"
                 onClick={startOffline}
                 disabled={offlineBusy}
-                className="ui-game-button w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
+                className="ui-game-button w-full rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-selected transition hover:bg-primary/15 disabled:opacity-50"
               >
                 {offlineBusy ? "시작 중…" : "오프라인 사냥"}
               </button>
@@ -1706,6 +1777,7 @@ export function V2DungeonFloorView({
         <section aria-label="최근 사냥 결과" className="space-y-2">
           {latestPresentedResult.kind === "batch" ? (
             <BatchSummaryCard
+              gainChips
               summary={latestPresentedResult.summary}
               remainingStamina={!coreLoopOn && !autoHunt ? staminaCurrent : undefined}
               potionThreshold={autoStopConfig.potionThreshold}
@@ -1717,12 +1789,14 @@ export function V2DungeonFloorView({
             />
           ) : (
             <HuntResultCard
+              encounter={encounter}
               result={latestPresentedResult.result}
               hpCharges={latestPresentedResult.result.hpCharges}
               mpCharges={latestPresentedResult.result.mpCharges}
               hasMp={(mp?.maxMp ?? 0) > 0}
             />
           )}
+          {playerStatus}
           <HuntNextStepCard jobId={playerJobId} refreshKey={latestPresentedResult} />
           <AdventurerMasteryNotice jobId={playerJobId} />
           {resultRareMap && onEnterRareMap && (
@@ -1744,23 +1818,20 @@ export function V2DungeonFloorView({
                 variant="secondary"
                 size="md"
                 className="w-full"
-                onClick={() => {
-                  setShowReplay(true);
-                  window.setTimeout(
-                    () =>
-                      replaySectionRef.current?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      }),
-                    0,
-                  );
-                }}
+                onClick={showReplaySection}
               >
                 전투 기록 보기
               </Button>
             )}
         </section>
       )}
+
+      {/* 첫 전투 안내가 같은 말을 더 자세히 하므로 그동안에는 자리 안내를 겹쳐 보이지 않는다. */}
+      {!latestPresentedResult && !showFirstBattleIntro && (
+        <HuntEncounterPlaceholder />
+      )}
+
+      {!latestPresentedResult && playerStatus}
 
       {showReplay && selectedBatchReplay?.replay && (
         <div ref={replaySectionRef}>

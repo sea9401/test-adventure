@@ -1250,7 +1250,7 @@ export function V2LoadoutPanel({
                     aria-pressed={selected}
                     className={`h-7 rounded px-2 text-[11px] font-semibold transition-colors ${
                       selected
-                        ? "bg-white text-violet-700 shadow-sm dark:bg-zinc-950 dark:text-violet-300"
+                        ? "bg-white text-selected shadow-sm dark:bg-zinc-950"
                         : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
                     }`}
                   >

@@ -14,7 +14,7 @@ export type ButtonSize = "xs" | "sm" | "md" | "lg" | "icon";
 const BASE =
   "relative inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-zinc-950";
 
-// 주 버튼 색은 화면 스타일이 정한다(globals.css의 --ui-primary*). 클래식은 보라, 금빛은 금색.
+// 주 버튼 색은 화면 스타일이 정한다(globals.css의 --ui-primary*). 클래식은 초록, 금빛은 금색.
 const PRIMARY =
   "border border-primary-border bg-primary text-on-primary hover:bg-primary-hover";
 
@@ -26,7 +26,7 @@ const VARIANT: Record<ButtonVariant, string> = {
   secondary:
     "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800",
   soft:
-    "border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200 dark:hover:bg-violet-900",
+    "border border-primary/30 bg-primary/10 text-selected hover:bg-primary/15",
   success: PRIMARY,
   warning: PRIMARY,
   danger:

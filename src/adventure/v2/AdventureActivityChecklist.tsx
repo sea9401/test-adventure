@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CaretDown,
-  Check,
+  CaretRight,
   CheckSquare,
   ClockCountdown,
   WarningCircle,
@@ -11,8 +11,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
-import { StatusBanner } from "@/components/ui/StatusBanner";
-import { SURFACE_ACCENT } from "@/components/ui/surfaces";
+import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   sortAdventureActivities,
   type AdventureActivityGroup,
@@ -73,10 +72,20 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
         ? actionableLabel(activity)
         : STATE_LABELS[activity.state];
 
+  // 횟수를 채워 가는 활동은 "진행 중" 글자 대신 얼마나 찼는지를 막대로 보여 준다.
+  const progress =
+    activity.state === "in_progress" &&
+    activity.countsTowardCompletion !== false &&
+    typeof activity.current === "number" &&
+    typeof activity.target === "number" &&
+    activity.target > 0
+      ? { current: activity.current, target: activity.target }
+      : null;
+
   return (
     <a
       href={activity.href}
-      className="flex min-h-11 items-center gap-2 border-b border-zinc-200 px-3 py-2 last:border-b-0 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+      className="flex min-h-11 items-center gap-2 px-3 py-2 hover:bg-zinc-50 sm:px-4 dark:hover:bg-zinc-800"
       aria-label={`${activity.title}, ${activity.detail}, ${stateLabel}`}
     >
       {completed ? (
@@ -97,17 +106,37 @@ function ActivityRow({ activity }: { activity: AdventureActivityView }) {
           {activity.detail}
         </span>
       </span>
-      <span
-        className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${
-          actionable
-            ? "bg-amber-500 text-white"
-            : completed
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-        }`}
-      >
-        {stateLabel}
-      </span>
+      {actionable ? (
+        <span className="shrink-0 rounded-md bg-amber-500 px-2 py-1 text-xs font-semibold text-white">
+          {stateLabel}
+        </span>
+      ) : progress ? (
+        <span
+          role="progressbar"
+          aria-label="진행도"
+          aria-valuemin={0}
+          aria-valuenow={progress.current}
+          aria-valuemax={progress.target}
+          className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
+        >
+          <span
+            className="block h-full bg-primary"
+            style={{
+              width: `${Math.min(100, (progress.current / progress.target) * 100)}%`,
+            }}
+          />
+        </span>
+      ) : (
+        <span
+          className={`shrink-0 text-xs font-semibold ${
+            completed
+              ? "text-emerald-700 dark:text-emerald-300"
+              : "text-zinc-500 dark:text-zinc-400"
+          }`}
+        >
+          {stateLabel}
+        </span>
+      )}
     </a>
   );
 }
@@ -132,16 +161,16 @@ function ActivityGroup({
   );
   const completed = tracked.filter((item) => item.state === "completed").length;
   return (
-    <Inset as="section" padding="none" className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-700">
-        <h3 className="text-xs font-bold text-zinc-700 dark:text-zinc-200">
+    <section className="border-t border-zinc-200 dark:border-zinc-700">
+      <div className="flex items-center justify-between px-3 pb-1 pt-3 sm:px-4">
+        <h3 className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
           {GROUP_LABELS[group]}
         </h3>
         <span className="text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
           {group === "ready" ? `준비 ${items.length}개` : `${completed} / ${tracked.length}`}
         </span>
       </div>
-      <div>
+      <div className="pb-1">
         {visible.map((activity) => (
           <ActivityRow key={activity.id} activity={activity} />
         ))}
@@ -151,13 +180,90 @@ function ActivityGroup({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((open) => !open)}
-          className="flex min-h-10 w-full items-center justify-center gap-1 border-t border-zinc-200 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          className="flex min-h-10 w-full items-center justify-center gap-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
           {expanded ? "접기" : `나머지 ${hiddenCount}개 보기`}
           <CaretDown size={14} aria-hidden className={expanded ? "rotate-180" : ""} />
         </button>
       )}
-    </Inset>
+    </section>
+  );
+}
+
+const TILE_COUNT = 3;
+const EXPANDED_STORAGE_KEY = "adventure-home.checklist-expanded";
+
+function readStoredExpanded(): boolean {
+  try {
+    return window.localStorage.getItem(EXPANDED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** 오늘·이번 주에 횟수를 채워 가는 활동 하나를 크게 보여 주는 타일. */
+function ActivityTile({ activity }: { activity: AdventureActivityView }) {
+  const completed = activity.state === "completed";
+  const counted =
+    typeof activity.current === "number" &&
+    typeof activity.target === "number" &&
+    activity.target > 0
+      ? { current: activity.current, target: activity.target }
+      : null;
+  const stateLabel =
+    activity.state === "actionable"
+      ? actionableLabel(activity)
+      : STATE_LABELS[activity.state];
+
+  return (
+    <a
+      href={activity.href}
+      aria-label={`${activity.title}, ${activity.detail}, ${stateLabel}`}
+      className={`${SURFACE_INSET} flex min-h-20 min-w-0 flex-col gap-1 p-2.5 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900`}
+    >
+      <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+        {activity.title}
+        {activity.group === "weekly" ? " · 주간" : ""}
+      </span>
+      {counted ? (
+        <span className="text-xl font-extrabold tabular-nums leading-tight text-zinc-900 dark:text-zinc-100">
+          {counted.current.toLocaleString()}
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {" "}
+            / {counted.target.toLocaleString()}
+          </span>
+        </span>
+      ) : (
+        <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          {activity.detail}
+        </span>
+      )}
+      {completed ? (
+        <span className="mt-auto text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+          완료
+        </span>
+      ) : counted ? (
+        <span
+          role="progressbar"
+          aria-label="진행도"
+          aria-valuemin={0}
+          aria-valuenow={counted.current}
+          aria-valuemax={counted.target}
+          className="mt-auto h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
+        >
+          <span
+            className="block h-full bg-primary"
+            style={{
+              width: `${Math.min(100, (counted.current / counted.target) * 100)}%`,
+            }}
+          />
+        </span>
+      ) : (
+        <span className="mt-auto text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+          {stateLabel}
+        </span>
+      )}
+    </a>
   );
 }
 
@@ -168,6 +274,7 @@ export function AdventureActivityChecklist({
   loading = false,
   error = null,
   onRetry,
+  defaultExpanded = false,
 }: {
   activities: readonly AdventureActivityView[];
   summary: AdventureDashboardSummary;
@@ -175,10 +282,37 @@ export function AdventureActivityChecklist({
   loading?: boolean;
   error?: string | null;
   onRetry: () => void;
+  /** 전체 목록을 처음부터 펼쳐 둘지. 사용자가 펼친 적이 있으면 그 선택을 기억한다. */
+  defaultExpanded?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저에 기억해 둔 펼침 상태를 마운트 뒤 한 번 읽는다
+    if (readStoredExpanded()) setExpanded(true);
+  }, []);
+  const toggleExpanded = () => {
+    const next = !expanded;
+    setExpanded(next);
+    try {
+      window.localStorage.setItem(EXPANDED_STORAGE_KEY, next ? "1" : "0");
+    } catch {
+      // 저장하지 못해도 화면 동작에는 영향이 없다.
+    }
+  };
+
   const enabled = activities.filter((activity) => activity.enabled);
   const daily = enabled.filter((activity) => activity.group === "daily");
   const secondary = enabled.filter((activity) => activity.group !== "daily");
+  // 타일: 오늘·이번 주에 진행도를 채워 가는 활동. 진행 중인 것이 먼저 온다.
+  const tiles = sortAdventureActivities(
+    enabled.filter(
+      (activity) =>
+        activity.group !== "ready" && activity.countsTowardCompletion !== false,
+    ),
+  ).slice(0, TILE_COUNT);
+  const actionable = sortAdventureActivities(
+    enabled.filter((activity) => activity.state === "actionable"),
+  );
   const resetLabel =
     serverNow == null
       ? "초기화 시간 확인 중"
@@ -191,42 +325,46 @@ export function AdventureActivityChecklist({
       aria-labelledby="adventure-check-title"
       className="overflow-hidden"
     >
-      <div className={`${SURFACE_ACCENT} flex items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-3 py-3 shadow-none sm:px-4`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm">
-            <Check size={22} weight="bold" aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <h2 id="adventure-check-title" className="truncate text-sm font-bold text-amber-950 dark:text-amber-100">
-              오늘의 모험 체크
-            </h2>
-            <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
-              {resetLabel}
-            </p>
-          </div>
+      <div className="flex items-baseline justify-between gap-3 px-3 pt-3 sm:px-4 sm:pt-4">
+        <div className="min-w-0">
+          <h2
+            id="adventure-check-title"
+            className="truncate text-base font-bold text-zinc-900 dark:text-zinc-100"
+          >
+            오늘의 모험 체크
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {resetLabel}
+          </p>
         </div>
-        <strong className="shrink-0 text-sm font-extrabold tabular-nums text-amber-800 dark:text-amber-200">
+        <strong className="shrink-0 text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
           {summary.completed} / {summary.total} 완료
         </strong>
       </div>
 
-      <StatusBanner
-        data-testid="actionable-summary"
-        data-checklist-actionable-summary
-        tone="actionable"
-        className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 sm:mx-4"
-      >
-        <span className="size-2 shrink-0 rounded-full bg-rose-500" aria-hidden />
-        <strong>지금 가능한 행동 {summary.actionableCount}개</strong>
-        {summary.actionableCount > 0 ? (
-          <span className="min-w-0 truncate text-orange-700 dark:text-orange-300">
-            {enabled
-              .filter((activity) => activity.state === "actionable")
-              .map((activity) => activity.title)
-              .join(" · ")}
+      {actionable[0] ? (
+        <a
+          href={actionable[0].href}
+          data-testid="actionable-summary"
+          data-checklist-actionable-summary
+          className={`${SURFACE_ACCENT} mx-3 mt-3 flex min-h-11 items-center gap-2 px-3 py-2 text-sm shadow-none sm:mx-4`}
+        >
+          <span className="size-2 shrink-0 rounded-full bg-orange-500" aria-hidden />
+          <span className="shrink-0 text-amber-900 dark:text-amber-200">
+            지금 가능한 행동
           </span>
-        ) : null}
-      </StatusBanner>
+          <strong className="min-w-0 flex-1 truncate text-amber-950 dark:text-amber-100">
+            {actionable[0].title}
+            {actionable.length > 1 ? ` 외 ${actionable.length - 1}개` : ""}
+          </strong>
+          <CaretRight
+            size={14}
+            weight="bold"
+            aria-hidden
+            className="shrink-0 text-amber-800 dark:text-amber-300"
+          />
+        </a>
+      ) : null}
 
       {error ? (
         <Inset className="m-3 flex items-center gap-2 p-3 text-sm sm:m-4">
@@ -239,18 +377,43 @@ export function AdventureActivityChecklist({
       ) : loading && enabled.length === 0 ? (
         <p className="p-4 text-sm text-zinc-500">활동 상태를 확인하는 중…</p>
       ) : (
-        <div
-          data-testid="checklist-groups"
-          className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4"
-        >
-          <div className="space-y-3">
-            <ActivityGroup group="daily" activities={daily} />
-          </div>
-          <div className="space-y-3">
-            <ActivityGroup group="weekly" activities={secondary} />
-            <ActivityGroup group="ready" activities={secondary} />
-          </div>
-        </div>
+        <>
+          {tiles.length > 0 && (
+            <div
+              data-testid="checklist-tiles"
+              className="grid grid-cols-3 gap-2 px-3 pt-3 sm:px-4"
+            >
+              {tiles.map((activity) => (
+                <ActivityTile key={activity.id} activity={activity} />
+              ))}
+            </div>
+          )}
+          {enabled.length > 0 && (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={toggleExpanded}
+              className="mt-2 flex min-h-11 w-full items-center justify-center gap-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              {expanded ? "전체 접기" : "전체 보기"}
+              <CaretDown size={14} aria-hidden className={expanded ? "rotate-180" : ""} />
+            </button>
+          )}
+          {expanded && (
+            <div
+              data-testid="checklist-groups"
+              className="grid sm:grid-cols-2 sm:divide-x sm:divide-zinc-200 dark:sm:divide-zinc-700"
+            >
+              <div>
+                <ActivityGroup group="daily" activities={daily} />
+              </div>
+              <div>
+                <ActivityGroup group="weekly" activities={secondary} />
+                <ActivityGroup group="ready" activities={secondary} />
+              </div>
+            </div>
+          )}
+        </>
       )}
     </Card>
   );

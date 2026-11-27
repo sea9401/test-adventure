@@ -11,7 +11,11 @@ import {
   Storefront,
   Toolbox,
 } from "@phosphor-icons/react";
-import { EntryList, EntryRow } from "@/components/ui/EntryList";
+import {
+  EntryTile,
+  EntryTileGrid,
+  type EntryTileStatusResolver,
+} from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
@@ -35,84 +39,91 @@ export function V2TownHome({
   gameStateLoaded,
   onAction,
   viewerGuildId,
+  menuStatus,
 }: {
   gameStateLoaded: boolean;
   onAction: (action: TownAction) => void;
   viewerGuildId: number | null;
+  /** 타일 아래 상태 한 줄(오늘 할 일). 주지 않으면 이름만 보인다. */
+  menuStatus?: EntryTileStatusResolver;
 }) {
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="마을" />
-      <EntryList>
+      <EntryTileGrid>
         {gameStateLoaded && viewerGuildId == null && (
-          <EntryRow
-            icon={<Buildings size={28} weight="duotone" className="text-indigo-600" />}
+          <EntryTile
+            icon={<Buildings size={24} weight="duotone" className="text-indigo-600" />}
             title="모험가 협회"
+            status={menuStatus?.("/town/association", "모험가 협회")}
             onClick={() => onAction({ kind: "open-association" })}
           />
         )}
-        <EntryRow
-          icon={<Compass size={28} weight="duotone" className="text-sky-600" />}
+        <EntryTile
+          icon={<Compass size={24} weight="duotone" className="text-sky-600" />}
           title="생활 지도"
+          status={menuStatus?.("/map", "생활 지도")}
           onClick={() => onAction({ kind: "open-map" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
-            <Toolbox size={28} weight="duotone" className="text-amber-600" />
+            <Toolbox size={24} weight="duotone" className="text-amber-600" />
           }
           title="생활 의뢰·조합 작업장"
+          status={menuStatus?.("/town/life-workshop", "생활 의뢰·조합 작업장")}
           onClick={() => onAction({ kind: "open-life-workshop" })}
         />
-        <EntryRow
-          icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
+        <EntryTile
+          icon={<FirstAid size={24} weight="duotone" className="text-rose-500" />}
           title="치료소"
-          image="/images/ui/healingcenter.webp"
+          status={menuStatus?.("/town/healing", "치료소")}
           onClick={() => onAction({ kind: "open-healing" })}
         />
-        <EntryRow
-          icon={<Bank size={28} weight="duotone" className="text-yellow-600" />}
+        <EntryTile
+          icon={<Bank size={24} weight="duotone" className="text-yellow-600" />}
           title="은행"
-          image="/images/ui/bank.webp"
+          status={menuStatus?.("/town/bank", "은행")}
           onClick={() => onAction({ kind: "open-bank" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
-            <Storefront size={28} weight="duotone" className="text-orange-600" />
+            <Storefront size={24} weight="duotone" className="text-orange-600" />
           }
           title="통합 교환소"
-          image="/images/ui/shop.webp"
+          status={menuStatus?.("/town/exchange", "통합 교환소")}
           onClick={() => onAction({ kind: "open-exchange" })}
         />
-        <EntryRow
-          icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
+        <EntryTile
+          icon={<Hammer size={24} weight="duotone" className="text-amber-600" />}
           title="대장간"
-          image="/images/ui/forge.webp"
+          status={menuStatus?.("/town/smithy", "대장간")}
           onClick={() => onAction({ kind: "open-smithy" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
             <PottedPlant
-              size={28}
+              size={24}
               weight="duotone"
               className="text-emerald-500"
             />
           }
           title="모험가 농장"
-          image="/images/ui/farm.webp"
+          status={menuStatus?.("/town/farm", "모험가 농장")}
           onClick={() => onAction({ kind: "open-farm" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
             <CookingPot
-              size={28}
+              size={24}
               weight="duotone"
               className="text-amber-600"
             />
           }
           title="주방"
+          status={menuStatus?.("/town/kitchen", "주방")}
           onClick={() => onAction({ kind: "open-kitchen" })}
         />
-      </EntryList>
+      </EntryTileGrid>
     </PageShell>
   );
 }

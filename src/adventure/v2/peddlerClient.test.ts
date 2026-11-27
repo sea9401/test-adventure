@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterPeddlerCargo,
+  peddlerCargoDishQualities,
   peddlerCargoPayload,
   peddlerErrorLabel,
   peddlerMaxLoadable,
@@ -38,6 +40,54 @@ describe("행상 화면 계산", () => {
     expect(peddlerCargoPayload(cargo, { "material:v2_iron_ore": 300, "farm:milk": 0 })).toEqual({
       "material:v2_iron_ore": 300,
     });
+  });
+});
+
+const dishes: PeddlerCargoView[] = [
+  { id: "dish:food2:rustic_bread:normal:o0:s0", group: "dish", name: "투박한 밀빵 (일반)", points: 200, held: 320 },
+  { id: "dish:food2:rustic_bread:careful:o0:s0", group: "dish", name: "투박한 밀빵 (정성작)", points: 200, held: 41 },
+  { id: "dish:food2:rustic_bread:masterpiece:o1:s3", group: "dish", name: "투박한 밀빵 (걸작 · 원조 · 전문 +3%)", points: 200, held: 6 },
+  { id: "dish:food2:herb_soup:normal:o0:s0", group: "dish", name: "허브 수프 (일반)", points: 200, held: 12 },
+];
+
+describe("행상 짐 목록 좁히기", () => {
+  const all = [...cargo, ...dishes];
+  const everything = { group: "all", quality: "all", query: "" } as const;
+
+  it("조건이 없으면 전부 보여 준다", () => {
+    expect(filterPeddlerCargo(all, everything)).toEqual(all);
+  });
+
+  it("이름 일부로 찾고 띄어쓰기는 가리지 않는다", () => {
+    expect(filterPeddlerCargo(all, { ...everything, query: "밀빵" }).map((item) => item.id)).toEqual(
+      dishes.slice(0, 3).map((item) => item.id),
+    );
+    expect(filterPeddlerCargo(all, { ...everything, query: " 투박한밀빵 " })).toHaveLength(3);
+    expect(filterPeddlerCargo(all, { ...everything, query: "철광" }).map((item) => item.name)).toEqual(["철광석"]);
+  });
+
+  it("요리 품질을 고르면 그 품질의 요리만 남기고 다른 계열은 그대로 둔다", () => {
+    expect(filterPeddlerCargo(all, { ...everything, quality: "normal" }).map((item) => item.name)).toEqual([
+      "철광석",
+      "우유",
+      "전설의 어획물",
+      "투박한 밀빵 (일반)",
+      "허브 수프 (일반)",
+    ]);
+    expect(
+      filterPeddlerCargo(all, { group: "dish", quality: "masterpiece", query: "" }).map((item) => item.id),
+    ).toEqual(["dish:food2:rustic_bread:masterpiece:o1:s3"]);
+  });
+
+  it("계열, 품질, 이름을 함께 적용한다", () => {
+    expect(
+      filterPeddlerCargo(all, { group: "dish", quality: "normal", query: "밀빵" }).map((item) => item.name),
+    ).toEqual(["투박한 밀빵 (일반)"]);
+  });
+
+  it("가진 요리의 품질을 낮은 순서로 돌려준다", () => {
+    expect(peddlerCargoDishQualities(all)).toEqual(["normal", "careful", "masterpiece"]);
+    expect(peddlerCargoDishQualities(cargo)).toEqual([]);
   });
 });
 

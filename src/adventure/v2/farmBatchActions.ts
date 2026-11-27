@@ -1,4 +1,10 @@
 import {
+  addDiningXpBonus,
+  diningXpBonusSuffix,
+  parseDiningXpBonus,
+  type DiningXpBonus,
+} from "./diningXpBonus";
+import {
   addMasterProductGain,
   masterProductGainText,
   parseMasterProductGain,
@@ -34,6 +40,7 @@ export function farmBatchOutcomeText(
   farmingXpGained = 0,
   seedsReturned = 0,
   masterProduct?: MasterProductGain | null,
+  diningXpBonus?: DiningXpBonus | null,
 ): string {
   if (error) {
     return completed > 0
@@ -44,7 +51,7 @@ export function farmBatchOutcomeText(
     const base = `${completed}칸을 모두 수확했습니다.${seedsReturned > 0 ? ` 씨앗 ${seedsReturned}개 반환.` : ""}`;
     const withXp =
       farmingXpGained > 0
-        ? `${base} 농사 XP +${farmingXpGained.toLocaleString("ko-KR")}.`
+        ? `${base} 농사 XP +${farmingXpGained.toLocaleString("ko-KR")}${diningXpBonusSuffix(diningXpBonus)}.`
         : base;
     return masterProduct ? `${withXp} ${masterProductGainText(masterProduct)}.` : withXp;
   }
@@ -73,11 +80,14 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
   seedsReturned: number;
   /** 수확으로 얻은 명장 작물 합계. 없으면 빠진다. */
   masterProduct?: MasterProductGain;
+  /** 수확 경험치에 식당 효과로 붙은 합계. 효과가 없으면 빠진다. */
+  diningXpBonus?: DiningXpBonus;
 }> {
   let completed = 0;
   let seedsReturned = 0;
   let farmingXpGained = 0;
   let masterProduct: MasterProductGain | null = null;
+  let diningXpBonus: DiningXpBonus | null = null;
 
   // 심기는 서버가 한 트랜잭션에서 여러 칸을 처리한다. 칸마다 요청하면 밭이
   // 많을 때 수확 직후 농사 요청 제한(분당 30회)에 걸려 중간에 멈춘다.
@@ -129,6 +139,7 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           farmingXpGained,
           seedsReturned,
           masterProduct: masterProduct ?? undefined,
+          diningXpBonus: diningXpBonus ?? undefined,
         };
       }
       onSuccess(data);
@@ -139,6 +150,7 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           Math.floor(Number(data.result?.farmingXpGained) || 0),
         );
         masterProduct = addMasterProductGain(masterProduct, parseMasterProductGain(data));
+        diningXpBonus = addDiningXpBonus(diningXpBonus, parseDiningXpBonus(data));
       }
       completed += 1;
     } catch (error) {
@@ -148,6 +160,7 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
           farmingXpGained,
           seedsReturned,
           masterProduct: masterProduct ?? undefined,
+          diningXpBonus: diningXpBonus ?? undefined,
         };
     }
   }
@@ -158,6 +171,7 @@ export async function runFarmPlotBatch<T extends FarmBatchResponse>({
     farmingXpGained,
     seedsReturned,
     masterProduct: masterProduct ?? undefined,
+    diningXpBonus: diningXpBonus ?? undefined,
   };
 }
 
@@ -169,6 +183,7 @@ export type FarmReplantOutcome = {
   farmingXpGained: number;
   seedsReturned: number;
   masterProduct?: MasterProductGain;
+  diningXpBonus?: DiningXpBonus;
 };
 
 /**
@@ -208,13 +223,19 @@ export async function runFarmHarvestAndReplant<T extends FarmBatchResponse>({
     farmingXpGained: harvest.farmingXpGained,
     seedsReturned: harvest.seedsReturned,
     masterProduct: harvest.masterProduct,
+    diningXpBonus: harvest.diningXpBonus,
   };
 }
 
 export function farmReplantOutcomeText(
   outcome: Pick<
     FarmReplantOutcome,
-    "harvested" | "planted" | "farmingXpGained" | "seedsReturned" | "masterProduct"
+    | "harvested"
+    | "planted"
+    | "farmingXpGained"
+    | "seedsReturned"
+    | "masterProduct"
+    | "diningXpBonus"
   >,
 ): string {
   const parts = [`${outcome.harvested}칸을 수확하고 ${outcome.planted}칸에 다시 심었습니다.`];
@@ -223,7 +244,9 @@ export function farmReplantOutcomeText(
   }
   if (outcome.seedsReturned > 0) parts.push(`씨앗 ${outcome.seedsReturned}개 반환.`);
   if (outcome.farmingXpGained > 0) {
-    parts.push(`농사 XP +${outcome.farmingXpGained.toLocaleString("ko-KR")}.`);
+    parts.push(
+      `농사 XP +${outcome.farmingXpGained.toLocaleString("ko-KR")}${diningXpBonusSuffix(outcome.diningXpBonus)}.`,
+    );
   }
   if (outcome.masterProduct) parts.push(`${masterProductGainText(outcome.masterProduct)}.`);
   return parts.join(" ");

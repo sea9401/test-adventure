@@ -18,6 +18,7 @@ import {
   autoGatheringReservationLabel,
   type AutoGatheringReservation,
 } from "./autoGatheringReservation";
+import { diningXpBonusSuffix, type DiningXpBonus } from "./diningXpBonus";
 import { masterProductGainText, type MasterProductGain } from "./masterProductGain";
 import { sharedNetworkLimitMessage } from "./sharedNetworkLimit";
 
@@ -35,6 +36,8 @@ export type AutoGatheringResultView = {
     amount: number;
   }>;
   masterProduct?: MasterProductGain | null;
+  /** 식당 효과로 이번 정산에 붙은 경험치. 효과가 없으면 null. */
+  diningXpBonus?: DiningXpBonus | null;
 };
 
 /** 보상을 받은 뒤 이어서 시작된 예약 작업. */
@@ -294,6 +297,7 @@ export function AutoGatheringCard({
           <div className="mt-1 font-semibold">
             {result.materialName} +{result.materialsGained.toLocaleString()} · XP +
             {result.xpGained.toLocaleString()}
+            {diningXpBonusSuffix(result.diningXpBonus)}
           </div>
           {result.byproducts && result.byproducts.length > 0 ? (
             <div className="mt-1 font-semibold text-amber-700 dark:text-amber-300">

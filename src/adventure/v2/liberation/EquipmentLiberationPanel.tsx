@@ -321,7 +321,7 @@ export function EquipmentLiberationPanel({
               onClick={() => setGuideOpen(true)}
               aria-label="마법부여 도움말"
               aria-haspopup="dialog"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 shadow-sm transition-colors hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300 dark:hover:bg-violet-950"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 shadow-sm transition-colors hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus dark:border-violet-800 dark:bg-zinc-900 dark:text-violet-300 dark:hover:bg-violet-950"
             >
               <Question size={17} weight="bold" aria-hidden />
             </button>
@@ -333,7 +333,7 @@ export function EquipmentLiberationPanel({
           disabled={busy}
           onClick={() => setSelectionOpen(true)}
           aria-label={`대상 장비 변경 · ${candidates.length}개 선택 가능`}
-          className={`${SURFACE_ACCENT} mt-4 flex min-h-16 w-full items-center justify-between gap-3 border-violet-300 px-4 py-3 text-left shadow-sm transition hover:border-violet-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:hover:border-violet-500`}
+          className={`${SURFACE_ACCENT} mt-4 flex min-h-16 w-full items-center justify-between gap-3 border-violet-300 px-4 py-3 text-left shadow-sm transition hover:border-violet-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:hover:border-violet-500`}
         >
           <span>
             <strong className="block text-sm text-violet-950 dark:text-violet-100">

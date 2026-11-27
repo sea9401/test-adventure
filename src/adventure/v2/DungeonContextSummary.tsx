@@ -1,5 +1,4 @@
-import { Card } from "@/components/ui/Card";
-import { Inset } from "@/components/ui/Inset";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 export function DungeonContextSummary({
@@ -16,7 +15,8 @@ export function DungeonContextSummary({
   onBack: () => void;
 }) {
   return (
-    <Card as="section" padding="sm" aria-label="사냥터 정보">
+    // 제목은 다른 화면처럼 배경 위에 바로 두고, 성장·위험 안내는 작은 불투명 줄 하나로 줄인다.
+    <section aria-label="사냥터 정보" className="space-y-1.5">
       <SubViewHeader
         title={
           <>
@@ -30,12 +30,12 @@ export function DungeonContextSummary({
         }
         onBack={onBack}
       />
-      <Inset className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-2 py-2 text-[0.6875rem] text-zinc-500 dark:text-zinc-400">
+      <p className={`${SURFACE_CARD} mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-0.5 rounded-md px-3 py-1 text-xs text-zinc-500 shadow-none dark:text-zinc-400`}>
         {growthLabel && <span>{growthLabel}</span>}
         <span className={readiness.tone === "positive" ? "font-semibold text-emerald-700 dark:text-emerald-300" : readiness.tone === "warning" ? "font-semibold text-amber-700 dark:text-amber-300" : "font-semibold text-zinc-600 dark:text-zinc-300"}>
           {readiness.label}
         </span>
-      </Inset>
-    </Card>
+      </p>
+    </section>
   );
 }

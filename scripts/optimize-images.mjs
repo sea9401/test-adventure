@@ -22,6 +22,7 @@ const ROOT = path.resolve(__dirname, "..", "public", "images");
 // - fish:      낚시 아이콘과 4프레임 거대어 시트. 프레임당 256px를 위해 최대 1024px.
 // - housing:   숙소 가구와 2.5D 방 배경. 배경 선명도를 위해 최대 1024px.
 // - event:     기간 한정 이벤트 배너·말판 삽화. 본문 폭 720px의 2배 화면 대비 1280px.
+// - emblem:    문장 종류 그림(납작한 단색 면). 화면에서는 40~68px이고 선이 또렷해야 해 256px·품질 92.
 // - ui:        풀스크린 배경. 1080~1440 디스플레이 폭 커버.
 const PROFILES = {
   character: { maxWidth: 512, quality: 85 },
@@ -32,6 +33,7 @@ const PROFILES = {
   fish: { maxWidth: 1024, quality: 86 },
   housing: { maxWidth: 1024, quality: 86 },
   event: { maxWidth: 1280, quality: 84 },
+  emblem: { maxWidth: 256, quality: 92 },
   rating: { maxWidth: 256, quality: 95 },
   ui: { maxWidth: 1920, quality: 80 },
 };

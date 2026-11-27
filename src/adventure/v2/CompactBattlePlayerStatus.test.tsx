@@ -159,6 +159,71 @@ describe("사냥터 캐릭터 정보", () => {
   });
 });
 
+describe("사냥터 캐릭터 정보: 능력치 한 줄 요약", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  function renderStats() {
+    return render(
+      <CompactBattlePlayerStatus
+        name="모험가"
+        subtitle="전투 Lv.2 · 모험가"
+        hp={{ hp: 237, maxHp: 245 }}
+        mp={{ mp: 95, maxMp: 98 }}
+        exp={0}
+        maxExp={84}
+        hpCharges={99_857}
+        mpCharges={100_000}
+        statsLine="물리 공격력 22 · 방어력 10 · 속도 14"
+        defaultExpanded={false}
+      >
+        <div>펼친 상세 정보</div>
+      </CompactBattlePlayerStatus>,
+    );
+  }
+
+  it("저장된 선택이 없으면 접힌 채로 시작해 능력치와 충전약만 두 줄로 보여 준다", async () => {
+    const { container } = renderStats();
+    const summary = container.querySelector("summary");
+    if (!summary) throw new Error("summary not found");
+
+    await waitFor(() =>
+      expect(container.querySelector("details")?.open).toBe(false),
+    );
+    expect(summary.textContent).toContain("물리 공격력 22 · 방어력 10 · 속도 14");
+    expect(summary.textContent).toContain("HP 충전약 99,857");
+    expect(summary.textContent).toContain("MP 충전약 100,000");
+    // 이름과 HP·MP는 위의 방금 전투 카드가 보여 주므로 여기서는 되풀이하지 않는다.
+    expect(summary.textContent).not.toContain("모험가");
+    expect(summary.textContent).not.toContain("237");
+    expect(summary.querySelectorAll("[data-recovery-charge]")).toHaveLength(2);
+    expect(summary.querySelector("svg")).not.toBeNull();
+  });
+
+  it("직접 펼친 선택은 다음에 들어와도 유지한다", async () => {
+    const first = renderStats();
+    const summary = first.container.querySelector("summary");
+    if (!summary) throw new Error("summary not found");
+    await waitFor(() =>
+      expect(first.container.querySelector("details")?.open).toBe(false),
+    );
+
+    fireEvent.click(summary);
+    await waitFor(() => expect(localStorage.length).toBe(1));
+    first.unmount();
+
+    const second = renderStats();
+    await waitFor(() =>
+      expect(second.container.querySelector("details")?.open).toBe(true),
+    );
+  });
+});
+
 function renderPlayerStatus() {
   return render(
     <CompactBattlePlayerStatus

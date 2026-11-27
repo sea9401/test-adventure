@@ -351,7 +351,7 @@ export function V2ClassGrid({
               type="button"
               onClick={() => doSwitch(selected)}
               disabled={busy || cantAfford}
-              className="w-full rounded-md border border-indigo-400 bg-indigo-500/10 px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-300"
+              className="w-full rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-selected transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy
                 ? "…"

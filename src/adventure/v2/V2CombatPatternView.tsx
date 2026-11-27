@@ -349,7 +349,7 @@ export function PatternChoicePicker<T extends string>({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={`${label} 검색`}
-            className="h-11 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-indigo-400 dark:focus:ring-indigo-950"
+            className="h-11 w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-base outline-none focus:border-focus focus:ring-2 focus:ring-focus/30 dark:border-zinc-700 dark:bg-zinc-950"
           />
         </div>
       ) : null}
@@ -373,7 +373,7 @@ export function PatternChoicePicker<T extends string>({
                     onClick={() => choose(option.value)}
                     className={`min-h-11 rounded-lg border px-3 py-2 text-left transition ${
                       active
-                        ? "border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-zinc-800 dark:text-indigo-200"
+                        ? "border-selected-line bg-primary/10 text-selected dark:bg-zinc-800"
                         : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
                     }`}
                   >
@@ -409,7 +409,7 @@ export function PatternChoicePicker<T extends string>({
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
-        className="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-sm font-medium text-zinc-800 shadow-sm transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-indigo-500 dark:disabled:text-zinc-500"
+        className="flex min-h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-left text-sm font-medium text-zinc-800 shadow-sm transition hover:border-selected-line disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:text-zinc-500"
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
         <span aria-hidden className="shrink-0 text-zinc-400">
@@ -483,7 +483,7 @@ export function PatternChoiceButtons<T extends string>({
             onClick={() => onChange(option.value)}
             className={`min-h-8 rounded-md border px-2.5 py-1 text-xs font-medium transition ${
               active
-                ? "border-indigo-600 bg-indigo-600 text-white dark:border-indigo-400 dark:bg-indigo-500 dark:text-zinc-950"
+                ? "border-primary-border bg-primary text-on-primary"
                 : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-zinc-800"
             }`}
           >
@@ -557,7 +557,7 @@ export function SkillPatternChoiceList({
             aria-selected={active}
             disabled={choice.resonanceMaterial}
             onClick={() => onSelect(choice.value)}
-            className={`${active ? SURFACE_ACCENT : SURFACE_INSET} w-full p-3 text-left transition hover:border-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed`}
+            className={`${active ? SURFACE_ACCENT : SURFACE_INSET} w-full p-3 text-left transition hover:border-selected-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed`}
           >
             <span className="flex items-start justify-between gap-3">
               <span className="min-w-0">
@@ -588,7 +588,7 @@ export function SkillPatternChoiceList({
                   size={20}
                   weight="fill"
                   aria-label="현재 선택"
-                  className="shrink-0 text-indigo-600 dark:text-indigo-300"
+                  className="shrink-0 text-selected"
                 />
               ) : null}
             </span>
@@ -720,7 +720,7 @@ export function SkillPatternPicker({
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen(true)}
-        className="flex min-h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-indigo-400 disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-indigo-500 dark:disabled:text-zinc-500"
+        className="flex min-h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-left shadow-sm transition hover:border-selected-line disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:text-zinc-500"
       >
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold">
@@ -734,7 +734,7 @@ export function SkillPatternPicker({
             </span>
           ) : null}
         </span>
-        <span className="shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
+        <span className="shrink-0 text-xs font-semibold text-selected">
           {selected ? "변경" : "선택"}
         </span>
       </button>
@@ -1552,7 +1552,7 @@ export function V2CombatPatternView({
                   >
                     <span className="max-w-[140px] truncate font-medium">{p.name}</span>
                     <button type="button" onClick={() => loadPreset(p)} disabled={busy}
-                      className="rounded px-1.5 text-indigo-600 hover:bg-indigo-100 disabled:opacity-40 dark:text-indigo-400 dark:hover:bg-indigo-950">불러오기</button>
+                      className="rounded px-1.5 text-selected hover:bg-primary/10 disabled:opacity-40">불러오기</button>
                     <button
                       type="button"
                       onClick={() => void overwritePreset(p)}

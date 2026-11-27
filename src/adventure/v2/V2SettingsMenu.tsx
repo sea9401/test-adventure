@@ -137,7 +137,7 @@ export function V2SettingsMenu() {
               <Link
                 href="/settings/cosmetics"
                 onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-selected transition-colors hover:bg-primary/10"
               >
                 <Palette size={18} weight="duotone" />
                 꾸미기

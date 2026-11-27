@@ -1,6 +1,14 @@
 "use client";
 
-import { useId, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useId,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import { createPortal } from "react-dom";
 import { CaretDown } from "@phosphor-icons/react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
@@ -62,6 +70,32 @@ export function EquipmentLockFilterButton({
   );
 }
 
+// 걸러 보기 칩 — 누르면 목록이 바뀌는 상태 표시라, 일을 시키는 버튼(네모)과 모양을 달리해 둥글게 둔다.
+function FilterChip({
+  pressed,
+  onClick,
+  children,
+}: {
+  pressed: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-[0.8125rem] font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+        pressed
+          ? "border-primary-border bg-primary text-on-primary"
+          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function isUniqueInstance(instance: V2EquipInstance): boolean {
   const item = V2_EQUIPMENT[instance.id];
   return item !== undefined && isUnique(item);
@@ -117,6 +151,7 @@ const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
 // 보유하고, 탭-로컬 정렬/페이지네이션만 여기서 파생한다(거동 불변).
 export function EquipmentTab({
   search = "",
+  actionSlot,
   slot,
   instances,
   equippedIid,
@@ -141,6 +176,11 @@ export function EquipmentTab({
   onLockUniques,
 }: {
   search?: string;
+  /**
+   * 작업 버튼을 끼워 넣을 자리(인벤토리의 검색 칸 옆). 화면이 자리를 만들면 그 요소를,
+   * 아직 준비 전이면 null 을 준다. 주지 않으면 버튼을 이 부품 안에 직접 그린다.
+   */
+  actionSlot?: HTMLElement | null;
   slot: V2EquipSlot;
   instances: V2EquipInstance[];
   equippedIid: string | null;
@@ -225,18 +265,48 @@ export function EquipmentTab({
     [equippedIid, instances, sellQualityPct, slot],
   );
 
+  const picking = selection.active || comparing || locking;
+
+  // 일괄 작업·비교 선택을 여는 버튼. 인벤토리에서는 검색 칸 옆 자리에 끼워 넣는다.
+  const actionsButton =
+    instances.length > 0 && !picking ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        aria-label="일괄 작업"
+        aria-expanded={bulkOpen}
+        aria-controls={bulkPanelId}
+        onClick={() => setBulkOpen((open) => !open)}
+        className="shrink-0"
+      >
+        작업
+        <CaretDown
+          size={14}
+          aria-hidden
+          className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
+        />
+      </Button>
+    ) : null;
+
   return (
     <>
+      {actionSlot === undefined ? (
+        actionsButton ? (
+          <div className="flex justify-end">{actionsButton}</div>
+        ) : null
+      ) : actionSlot ? (
+        createPortal(actionsButton, actionSlot)
+      ) : null}
       {instances.length > 0 && (
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <select
               aria-label="장비 정렬 기준"
               value={sortMode}
               onChange={(event) =>
                 setSortMode(event.currentTarget.value as SortMode)
               }
-              className="min-h-10 min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white py-1 pl-2 pr-7 text-sm font-semibold text-zinc-800 [color-scheme:light] outline-none focus:ring-2 focus:ring-focus sm:min-h-9 sm:flex-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:[color-scheme:dark]"
+              className="min-h-9 w-[8.75rem] shrink-0 rounded-full border border-zinc-300 bg-white py-1 pl-3 pr-7 text-[0.8125rem] font-medium text-zinc-700 [color-scheme:light] outline-none focus:ring-2 focus:ring-focus sm:w-auto dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:[color-scheme:dark]"
             >
               {INVENTORY_SORT_OPTIONS.map((option) => (
                 <option
@@ -248,24 +318,27 @@ export function EquipmentTab({
                 </option>
               ))}
             </select>
-            <EquipmentLockFilterButton
-              value={lockFilter}
-              onChange={setLockFilter}
-              totalCount={instances.length}
-              lockedCount={lockedCount}
-            />
+            <FilterChip
+              pressed={lockFilter !== "all"}
+              onClick={() => setLockFilter(NEXT_LOCK_FILTER[lockFilter])}
+            >
+              {lockFilter === "unlocked"
+                ? `미잠금만 ${instances.length - lockedCount}`
+                : lockFilter === "locked"
+                  ? `잠금만 ${lockedCount}`
+                  : `잠금 ${lockedCount}`}
+            </FilterChip>
             {setUniqueOnly ? (
-              <Button
-                type="button"
+              <FilterChip
+                pressed={uniqueOnly}
                 onClick={() => setUniqueOnly(!uniqueOnly)}
-                aria-pressed={uniqueOnly}
-                variant={uniqueOnly ? "primary" : "secondary"}
-                size="sm"
-                className="shrink-0"
               >
-                유니크만 보기 ({uniqueCount})
-              </Button>
+                {uniqueOnly ? `유니크만 ${uniqueCount}` : `유니크 ${uniqueCount}`}
+              </FilterChip>
             ) : null}
+            <span className="ml-auto text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              {tabInstances.length.toLocaleString()}개
+            </span>
           </div>
           {selection.active ? (
             <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
@@ -280,39 +353,9 @@ export function EquipmentTab({
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
               잠그거나 잠금을 풀 장비를 고르세요.
             </p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-expanded={bulkOpen}
-                aria-controls={bulkPanelId}
-                onClick={() => setBulkOpen((open) => !open)}
-              >
-                일괄 작업
-                <CaretDown
-                  size={14}
-                  aria-hidden
-                  className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
-                />
-              </Button>
-              {compare ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setBulkOpen(false);
-                    compare.onStart();
-                  }}
-                  disabled={busy !== null}
-                >
-                  비교 선택
-                </Button>
-              ) : null}
-            </div>
-          )}
+          ) : null}
           {/* 일괄 작업 — 현재 탭 부위 전체 대상, 장착·잠금 장비는 제외(전 장비 판매 가능) */}
-          {bulkOpen && !selection.active && !comparing && !locking ? (
+          {bulkOpen && !picking ? (
             <section
               id={bulkPanelId}
               aria-label="일괄 작업"
@@ -325,6 +368,18 @@ export function EquipmentTab({
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-2">
+                {compare ? (
+                  <Button
+                    onClick={() => {
+                      setBulkOpen(false);
+                      compare.onStart();
+                    }}
+                    disabled={busy !== null}
+                    size="sm"
+                  >
+                    비교 선택
+                  </Button>
+                ) : null}
                 {codexBulk ? (
                   <Button
                     onClick={codexBulk.onStart}
@@ -467,7 +522,7 @@ export function EquipmentTab({
       />
       {selection.active ? (
         <div
-          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
           aria-live="polite"
         >
           <div className="text-sm text-zinc-700 dark:text-zinc-200">
@@ -497,7 +552,7 @@ export function EquipmentTab({
       ) : null}
       {comparing ? (
         <div
-          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
           aria-live="polite"
         >
           <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
@@ -520,7 +575,7 @@ export function EquipmentTab({
       ) : null}
       {locking ? (
         <div
-          className={`${SURFACE_CARD} sticky bottom-2 z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
+          className={`${SURFACE_CARD} sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 flex flex-wrap items-center justify-between gap-2 p-2.5`}
           aria-live="polite"
         >
           <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">

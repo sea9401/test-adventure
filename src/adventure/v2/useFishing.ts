@@ -20,6 +20,7 @@ import type { AutoGatheringActivity } from "./autoGathering";
 import { useFishingCodexContext } from "./GameStateProvider";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import { parseDiningXpBonus } from "./diningXpBonus";
 import { parseMasterProductGain } from "./masterProductGain";
 import {
   parseFishingCatchItemDailyProgress,
@@ -220,6 +221,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
             dailyCatchCoins: nextDailyCatchCoins,
             levelRewardCoins: Number(j.levelRewardCoins ?? 0),
             masterProduct: parseMasterProductGain(j),
+            diningXpBonus: parseDiningXpBonus(j),
             special:
               j.special && typeof j.special === "object"
                 ? {

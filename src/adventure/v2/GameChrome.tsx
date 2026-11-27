@@ -75,6 +75,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const showStamina = shouldShowStaminaBar(pathname);
   const pinStamina =
     pathname === "/battle/dungeon" || pathname.startsWith("/battle/dungeon/");
+  const isHuntFloor = pathname.startsWith("/battle/dungeon/");
 
   useEffect(() => {
     const chrome = chromeRef.current;
@@ -148,7 +149,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     >
       <a
         href="#game-main-content"
-        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-violet-700 px-4 py-2 font-semibold text-white shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2"
+        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-primary px-4 py-2 font-semibold text-on-primary shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2"
       >
         본문으로 바로가기
       </a>
@@ -186,6 +187,15 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      {/* 휴대폰 폭의 메인 메뉴 — 화면 아래 고정 바. 헤더의 겹침 순서에 묶이면 아래에서
+          올라오는 창을 가리므로 헤더 밖에 둔다. PC 폭에서는 위 헤더 안의 탭이 보인다. */}
+      <MainTabNav
+        placement="bottom"
+        activeKey={activeTab}
+        gameStateLoaded={gameStateLoaded}
+        viewerGuildId={viewerGuildId}
+        onNavigate={(href) => router.push(href)}
+      />
       <UgcConsentPrompt />
       {/* 전역 채팅 — 메뉴 안에 묻히지 않도록 모든 게임 화면 우하단에 고정한다.
           모바일은 하단 액션 바를 피하고, 단일 인스턴스라 폴링·읽음 상태도 중복되지 않는다. */}
@@ -208,7 +218,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       <div id="game-main-content" tabIndex={-1}>
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
-          <div className={`mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6 ${pinStamina ? "sticky top-[var(--game-header-height,4rem)] z-30" : ""}`}>
+          // 사냥 층 화면은 휴대폰에서 상단바의 스태미나 수치로 충분해, 화면을 차지하는 막대는 숨긴다.
+          <div className={`mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6 ${pinStamina ? "sticky top-[var(--game-header-height,4rem)] z-30" : ""} ${isHuntFloor ? "max-sm:hidden" : ""}`}>
             <StaminaBar
               compact={pinStamina}
               state={stamina}
@@ -220,9 +231,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           </div>
         )}
         {/* 모바일에서는 우하단 고정 채팅 버튼 뒤로 마지막 컨트롤이 가려지지 않도록
-            버튼 높이·위치와 기기 하단 안전 영역만큼 스크롤 여유를 둔다. */}
+            버튼 높이·위치와 기기 하단 안전 영역, 하단 메뉴 바 높이만큼 스크롤 여유를 둔다. */}
         <GameContentTransition>
-          <div className="pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:pb-0">
+          <div className="pb-[calc(env(safe-area-inset-bottom)+9rem+var(--game-bottom-nav,0px))] sm:pb-[var(--game-bottom-nav,0px)]">
             {children}
           </div>
         </GameContentTransition>

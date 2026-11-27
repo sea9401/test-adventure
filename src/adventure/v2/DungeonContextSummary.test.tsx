@@ -19,7 +19,9 @@ describe("압축 던전 문맥", () => {
     expect(html).not.toContain("1,234");
     expect(html).not.toContain("난이도 지표");
     expect(html).toContain("조금 위험");
-    expect(html.match(/ui-game-card/g)).toHaveLength(1);
-    expect(html).toContain("dark:bg-zinc-950");
+    // 제목을 상자로 감싸지 않고, 안내 줄만 불투명한 면 위에 둔다.
+    expect(html).not.toContain("ui-game-card");
+    expect(html.match(/ui-surface-card/g)).toHaveLength(1);
+    expect(html).toContain("dark:bg-zinc-900");
   });
 });

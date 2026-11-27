@@ -96,7 +96,7 @@ export function DangerousFishingEncounterPanel({
           color="bg-sky-500"
         />
       </div>
-      <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 grid grid-cols-3 gap-2 rounded-xl bg-white p-2 shadow-lg dark:bg-zinc-900">
+      <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 grid grid-cols-3 gap-2 rounded-xl bg-white p-2 shadow-lg dark:bg-zinc-900">
         <Button
           size="md"
           variant="info"

@@ -609,9 +609,9 @@ export function V2UnexploredTreeView({
               role="tab"
               aria-selected={selected}
               aria-controls={`unexplored-panel-${tab.id}`}
-              className={`min-h-11 rounded-lg px-2 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+              className={`min-h-11 rounded-lg px-2 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
                 selected
-                  ? "bg-violet-600 text-white dark:bg-violet-500 dark:text-white"
+                  ? "bg-primary text-on-primary"
                   : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
               }`}
               onClick={() => setActiveTab(tab.id)}

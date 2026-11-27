@@ -95,7 +95,7 @@ export function StormExpeditionCommandMap({
               type="button"
               aria-pressed={entry.selectedMode === "practice"}
               onClick={() => entry.onModeChange("practice")}
-              className={`min-h-11 rounded-md border px-4 font-semibold ${entry.selectedMode === "practice" ? "border-violet-500 bg-violet-600 text-white" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"}`}
+              className={`min-h-11 rounded-md border px-4 font-semibold ${entry.selectedMode === "practice" ? "border-primary-border bg-primary text-on-primary" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"}`}
             >
               연습 시작
             </button>

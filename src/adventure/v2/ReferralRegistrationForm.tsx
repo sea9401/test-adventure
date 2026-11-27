@@ -82,7 +82,7 @@ export function ReferralRegistrationForm({
           onChange={(event) => setReferral(event.target.value)}
           autoComplete="off"
           placeholder="https://msmsge.com/r/… 또는 16자리 코드"
-          className={`${SURFACE_INSET} min-h-11 w-full px-3 py-2 text-sm text-zinc-800 outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-100`}
+          className={`${SURFACE_INSET} min-h-11 w-full px-3 py-2 text-sm text-zinc-800 outline-none focus-visible:ring-2 focus-visible:ring-focus dark:text-zinc-100`}
         />
         <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">
           추천인은 계정당 한 번만 등록할 수 있으며 등록 후 변경하거나 취소할 수

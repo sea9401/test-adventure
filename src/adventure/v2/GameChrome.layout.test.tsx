@@ -73,6 +73,24 @@ describe("GameChrome 결합형 게임 헤더", () => {
     expect(bar?.className).toContain("dark:bg-zinc-950");
   });
 
+  it("사냥 층 화면의 스태미너 막대는 휴대폰 폭에서 숨기고 사냥터 목록에서는 그대로 둔다", () => {
+    routeState.huntStaminaMode = true;
+    const wrapperClass = (pathname: string) => {
+      routeState.pathname = pathname;
+      const container = document.createElement("div");
+      container.innerHTML = renderToStaticMarkup(
+        <GameChrome>
+          <main>전투 결과</main>
+        </GameChrome>,
+      );
+      return within(container).getByText("스태미너").parentElement
+        ?.parentElement?.parentElement?.className;
+    };
+
+    expect(wrapperClass("/battle/dungeon/95")).toContain("max-sm:hidden");
+    expect(wrapperClass("/battle/dungeon")).not.toContain("max-sm:hidden");
+  });
+
   it("협동 보스는 상단 바와 겹치는 화면 안 스태미너 카드를 두지 않는다", () => {
     routeState.pathname = "/battle/coop";
     routeState.huntStaminaMode = true;
@@ -105,6 +123,33 @@ describe("GameChrome 결합형 게임 헤더", () => {
     const target = container.querySelector("#game-main-content");
     expect(target?.getAttribute("tabindex")).toBe("-1");
     expect(target?.querySelectorAll("main")).toHaveLength(1);
+  });
+
+  it("휴대폰용 하단 메뉴 바를 헤더 밖에 두고 본문 아래 여백에 바 높이를 더한다", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(
+      <GameChrome>
+        <main>게임 콘텐츠</main>
+      </GameChrome>,
+    );
+
+    const navs = container.querySelectorAll('nav[aria-label="메인 메뉴"]');
+    expect(navs).toHaveLength(2);
+    const bottomNav = container.querySelector("nav[data-game-bottom-nav]");
+    expect(bottomNav).not.toBeNull();
+    // 헤더의 겹침 순서에 묶이면 아래에서 올라오는 창을 가리므로 헤더 밖에 둔다.
+    expect(bottomNav?.closest("header")).toBeNull();
+    expect(
+      container.querySelector("header nav[aria-label=\"메인 메뉴\"]")?.className,
+    ).toContain("md:block");
+
+    const main = container.querySelector("main");
+    expect(main?.parentElement?.className).toContain(
+      "pb-[calc(env(safe-area-inset-bottom)+9rem+var(--game-bottom-nav,0px))]",
+    );
+    expect(main?.parentElement?.className).toContain(
+      "sm:pb-[var(--game-bottom-nav,0px)]",
+    );
   });
 
   it("헤더 표면과 내부 콘텐츠가 화면 상단과 좌우를 모두 채운다", () => {

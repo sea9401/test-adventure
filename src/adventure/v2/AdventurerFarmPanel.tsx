@@ -955,7 +955,7 @@ function FarmToastMessage({
       key={toast.id}
       role="status"
       aria-live="polite"
-      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem+var(--game-bottom-nav,0px))] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
         ok
           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-zinc-950 dark:text-emerald-100"
           : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-zinc-950 dark:text-rose-100"

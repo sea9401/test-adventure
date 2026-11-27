@@ -238,7 +238,7 @@ export function GuildAlchemyWorkshopPanel({
                   onClick={() => setTarget(option.id)}
                   className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
                     target === option.id
-                      ? "bg-violet-600 text-white"
+                      ? "bg-primary text-on-primary"
                       : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                   }`}
                 >

@@ -34,11 +34,12 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("문장 화면", () => {
-  it("맨 위에 장착한 문장으로 레벨업마다 얻는 능력치 합계를 보여 주고 규칙은 접어 둔다", async () => {
+  it("장착 칸 아래에 장착한 문장으로 레벨업마다 얻는 능력치 합계를 보여 주고 규칙은 접어 둔다", async () => {
     respondWith(sample);
     render(<V2EmblemView />);
 
     const summary = await screen.findByRole("region", { name: "레벨업 성장 요약" });
+    expect(screen.getByRole("region", { name: "장착 칸" }).contains(summary)).toBe(true);
     expect(summary.textContent).toContain("HP +0~15");
     expect(summary.textContent).toContain("힘 +0~2");
     const rules = summary.querySelector("details");
@@ -83,6 +84,25 @@ describe("문장 화면", () => {
     expect(within(inventory).getByRole("button", { name: /HP 3등급.*1개/ }).textContent).toContain("장착");
   });
 
+  it("문장마다 종류 그림을 보여 주고 등급 색 안내를 한 줄 붙인다", async () => {
+    respondWith(sample);
+    render(<V2EmblemView />);
+
+    const inventory = await screen.findByRole("region", { name: "보유 문장" });
+    const dex = within(inventory).getByRole("button", { name: /민첩 1등급.*3개/ });
+    expect(dex.querySelector("img")?.getAttribute("src")).toContain("emblem%2Fdex.webp");
+    expect(dex.textContent).toContain("×3");
+    const hp = within(inventory).getByRole("button", { name: /HP 3등급.*1개/ });
+    expect(hp.querySelector("img")?.getAttribute("src")).toContain("emblem%2Fhp.webp");
+    expect(hp.textContent).not.toContain("×");
+    const legend = within(inventory).getByRole("list", { name: "등급 색" });
+    expect(within(legend).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["1등급", "2등급", "3등급", "4등급", "5등급"]);
+
+    const slot = screen.getByRole("button", { name: "칸 1: 힘 2등급" });
+    expect(slot.querySelector("img")?.getAttribute("src")).toContain("emblem%2Fstr.webp");
+    expect(slot.textContent).toContain("+0~2");
+  });
+
   it("묶음을 열면 성공률과 재료 소모를 보여 주고, 합성하기를 눌러야 합성한다", async () => {
     respondWith(sample);
     render(<V2EmblemView />);
@@ -96,8 +116,8 @@ describe("문장 화면", () => {
     respondWith({ ...sample, owned: sample.owned.filter((item) => item.iid !== "dex-b") }, { success: false });
     fireEvent.click(within(detail).getByRole("button", { name: "합성하기" }));
 
-    const row = screen.getByRole("group", { name: "민첩 문장" });
-    expect((await within(row).findByText(/합성에 실패했습니다/)).textContent).toContain("재료만 소모");
+    const inventory = screen.getByRole("region", { name: "보유 문장" });
+    expect((await within(inventory).findByText(/합성에 실패했습니다/)).textContent).toContain("재료만 소모");
     expect(lastBody()).toEqual({ action: "fuse", iid: "dex-a", materialIid: "dex-b", expectedRevision: 7 });
   });
 

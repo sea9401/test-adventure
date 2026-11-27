@@ -111,7 +111,7 @@ export function VersionCheck() {
   if (!updateAvailable) return null;
 
   return (
-    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-full border border-emerald-700/40 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem+var(--game-bottom-nav,0px))] left-1/2 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-full border border-emerald-700/40 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-lg">
       <span>새 버전이 나왔습니다.</span>
       <button
         type="button"

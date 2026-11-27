@@ -29,7 +29,7 @@ export function RecentBulletinPreview() {
         <h2 id="recent-bulletin-title" className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <ChatsCircle size={19} className="text-sky-600" aria-hidden /> 최근 게시글
         </h2>
-        <a href="/plaza/bulletin" className="flex min-h-11 items-center gap-1 px-1 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+        <a href="/plaza/bulletin" className="flex min-h-11 items-center gap-1 px-1 text-xs font-medium text-selected">
           전체 보기 <ArrowRight size={14} aria-hidden />
         </a>
       </div>
@@ -39,7 +39,7 @@ export function RecentBulletinPreview() {
         ) : posts.length === 0 ? (
           <p className="py-3 text-xs text-zinc-500">표시할 게시글이 없습니다.</p>
         ) : posts.map((post) => (
-          <a key={post.id} href="/plaza/bulletin" className={`${SURFACE_INSET} block min-h-11 px-3 py-2 hover:ring-1 hover:ring-indigo-300`}>
+          <a key={post.id} href="/plaza/bulletin" className={`${SURFACE_INSET} block min-h-11 px-3 py-2 hover:ring-1 hover:ring-selected-line/40`}>
             <span className="block truncate text-base font-medium text-zinc-700 dark:text-zinc-200">{post.title || post.content}</span>
             <span className="block truncate text-[0.6875rem] text-zinc-500">{post.name} · 댓글 {post.commentCount}</span>
           </a>

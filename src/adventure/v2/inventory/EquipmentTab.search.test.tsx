@@ -55,13 +55,13 @@ it("장비 이름이 아니라 세트 이름으로도 검색한다", () => {
 it("잠금 필터는 전체 → 잠금만 → 미잠금만 순서로 바뀌고 미잠금 장비만 거른다", () => {
   const setLockFilter = vi.fn();
   const { rerender } = render(<EquipmentTab {...props} pageSize={20} search="" setLockFilter={setLockFilter} />);
-  fireEvent.click(screen.getByRole("button", { name: "잠금만 보기 (2)" }));
+  fireEvent.click(screen.getByRole("button", { name: "잠금 2" }));
   expect(setLockFilter).toHaveBeenLastCalledWith("locked");
   rerender(<EquipmentTab {...props} pageSize={20} search="" lockFilter="locked" setLockFilter={setLockFilter} />);
-  fireEvent.click(screen.getByRole("button", { name: "잠금만 보기 (2)" }));
+  fireEvent.click(screen.getByRole("button", { name: "잠금만 2" }));
   expect(setLockFilter).toHaveBeenLastCalledWith("unlocked");
   rerender(<EquipmentTab {...props} pageSize={20} search="" lockFilter="unlocked" setLockFilter={setLockFilter} />);
-  const unlockedButton = screen.getByRole("button", { name: "미잠금만 보기 (1)" });
+  const unlockedButton = screen.getByRole("button", { name: "미잠금만 1" });
   expect(unlockedButton.getAttribute("aria-pressed")).toBe("true");
   expect(screen.getAllByText("철검")).toHaveLength(1);
   expect(screen.queryByText("미스릴검")).toBeNull();
@@ -79,13 +79,13 @@ it("유니크만 보기는 유니크 장비만 남기고 잠금 필터와 함께
   const { rerender } = render(
     <EquipmentTab {...props} instances={instances} pageSize={20} uniqueOnly={false} setUniqueOnly={setUniqueOnly} />,
   );
-  const button = screen.getByRole("button", { name: "유니크만 보기 (2)" });
+  const button = screen.getByRole("button", { name: "유니크 2" });
   expect(button.getAttribute("aria-pressed")).toBe("false");
   fireEvent.click(button);
   expect(setUniqueOnly).toHaveBeenLastCalledWith(true);
 
   rerender(<EquipmentTab {...props} instances={instances} pageSize={20} uniqueOnly setUniqueOnly={setUniqueOnly} />);
-  expect(screen.getByRole("button", { name: "유니크만 보기 (2)" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "유니크만 2" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getAllByText("산군의 분쇄도끼")).toHaveLength(2);
   expect(screen.queryByText("철검")).toBeNull();
 

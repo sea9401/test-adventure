@@ -15,7 +15,6 @@ import {
   type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { Inset } from "@/components/ui/Inset";
 import {
   anchorOf,
   powerNameClass,
@@ -46,80 +45,96 @@ export function EquippedItemSummaryGrid({
   onOpen: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
 }) {
   const byIid = new Map(owned.map((inst) => [inst.iid, inst]));
-  return (
-    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 lg:grid-cols-2" aria-label="장착 장비">
-      {EQUIPPED_SUMMARY_SLOTS.map(({ slot, label, Icon, color }) => {
-        const iid = equipped[slot];
-        const inst = iid ? byIid.get(iid) : undefined;
-        const item = inst ? V2_EQUIPMENT[inst.id] : undefined;
-        const setNames = item
-          ? Array.from(
-              new Set(
-                [
-                  item.setId
-                    ? V2_EQUIP_SETS.find((set) => set.id === item.setId)?.name
-                    : undefined,
-                  ...(item.setTags ?? []).map(
-                    (tag) =>
-                      V2_EQUIP_TAG_SETS.find((set) => set.id === tag)?.name,
-                  ),
-                ].filter((name): name is string => Boolean(name)),
+  const slots = EQUIPPED_SUMMARY_SLOTS.map((entry) => {
+    const iid = equipped[entry.slot];
+    const inst = iid ? byIid.get(iid) : undefined;
+    const item = inst ? V2_EQUIPMENT[inst.id] : undefined;
+    const setNames = item
+      ? Array.from(
+          new Set(
+            [
+              item.setId
+                ? V2_EQUIP_SETS.find((set) => set.id === item.setId)?.name
+                : undefined,
+              ...(item.setTags ?? []).map(
+                (tag) => V2_EQUIP_TAG_SETS.find((set) => set.id === tag)?.name,
               ),
-            )
-          : [];
-        const setLabel = setNames.length
-          ? `세트 · ${setNames.join(", ")}`
-          : "세트 없음";
-        const content = (
-          <>
-            <span className="flex items-center justify-center gap-1">
-              <Icon size={17} weight="duotone" className={color} aria-hidden />
-              <span className="text-[0.625rem] text-zinc-500 dark:text-zinc-400">{label}</span>
-            </span>
-            <span className={`flex min-w-0 items-baseline justify-center text-[0.6875rem] font-semibold ${item ? powerNameClass(item, inst?.roll) : "text-zinc-600 dark:text-zinc-400"}`}>
-              <span className="truncate">{item?.name ?? "비어 있음"}</span>
-              {inst?.enhance && inst.enhance.level > 0 && (
-                <span className="ml-0.5 shrink-0 text-amber-600 dark:text-amber-400">+{inst.enhance.level}</span>
-              )}
-            </span>
-            {item ? (
-              <span
-                data-testid="equipped-set-label"
-                title={setLabel}
-                className={`w-full truncate text-[0.625rem] leading-tight ${
-                  setNames.length
-                    ? "font-medium text-violet-600 dark:text-violet-400"
-                    : "text-zinc-600 dark:text-zinc-400"
-                }`}
-              >
-                {setLabel}
+            ].filter((name): name is string => Boolean(name)),
+          ),
+        )
+      : [];
+    return { ...entry, inst, item, setNames };
+  });
+  const anyEquipped = slots.some((entry) => entry.item);
+  const anySet = slots.some((entry) => entry.setNames.length > 0);
+  // 칸마다 상자를 두지 않고, 세트가 없다는 말은 칸마다 되풀이하지 않고 머리에 한 번만 적는다.
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-[0.8125rem] font-semibold text-zinc-700 dark:text-zinc-200">
+          장착 중
+        </h2>
+        {anyEquipped && !anySet ? (
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            세트 효과 없음
+          </span>
+        ) : null}
+      </div>
+      <div
+        className="mt-2 grid grid-cols-3 gap-x-1.5 gap-y-1 sm:grid-cols-6 lg:grid-cols-2"
+        aria-label="장착 장비"
+      >
+        {slots.map(({ slot, label, Icon, color, inst, item, setNames }) => {
+          const setLabel = setNames.join(", ");
+          const content = (
+            <>
+              <Icon size={20} weight="duotone" className={`shrink-0 ${color}`} aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`flex min-w-0 items-baseline text-[0.8125rem] font-semibold leading-snug ${item ? powerNameClass(item, inst?.roll) : "text-zinc-500 dark:text-zinc-400"}`}
+                >
+                  <span className="truncate">{item?.name ?? "비어 있음"}</span>
+                  {inst?.enhance && inst.enhance.level > 0 && (
+                    <span className="ml-0.5 shrink-0 text-amber-600 dark:text-amber-400">
+                      +{inst.enhance.level}
+                    </span>
+                  )}
+                </span>
+                <span className="block truncate text-[0.6875rem] leading-snug text-zinc-500 dark:text-zinc-400">
+                  {label}
+                  {setLabel ? (
+                    <span
+                      data-testid="equipped-set-label"
+                      title={`세트 · ${setLabel}`}
+                      className="font-medium text-violet-600 dark:text-violet-400"
+                    >
+                      {" · "}
+                      {setLabel}
+                    </span>
+                  ) : null}
+                </span>
               </span>
-            ) : (
-              <span className="text-[0.625rem] leading-tight text-zinc-300 dark:text-zinc-700">
-                —
-              </span>
-            )}
-          </>
-        );
-        return inst && item ? (
-          <Inset
-            as="button"
-            padding="none"
-            key={slot}
-            type="button"
-            onClick={(event) => onOpen(inst, anchorOf(event.currentTarget))}
-            aria-label={`${label} ${item.name} 정보`}
-            title={`${item.name}${inst.enhance?.level ? ` +${inst.enhance.level}` : ""}`}
-            className="flex min-h-16 min-w-0 flex-col justify-center gap-1 px-1.5 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white hover:bg-zinc-100 dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 dark:hover:bg-zinc-900"
-          >
-            {content}
-          </Inset>
-        ) : (
-          <Inset key={slot} padding="none" className="flex min-h-16 min-w-0 flex-col justify-center gap-1 px-1.5 py-1.5 text-center">
-            {content}
-          </Inset>
-        );
-      })}
+            </>
+          );
+          const cell = "flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-left";
+          return inst && item ? (
+            <button
+              key={slot}
+              type="button"
+              onClick={(event) => onOpen(inst, anchorOf(event.currentTarget))}
+              aria-label={`${label} ${item.name} 정보`}
+              title={`${item.name}${inst.enhance?.level ? ` +${inst.enhance.level}` : ""}`}
+              className={`${cell} transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:hover:bg-zinc-800 dark:focus-visible:ring-offset-zinc-950`}
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={slot} className={cell}>
+              {content}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

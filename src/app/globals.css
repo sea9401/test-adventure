@@ -50,28 +50,28 @@
   --foreground: #171717;
   /* 화면 스타일 의미 토큰(클래식 값). 금빛 값은 아래 "화면 스타일: 금빛" 섹션에서 덮는다.
      컴포넌트는 bg-primary, text-selected 같은 유틸리티로만 쓴다. */
-  --ui-primary: var(--color-violet-600);
-  --ui-primary-hover: var(--color-violet-700);
-  --ui-primary-border: var(--color-violet-600);
+  --ui-primary: var(--color-emerald-700);
+  --ui-primary-hover: var(--color-emerald-800);
+  --ui-primary-border: var(--color-emerald-700);
   --ui-on-primary: var(--color-white);
-  --ui-selected: var(--color-violet-700);
-  --ui-selected-line: var(--color-violet-600);
-  --ui-selected-hover: var(--color-violet-600);
-  --ui-focus: var(--color-violet-500);
+  --ui-selected: var(--color-emerald-700);
+  --ui-selected-line: var(--color-emerald-700);
+  --ui-selected-hover: var(--color-emerald-700);
+  --ui-focus: var(--color-emerald-600);
 }
 
 .dark {
   color-scheme: dark;
   --background: #0a0a0a;
   --foreground: #ededed;
-  --ui-primary: var(--color-violet-500);
-  --ui-primary-hover: var(--color-violet-400);
-  --ui-primary-border: var(--color-violet-500);
+  --ui-primary: var(--color-emerald-600);
+  --ui-primary-hover: var(--color-emerald-500);
+  --ui-primary-border: var(--color-emerald-600);
   --ui-on-primary: var(--color-white);
-  --ui-selected: var(--color-violet-300);
-  --ui-selected-line: var(--color-violet-400);
-  --ui-selected-hover: var(--color-violet-300);
-  --ui-focus: var(--color-violet-400);
+  --ui-selected: var(--color-emerald-300);
+  --ui-selected-line: var(--color-emerald-400);
+  --ui-selected-hover: var(--color-emerald-300);
+  --ui-focus: var(--color-emerald-400);
 }
 
 @theme inline {
@@ -3182,6 +3182,30 @@ body {
 html.ui-discreet-mode .ui-row-thumb,
 html.ui-terminal-mode .ui-row-thumb {
   display: none;
+}
+
+/* 문장 그림 — 은신 모드와 터미널 모드에서는 색 있는 그림 대신 선 아이콘을 보여 준다. */
+html.ui-discreet-mode .ui-emblem-art,
+html.ui-terminal-mode .ui-emblem-art {
+  display: none;
+}
+
+html.ui-discreet-mode .ui-emblem-fallback,
+html.ui-terminal-mode .ui-emblem-fallback {
+  display: flex;
+}
+
+/* 휴대폰 폭의 하단 메뉴 바 높이(기기 하단 안전 영역 제외). 화면 아래에 고정되는 요소는
+   이 값을 더해 바 위에 놓는다. 바가 없는 화면과 PC 폭에서는 0이다.
+   바의 실제 높이(탭 min-h-14 = 3.5rem)와 같아야 바에 붙는 요소와의 사이에 틈이 생기지 않는다. */
+:root:has([data-game-bottom-nav]) {
+  --game-bottom-nav: 3.5rem;
+}
+
+@media (min-width: 768px) {
+  :root:has([data-game-bottom-nav]) {
+    --game-bottom-nav: 0px;
+  }
 }
 
 .ui-chat-badge {

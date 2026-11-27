@@ -84,7 +84,7 @@ function EquipmentCandidateCard({
       aria-selected={selected}
       disabled={busy}
       onClick={() => onSelect(candidate.iid)}
-      className={`${SURFACE_INSET} ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-40 flex-col gap-1.5 rounded-xl p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-wait disabled:opacity-50 ${
+      className={`${SURFACE_INSET} ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-40 flex-col gap-1.5 rounded-xl p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-50 ${
         selected
           ? "border-violet-500 ring-2 ring-violet-200 dark:border-violet-400 dark:ring-violet-900"
           : "hover:border-violet-400 hover:bg-violet-50 dark:hover:border-violet-500 dark:hover:bg-violet-950"

@@ -17,7 +17,9 @@ import {
   Crown,
   FirstAid,
   Fish,
+  FlagBanner,
   Hammer,
+  House,
   Lightning,
   Package,
   PottedPlant,
@@ -47,10 +49,14 @@ import {
   type GuildFacilityId,
 } from "./guild/guildFacilities";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
-import type { AdventureActivityView } from "./adventureDashboard";
+import type {
+  AdventureActivityView,
+  AdventureDashboardSnapshot,
+} from "./adventureDashboard";
 
 // 메인 내비 — 가로 6탭(모험/전투/마을/생활/캐릭터/길드). 하위 메뉴가 있는 탭은 누르면
-// 드롭다운으로 내려온다. 길드는 기존 길드 화면 + 준비된 기본 시설을 동적으로 노출한다.
+// 드롭다운으로 내려온다. 휴대폰 폭에서는 같은 탭을 화면 아래 고정 바(placement="bottom")로
+// 보여 주고, 하위 메뉴는 바 위로 펼친다. 길드는 기존 길드 화면 + 준비된 기본 시설을 동적으로 노출한다.
 // 색·활성 표기는 기존 탭바(highlight)와 동일한 인디고 언어. 드롭다운 항목은 각 탭 홈 카드와
 // 같은 아이콘·색을 재사용해 일관·깔끔하게 보이도록 한다.
 
@@ -61,7 +67,17 @@ type SubItem = {
   Icon: Icon;
   color: string;
 };
-type TabDef = { key: string; label: string; href: string; sub?: SubItem[] };
+type TabDef = {
+  key: string;
+  label: string;
+  href: string;
+  /** 하단 메뉴 바에서 이름 위에 놓는 아이콘. */
+  Icon: Icon;
+  sub?: SubItem[];
+};
+
+// 하단 메뉴 바에만 나오는 홈 탭. PC에서는 상단바의 홈 아이콘이 같은 역할을 한다.
+const HOME_TAB: TabDef = { key: "adventure", label: "홈", href: "/", Icon: House };
 
 const GUILD_ROOT_ITEM: SubItem = {
   label: "길드",
@@ -205,6 +221,33 @@ export function menuActivityStateForHref(
     : null;
 }
 
+/** 메뉴 한 칸의 상태 글과 할 일 표시. 하단 메뉴 펼침과 메뉴 화면 타일이 같은 규칙을 쓴다. */
+export function menuItemStatusForHref(
+  snapshot:
+    | Pick<AdventureDashboardSnapshot, "activities" | "notifications">
+    | null
+    | undefined,
+  href: string,
+  label: string,
+  activityHrefs: readonly string[] = knownActivityHrefs(href),
+): { text: string; actionable: boolean } | null {
+  const state = menuActivityStateForHref(
+    snapshot?.activities ?? [],
+    href,
+    label,
+    activityHrefs,
+  );
+  if (!state) return null;
+  return {
+    text: state.text,
+    actionable:
+      state.actionable &&
+      [href, ...activityHrefs].some(
+        (path) => snapshot?.notifications.paths[path] === true,
+      ),
+  };
+}
+
 export function lifeMenuStateForHref(
   activities: readonly AdventureActivityView[],
   href: string,
@@ -250,6 +293,7 @@ export const CHARACTER_MENU_ITEMS = [
 const TABS: TabDef[] = [
   {
     key: "battle",
+    Icon: Sword,
     label: "전투",
     href: "/battle",
     sub: [
@@ -263,31 +307,46 @@ const TABS: TabDef[] = [
   },
   {
     key: "town",
+    Icon: Buildings,
     label: "마을",
     href: "/town",
     sub: TOWN_MENU_ITEMS,
   },
   {
     key: "life",
+    Icon: PottedPlant,
     label: "생활",
     href: "/map",
     sub: LIFE_MENU_ITEMS,
   },
   {
     key: "character",
+    Icon: UserCircle,
     label: "캐릭터",
     href: "/character",
     sub: CHARACTER_MENU_ITEMS,
   },
-  { key: "guild", label: "길드", href: "/guild", sub: [GUILD_ROOT_ITEM] },
+  { key: "guild", label: "길드", href: "/guild", Icon: FlagBanner, sub: [GUILD_ROOT_ITEM] },
 ];
+
+/** 하단 메뉴 항목에 딸린 활동 경로(예: 던전 → 폭풍 원정·성소). 메뉴 화면 타일도 같은 묶음을 쓴다. */
+function knownActivityHrefs(href: string): readonly string[] {
+  for (const tab of TABS) {
+    const item = tab.sub?.find((sub) => sub.href === href);
+    if (item) return item.activityHrefs ?? [];
+  }
+  return [];
+}
 
 export function MainTabNav({
   activeKey,
   gameStateLoaded,
   onNavigate,
   viewerGuildId,
+  placement = "top",
 }: {
+  /** top: 상단바 안의 PC용 탭. bottom: 휴대폰 폭의 화면 아래 고정 바. */
+  placement?: "top" | "bottom";
   // 현재 활성 탭 key(경로 파생). TABS 에 없는 값(예: plaza)이면 아무 탭도 강조 안 함.
   activeKey: string;
   gameStateLoaded: boolean;
@@ -347,9 +406,138 @@ export function MainTabNav({
         ? townMenuItemsForViewer(viewerGuildId, gameStateLoaded)
       : (openTab?.sub ?? []);
 
+  const onTabPress = (t: TabDef, isOpen: boolean) => {
+    if (t.sub) {
+      const nextOpen = isOpen ? null : t.key;
+      setOpenKey(nextOpen);
+      if (nextOpen === "guild" && viewerGuildId != null) {
+        void refreshGuildFacilities(viewerGuildId);
+      }
+    } else {
+      close();
+      onNavigate(t.href);
+    }
+  };
+
+  const subItemButtons = openSubItems.map((s) => {
+    const activityState = menuItemStatusForHref(
+      snapshot,
+      s.href,
+      s.label,
+      s.activityHrefs ?? [],
+    );
+    const itemHasActionable = activityState?.actionable === true;
+    return (
+      <button
+        key={s.href}
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          close();
+          onNavigate(s.href);
+        }}
+        aria-label={`${s.label}${itemHasActionable ? ", 처리 가능한 항목 있음" : ""}`}
+        className="relative flex h-14 items-center gap-2.5 rounded-lg bg-zinc-50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 md:h-auto md:min-h-9 md:gap-2 md:rounded-md md:px-2.5 md:py-1.5 dark:bg-zinc-950 dark:hover:bg-zinc-900 dark:active:bg-zinc-800"
+      >
+        <s.Icon
+          size={20}
+          weight="duotone"
+          aria-hidden
+          className={`shrink-0 ${s.color}`}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
+            {s.label}
+          </span>
+          {activityState && (
+            <span
+              className={`block truncate text-[0.6875rem] ${itemHasActionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}
+            >
+              {activityState.text}
+            </span>
+          )}
+        </span>
+        {itemHasActionable && (
+          <span
+            aria-hidden
+            className="h-2 w-2 shrink-0 rounded-full bg-orange-500"
+          />
+        )}
+      </button>
+    );
+  });
+
+  if (placement === "bottom") {
+    const bottomTabs = [HOME_TAB, ...TABS];
+    return (
+      <nav
+        data-game-bottom-nav
+        aria-label="메인 메뉴"
+        // 닫혀 있을 때는 아래에서 올라오는 창과 채팅 버튼보다 아래, 펼쳐진 동안에는 그 위에 놓는다.
+        className={`fixed inset-x-0 bottom-0 border-t border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-zinc-700 dark:bg-zinc-900 ${
+          openTab ? "z-[65]" : "z-30"
+        }`}
+      >
+        {openTab && (
+          <div className="fixed inset-0" onClick={close} aria-hidden />
+        )}
+        {openTab && (
+          <div
+            key={openTab.key}
+            role="menu"
+            aria-label={`${openTab.label} 메뉴`}
+            className={`${SURFACE_CARD} ui-dropdown-reveal absolute bottom-full left-0 right-0 mx-2 mb-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3`}
+          >
+            {subItemButtons}
+          </div>
+        )}
+        <div className="relative grid grid-cols-6 px-1 sm:px-3">
+          {bottomTabs.map((t) => {
+            const isActive = t.key === activeKey;
+            const hasSub = !!t.sub;
+            const isOpen = openKey === t.key;
+            const hasActionable =
+              snapshot?.notifications.tabs[
+                t.key as keyof typeof snapshot.notifications.tabs
+              ] === true;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                aria-current={isActive ? "page" : undefined}
+                aria-haspopup={hasSub ? "menu" : undefined}
+                aria-expanded={hasSub ? isOpen : undefined}
+                onClick={() => onTabPress(t, isOpen)}
+                aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
+                className={`relative -mt-px flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 border-t-2 px-0.5 py-1.5 text-xs font-semibold transition-colors ${
+                  isActive
+                    ? "border-selected-line text-selected"
+                    : "border-transparent text-zinc-500 hover:text-selected-hover dark:text-zinc-400"
+                } ${isOpen ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
+              >
+                <t.Icon
+                  size={22}
+                  weight={isActive || isOpen ? "fill" : "regular"}
+                  aria-hidden
+                />
+                <span className="max-w-full truncate">{t.label}</span>
+                {hasActionable && (
+                  <span
+                    aria-hidden
+                    className="absolute right-[calc(50%-1.1rem)] top-1.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white dark:ring-zinc-900"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <nav
-      className="relative w-full md:col-start-2 md:row-start-1 md:w-auto"
+      className="relative hidden w-full md:col-start-2 md:row-start-1 md:block md:w-auto"
       aria-label="메인 메뉴"
     >
       {openTab && (
@@ -370,18 +558,7 @@ export function MainTabNav({
                 type="button"
                 aria-haspopup={hasSub ? "menu" : undefined}
                 aria-expanded={hasSub ? isOpen : undefined}
-                onClick={() => {
-                  if (hasSub) {
-                    const nextOpen = isOpen ? null : t.key;
-                    setOpenKey(nextOpen);
-                    if (nextOpen === "guild" && viewerGuildId != null) {
-                      void refreshGuildFacilities(viewerGuildId);
-                    }
-                  } else {
-                    close();
-                    onNavigate(t.href);
-                  }
-                }}
+                onClick={() => onTabPress(t, isOpen)}
                 aria-label={`${t.label}${hasActionable ? ", 처리 가능한 항목 있음" : ""}`}
                 className={`relative -mb-px flex min-h-11 min-w-0 items-center justify-center gap-0.5 whitespace-nowrap border-b-2 px-0.5 py-2 text-sm font-semibold transition-colors sm:gap-1 sm:px-2 md:min-h-16 md:px-3.5 md:text-base md:font-bold ${
                   isActive
@@ -412,61 +589,7 @@ export function MainTabNav({
                   aria-label={`${openTab.label} 메뉴`}
                   className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3 md:left-1/2 md:right-auto md:mx-0 md:w-64 md:-translate-x-1/2 md:grid-cols-1 md:gap-0.5 md:p-1.5`}
                 >
-                  {openSubItems.map((s) => {
-                    const activityState = menuActivityStateForHref(
-                      snapshot?.activities ?? [],
-                      s.href,
-                      s.label,
-                      s.activityHrefs,
-                    );
-                    const notificationHrefs = [
-                      s.href,
-                      ...(s.activityHrefs ?? []),
-                    ];
-                    const itemHasActionable =
-                      activityState?.actionable === true &&
-                      notificationHrefs.some(
-                        (href) => snapshot?.notifications.paths[href] === true,
-                      );
-                    return (
-                      <button
-                        key={s.href}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          close();
-                          onNavigate(s.href);
-                        }}
-                        aria-label={`${s.label}${itemHasActionable ? ", 처리 가능한 항목 있음" : ""}`}
-                        className="relative flex h-14 items-center gap-2.5 rounded-lg bg-zinc-50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 md:h-auto md:min-h-9 md:gap-2 md:rounded-md md:px-2.5 md:py-1.5 dark:bg-zinc-950 dark:hover:bg-zinc-900 dark:active:bg-zinc-800"
-                      >
-                        <s.Icon
-                          size={20}
-                          weight="duotone"
-                          aria-hidden
-                          className={`shrink-0 ${s.color}`}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
-                            {s.label}
-                          </span>
-                          {activityState && (
-                            <span
-                              className={`block truncate text-[0.6875rem] ${itemHasActionable ? "font-semibold text-orange-700 dark:text-orange-300" : "text-zinc-500 dark:text-zinc-400"}`}
-                            >
-                              {activityState.text}
-                            </span>
-                          )}
-                        </span>
-                        {itemHasActionable && (
-                          <span
-                            aria-hidden
-                            className="h-2 w-2 shrink-0 rounded-full bg-orange-500"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {subItemButtons}
                 </div>
               )}
             </div>

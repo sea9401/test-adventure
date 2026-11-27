@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { CaretDown } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { Inset } from "@/components/ui/Inset";
 import {
@@ -11,13 +12,12 @@ import {
 const HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY =
   "v2-hunt-player-status-expanded.v1";
 
-function loadExpandedPreference(): boolean {
+function loadExpandedPreference(defaultExpanded: boolean): boolean {
   try {
-    return (
-      localStorage.getItem(HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY) !== "false"
-    );
+    const stored = localStorage.getItem(HUNT_PLAYER_STATUS_EXPANDED_STORAGE_KEY);
+    return stored == null ? defaultExpanded : stored !== "false";
   } catch {
-    return true;
+    return defaultExpanded;
   }
 }
 
@@ -41,8 +41,17 @@ export function CompactBattlePlayerStatus({
   mpCharges,
   proficiency = null,
   advanceTargets = [],
+  statsLine,
+  defaultExpanded = true,
   children,
 }: {
+  /**
+   * 접힌 요약을 능력치 한 줄과 충전약 한 줄로 줄일 때 주는 능력치 문구. 이름과 HP·MP를 다른
+   * 카드가 이미 보여 주는 화면(사냥 화면)에서 쓴다.
+   */
+  statsLine?: string;
+  /** 저장된 선택이 없을 때 펼쳐 둘지. */
+  defaultExpanded?: boolean;
   name: string;
   subtitle?: string;
   hp: { hp: number; maxHp: number };
@@ -55,15 +64,15 @@ export function CompactBattlePlayerStatus({
   advanceTargets?: NextAdvanceProficiencyTarget[];
   children: ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const preferenceLoaded = useRef(false);
 
   useEffect(() => {
     // 서버와 첫 클라이언트 렌더는 기본 펼침으로 맞추고, 마운트 뒤 저장값을 복원한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 클라이언트 하이드레이션
-    setExpanded(loadExpandedPreference());
+    setExpanded(loadExpandedPreference(defaultExpanded));
     preferenceLoaded.current = true;
-  }, []);
+  }, [defaultExpanded]);
 
   return (
     <Card
@@ -83,6 +92,41 @@ export function CompactBattlePlayerStatus({
           <span className="block text-right text-[0.6875rem] text-zinc-500 dark:text-zinc-400">
             간략히 보기
           </span>
+        ) : statsLine ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block truncate text-sm text-zinc-800 dark:text-zinc-100">
+                {statsLine}
+              </span>
+              <span className="block truncate text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                <span data-recovery-charge="hp">
+                  HP 충전약 {hpCharges.toLocaleString()}
+                </span>
+                {mp && mp.maxMp > 0 ? (
+                  <span data-recovery-charge="mp">
+                    {" "}
+                    · MP 충전약 {mpCharges.toLocaleString()}
+                  </span>
+                ) : null}
+              </span>
+              {proficiency != null &&
+                advanceTargets.map((target) => (
+                  <span
+                    key={target.required}
+                    data-next-advance
+                    className="mt-0.5 block truncate text-xs leading-tight tabular-nums text-sky-600 dark:text-sky-400"
+                  >
+                    {nextAdvanceLineText(target, proficiency)}
+                  </span>
+                ))}
+            </span>
+            <CaretDown
+              size={18}
+              weight="bold"
+              aria-hidden
+              className="shrink-0 text-zinc-500 dark:text-zinc-400"
+            />
+          </div>
         ) : (
           <div className="flex items-center justify-between gap-3">
             <span className="min-w-0">

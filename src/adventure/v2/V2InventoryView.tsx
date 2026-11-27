@@ -1287,6 +1287,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     });
   }, [itemParam, loading, owned]);
 
+  const searchInput = (
+    <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
+  );
+
   return (
     <PageShell>
       <SubViewHeader title="인벤토리" onBack={onBack} />
@@ -1296,16 +1300,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       <TwoPane
         aside={
           <Card padding="md">
-            <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              장착 중
-            </h2>
-            <div className="mt-2">
-              <EquippedItemSummaryGrid
-                equipped={equipped}
-                owned={owned}
-                onOpen={(inst, anchor) => setCard({ inst, anchor })}
-              />
-            </div>
+            <EquippedItemSummaryGrid
+              equipped={equipped}
+              owned={owned}
+              onOpen={(inst, anchor) => setCard({ inst, anchor })}
+            />
           </Card>
         }
       >
@@ -1323,9 +1322,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             size="sm"
             variant="highlight"
             scrollable
+            fit
           />
 
-          <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
+          {/* 장비 탭은 검색 옆에 작업 버튼을 두려고 검색 칸을 EquipmentTab 안에서 그린다. */}
+          {tab === "consumable" || tab === "material" ? searchInput : null}
 
           {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
 
@@ -1363,6 +1364,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           ) : (
             <EquipmentTab
               search={search}
+              searchSlot={searchInput}
               slot={tab}
               instances={ownedBySlot[tab]}
               equippedIid={equipped[tab] ?? null}

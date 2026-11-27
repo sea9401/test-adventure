@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { V2_EQUIPMENT, v2ItemTypeLabel } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { EquipmentCardGrid } from "./EquipmentCardGrid";
 
 describe("EquipmentCardGrid", () => {
@@ -157,7 +159,38 @@ describe("EquipmentCardGrid", () => {
     expect(statList![0]).toContain("flex-wrap");
     const items = statList![1].match(/<li class="[^"]*whitespace-nowrap[^"]*">/g);
     expect(items!.length).toBeGreaterThanOrEqual(5);
-    expect(html).not.toContain(" · ");
+    expect(statList![1]).not.toContain(" · ");
+  });
+
+  it("티어와 종류는 상자 없이 한 줄 글자로, 품질은 이름과 막대를 붙여 보여 준다", () => {
+    const html = renderToStaticMarkup(
+      <EquipmentCardGrid
+        cards={[
+          {
+            inst: {
+              iid: "rolled",
+              id: "v2_iron_sword",
+              roll: rollItemStats(V2_EQUIPMENT.v2_iron_sword, () => 0.999),
+            },
+            isEquipped: true,
+          },
+          { inst: { iid: "plain", id: "v2_iron_sword" }, isEquipped: false },
+        ]}
+        onOpenCard={() => undefined}
+      />,
+    );
+    const [rolled, plain] = html.split('aria-label="철검 정보"').slice(1);
+
+    // 티어 색은 남기되 상자(테두리·바탕)는 없앤다.
+    expect(rolled).toContain("!bg-transparent");
+    expect(rolled).toContain(v2ItemTypeLabel(V2_EQUIPMENT.v2_iron_sword));
+    expect(rolled).toContain(">품질<");
+    expect(rolled).toMatch(/style="width:\d+%"/);
+    expect(rolled).toContain('aria-label="장착됨"');
+    expect(rolled).toContain(">장착 중<");
+    // 굴림이 없는 장비에는 품질 줄을 만들지 않는다.
+    expect(plain).not.toContain(">품질<");
+    expect(plain).not.toContain(">장착 중<");
   });
 
   it("실제 유니크 장비에만 유니크 배지를 표시한다", () => {

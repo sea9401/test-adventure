@@ -38,12 +38,13 @@ const props: ComponentProps<typeof EquipmentTab> = {
 };
 
 describe("인벤토리 일괄 작업 메뉴", () => {
-  it("도구 줄에는 잠금만 보기·정렬·일괄 작업만 두고 판매 버튼은 메뉴 안에 둔다", () => {
+  it("도구 줄에는 정렬·걸러 보기 칩과 작업 버튼만 두고 판매·비교 버튼은 메뉴 안에 둔다", () => {
     render(<EquipmentTab {...props} />);
 
     const toggle = screen.getByRole("button", { name: "일괄 작업" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByRole("button", { name: "잠금만 보기 (0)" })).toBeTruthy();
+    expect(toggle.textContent).toBe("작업");
+    expect(screen.getByRole("button", { name: "잠금 0" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "장비 정렬 기준" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "미장착 전부 판매" })).toBeNull();
     expect(screen.queryByRole("button", { name: "도감 일괄 등록 (1)" })).toBeNull();

@@ -72,4 +72,14 @@ describe("fishingRewardSummaryLabels", () => {
     ).toEqual(["명장 산물 · 명장 어획 +1", "코인 +4"]);
     expect(fishingRewardSummaryLabels({ coinsGained: 4, masterProduct: null })).toEqual(["코인 +4"]);
   });
+
+  it("식당 효과로 붙은 낚시 경험치를 수치 뒤에 적는다", () => {
+    expect(
+      fishingRewardSummaryLabels({
+        fishingXpGained: 4,
+        fishingLevel: 13,
+        diningXpBonus: { menuName: "일꾼 도시락", xp: 1 },
+      }),
+    ).toEqual(["낚시 경험치 +4 (일꾼 도시락 +1) · 낚시 Lv 13"]);
+  });
 });

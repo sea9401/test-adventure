@@ -3,7 +3,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CookingPanel, CookingWorkspace, cookingErrorText, cookingLevelProgressView } from "./CookingPanel";
+import { CookingPanel, CookingWorkspace, cookingErrorText, cookingLevelProgressView, cookingResultMessage } from "./CookingPanel";
 import { GameStateRefreshProvider } from "./GameStateRefreshContext";
 import { COOKING_PUBLIC_RECIPES } from "./cooking/catalog";
 import { COOKING_SECRET_RECIPES } from "@/lib/server/cooking/recipes";
@@ -470,5 +470,58 @@ describe("개편 요리 연구실", () => {
         "조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +4 · 실패 음식 +1",
       );
     });
+  });
+});
+
+describe("식당 효과로 붙은 요리 경험치 표시(건의 #882)", () => {
+  it("제작 결과에 요리 XP와 식당 효과분을 적는다", () => {
+    const message = cookingResultMessage({
+      ...fixture(),
+      result: {
+        action: "craft",
+        recipeName: "밀빵",
+        quantity: 1,
+        earnedXp: 132,
+        diningXpBonus: { menuName: "일꾼 도시락", xp: 12 },
+      },
+    });
+    expect(message).toContain("요리 XP +132 (일꾼 도시락 +12)");
+  });
+
+  it("연구 실패 결과에도 식당 효과분을 적는다", () => {
+    const message = cookingResultMessage({
+      ...fixture(),
+      result: {
+        action: "research",
+        outcome: "failure",
+        earnedXp: 4,
+        failedDishCount: 1,
+        diningXpBonus: { menuName: "일꾼 도시락", xp: 0 },
+      },
+    });
+    expect(message).toContain("요리 XP +4 (일꾼 도시락 +0, 1 미만은 다음 획득에 합산)");
+  });
+
+  it("연구 성공 결과에도 요리 XP와 식당 효과분을 적는다", () => {
+    const message = cookingResultMessage({
+      ...fixture(),
+      result: {
+        action: "research",
+        outcome: "success",
+        recipeName: "밀빵",
+        earnedXp: 33,
+        diningXpBonus: { menuName: "일꾼 도시락", xp: 3 },
+      },
+    });
+    expect(message).toBe("밀빵 레시피 발견! 요리 XP +33 (일꾼 도시락 +3)");
+  });
+
+  it("식당 효과가 없으면 제작 결과에 요리 XP만 적는다", () => {
+    const message = cookingResultMessage({
+      ...fixture(),
+      result: { action: "craft", recipeName: "밀빵", quantity: 1, earnedXp: 120 },
+    });
+    expect(message).toContain("요리 XP +120");
+    expect(message).not.toContain("(");
   });
 });

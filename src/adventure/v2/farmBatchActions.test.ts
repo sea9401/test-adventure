@@ -313,3 +313,40 @@ describe("명장 작물 합산", () => {
     ).toBe("3칸을 모두 수확했습니다. 농사 XP +135. 명장 작물 +1.");
   });
 });
+
+describe("식당 효과로 붙은 농사 경험치 표시(건의 #882)", () => {
+  it("일괄 수확은 칸마다 붙은 식당 효과분을 더해 돌려준다", async () => {
+    const bonuses = [1, 0, 2];
+    let index = 0;
+    const request = vi.fn(async () =>
+      Response.json({
+        ok: true,
+        result: { farmingXpGained: 10 },
+        diningXpBonus: { menuName: "일꾼 도시락", xp: bonuses[index++] },
+      }),
+    );
+    const result = await runFarmPlotBatch({
+      action: "harvest",
+      plotIds: ["plot-1", "plot-2", "plot-3"],
+      request,
+      onSuccess: vi.fn(),
+    });
+    expect(result.diningXpBonus).toEqual({ menuName: "일꾼 도시락", xp: 3 });
+  });
+
+  it("수확 문구의 경험치 뒤에 식당 효과분을 적는다", () => {
+    const diningXpBonus = { menuName: "일꾼 도시락", xp: 12 };
+    expect(
+      farmBatchOutcomeText("harvest", 3, null, undefined, 135, 0, null, diningXpBonus),
+    ).toBe("3칸을 모두 수확했습니다. 농사 XP +135 (일꾼 도시락 +12).");
+    expect(
+      farmReplantOutcomeText({
+        harvested: 3,
+        planted: 3,
+        farmingXpGained: 135,
+        seedsReturned: 0,
+        diningXpBonus,
+      }),
+    ).toBe("3칸을 수확하고 3칸에 다시 심었습니다. 농사 XP +135 (일꾼 도시락 +12).");
+  });
+});

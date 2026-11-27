@@ -23,6 +23,7 @@ import { CookingDeliveryPanel } from "./cooking/CookingDeliveryPanel";
 import { CookingProcessingPanel } from "./cooking/CookingProcessingPanel";
 import type { CookingMutation, CookingResponse } from "./cooking/clientTypes";
 import { cookingQualityName, type CookingQuality } from "./cooking/foodShared";
+import { diningXpBonusSuffix, parseDiningXpBonus } from "./diningXpBonus";
 import { CookingSignaturePanel } from "./cooking/CookingSignaturePanel";
 import { COOKING_SPECIALTY_CHANGE_COOLDOWN_MS } from "./cooking/specialty";
 import { COOKING_FIELD_NAMES } from "./cooking/types";
@@ -115,15 +116,20 @@ function cookingQualityResultText(result: Record<string, unknown>): string {
   );
 }
 
+/** 이번 행동으로 얻은 요리 XP. 식당 효과분이 있으면 괄호로 따로 적는다. */
+function cookingXpText(result: Record<string, unknown>): string {
+  const earnedXp = Math.max(0, Math.floor(Number(result.earnedXp) || 0));
+  return `요리 XP +${earnedXp.toLocaleString("ko-KR")}${diningXpBonusSuffix(parseDiningXpBonus(result))}`;
+}
+
 export function cookingResultMessage(data: CookingResponse): string {
   const result = data.result ?? {};
   if (result.action === "research") {
     if (result.outcome === "success") {
-      return `${String(result.recipeName)} 레시피 발견!${result.firstDiscovery ? " 서버 최초 개발자로 등록되어 이 음식을 만들면 성능 +10%가 붙습니다." : ""}`;
+      return `${String(result.recipeName)} 레시피 발견!${result.firstDiscovery ? " 서버 최초 개발자로 등록되어 이 음식을 만들면 성능 +10%가 붙습니다." : ""}${Number(result.earnedXp) > 0 ? ` ${cookingXpText(result)}` : ""}`;
     }
-    const earnedXp = Math.max(0, Math.floor(Number(result.earnedXp) || 0));
     const failedDishCount = Math.max(0, Math.floor(Number(result.failedDishCount) || 0));
-    return `조합 연구 실패 · 선택 재료 각 1개 소비 · 요리 XP +${earnedXp.toLocaleString("ko-KR")} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
+    return `조합 연구 실패 · 선택 재료 각 1개 소비 · ${cookingXpText(result)} · 실패 음식 +${failedDishCount.toLocaleString("ko-KR")}`;
   }
   if (result.action === "choose_branch") {
     const branchName = COOKING_BRANCH_BY_ID.get(result.branchId as CookingBranchId)?.name ?? "";
@@ -131,7 +137,7 @@ export function cookingResultMessage(data: CookingResponse): string {
       ? `${branchName} 특화로 바꿨습니다. ${COOKING_BRANCH_CHANGE_COOLDOWN_MS / 86_400_000}일 뒤에 다시 바꿀 수 있습니다.`
       : `${branchName} 특화를 골랐습니다.`;
   }
-  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? (typeof result.recipeName === "string" ? result.recipeName : "요리")} ${Number(result.quantity) || 1}개 완성 · ${cookingQualityResultText(result)}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}`;
+  if (result.action === "craft") return `${data.knownRecipes.find((entry) => entry.id === result.recipeId)?.name ?? (typeof result.recipeName === "string" ? result.recipeName : "요리")} ${Number(result.quantity) || 1}개 완성 · ${cookingQualityResultText(result)}${Number(result.usedPrepSets) > 0 ? ` · 준비 세트 ${Number(result.usedPrepSets)}개 사용` : ""}${Number(result.earnedXp) > 0 ? ` · ${cookingXpText(result)}` : ""}`;
   if (result.action === "choose_specialty") {
     const fieldName = COOKING_FIELD_NAMES[result.field as keyof typeof COOKING_FIELD_NAMES];
     return result.changed

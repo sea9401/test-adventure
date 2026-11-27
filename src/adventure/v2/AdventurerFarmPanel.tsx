@@ -65,6 +65,7 @@ import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
 import { ranchBreedNoticeText } from "./RanchLineageRow";
+import { diningXpBonusSuffix } from "./diningXpBonus";
 import { lifePerkUnlocked } from "./lifeMajorRules";
 
 type FarmSectionKey =
@@ -331,7 +332,7 @@ export function AdventurerFarmPanel({
           result.rareItemName
             ? ` 희귀 수확: ${result.rareItemName} ${result.rareQuantity}개.`
             : ""
-        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}.${
+        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}${diningXpBonusSuffix(notice.diningXpBonus)}.${
           notice.masterProduct
             ? ` 명장 산물: ${notice.masterProduct.name} ${notice.masterProduct.count}개.`
             : ""
@@ -409,6 +410,7 @@ export function AdventurerFarmPanel({
           notice.farmingXpGained,
           notice.seedsReturned,
           notice.masterProduct,
+          notice.diningXpBonus,
         ),
       };
     }

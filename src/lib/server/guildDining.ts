@@ -5,10 +5,12 @@ import {
   GUILD_DINING_USER_SAVE_KEY,
   consumeGuildDiningEffectState,
   guildDiningPantryTarget,
+  guildDiningXpBonusNote,
   parseGuildDiningUserState,
   type GuildDiningBonusKind,
   type GuildDiningMenuId,
 } from "@/adventure/data/v2/guildDining";
+import type { DiningXpBonus } from "@/adventure/v2/diningXpBonus";
 import { kstWeekMondayKey } from "@/lib/kst";
 import {
   lockSaveForUpdate,
@@ -129,7 +131,13 @@ export async function consumeGuildDiningEffect(
   baseAmount: number,
   now: Date = new Date(),
   cache?: GuildDiningEffectCache,
-): Promise<{ bonus: number; expiresAt: number; menuId: GuildDiningMenuId | null }> {
+): Promise<{
+  bonus: number;
+  expiresAt: number;
+  menuId: GuildDiningMenuId | null;
+  /** 결과 화면에 효과분을 따로 적기 위한 요약. 효과가 적용되지 않았으면 null. */
+  note: DiningXpBonus | null;
+}> {
   const weekKey = kstWeekMondayKey(now);
   const snapshot = cache?.initialized
     ? (cache.raw ?? {})
@@ -153,7 +161,7 @@ export async function consumeGuildDiningEffect(
     snapshotState.activeEffect?.kind !== kind &&
     snapshotState.activeEffect?.kind !== "all_xp"
   ) {
-    return { bonus: 0, expiresAt: 0, menuId: null };
+    return { bonus: 0, expiresAt: 0, menuId: null, note: null };
   }
 
   const raw = cache?.locked
@@ -183,10 +191,16 @@ export async function consumeGuildDiningEffect(
       await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, result.state);
     }
   }
+  const menuId = result.state.activeEffect?.menuId ?? null;
   return {
     bonus: result.bonus,
     expiresAt: result.state.activeEffect?.expiresAt ?? 0,
-    menuId: result.state.activeEffect?.menuId ?? null,
+    menuId,
+    note: guildDiningXpBonusNote({
+      applied: result.consumed,
+      bonus: result.bonus,
+      menuId,
+    }),
   };
 }
 

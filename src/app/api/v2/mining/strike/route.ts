@@ -389,6 +389,7 @@ export async function POST(req: Request) {
         amount,
       })),
       xpGained,
+      diningXpBonus: diningXp.note,
       environmentXpGained,
       jobId: isMiningJobId(jobId) ? jobId : null,
       jobName: isMiningJobId(jobId)

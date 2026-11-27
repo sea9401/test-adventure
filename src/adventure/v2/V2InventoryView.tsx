@@ -163,6 +163,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const tabParam = useSearchParams().get("tab");
   const itemParam = useSearchParams().get("item");
   const [search, setSearch] = useState("");
+  // 검색 칸 옆, 장비 탭의 작업 버튼이 들어갈 자리.
+  const [equipmentActionSlot, setEquipmentActionSlot] =
+    useState<HTMLDivElement | null>(null);
   const [tab, setTab] = useState<V2ItemTabKey>(() =>
     itemTabFromParam(tabParam),
   );
@@ -1287,10 +1290,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     });
   }, [itemParam, loading, owned]);
 
-  const searchInput = (
-    <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
-  );
-
   return (
     <PageShell>
       <SubViewHeader title="인벤토리" onBack={onBack} />
@@ -1325,8 +1324,13 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             fit
           />
 
-          {/* 장비 탭은 검색 옆에 작업 버튼을 두려고 검색 칸을 EquipmentTab 안에서 그린다. */}
-          {tab === "consumable" || tab === "material" ? searchInput : null}
+          {/* 검색 칸 옆 빈 자리에 장비 탭이 작업 버튼을 끼워 넣는다(재료·소모품 탭에서는 비어 있다). */}
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <ItemSearchInput value={search} onChange={setSearch} label="인벤토리 검색" />
+            </div>
+            <div ref={setEquipmentActionSlot} className="shrink-0 empty:hidden" />
+          </div>
 
           {loadError && <LoadErrorBanner onRetry={() => void refresh(true)} />}
 
@@ -1364,7 +1368,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           ) : (
             <EquipmentTab
               search={search}
-              searchSlot={searchInput}
+              actionSlot={equipmentActionSlot}
               slot={tab}
               instances={ownedBySlot[tab]}
               equippedIid={equipped[tab] ?? null}

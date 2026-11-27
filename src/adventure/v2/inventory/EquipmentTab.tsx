@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { createPortal } from "react-dom";
 import { CaretDown } from "@phosphor-icons/react";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
@@ -150,7 +151,7 @@ const INVENTORY_SORT_OPTIONS: ReadonlyArray<{
 // 보유하고, 탭-로컬 정렬/페이지네이션만 여기서 파생한다(거동 불변).
 export function EquipmentTab({
   search = "",
-  searchSlot,
+  actionSlot,
   slot,
   instances,
   equippedIid,
@@ -175,8 +176,11 @@ export function EquipmentTab({
   onLockUniques,
 }: {
   search?: string;
-  /** 검색 칸. 주면 맨 위 줄에 그리고 그 옆에 작업 버튼을 둔다. */
-  searchSlot?: ReactNode;
+  /**
+   * 작업 버튼을 끼워 넣을 자리(인벤토리의 검색 칸 옆). 화면이 자리를 만들면 그 요소를,
+   * 아직 준비 전이면 null 을 준다. 주지 않으면 버튼을 이 부품 안에 직접 그린다.
+   */
+  actionSlot?: HTMLElement | null;
   slot: V2EquipSlot;
   instances: V2EquipInstance[];
   equippedIid: string | null;
@@ -263,30 +267,35 @@ export function EquipmentTab({
 
   const picking = selection.active || comparing || locking;
 
+  // 일괄 작업·비교 선택을 여는 버튼. 인벤토리에서는 검색 칸 옆 자리에 끼워 넣는다.
+  const actionsButton =
+    instances.length > 0 && !picking ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        aria-label="일괄 작업"
+        aria-expanded={bulkOpen}
+        aria-controls={bulkPanelId}
+        onClick={() => setBulkOpen((open) => !open)}
+        className="shrink-0"
+      >
+        작업
+        <CaretDown
+          size={14}
+          aria-hidden
+          className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
+        />
+      </Button>
+    ) : null;
+
   return (
     <>
-      {searchSlot || instances.length > 0 ? (
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">{searchSlot}</div>
-          {instances.length > 0 && !picking ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-label="일괄 작업"
-              aria-expanded={bulkOpen}
-              aria-controls={bulkPanelId}
-              onClick={() => setBulkOpen((open) => !open)}
-              className="shrink-0"
-            >
-              작업
-              <CaretDown
-                size={14}
-                aria-hidden
-                className={`transition-transform ${bulkOpen ? "rotate-180" : ""}`}
-              />
-            </Button>
-          ) : null}
-        </div>
+      {actionSlot === undefined ? (
+        actionsButton ? (
+          <div className="flex justify-end">{actionsButton}</div>
+        ) : null
+      ) : actionSlot ? (
+        createPortal(actionsButton, actionSlot)
       ) : null}
       {instances.length > 0 && (
         <div className="space-y-2">

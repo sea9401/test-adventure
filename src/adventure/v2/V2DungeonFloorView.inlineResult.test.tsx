@@ -141,6 +141,28 @@ describe("던전 인라인 결과 연결", () => {
     ).toBeTruthy();
   });
 
+  it("첫 전투 안내가 나오는 동안에는 결과 자리 안내를 겹쳐 보이지 않는다", () => {
+    render(
+      <V2DungeonFloorView
+        floorId={1}
+        outpostId="start"
+        playerName="모험가"
+        playerGender="male"
+        stamina={{ current: 100, lastUpdatedAt: Date.now() }}
+        setStamina={vi.fn()}
+        hp={{ hp: 95, maxHp: 100, anchorMs: Date.now() }}
+        setHp={vi.fn()}
+        onBack={vi.fn()}
+        firstBattleIntro
+      />,
+    );
+
+    expect(screen.getByText("첫 전투입니다.")).toBeTruthy();
+    expect(
+      screen.queryByText("사냥하면 여기에 전투 결과가 나옵니다"),
+    ).toBeNull();
+  });
+
   it("새로 발견한 레어맵 입장 동작을 인라인 결과 아래에 유지한다", async () => {
     const onEnterRareMap = vi.fn();
     const rareMap = {

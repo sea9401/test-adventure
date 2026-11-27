@@ -1381,6 +1381,9 @@ export function V2DungeonFloorView({
       
   ) : null;
 
+  const showFirstBattleIntro =
+    firstBattleIntro && !lastResult && !batchStatus && !busy;
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <DungeonContextSummary
@@ -1461,7 +1464,7 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      {firstBattleIntro && !lastResult && !batchStatus && !busy && (
+      {showFirstBattleIntro && (
         <StatusBanner tone="info" role="status" className="py-2.5">
           <span className="font-semibold">첫 전투입니다.</span> 아래 사냥 버튼을
           누르면 전투가 자동으로 진행되고, 끝나면 결과와 다음 할 일이 나옵니다.
@@ -1823,7 +1826,10 @@ export function V2DungeonFloorView({
         </section>
       )}
 
-      {!latestPresentedResult && <HuntEncounterPlaceholder />}
+      {/* 첫 전투 안내가 같은 말을 더 자세히 하므로 그동안에는 자리 안내를 겹쳐 보이지 않는다. */}
+      {!latestPresentedResult && !showFirstBattleIntro && (
+        <HuntEncounterPlaceholder />
+      )}
 
       {!latestPresentedResult && playerStatus}
 

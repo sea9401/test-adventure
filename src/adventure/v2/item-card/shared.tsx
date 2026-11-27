@@ -60,8 +60,9 @@ const ITEM_NAME_POWER_THRESHOLDS: Record<
   necklace: [20, 40, 60, 100],
 };
 
-// 장비명 색 → 세트는 전용 청록색, 비세트 시그니처·미개척지 보스 고유 효과는 무지개로 통일한다.
-// 둘에 해당하지 않는 유니크만 전용 보라색을 쓰고, 나머지는 현재 표시 위력 기준으로 나눈다.
+// 장비명 색 → 세트는 전용 청록색, 비세트 시그니처·미개척지 보스 고유 효과가 붙은 유니크는 무지개.
+// 발동형 효과가 있어도 유니크가 아닌 제작 장비는 무지개 대신 전용 색을 쓴다(건의 #883).
+// 어디에도 해당하지 않는 유니크만 전용 보라색을 쓰고, 나머지는 현재 표시 위력 기준으로 나눈다.
 export function itemNameClass(
   item: V2Equipment,
   roll?: V2EquipRoll,
@@ -73,7 +74,9 @@ export function itemNameClass(
   }
   // 미개척지 보스 고유 효과는 별도 표에 있지만 시그니처와 같은 고유 효과 장비로 본다.
   if (item.signature || unexploredBossUniqueEffectOf(item.id)) {
-    return "ui-item-name-signature";
+    return item.rarity === "unique"
+      ? "ui-item-name-signature"
+      : "ui-item-name-crafted-signature";
   }
   if (item.rarity === "unique") {
     return "text-purple-600 dark:text-purple-400";

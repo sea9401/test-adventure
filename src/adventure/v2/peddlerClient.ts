@@ -1,6 +1,8 @@
 // 행상 화면이 쓰는 응답 타입과 문구. 서버 응답 모양은 /api/v2/peddler 와 같다.
 
+import { COOKING_QUALITY_RANK, parseCookingFoodIdFormat, type CookingQuality } from "./cooking/foodShared";
 import {
+  PEDDLER_DISH_CARGO_PREFIX,
   PEDDLER_ROUTES,
   type PeddlerCargoGroup,
   type PeddlerDispatchHours,
@@ -140,6 +142,43 @@ export function peddlerSelectionTotals(
     if (preferredIds.includes(item.id)) preferredPoints += quantity * item.points;
   }
   return { points, preferredPoints, kinds };
+}
+
+/** 요리 짐의 품질. 요리가 아니면 null. 품질은 품목 id에 들어 있다. */
+function peddlerCargoDishQuality(item: PeddlerCargoView): CookingQuality | null {
+  if (!item.id.startsWith(PEDDLER_DISH_CARGO_PREFIX)) return null;
+  return parseCookingFoodIdFormat(item.id.slice(PEDDLER_DISH_CARGO_PREFIX.length))?.quality ?? null;
+}
+
+/** 가진 요리 짐의 품질 목록(낮은 품질부터). */
+export function peddlerCargoDishQualities(cargo: readonly PeddlerCargoView[]): CookingQuality[] {
+  const found = new Set(cargo.flatMap((item) => peddlerCargoDishQuality(item) ?? []));
+  return [...found].sort((a, b) => COOKING_QUALITY_RANK[a] - COOKING_QUALITY_RANK[b]);
+}
+
+export type PeddlerCargoFilter = {
+  group: PeddlerCargoGroup | "all";
+  /** 요리에만 적용한다. 다른 계열은 품질을 골라도 그대로 보인다. */
+  quality: CookingQuality | "all";
+  query: string;
+};
+
+const searchKey = (text: string) => text.replace(/\s+/g, "").toLowerCase();
+
+/** 짐 목록을 계열, 요리 품질, 이름으로 좁힌다. 순서는 바꾸지 않는다. */
+export function filterPeddlerCargo(
+  cargo: readonly PeddlerCargoView[],
+  { group, quality, query }: PeddlerCargoFilter,
+): PeddlerCargoView[] {
+  const needle = searchKey(query);
+  return cargo.filter((item) => {
+    if (group !== "all" && item.group !== group) return false;
+    if (quality !== "all") {
+      const dishQuality = peddlerCargoDishQuality(item);
+      if (dishQuality && dishQuality !== quality) return false;
+    }
+    return !needle || searchKey(item.name).includes(needle);
+  });
 }
 
 /** 다른 짐을 그대로 둔 채 이 품목을 실을 수 있는 최대 수량. */

@@ -3172,6 +3172,17 @@ html.ui-terminal-mode .ui-row-thumb {
   display: none;
 }
 
+/* 문장 그림 — 은신 모드와 터미널 모드에서는 색 있는 그림 대신 선 아이콘을 보여 준다. */
+html.ui-discreet-mode .ui-emblem-art,
+html.ui-terminal-mode .ui-emblem-art {
+  display: none;
+}
+
+html.ui-discreet-mode .ui-emblem-fallback,
+html.ui-terminal-mode .ui-emblem-fallback {
+  display: flex;
+}
+
 /* 휴대폰 폭의 하단 메뉴 바 높이(기기 하단 안전 영역 제외). 화면 아래에 고정되는 요소는
    이 값을 더해 바 위에 놓는다. 바가 없는 화면과 PC 폭에서는 0이다.
    바의 실제 높이(탭 min-h-14 = 3.5rem)와 같아야 바에 붙는 요소와의 사이에 틈이 생기지 않는다. */

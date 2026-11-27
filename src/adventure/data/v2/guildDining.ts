@@ -1,5 +1,6 @@
 import { FARM_ITEMS, type FarmItemId } from "@/adventure/v2/farm";
 import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
+import type { DiningXpBonus } from "@/adventure/v2/diningXpBonus";
 
 export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
 export const GUILD_DINING_BASE_WEEKLY_TICKETS = 4;
@@ -578,4 +579,16 @@ export function consumeGuildDiningEffectState(
     bonus,
     consumed: true,
   };
+}
+
+/** 결과 화면에 식당 효과분을 따로 적기 위한 요약. 효과가 적용되지 않았으면 null. */
+export function guildDiningXpBonusNote(consumed: {
+  applied: boolean;
+  bonus: number;
+  menuId: GuildDiningMenuId | null;
+}): DiningXpBonus | null {
+  if (!consumed.applied) return null;
+  const menu = guildDiningMenu(consumed.menuId);
+  if (!menu) return null;
+  return { menuName: menu.name, xp: Math.max(0, Math.floor(consumed.bonus)) };
 }

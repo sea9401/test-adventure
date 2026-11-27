@@ -1,9 +1,11 @@
 "use client";
 
 // v2 던전 사냥 결과 카드 — 간단 버전.
-// 사용자 의도: 승/패 + EXP·골드·드랍만. 몬스터 img/이름·HP·턴 제거.
-// 사이즈 축소 — padding sm + 작은 font.
+// 승/패 + EXP·골드·드랍. 사이즈 축소 — padding sm + 작은 font.
+// 몬스터 그림·HP·턴 수는 넣지 않는다(전투 기록 화면에서만 본다). 2026-11-24 오너 결정으로
+// 싸운 상대의 이름만 "방금 전투" 머리(HuntEncounter)에 한 줄로 적는다.
 
+import type { ReactNode } from "react";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
@@ -229,13 +231,65 @@ export function GoldLossNotice({
   );
 }
 
+/**
+ * 이번에 얻은 것을 칩으로 — "방금 전투" 머리가 있는 결과 카드에서 보유량 네 칸 대신 쓴다.
+ * 숫자 색은 보유량 칸과 같은 뜻이다: 골드 노랑, 숙련도 하늘, 숙달 포인트 보라, 경험치 초록.
+ * 한 번 사냥과 여러 번 사냥(합계)이 같은 모양을 쓴다.
+ */
+export function HuntGainChips({
+  items,
+  levelsGained,
+  detail,
+}: {
+  items: RewardBalanceItem[];
+  levelsGained: number;
+  /** 레벨 업으로 오른 능력치 등 칩 아래에 한 줄로 붙일 설명. */
+  detail?: string;
+}) {
+  return (
+    <div className="mt-3 space-y-1.5 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+      <div className="flex flex-wrap gap-1.5" aria-label="이번 전투에서 얻은 것">
+        {items
+          .filter((item) => item.gained > 0)
+          .map((item) => (
+            <span
+              key={item.label}
+              className="rounded-md bg-zinc-100 px-2.5 py-1 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {item.label}{" "}
+              <b className={`font-bold tabular-nums ${item.currentClassName}`}>
+                +{item.gained.toLocaleString()}
+              </b>
+            </span>
+          ))}
+        {levelsGained > 0 && (
+          <span className="ui-reward-flash rounded-md bg-amber-100 px-2.5 py-1 text-sm font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            레벨 업 +{levelsGained}
+          </span>
+        )}
+      </div>
+      {detail ? (
+        <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {detail}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function HuntResultCard({
   result,
   hpCharges,
   mpCharges,
   hasMp,
   onEnterRareMap,
+  encounter,
 }: {
+  /**
+   * 싸운 상대와 승패를 보여 주는 머리. 주면 "전투 결과" 한 줄을 대신하고, 보상은 보유량 칸
+   * 대신 이번에 얻은 양만 적은 칩으로 줄인다(보유량은 상단바와 캐릭터 화면에 있다).
+   */
+  encounter?: ReactNode;
   result: HuntResult;
   // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
   hpCharges?: number;
@@ -401,7 +455,9 @@ export function HuntResultCard({
           {dropBannerText}
         </RewardNotice>
       )}
-      {won ? (
+      {encounter ? (
+        encounter
+      ) : won ? (
         <div className="flex items-baseline justify-center gap-2">
           <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             전투 결과
@@ -424,7 +480,15 @@ export function HuntResultCard({
         />
       )}
 
-      <RewardBalanceGrid items={rewardBalances} />
+      {encounter ? (
+        <HuntGainChips
+          items={rewardBalances}
+          levelsGained={result.levelsGained}
+          detail={[statGainsText, hpMpGainsText].filter(Boolean).join(" · ")}
+        />
+      ) : (
+        <RewardBalanceGrid items={rewardBalances} />
+      )}
 
       <div className="mt-2 space-y-1 text-center text-sm">
         {result.hotTime && (result.hotTime.expBonus > 0 || result.hotTime.goldBonus > 0) && (
@@ -446,7 +510,7 @@ export function HuntResultCard({
         )}
       </div>
 
-      {result.levelsGained > 0 && (
+      {!encounter && result.levelsGained > 0 && (
         <div className="ui-reward-flash mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
             레벨 업! +{result.levelsGained}
@@ -473,7 +537,7 @@ export function HuntResultCard({
       )}
 
       {/* HP/MP 충전약 잔량 — 전투 화면에서 이리로 이관. */}
-      {hpCharges != null && (
+      {!encounter && hpCharges != null && (
         <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <ChargeReadout
             iconName="Flask"

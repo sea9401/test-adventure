@@ -1,7 +1,11 @@
 "use client";
 
 import { Envelope, Megaphone, Note, Storefront, Trophy } from "@phosphor-icons/react";
-import { EntryList, EntryRow } from "@/components/ui/EntryList";
+import {
+  EntryTile,
+  EntryTileGrid,
+  type EntryTileStatusResolver,
+} from "@/components/ui/EntryList";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
@@ -15,45 +19,53 @@ export type PlazaAction =
 
 export function V2PlazaHome({
   onAction,
+  menuStatus,
 }: {
   onAction: (action: PlazaAction) => void;
+  /** 타일 아래 상태 한 줄(오늘 할 일). 주지 않으면 이름만 보인다. */
+  menuStatus?: EntryTileStatusResolver;
 }) {
   return (
     <PageShell spacing="tight">
       <SubViewHeader title="광장" />
-      <EntryList>
-        <EntryRow
-          icon={<Note size={28} weight="duotone" className="text-sky-500" />}
+      <EntryTileGrid>
+        <EntryTile
+          icon={<Note size={24} weight="duotone" className="text-sky-500" />}
           title="게시판"
+          status={menuStatus?.("/plaza/bulletin", "게시판")}
           onClick={() => onAction({ kind: "open-bulletin" })}
         />
-        <EntryRow
-          icon={<Trophy size={28} weight="duotone" className="text-amber-600" />}
+        <EntryTile
+          icon={<Trophy size={24} weight="duotone" className="text-amber-600" />}
           title="랭킹"
+          status={menuStatus?.("/plaza/rankings", "랭킹")}
           onClick={() => onAction({ kind: "open-rankings" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
-            <Megaphone size={28} weight="duotone" className="text-violet-400" />
+            <Megaphone size={24} weight="duotone" className="text-violet-400" />
           }
           title="전체 소식"
+          status={menuStatus?.("/plaza/feed", "전체 소식")}
           onClick={() => onAction({ kind: "open-feed" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
-            <Storefront size={28} weight="duotone" className="text-rose-500" />
+            <Storefront size={24} weight="duotone" className="text-rose-500" />
           }
           title="거래소"
+          status={menuStatus?.("/plaza/market", "거래소")}
           onClick={() => onAction({ kind: "open-market" })}
         />
-        <EntryRow
+        <EntryTile
           icon={
-            <Envelope size={28} weight="duotone" className="text-emerald-500" />
+            <Envelope size={24} weight="duotone" className="text-emerald-500" />
           }
           title="우편함"
+          status={menuStatus?.("/plaza/inbox", "우편함")}
           onClick={() => onAction({ kind: "open-inbox" })}
         />
-      </EntryList>
+      </EntryTileGrid>
     </PageShell>
   );
 }

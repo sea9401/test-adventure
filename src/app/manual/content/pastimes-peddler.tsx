@@ -84,6 +84,10 @@ export function PeddlerManualSection() {
           {PEDDLER_CARGO_KIND_LIMIT}종까지 섞을 수 있습니다. 출발한 수레는 되돌릴 수 없습니다.
         </li>
         <li>
+          짐 싣기 목록은 품목 이름 검색, 계열, 요리 품질로 좁혀 볼 수 있습니다. 목록을 좁혀도 이미 고른
+          수량은 그대로 실립니다.
+        </li>
+        <li>
           교역로마다 매주 월요일 0시에 <Em>우대 품목</Em> {PEDDLER_PREFERRED_ITEM_COUNT}종이 바뀝니다. 우대
           품목의 적재 점수는 증표를 {(100 + PEDDLER_PREFERRED_BONUS_PCT) / 100}배로 계산합니다. 교역 점수는
           그대로입니다.

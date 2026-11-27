@@ -104,7 +104,7 @@ const UI_STYLE_OPTIONS = [
   {
     id: "classic",
     label: "클래식",
-    detail: "회색 바탕, 보라색 버튼",
+    detail: "회색 바탕, 초록색 버튼",
     Icon: Square,
   },
   {

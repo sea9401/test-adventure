@@ -108,7 +108,8 @@ export function V2TopBar({
             href="/"
             aria-label="무슨무슨게임 홈으로 이동"
             title="홈"
-            className={`${SURFACE_INSET} inline-flex size-10 shrink-0 items-center justify-center border-0 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:size-12 dark:hover:bg-zinc-800`}
+            // 휴대폰 폭에서는 하단 메뉴 바의 홈 탭이 같은 역할을 하므로 숨긴다.
+            className={`${SURFACE_INSET} hidden size-10 shrink-0 items-center justify-center border-0 shadow-none transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:inline-flex md:size-12 dark:hover:bg-zinc-800`}
           >
             <Image
               src="/icon-192.png"

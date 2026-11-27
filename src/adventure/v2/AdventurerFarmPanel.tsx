@@ -65,6 +65,7 @@ import { LifeLevelMilestoneNotice } from "./LifeLevelMilestoneNotice";
 import { LifeFestivalBadge } from "./LifeFestivalBadge";
 import { LifeMajorBadge } from "./LifeMajorBadge";
 import { ranchBreedNoticeText } from "./RanchLineageRow";
+import { diningXpBonusSuffix } from "./diningXpBonus";
 import { lifePerkUnlocked } from "./lifeMajorRules";
 
 type FarmSectionKey =
@@ -331,7 +332,7 @@ export function AdventurerFarmPanel({
           result.rareItemName
             ? ` 희귀 수확: ${result.rareItemName} ${result.rareQuantity}개.`
             : ""
-        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}.${
+        }${result.seedReturned ? ` 씨앗 반환: ${FARM_CROPS[result.cropId].seedName} ${result.seedReturned}개.` : ""} 농사 XP +${result.farmingXpGained}${diningXpBonusSuffix(notice.diningXpBonus)}.${
           notice.masterProduct
             ? ` 명장 산물: ${notice.masterProduct.name} ${notice.masterProduct.count}개.`
             : ""
@@ -409,6 +410,7 @@ export function AdventurerFarmPanel({
           notice.farmingXpGained,
           notice.seedsReturned,
           notice.masterProduct,
+          notice.diningXpBonus,
         ),
       };
     }
@@ -953,7 +955,7 @@ function FarmToastMessage({
       key={toast.id}
       role="status"
       aria-live="polite"
-      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem+var(--game-bottom-nav,0px))] left-4 z-50 flex max-w-[min(24rem,calc(100vw-2rem))] items-start gap-2 rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
         ok
           ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-zinc-950 dark:text-emerald-100"
           : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-zinc-950 dark:text-rose-100"

@@ -273,3 +273,113 @@ describe("메인 탭 디자인 시스템", () => {
     }
   });
 });
+
+describe("휴대폰 하단 메뉴 바", () => {
+  function renderBottom(activeKey = "adventure") {
+    const onNavigate = vi.fn();
+    render(
+      <MainTabNav
+        placement="bottom"
+        activeKey={activeKey}
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={onNavigate}
+      />,
+    );
+    return onNavigate;
+  }
+
+  it("화면 아래에 고정되고 PC 폭에서는 숨는다", () => {
+    renderBottom();
+
+    const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
+    expect(nav.hasAttribute("data-game-bottom-nav")).toBe(true);
+    expect(nav.className).toContain("fixed");
+    expect(nav.className).toContain("bottom-0");
+    expect(nav.className).toContain("md:hidden");
+    expect(nav.className).toContain("pb-[env(safe-area-inset-bottom)]");
+    // 배경 그림이 비치지 않게 불투명한 면을 쓴다.
+    expect(nav.className).toContain("bg-white");
+    expect(nav.className).toContain("dark:bg-zinc-900");
+  });
+
+  it("홈을 포함한 여섯 탭을 아이콘과 이름으로 고르게 놓는다", () => {
+    renderBottom();
+
+    const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
+    const tabs = screen.getAllByRole("button", {
+      name: /^(홈|전투|마을|생활|캐릭터|길드)/,
+    });
+    expect(tabs).toHaveLength(6);
+    expect(nav.querySelector(".grid-cols-6")).not.toBeNull();
+    for (const tab of tabs) {
+      expect(tab.querySelector("svg")).not.toBeNull();
+      expect(tab.className).toContain("min-h-14");
+      expect(tab.className).toContain("text-xs");
+    }
+  });
+
+  it("홈 탭은 지금 있는 화면으로 표시되고 누르면 바로 홈으로 간다", () => {
+    const onNavigate = renderBottom("adventure");
+
+    const home = screen.getByRole("button", { name: "홈" });
+    expect(home.getAttribute("aria-current")).toBe("page");
+    expect(home.className).toContain("text-selected");
+    expect(home.getAttribute("aria-haspopup")).toBeNull();
+
+    fireEvent.click(home);
+    expect(onNavigate).toHaveBeenCalledWith("/");
+  });
+
+  it("탭을 누르면 하위 메뉴가 바 위로 펼쳐지고 항목을 누르면 바로 이동한다", () => {
+    const onNavigate = renderBottom();
+
+    const battle = screen.getByRole("button", {
+      name: "전투, 처리 가능한 항목 있음",
+    });
+    fireEvent.click(battle);
+    expect(battle.getAttribute("aria-expanded")).toBe("true");
+
+    const menu = screen.getByRole("menu", { name: "전투 메뉴" });
+    expect(menu.className).toContain("bottom-full");
+    expect(menu.className).not.toContain("top-full");
+    expect(menu.className).toContain("grid-cols-2");
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toHaveLength(6);
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "사냥터" }));
+    expect(onNavigate).toHaveBeenCalledWith("/battle/dungeon");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("메뉴가 펼쳐진 동안에는 채팅 버튼과 상단바보다 위에 놓인다", () => {
+    renderBottom();
+    const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
+    expect(nav.className).toContain("z-30");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "전투, 처리 가능한 항목 있음" }),
+    );
+    expect(nav.className).toContain("z-[65]");
+    expect(nav.className).not.toContain("z-30");
+  });
+});
+
+describe("상단 메인 탭", () => {
+  it("휴대폰 폭에서는 숨기고 하단 메뉴 바에 맡긴다", () => {
+    render(
+      <MainTabNav
+        activeKey="battle"
+        gameStateLoaded
+        viewerGuildId={null}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "메인 메뉴" });
+    expect(nav.hasAttribute("data-game-bottom-nav")).toBe(false);
+    expect(nav.className).toContain("hidden");
+    expect(nav.className).toContain("md:block");
+  });
+});

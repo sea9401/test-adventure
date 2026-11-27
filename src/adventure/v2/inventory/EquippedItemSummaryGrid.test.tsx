@@ -7,7 +7,7 @@ import { EquippedItemSummaryGrid } from "./EquippedItemSummaryGrid";
 afterEach(cleanup);
 
 describe("장착 장비 요약 그리드", () => {
-  it("비세트·정규 세트·태그 세트 장비의 세트 정보를 카드 하단에 표시한다", () => {
+  it("세트 장비에만 부위 이름 옆에 세트 이름을 붙이고, 세트가 없다는 말은 되풀이하지 않는다", () => {
     render(
       <EquippedItemSummaryGrid
         equipped={{
@@ -24,10 +24,29 @@ describe("장착 장비 요약 그리드", () => {
       />,
     );
 
-    expect(screen.getAllByTestId("equipped-set-label")).toHaveLength(3);
-    expect(screen.getByText("세트 없음")).toBeTruthy();
-    expect(screen.getByText("세트 · 공허 성벽")).toBeTruthy();
-    expect(screen.getByText("세트 · 수호각인 장비")).toBeTruthy();
+    const labels = screen.getAllByTestId("equipped-set-label");
+    expect(labels).toHaveLength(2);
+    expect(labels.map((label) => label.textContent)).toEqual([
+      " · 공허 성벽",
+      " · 수호각인 장비",
+    ]);
+    expect(screen.queryByText("세트 없음")).toBeNull();
+    expect(screen.queryByText("세트 효과 없음")).toBeNull();
+    expect(screen.getByRole("heading", { name: "장착 중" })).toBeTruthy();
+  });
+
+  it("세트 장비가 하나도 없으면 머리에 한 번만 알린다", () => {
+    render(
+      <EquippedItemSummaryGrid
+        equipped={{ weapon: "weapon-1" }}
+        owned={[{ iid: "weapon-1", id: "v2_iron_sword" }]}
+        onOpen={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("세트 효과 없음")).toHaveLength(1);
+    expect(screen.queryAllByTestId("equipped-set-label")).toHaveLength(0);
+    expect(screen.getAllByText("비어 있음")).toHaveLength(5);
   });
 
   it("모바일 3열·PC 6열로 여섯 슬롯을 표시하고 인라인 해제를 없앤다", () => {
@@ -53,8 +72,9 @@ describe("장착 장비 요약 그리드", () => {
     expect(container.querySelector(".grid-cols-3")).toBeTruthy();
     expect(container.querySelector(".sm\\:grid-cols-6")).toBeTruthy();
     const equippedButton = screen.getByRole("button", { name: /무기.*정보/ });
-    expect(equippedButton.className).toContain("focus-visible:ring-violet-500");
-    expect(equippedButton.className).toContain("dark:bg-zinc-950");
+    expect(equippedButton.className).toContain("focus-visible:ring-focus");
+    // 칸마다 상자를 두지 않는다.
+    expect(equippedButton.className).not.toContain("border");
     fireEvent.click(equippedButton);
     expect(onOpen).toHaveBeenCalledWith(owned[0], expect.any(Object));
   });

@@ -68,8 +68,8 @@ describe("Button 디자인 계층", () => {
       <Button variant="soft">홈 편집</Button>,
     );
 
-    expect(soft).toContain("bg-violet-50");
-    expect(soft).toContain("text-violet-700");
+    expect(soft).toContain("bg-primary/10");
+    expect(soft).toContain("text-selected");
   });
 
   it("주 버튼과 포커스 링은 화면 스타일이 바꾸는 의미 토큰을 쓴다", () => {

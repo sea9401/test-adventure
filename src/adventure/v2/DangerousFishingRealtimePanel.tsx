@@ -458,7 +458,7 @@ export function DangerousFishingRealtimePanel({
       <div
         ref={controlRef}
         data-realtime-region="control"
-        className={`${SURFACE_CARD} relative sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}
+        className={`${SURFACE_CARD} relative sticky bottom-[calc(env(safe-area-inset-bottom)+0.5rem+var(--game-bottom-nav,0px))] z-20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2`}
       >
         {realtime.warning && active && !secured ? (
           <p

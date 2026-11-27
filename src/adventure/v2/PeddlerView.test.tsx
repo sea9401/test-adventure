@@ -154,6 +154,46 @@ describe("PeddlerView", () => {
     expect(await screen.findByText(/강나루 장터 출발/)).toBeTruthy();
   });
 
+  it("짐 목록을 이름과 요리 품질로 좁혀도 고른 수량은 남는다", async () => {
+    const data = viewData();
+    data.cargo.push(
+      { id: "dish:food2:rustic_bread:normal:o0:s0", group: "dish", name: "투박한 밀빵 (일반)", points: 200, held: 30 },
+      { id: "dish:food2:rustic_bread:careful:o0:s0", group: "dish", name: "투박한 밀빵 (정성작)", points: 200, held: 4 },
+      { id: "dish:food2:herb_soup:normal:o0:s0", group: "dish", name: "허브 수프 (일반)", points: 200, held: 2 },
+    );
+    stubFetch(data);
+    render(<PeddlerView onBack={() => {}} />);
+    const river = await screen.findByRole("region", { name: "강나루 장터" });
+    fireEvent.click(within(river).getByRole("button", { name: "짐 싣기" }));
+    fireEvent.change(within(river).getByLabelText("철광석 수량"), { target: { value: "100" } });
+
+    fireEvent.change(within(river).getByLabelText("실을 품목 검색"), { target: { value: "밀빵" } });
+    expect(within(river).queryByLabelText("철광석 수량")).toBeNull();
+    expect(within(river).getByLabelText("투박한 밀빵 (일반) 수량")).toBeTruthy();
+    expect(within(river).getByLabelText("투박한 밀빵 (정성작) 수량")).toBeTruthy();
+    expect(within(river).queryByLabelText("허브 수프 (일반) 수량")).toBeNull();
+
+    fireEvent.change(within(river).getByLabelText("요리 품질"), { target: { value: "normal" } });
+    expect(within(river).queryByLabelText("투박한 밀빵 (정성작) 수량")).toBeNull();
+    fireEvent.click(within(river).getByRole("button", { name: "투박한 밀빵 (일반) 최대" }));
+    // 100×2 + 12×200 = 2,600점. 가려진 철광석도 적재에 그대로 들어간다.
+    expect(within(river).getByText(/2,600 \/ 2,600점/)).toBeTruthy();
+
+    fireEvent.change(within(river).getByLabelText("실을 품목 검색"), { target: { value: "없는 이름" } });
+    expect(within(river).getByText("조건에 맞는 품목이 없습니다.")).toBeTruthy();
+  });
+
+  it("요리 품질이 한 가지뿐이면 품질 선택을 보여 주지 않는다", async () => {
+    const data = viewData();
+    data.cargo.push({ id: "dish:food2:herb_soup:normal:o0:s0", group: "dish", name: "허브 수프 (일반)", points: 200, held: 2 });
+    stubFetch(data);
+    render(<PeddlerView onBack={() => {}} />);
+    const river = await screen.findByRole("region", { name: "강나루 장터" });
+    fireEvent.click(within(river).getByRole("button", { name: "짐 싣기" }));
+    expect(within(river).getByLabelText("실을 품목 검색")).toBeTruthy();
+    expect(within(river).queryByLabelText("요리 품질")).toBeNull();
+  });
+
   it("적재량을 넘기면 출발할 수 없다", async () => {
     stubFetch(viewData());
     render(<PeddlerView onBack={() => {}} />);

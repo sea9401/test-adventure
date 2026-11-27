@@ -123,6 +123,46 @@
       "source": "operator-cleared-game-art"
     },
     {
+      "path": "public/images/emblem/dex.webp",
+      "sha256": "0de99bd70b6cfe7b82823ebf1be6945604d9781e32eb16376849eb562763c789",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/hp.webp",
+      "sha256": "fb171f5a958bc7d8fad5da01ea380de40c40629f6d57408322d35189b8a52579",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/int.webp",
+      "sha256": "da9e745219b274e29cffad856b4bec62dfc99530b6c9fc045716ee0e721e4230",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/luk.webp",
+      "sha256": "137166764c29c7992981fdd6277fff09fdff297133ef90b3a5ae655b1058e1e6",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/mp.webp",
+      "sha256": "7b9c1b90d7c97b53429139a37fb527eeaebad2d7a097edd0e1c89cfdef40cdc1",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/spi.webp",
+      "sha256": "5a2dd20c88aae454873adf75afbad720c1b22addee4d729240db1d0815670320",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/str.webp",
+      "sha256": "22e9164a061ba298567e664eb46b8839738b84985a07b9daca4343937f34b9a3",
+      "source": "operator-cleared-game-art"
+    },
+    {
+      "path": "public/images/emblem/vit.webp",
+      "sha256": "7fd7d4ab35033fcceea7c21c91f53550a8d39b1d6dc739c359898937c63d8ca1",
+      "source": "operator-cleared-game-art"
+    },
+    {
       "path": "public/images/equipment/unexplored-absolute-zero-core.webp",
       "sha256": "095067df2e2b382fbbaa3893bd46e83251a67bf0ce07a16583e0e3ca1562dcba",
       "source": "operator-cleared-game-art"

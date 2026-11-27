@@ -56,7 +56,7 @@ export function AdventureRankingPreview() {
     <Card as="section" padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 p-4 pb-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-selected">
             <Trophy size={19} weight="duotone" aria-hidden />
           </span>
           <div className="min-w-0">

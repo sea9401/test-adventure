@@ -7,7 +7,6 @@ import {
 } from "@phosphor-icons/react";
 import { EquipmentTypeIcon } from "../EquipmentTypeIcon";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
   equipmentPowerDisplayValue,
@@ -15,6 +14,7 @@ import {
   powerWithBonuses,
   v2EquipPowerLabel,
   v2EquipStatRows,
+  v2ItemTypeLabel,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
@@ -36,6 +36,7 @@ import {
   UniqueBadge,
   type ItemCardAnchor,
 } from "../V2ItemCard";
+import { rollPctClass } from "../item-card/shared";
 import { EquipmentCodexBadge } from "../EquipmentCodexBadge";
 import { enchantmentStage } from "../liberation/equipmentLiberationViewModel";
 
@@ -175,7 +176,7 @@ export function EquipmentCardGrid({
         return (
           <div
             key={inst.iid}
-            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 ${
+            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-1 rounded-xl border px-2.5 py-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 ${
               isSaleSelected && neutralPick
                 ? "is-active border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200 dark:border-indigo-500 dark:bg-zinc-900 dark:ring-indigo-900/70"
                 : isSaleSelected
@@ -201,29 +202,27 @@ export function EquipmentCardGrid({
                   : `${item.name} 정보`
               }
               aria-pressed={saleSelectionActive ? isSaleSelected : undefined}
-              className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:focus-visible:ring-violet-400"
+              className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
             />
-            <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
-              <span className="flex items-center gap-1">
+            {/* 첫 줄: 종류 아이콘 + 이름 + 잠금·선택·장착 표시. 이름은 두 줄까지 보여 준다. */}
+            <div className="pointer-events-none relative z-10 flex min-w-0 items-start gap-1.5">
+              <span className="mt-px shrink-0">
                 <EquipmentTypeIcon item={item} />
+              </span>
+              <span
+                className={`line-clamp-2 min-w-0 flex-1 break-keep text-[0.9375rem] font-semibold leading-tight ${powerNameClass(item, inst.roll, inst.enhance, inst.craftQuality)}`}
+              >
+                {item.name}
+              </span>
+              <span className="flex shrink-0 items-center gap-1">
                 {inst.locked && (
                   <Lock
-                    size={13}
+                    size={14}
                     weight="fill"
                     className="text-amber-500"
                     aria-label="잠금됨"
                   />
                 )}
-                {inst.iid === recentlyAcquiredIid ? (
-                  <span
-                    aria-label="가장 최근에 획득한 장비"
-                    className="rounded-md border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200"
-                  >
-                    최신 획득
-                  </span>
-                ) : null}
-              </span>
-              <span className="flex shrink-0 items-center gap-1">
                 {isSaleSelected ? (
                   <CheckCircle
                     size={18}
@@ -232,38 +231,39 @@ export function EquipmentCardGrid({
                     aria-hidden
                   />
                 ) : null}
-                {pct != null && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums"
-                    title="품질"
-                  >
-                    <QualityPctText pct={pct} />
-                  </span>
-                )}
                 {isEquipped && (selectable || saleSelectionActive) ? (
                   <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                     착용중
                   </span>
                 ) : isEquipped ? (
-                  <CheckCircle
-                    size={18}
-                    weight="fill"
-                    className="text-emerald-500"
+                  <span
                     aria-label="장착됨"
-                  />
+                    className="rounded-full bg-emerald-600 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-zinc-950"
+                  >
+                    장착 중
+                  </span>
                 ) : null}
               </span>
             </div>
-            <div className="pointer-events-none relative z-10 flex min-w-0 items-center gap-1.5">
-              <span
-                className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll, inst.enhance, inst.craftQuality)}`}
-              >
-                {item.name}
+            {/* 둘째 줄: 티어와 종류는 상자 없이 글자로, 그 뒤에 상태 표식. */}
+            <div className="pointer-events-none relative z-10 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span className="inline-flex shrink-0 items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <EquipmentTierBadge
+                  tier={item.tier}
+                  compact
+                  className="!border-0 !bg-transparent !px-0 !py-0 !text-xs !shadow-none"
+                />
+                <span aria-hidden>·</span>
+                {v2ItemTypeLabel(item)}
               </span>
-              <ItemTypeChip item={item} />
-            </div>
-            <div className="pointer-events-none relative z-10 flex min-w-0 flex-wrap items-center gap-1">
-              <EquipmentTierBadge tier={item.tier} compact />
+              {inst.iid === recentlyAcquiredIid ? (
+                <span
+                  aria-label="가장 최근에 획득한 장비"
+                  className="rounded-md border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200"
+                >
+                  최신 획득
+                </span>
+              ) : null}
               {item.rarity === "unique" ? <UniqueBadge /> : null}
               <EquipmentCodexBadge
                 itemId={item.id}
@@ -310,7 +310,7 @@ export function EquipmentCardGrid({
             </div>
             <ul
               aria-label="장비 옵션"
-              className="pointer-events-none relative z-10 flex flex-wrap gap-x-2 gap-y-0.5 text-xs leading-snug text-zinc-500 dark:text-zinc-400"
+              className="pointer-events-none relative z-10 flex flex-wrap gap-x-2 gap-y-0.5 text-[0.8125rem] leading-snug text-zinc-500 dark:text-zinc-400"
             >
               {cardStats(item, inst.roll, inst.enhance, inst.craftQuality).map(
                 (stat) => (
@@ -328,6 +328,28 @@ export function EquipmentCardGrid({
                 ),
               )}
             </ul>
+            {/* 품질(개체 굴림)은 숫자만 두지 않고 이름과 막대를 붙여 무엇의 숫자인지 알게 한다. */}
+            {pct != null ? (
+              <div
+                title="품질"
+                className="pointer-events-none relative z-10 mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400"
+              >
+                <span>품질</span>
+                <span className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <span
+                    className={`block h-full rounded-full bg-current ${
+                      pct >= 100
+                        ? "text-fuchsia-600 dark:text-fuchsia-300"
+                        : rollPctClass(pct)
+                    }`}
+                    style={{ width: `${Math.max(2, Math.min(100, pct))}%` }}
+                  />
+                </span>
+                <span className="font-semibold tabular-nums">
+                  <QualityPctText pct={pct} />
+                </span>
+              </div>
+            ) : null}
           </div>
         );
       })}

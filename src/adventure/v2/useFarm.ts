@@ -33,6 +33,7 @@ import type { RanchAnimalId, RanchFeedTarget, RanchSlotId } from "./ranch";
 import type { RanchBreedResult } from "./ranchLineage";
 import { useSystemToast } from "./RewardToastProvider";
 import { LIFE_LEVEL_MIGRATION_NOTICE } from "./lifeLevelProgression";
+import { parseDiningXpBonus, type DiningXpBonus } from "./diningXpBonus";
 import { parseMasterProductGain, type MasterProductGain } from "./masterProductGain";
 import {
   farmEndgameShopView,
@@ -156,6 +157,7 @@ export type FarmNotice =
       kind: "harvest";
       result: FarmHarvestResult;
       masterProduct?: MasterProductGain | null;
+      diningXpBonus?: DiningXpBonus | null;
     }
   | { id: number; kind: "delivery"; result: FarmDeliveryResult }
   | { id: number; kind: "specialDelivery"; result: FarmSpecialDeliveryResult }
@@ -174,6 +176,7 @@ export type FarmNotice =
       farmingXpGained: number;
       seedsReturned: number;
       masterProduct?: MasterProductGain;
+      diningXpBonus?: DiningXpBonus;
     }
   | { id: number; kind: "batchFertilizer"; count: number }
   | {
@@ -184,6 +187,7 @@ export type FarmNotice =
       farmingXpGained: number;
       seedsReturned: number;
       masterProduct?: MasterProductGain;
+      diningXpBonus?: DiningXpBonus;
     }
   | { id: number; kind: "ranchFeed"; result: FarmRanchFeedResult }
   | { id: number; kind: "ranchCollect"; result: FarmRanchCollectResult }
@@ -308,6 +312,7 @@ export function useFarm(): FarmClientState {
           kind: "harvest",
           result: data.result,
           masterProduct: parseMasterProductGain(data),
+          diningXpBonus: parseDiningXpBonus(data),
         });
       }
       window.dispatchEvent(new Event("v2notif:read"));
@@ -531,6 +536,7 @@ export function useFarm(): FarmClientState {
             farmingXpGained: result.farmingXpGained,
             seedsReturned: result.seedsReturned,
             masterProduct: result.masterProduct,
+            diningXpBonus: result.diningXpBonus,
           });
         } else {
           setNotice({
@@ -588,6 +594,7 @@ export function useFarm(): FarmClientState {
             farmingXpGained: outcome.farmingXpGained,
             seedsReturned: outcome.seedsReturned,
             masterProduct: outcome.masterProduct,
+            diningXpBonus: outcome.diningXpBonus,
           });
         }
       } catch (batchError) {

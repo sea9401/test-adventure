@@ -22,10 +22,10 @@ export function ItemSearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
-        className="min-w-0 flex-1 bg-white text-sm text-zinc-900 outline-none [&::-webkit-search-cancel-button]:appearance-none focus:ring-2 focus:ring-violet-500 dark:bg-zinc-900 dark:text-zinc-100"
+        className="min-w-0 flex-1 bg-white text-sm text-zinc-900 outline-none [&::-webkit-search-cancel-button]:appearance-none focus:ring-2 focus:ring-focus dark:bg-zinc-900 dark:text-zinc-100"
       />
       {value && (
-        <button type="button" aria-label={`${label} 초기화`} onClick={() => onChange("")} className="rounded p-1 text-zinc-500 focus:ring-2 focus:ring-violet-500 dark:text-zinc-400">
+        <button type="button" aria-label={`${label} 초기화`} onClick={() => onChange("")} className="rounded p-1 text-zinc-500 focus:ring-2 focus:ring-focus dark:text-zinc-400">
           <X size={16} aria-hidden />
         </button>
       )}

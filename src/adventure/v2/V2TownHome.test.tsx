@@ -54,20 +54,35 @@ describe("마을 생활 콘텐츠 메뉴", () => {
 
     expect(html).not.toContain("모험가 협회");
   });
-  it("시설 메뉴를 한 카드 안의 행으로 묶고 시설 그림을 썸네일로 보여 준다", () => {
+  it("시설 메뉴를 두 줄 타일로 놓고 줄 머리는 모두 아이콘으로 통일한다", () => {
     const html = renderToStaticMarkup(
       <V2TownHome gameStateLoaded viewerGuildId={null} onAction={vi.fn()} />,
     );
 
-    expect(html.split("ui-surface-card").length - 1).toBe(1);
-    for (const image of [
-      "healingcenter.webp",
-      "bank.webp",
-      "shop.webp",
-      "forge.webp",
-      "farm.webp",
-    ]) {
-      expect(html).toContain(image);
-    }
+    expect(html).toContain("grid-cols-2");
+    expect(html.split("ui-surface-card").length - 1).toBe(9);
+    expect(html).not.toContain("<img");
+  });
+
+  it("오늘 할 일이 있는 시설 타일에 상태 글과 점을 붙인다", () => {
+    const html = renderToStaticMarkup(
+      <V2TownHome
+        gameStateLoaded
+        viewerGuildId={null}
+        onAction={vi.fn()}
+        menuStatus={(href) =>
+          href === "/town/farm"
+            ? { text: "수확 가능", actionable: true }
+            : href === "/town/kitchen"
+              ? { text: "일일 납품 0 / 2", actionable: false }
+              : null
+        }
+      />,
+    );
+
+    expect(html).toContain("수확 가능");
+    expect(html).toContain("일일 납품 ");
+    expect(html).toContain("0 / 2");
+    expect(html.split("data-entry-tile-dot").length - 1).toBe(1);
   });
 });

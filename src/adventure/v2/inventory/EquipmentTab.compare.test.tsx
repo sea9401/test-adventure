@@ -64,10 +64,12 @@ function props(
 }
 
 describe("인벤토리 비교 선택", () => {
-  it("비교 선택 버튼으로 선택 모드를 시작한다", () => {
+  it("작업 메뉴의 비교 선택으로 선택 모드를 시작한다", () => {
     const compare = compareSelection();
     render(<EquipmentTab {...props(compare)} />);
 
+    expect(screen.queryByRole("button", { name: "비교 선택" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "일괄 작업" }));
     fireEvent.click(screen.getByRole("button", { name: "비교 선택" }));
     expect(compare.onStart).toHaveBeenCalledOnce();
   });

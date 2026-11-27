@@ -172,7 +172,7 @@ describe("EquipmentTab 정렬", () => {
     );
 
     expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain(">잠금만 보기 (1)<");
+    expect(html).toContain(">잠금만 1<");
     expect(html).toContain("잠금 우선 · 잠금부터");
     expect(html).toContain('aria-label="철검 정보"');
     expect(html).not.toContain('aria-label="한타검 정보"');
@@ -209,7 +209,7 @@ describe("EquipmentTab 정렬", () => {
       />,
     );
 
-    expect(html).toContain(">잠금만 보기 (0)<");
+    expect(html).toContain(">잠금만 0<");
     expect(html).toContain("잠근 장비가 없습니다");
     expect(html).toContain("장비 상세나 일괄 작업의 선택 잠금으로 잠그면 여기에 모아 볼 수 있습니다.");
     expect(html).not.toContain("보유한 장비가 없습니다");

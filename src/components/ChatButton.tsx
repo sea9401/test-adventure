@@ -333,7 +333,7 @@ export function ChatButton({
           data-testid={floating ? "floating-chat-toggle" : undefined}
           className={
             floating
-              ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem+var(--game-bottom-nav,0px))] right-4 ${CHAT_FLOATING_CLOSED_LAYER_CLASS} inline-flex h-12 w-12 items-center justify-center rounded-full border border-indigo-400/50 bg-indigo-600 text-white shadow-[0_10px_28px_rgba(49,46,129,0.4)] transition hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-[calc(1.5rem+var(--game-bottom-nav,0px))] sm:right-6 dark:border-indigo-300/40 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none motion-reduce:transition-none ${
+              ? `fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem+var(--game-bottom-nav,0px))] right-4 ${CHAT_FLOATING_CLOSED_LAYER_CLASS} inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary-border bg-primary text-on-primary shadow-[0_10px_28px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 active:translate-y-0 sm:bottom-[calc(1.5rem+var(--game-bottom-nav,0px))] sm:right-6 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transform-none motion-reduce:transition-none ${
                   hiddenWhileScrolling
                     ? "pointer-events-none translate-y-24 opacity-0 focus-visible:pointer-events-auto focus-visible:translate-y-0 focus-visible:opacity-100"
                     : ""

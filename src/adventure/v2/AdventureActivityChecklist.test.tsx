@@ -76,7 +76,7 @@ describe("오늘의 모험 체크", () => {
       />,
     );
     const retry = screen.getByRole("button", { name: "다시 시도" });
-    expect(retry.className).toContain("bg-violet-50");
+    expect(retry.className).toContain("bg-primary/10");
     fireEvent.click(retry);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });

@@ -20,7 +20,7 @@ describe("EquipmentCardGrid", () => {
     expect(html).toContain("min-h-11");
     expect(html).toContain("ui-game-card");
     expect(html).toContain("rounded-xl");
-    expect(html).toContain("focus-visible:ring-violet-500");
+    expect(html).toContain("focus-visible:ring-focus");
   });
 
   it("판매 선택은 다크 모드에서 중립 표면과 장미색 강조를 사용하고 희귀도 표식을 유지한다", () => {

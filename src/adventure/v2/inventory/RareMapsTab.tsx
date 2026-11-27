@@ -524,7 +524,7 @@ function MasteryTomeSection({
                 anchor: anchorOf(e.currentTarget),
               })
             }
-            className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-violet-400"
+            className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-focus"
           >
             <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
               <InventoryItemIcon

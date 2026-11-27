@@ -53,7 +53,7 @@ describe("장착 장비 요약 그리드", () => {
     expect(container.querySelector(".grid-cols-3")).toBeTruthy();
     expect(container.querySelector(".sm\\:grid-cols-6")).toBeTruthy();
     const equippedButton = screen.getByRole("button", { name: /무기.*정보/ });
-    expect(equippedButton.className).toContain("focus-visible:ring-violet-500");
+    expect(equippedButton.className).toContain("focus-visible:ring-focus");
     expect(equippedButton.className).toContain("dark:bg-zinc-950");
     fireEvent.click(equippedButton);
     expect(onOpen).toHaveBeenCalledWith(owned[0], expect.any(Object));

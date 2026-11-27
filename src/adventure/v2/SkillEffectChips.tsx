@@ -45,7 +45,7 @@ export function SkillEffectChips({ skillId }: { skillId: string }) {
       )}
       {hasDetails && (
         <details className="group border-t border-zinc-200 pt-1 dark:border-zinc-700">
-          <summary className="min-h-11 cursor-pointer content-center rounded-md py-2 text-xs font-medium text-zinc-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:text-zinc-300">
+          <summary className="min-h-11 cursor-pointer content-center rounded-md py-2 text-xs font-medium text-zinc-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus dark:text-zinc-300">
             상세 계수·효과·PvP 보기
           </summary>
           <div className={`${SURFACE_INSET} space-y-2 p-2.5 text-xs text-zinc-700 dark:text-zinc-200`}>

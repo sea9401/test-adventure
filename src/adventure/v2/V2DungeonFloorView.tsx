@@ -1732,7 +1732,7 @@ export function V2DungeonFloorView({
                 type="button"
                 onClick={startOffline}
                 disabled={offlineBusy}
-                className="ui-game-button w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
+                className="ui-game-button w-full rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-selected transition hover:bg-primary/15 disabled:opacity-50"
               >
                 {offlineBusy ? "시작 중…" : "오프라인 사냥"}
               </button>

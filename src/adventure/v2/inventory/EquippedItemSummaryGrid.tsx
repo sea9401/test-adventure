@@ -110,7 +110,7 @@ export function EquippedItemSummaryGrid({
             onClick={(event) => onOpen(inst, anchorOf(event.currentTarget))}
             aria-label={`${label} ${item.name} 정보`}
             title={`${item.name}${inst.enhance?.level ? ` +${inst.enhance.level}` : ""}`}
-            className="flex min-h-16 min-w-0 flex-col justify-center gap-1 px-1.5 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white hover:bg-zinc-100 dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 dark:hover:bg-zinc-900"
+            className="flex min-h-16 min-w-0 flex-col justify-center gap-1 px-1.5 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-white hover:bg-zinc-100 dark:focus-visible:ring-offset-zinc-950 dark:hover:bg-zinc-900"
           >
             {content}
           </Inset>

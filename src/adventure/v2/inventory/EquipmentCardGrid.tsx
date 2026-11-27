@@ -175,7 +175,7 @@ export function EquipmentCardGrid({
         return (
           <div
             key={inst.iid}
-            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-zinc-950 ${
+            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-game-card ui-lift-card relative flex min-h-11 flex-col gap-0.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-950 ${
               isSaleSelected && neutralPick
                 ? "is-active border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200 dark:border-indigo-500 dark:bg-zinc-900 dark:ring-indigo-900/70"
                 : isSaleSelected
@@ -201,7 +201,7 @@ export function EquipmentCardGrid({
                   : `${item.name} 정보`
               }
               aria-pressed={saleSelectionActive ? isSaleSelected : undefined}
-              className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 dark:focus-visible:ring-violet-400"
+              className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-1">
               <span className="flex items-center gap-1">

@@ -42,7 +42,7 @@ const numberFormatter = new Intl.NumberFormat("ko-KR");
 
 // 접힌 요약의 효과 칩(음식·전투 준비물 등)이 함께 쓰는 모양.
 const EFFECT_CHIP_CLASS =
-  "inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-zinc-300 dark:hover:text-white";
+  "inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] text-zinc-600 shadow-none transition-colors hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus dark:text-zinc-300 dark:hover:text-white";
 
 const EQUIPMENT_SLOTS: {
   slot: V2EquipSlot;
@@ -323,7 +323,7 @@ export function CompactCharacterSummary({
                     anchor: anchorOf(event.currentTarget),
                   })
                 }
-                className={`inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${premiumSupportActive ? "font-semibold text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"}`}
+                className={`inline-flex items-center gap-1 border-0 px-2 py-1 text-[10px] shadow-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${premiumSupportActive ? "font-semibold text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"}`}
               >
                 <Sparkle size={13} className="text-amber-500" aria-hidden />
                 {premiumSupportActive ? "프리미엄" : "모험 지원권"}
@@ -395,7 +395,7 @@ export function CompactCharacterSummary({
                     anchor: anchorOf(event.currentTarget),
                   })
                 }
-                className="flex min-h-12 min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md py-2 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:hover:bg-zinc-800"
+                className="flex min-h-12 min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md py-2 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-zinc-800"
               >
                 {content}
               </button>

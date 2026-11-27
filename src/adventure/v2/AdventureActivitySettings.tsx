@@ -26,7 +26,7 @@ export function AdventureActivitySettings({
               type="checkbox"
               checked={activity.enabled}
               onChange={(event) => onToggle(activity.id, event.currentTarget.checked)}
-              className="h-4 w-4 accent-violet-600"
+              className="h-4 w-4 accent-primary"
             />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">{activity.title}</span>

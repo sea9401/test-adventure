@@ -197,10 +197,10 @@ export function V2EmblemView() {
                 onClick={() => { setPickingSlot(selected ? null : index); setOpenGroup(null); setNotice(null); }}
                 className={`flex min-h-24 flex-col items-center justify-center gap-1 rounded-lg border p-2 text-center transition-colors disabled:opacity-60 ${
                   selected
-                    ? "border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-zinc-950"
+                    ? "border-selected-line bg-primary/10 dark:bg-zinc-950"
                     : item
-                      ? "border-zinc-200 bg-zinc-50 hover:border-violet-300 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:border-violet-700"
-                      : "border-dashed border-zinc-300 bg-white hover:border-violet-300 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:border-violet-700"
+                      ? "border-zinc-200 bg-zinc-50 hover:border-selected-line/50 dark:border-zinc-700 dark:bg-zinc-950"
+                      : "border-dashed border-zinc-300 bg-white hover:border-selected-line/50 dark:border-zinc-600 dark:bg-zinc-900"
                 }`}
               >
                 {item ? <>
@@ -279,8 +279,8 @@ export function V2EmblemView() {
                             onClick={() => { setOpenGroup(selected ? null : key); setPickingSlot(null); setNotice(null); }}
                             className={`flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm transition-colors ${
                               selected
-                                ? "border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-zinc-950"
-                                : "border-zinc-200 bg-white hover:border-violet-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-violet-700"
+                                ? "border-selected-line bg-primary/10 dark:bg-zinc-950"
+                                : "border-zinc-200 bg-white hover:border-selected-line/50 dark:border-zinc-700 dark:bg-zinc-900"
                             }`}
                           >
                             <GradeStars grade={group.grade} />

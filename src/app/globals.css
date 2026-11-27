@@ -50,28 +50,28 @@
   --foreground: #171717;
   /* 화면 스타일 의미 토큰(클래식 값). 금빛 값은 아래 "화면 스타일: 금빛" 섹션에서 덮는다.
      컴포넌트는 bg-primary, text-selected 같은 유틸리티로만 쓴다. */
-  --ui-primary: var(--color-violet-600);
-  --ui-primary-hover: var(--color-violet-700);
-  --ui-primary-border: var(--color-violet-600);
+  --ui-primary: var(--color-emerald-700);
+  --ui-primary-hover: var(--color-emerald-800);
+  --ui-primary-border: var(--color-emerald-700);
   --ui-on-primary: var(--color-white);
-  --ui-selected: var(--color-violet-700);
-  --ui-selected-line: var(--color-violet-600);
-  --ui-selected-hover: var(--color-violet-600);
-  --ui-focus: var(--color-violet-500);
+  --ui-selected: var(--color-emerald-700);
+  --ui-selected-line: var(--color-emerald-700);
+  --ui-selected-hover: var(--color-emerald-700);
+  --ui-focus: var(--color-emerald-600);
 }
 
 .dark {
   color-scheme: dark;
   --background: #0a0a0a;
   --foreground: #ededed;
-  --ui-primary: var(--color-violet-500);
-  --ui-primary-hover: var(--color-violet-400);
-  --ui-primary-border: var(--color-violet-500);
+  --ui-primary: var(--color-emerald-600);
+  --ui-primary-hover: var(--color-emerald-500);
+  --ui-primary-border: var(--color-emerald-600);
   --ui-on-primary: var(--color-white);
-  --ui-selected: var(--color-violet-300);
-  --ui-selected-line: var(--color-violet-400);
-  --ui-selected-hover: var(--color-violet-300);
-  --ui-focus: var(--color-violet-400);
+  --ui-selected: var(--color-emerald-300);
+  --ui-selected-line: var(--color-emerald-400);
+  --ui-selected-hover: var(--color-emerald-300);
+  --ui-focus: var(--color-emerald-400);
 }
 
 @theme inline {

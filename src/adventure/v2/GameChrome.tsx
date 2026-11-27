@@ -149,7 +149,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     >
       <a
         href="#game-main-content"
-        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-violet-700 px-4 py-2 font-semibold text-white shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2"
+        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-primary px-4 py-2 font-semibold text-on-primary shadow-lg focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2"
       >
         본문으로 바로가기
       </a>

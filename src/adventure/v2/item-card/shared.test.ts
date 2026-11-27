@@ -76,12 +76,34 @@ describe("itemNameClass", () => {
     );
   });
 
-  it("keeps the signature treatment for non-unique equipment", () => {
+  // 건의 #883: 제작 장비는 발동형 효과가 있어도 유니크가 아니므로 유니크의 무지개색과 구분한다.
+  it("uses the crafted treatment for non-unique equipment with a signature", () => {
     const venomDagger = V2_EQUIPMENT.v2_crafted_venom_gland_dagger;
 
     expect(venomDagger.rarity).not.toBe("unique");
     expect(venomDagger.signature).toBeDefined();
-    expect(itemNameClass(venomDagger)).toBe("ui-item-name-signature");
+    expect(itemNameClass(venomDagger)).toBe("ui-item-name-crafted-signature");
+    expect(itemNameClass(V2_EQUIPMENT.v2_crafted_first_dawn_shield)).toBe(
+      "ui-item-name-crafted-signature",
+    );
+    expect(itemNameClass(V2_EQUIPMENT.v2_crafted_abyss_mana_core)).toBe(
+      "ui-item-name-crafted-signature",
+    );
+  });
+
+  it("reserves the rainbow treatment for unique equipment", () => {
+    const items = Object.values(V2_EQUIPMENT);
+    const rainbow = items.filter(
+      (item) => itemNameClass(item) === "ui-item-name-signature",
+    );
+    const crafted = items.filter(
+      (item) => itemNameClass(item) === "ui-item-name-crafted-signature",
+    );
+
+    expect(rainbow.length).toBeGreaterThan(0);
+    expect(rainbow.every((item) => item.rarity === "unique")).toBe(true);
+    expect(crafted).toHaveLength(17);
+    expect(crafted.every((item) => item.craftOnly === true)).toBe(true);
   });
 
   // 색약 건의: 황색·주황·장미·빨강 4단계가 구분되지 않아 따뜻한 색을 황금·진홍 2단계로 줄였다.

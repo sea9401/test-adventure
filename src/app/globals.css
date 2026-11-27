@@ -1102,6 +1102,18 @@ body {
   }
 }
 
+/* 발동형 효과가 붙은 제작 장비 이름 — 유니크의 무지개와 달리 차가운 두 색이며 움직이지 않는다. */
+.ui-item-name-crafted-signature {
+  background-image: linear-gradient(90deg, #0f766e, #4f46e5);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:is(.dark .ui-item-name-crafted-signature) {
+  background-image: linear-gradient(90deg, #5eead4, #a5b4fc);
+}
+
 .ui-shop-row {
   transition:
     background-color 140ms ease,

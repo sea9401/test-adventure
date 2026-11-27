@@ -1035,11 +1035,22 @@ describe("최신 게임 안내서 내용", () => {
     expect(html).toContain("주간 개인 납품 한도는 없습니다");
   });
 
+  it("제작소 장비는 발동형 효과가 있어도 유니크가 아니라고 안내한다", () => {
+    const html = renderToStaticMarkup(<EquipmentContent />);
+
+    expect(html).toContain("사냥과 보스 보상으로만");
+    expect(html).toContain("발동형 효과가 있다고 모두 유니크는 아닙니다");
+    expect(html).toContain("길드 제작소에서 만든 장비");
+    expect(html).toContain("제작소 장비는 청록에서 남색으로 이어지는 색");
+    expect(html).not.toContain("일반 장비엔 없는");
+  });
+
   it("폭풍 개량의 대상·비용·되돌릴 수 없는 제한을 안내한다", () => {
     const html = renderToStaticMarkup(<EnhanceContent />);
 
     expect(html).toContain("비세트 특화 유니크");
     expect(html).toContain("세트 효과가 전혀 없는 장비");
+    expect(html).toContain("발동형 효과가 있어도 유니크가");
     expect(html).toContain("10,000,000 G");
     expect(html).toContain("폭풍 심장 조각");
     expect(html).toContain("재련은 할 수 없습니다");

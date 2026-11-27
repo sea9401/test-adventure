@@ -49,7 +49,10 @@ import {
   type GuildFacilityId,
 } from "./guild/guildFacilities";
 import { useAdventureDashboard } from "./AdventureDashboardProvider";
-import type { AdventureActivityView } from "./adventureDashboard";
+import type {
+  AdventureActivityView,
+  AdventureDashboardSnapshot,
+} from "./adventureDashboard";
 
 // 메인 내비 — 가로 6탭(모험/전투/마을/생활/캐릭터/길드). 하위 메뉴가 있는 탭은 누르면
 // 드롭다운으로 내려온다. 휴대폰 폭에서는 같은 탭을 화면 아래 고정 바(placement="bottom")로
@@ -218,6 +221,33 @@ export function menuActivityStateForHref(
     : null;
 }
 
+/** 메뉴 한 칸의 상태 글과 할 일 표시. 하단 메뉴 펼침과 메뉴 화면 타일이 같은 규칙을 쓴다. */
+export function menuItemStatusForHref(
+  snapshot:
+    | Pick<AdventureDashboardSnapshot, "activities" | "notifications">
+    | null
+    | undefined,
+  href: string,
+  label: string,
+  activityHrefs: readonly string[] = knownActivityHrefs(href),
+): { text: string; actionable: boolean } | null {
+  const state = menuActivityStateForHref(
+    snapshot?.activities ?? [],
+    href,
+    label,
+    activityHrefs,
+  );
+  if (!state) return null;
+  return {
+    text: state.text,
+    actionable:
+      state.actionable &&
+      [href, ...activityHrefs].some(
+        (path) => snapshot?.notifications.paths[path] === true,
+      ),
+  };
+}
+
 export function lifeMenuStateForHref(
   activities: readonly AdventureActivityView[],
   href: string,
@@ -298,6 +328,15 @@ const TABS: TabDef[] = [
   },
   { key: "guild", label: "길드", href: "/guild", Icon: FlagBanner, sub: [GUILD_ROOT_ITEM] },
 ];
+
+/** 하단 메뉴 항목에 딸린 활동 경로(예: 던전 → 폭풍 원정·성소). 메뉴 화면 타일도 같은 묶음을 쓴다. */
+function knownActivityHrefs(href: string): readonly string[] {
+  for (const tab of TABS) {
+    const item = tab.sub?.find((sub) => sub.href === href);
+    if (item) return item.activityHrefs ?? [];
+  }
+  return [];
+}
 
 export function MainTabNav({
   activeKey,
@@ -381,21 +420,13 @@ export function MainTabNav({
   };
 
   const subItemButtons = openSubItems.map((s) => {
-    const activityState = menuActivityStateForHref(
-      snapshot?.activities ?? [],
+    const activityState = menuItemStatusForHref(
+      snapshot,
       s.href,
       s.label,
-      s.activityHrefs,
+      s.activityHrefs ?? [],
     );
-    const notificationHrefs = [
-      s.href,
-      ...(s.activityHrefs ?? []),
-    ];
-    const itemHasActionable =
-      activityState?.actionable === true &&
-      notificationHrefs.some(
-        (href) => snapshot?.notifications.paths[href] === true,
-      );
+    const itemHasActionable = activityState?.actionable === true;
     return (
       <button
         key={s.href}

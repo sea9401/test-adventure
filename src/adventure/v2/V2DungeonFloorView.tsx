@@ -1511,7 +1511,7 @@ export function V2DungeonFloorView({
             className={`ui-game-button flex min-h-[3.25rem] flex-1 select-none touch-manipulation flex-col items-center justify-center rounded-lg border px-3 py-1.5 text-white ${
               autoHunt && !offlineLocked
                 ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
-                : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
+                : "border-emerald-700 bg-emerald-700 hover:bg-emerald-800 dark:border-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
             } ${
               coreLoopOn
                 ? "disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
